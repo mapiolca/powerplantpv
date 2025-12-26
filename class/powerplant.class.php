@@ -73,7 +73,7 @@ class PowerPlant extends CommonObject
 	 * @var int<0,1>|string		Does this object support multicompany module ?
 	 * 							0=No test on entity, 1=Test with field entity in local table, 'field@table'=Test entity into the field@table (example 'fk_soc@societe')
 	 */
-	public $ismultientitymanaged = 0;
+	public $ismultientitymanaged = 1;
 
 
 	const STATUS_DRAFT = 0;
@@ -132,6 +132,7 @@ class PowerPlant extends CommonObject
 		"rowid" => array("type" => "integer", "label" => "TechnicalID", "enabled" => "1", 'position' => 1, 'notnull' => 1, "visible" => "0", "noteditable" => "1", "index" => "1", "css" => "left", "comment" => "Id"),
 		"ref" => array("type" => "varchar(128)", "label" => "Ref", "enabled" => "1", 'position' => 20, 'notnull' => 1, "visible" => "1", "index" => "1", "searchall" => "1", "showoncombobox" => "1", "validate" => "1", "default" => "(PROV)", "comment" => "Reference of object"),
 		"label" => array("type" => "varchar(255)", "label" => "Label", "enabled" => "1", 'position' => 30, 'notnull' => 0, "visible" => "1", "alwayseditable" => "1", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "help" => "Help text", "showoncombobox" => "2", "validate" => "1",),
+		"entity" => array("type" => "integer", "label" => "Entity", "enabled" => "1", 'position' => 45, 'notnull' => 1, "visible" => "-2", "default" => 1, "index" => "1"),
 		"commissioning_date" => array("type" => "date", "label" => "PowerPlantCommissioningDate", "enabled" => "1", 'position' => 35, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"prm_pdl_number" => array("type" => "varchar(128)", "label" => "PowerPlantPrmPdlNumber", "enabled" => "1", 'position' => 36, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
 		"address" => array("type" => "varchar(255)", "label" => "PowerPlantAddress", "enabled" => "1", 'position' => 37, 'notnull' => 0, "visible" => "3", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "validate" => "1",),
@@ -163,6 +164,7 @@ class PowerPlant extends CommonObject
 	public $rowid;
 	public $ref;
 	public $label;
+	public $entity;
 	public $commissioning_date;
 	public $prm_pdl_number;
 	public $address;

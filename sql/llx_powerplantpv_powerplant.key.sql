@@ -17,6 +17,7 @@
 -- BEGIN MODULEBUILDER INDEXES
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX idx_powerplantpv_powerplant_rowid (rowid);
 ALTER TABLE llx_powerplantpv_powerplant ADD UNIQUE INDEX uk_powerplantpv_powerplant_ref (ref);
+ALTER TABLE llx_powerplantpv_powerplant ADD INDEX idx_powerplantpv_powerplant_entity (entity);
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX idx_powerplantpv_powerplant_fk_soc (fk_soc);
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX idx_powerplantpv_powerplant_fk_project (fk_project);
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX idx_powerplantpv_powerplant_fk_country (fk_country);

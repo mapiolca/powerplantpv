@@ -19,6 +19,7 @@ CREATE TABLE llx_powerplantpv_powerplant(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL, 
 	ref varchar(128) NOT NULL, 
 	label varchar(255), 
+	entity integer NOT NULL DEFAULT 1, 
 	commissioning_date date, 
 	prm_pdl_number varchar(128), 
 	address varchar(255), 
