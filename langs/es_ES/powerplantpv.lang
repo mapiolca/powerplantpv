@@ -1,0 +1,59 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModulePowerPlantPVName'
+ModulePowerPlantPVName = PowerPlantPV
+# Module description 'ModulePowerPlantPVDesc'
+ModulePowerPlantPVDesc = Descripción de PowerPlantPV
+
+#
+# Admin page
+#
+PowerPlantPVSetup = Configuración PowerPlantPV
+Settings = Ajustes
+PowerPlantPVSetupPage = Página de configuración PowerPlantPV
+NewSection=Nueva sección
+POWERPLANTPV_MYPARAM1 = Mi parámetro 1
+POWERPLANTPV_MYPARAM1Tooltip = Ayuda para parámetro 1
+POWERPLANTPV_MYPARAM2=Mi parámetro 2
+POWERPLANTPV_MYPARAM2Tooltip=Ayuda para parámetro 2
+
+
+#
+# About page
+#
+About = Acerca de
+PowerPlantPVAbout = Acerca de PowerPlantPV
+PowerPlantPVAboutPage = Página acerca de PowerPlantPV
+
+#
+# Sample page
+#
+PowerPlantPVArea = Inicio PowerPlantPV
+MyPageName = Nombre de mi página
+
+#
+# Sample widget
+#
+MyWidget = Mi widget
+MyWidgetDescription = Descripción del widget
+
+PowerPlant = Planta de energía
+# PowerPlant fields
+PowerPlantCommissioningDate = Fecha de puesta en servicio
+PowerPlantPrmPdlNumber = Número de PRM/PDL
+PowerPlantAddress = Dirección
+PowerPlantZip = Código postal
+PowerPlantTown = Ciudad
+PowerPlantCountry = País
+PowerPlantInstalledPower = Potencia instalada
+PowerPlantConnectionContractPower = Potencia del contrato de conexión
+PowerPlantConnectionType = Tipo de conexión
+PowerPlantEnedisCommissioningDate = Fecha de puesta en servicio ENEDIS
+PowerPlantConnectionRequestNumber = Número de solicitud de conexión
+PowerPlantT0ObtentionDate = Fecha de obtención del T0
+PowerPlantBuybackContractNumber = Número de contrato de compra
+PowerPlantBuybackTariff = Tarifa de compra

@@ -1,0 +1,59 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModulePowerPlantPVName'
+ModulePowerPlantPVName = PowerPlantPV
+# Module description 'ModulePowerPlantPVDesc'
+ModulePowerPlantPVDesc = Descrizione di PowerPlantPV
+
+#
+# Admin page
+#
+PowerPlantPVSetup = Configurazione PowerPlantPV
+Settings = Impostazioni
+PowerPlantPVSetupPage = Pagina di configurazione PowerPlantPV
+NewSection=Nuova sezione
+POWERPLANTPV_MYPARAM1 = Mio parametro 1
+POWERPLANTPV_MYPARAM1Tooltip = Suggerimento parametro 1
+POWERPLANTPV_MYPARAM2=Mio parametro 2
+POWERPLANTPV_MYPARAM2Tooltip=Suggerimento parametro 2
+
+
+#
+# About page
+#
+About = Informazioni
+PowerPlantPVAbout = Informazioni su PowerPlantPV
+PowerPlantPVAboutPage = Pagina informazioni PowerPlantPV
+
+#
+# Sample page
+#
+PowerPlantPVArea = Home PowerPlantPV
+MyPageName = Nome della mia pagina
+
+#
+# Sample widget
+#
+MyWidget = Mio widget
+MyWidgetDescription = Descrizione del widget
+
+PowerPlant = Impianto
+# PowerPlant fields
+PowerPlantCommissioningDate = Data di messa in servizio
+PowerPlantPrmPdlNumber = Numero PRM/PDL
+PowerPlantAddress = Indirizzo
+PowerPlantZip = CAP
+PowerPlantTown = Città
+PowerPlantCountry = Paese
+PowerPlantInstalledPower = Potenza installata
+PowerPlantConnectionContractPower = Potenza del contratto di allaccio
+PowerPlantConnectionType = Tipo di allaccio
+PowerPlantEnedisCommissioningDate = Data di messa in servizio ENEDIS
+PowerPlantConnectionRequestNumber = Numero richiesta di allaccio
+PowerPlantT0ObtentionDate = Data di ottenimento del T0
+PowerPlantBuybackContractNumber = Numero contratto di ritiro
+PowerPlantBuybackTariff = Tariffa di ritiro

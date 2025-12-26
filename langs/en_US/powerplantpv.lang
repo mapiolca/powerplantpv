@@ -40,3 +40,20 @@ MyPageName = My page name
 #
 MyWidget = My widget
 MyWidgetDescription = My widget description
+
+PowerPlant = Power plant
+# PowerPlant fields
+PowerPlantCommissioningDate = Commissioning date
+PowerPlantPrmPdlNumber = PRM/PDL number
+PowerPlantAddress = Address
+PowerPlantZip = Postal code
+PowerPlantTown = City
+PowerPlantCountry = Country
+PowerPlantInstalledPower = Installed capacity
+PowerPlantConnectionContractPower = Connection contract power
+PowerPlantConnectionType = Connection type
+PowerPlantEnedisCommissioningDate = ENEDIS commissioning date
+PowerPlantConnectionRequestNumber = Connection request number
+PowerPlantT0ObtentionDate = T0 approval date
+PowerPlantBuybackContractNumber = Buyback contract number
+PowerPlantBuybackTariff = Buyback tariff

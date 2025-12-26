@@ -40,3 +40,20 @@ MyPageName = My page name
 #
 MyWidget = My widget
 MyWidgetDescription = My widget description
+
+PowerPlant = Centrale
+# PowerPlant fields
+PowerPlantCommissioningDate = Date de mise en service
+PowerPlantPrmPdlNumber = N° de PRM/PDL
+PowerPlantAddress = Adresse
+PowerPlantZip = Code postal
+PowerPlantTown = Ville
+PowerPlantCountry = Pays
+PowerPlantInstalledPower = Puissance installée
+PowerPlantConnectionContractPower = Puissance du contrat de raccordement
+PowerPlantConnectionType = Type de raccordement
+PowerPlantEnedisCommissioningDate = Date de mise en service ENEDIS
+PowerPlantConnectionRequestNumber = N° de demande de raccordement
+PowerPlantT0ObtentionDate = Date d'obtention du T0
+PowerPlantBuybackContractNumber = N° de contrat de rachat
+PowerPlantBuybackTariff = Tarif de rachat
