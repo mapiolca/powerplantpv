@@ -1,0 +1,59 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModulePowerPlantPVName'
+ModulePowerPlantPVName = PowerPlantPV
+# Module description 'ModulePowerPlantPVDesc'
+ModulePowerPlantPVDesc = PowerPlantPV Beschreibung
+
+#
+# Admin page
+#
+PowerPlantPVSetup = PowerPlantPV Einstellungen
+Settings = Einstellungen
+PowerPlantPVSetupPage = PowerPlantPV Einstellungsseite
+NewSection=Neue Sektion
+POWERPLANTPV_MYPARAM1 = Mein Parameter 1
+POWERPLANTPV_MYPARAM1Tooltip = Hinweis zu Parameter 1
+POWERPLANTPV_MYPARAM2=Mein Parameter 2
+POWERPLANTPV_MYPARAM2Tooltip=Hinweis zu Parameter 2
+
+
+#
+# About page
+#
+About = Über
+PowerPlantPVAbout = Über PowerPlantPV
+PowerPlantPVAboutPage = PowerPlantPV Infoseite
+
+#
+# Sample page
+#
+PowerPlantPVArea = Home PowerPlantPV
+MyPageName = Mein Seitenname
+
+#
+# Sample widget
+#
+MyWidget = Mein Widget
+MyWidgetDescription = Beschreibung des Widgets
+
+PowerPlant = Kraftwerk
+# PowerPlant fields
+PowerPlantCommissioningDate = Inbetriebnahmedatum
+PowerPlantPrmPdlNumber = PRM/PDL-Nummer
+PowerPlantAddress = Adresse
+PowerPlantZip = Postleitzahl
+PowerPlantTown = Stadt
+PowerPlantCountry = Land
+PowerPlantInstalledPower = Installierte Leistung
+PowerPlantConnectionContractPower = Leistung des Anschlussvertrags
+PowerPlantConnectionType = Anschlussart
+PowerPlantEnedisCommissioningDate = ENEDIS-Inbetriebnahmedatum
+PowerPlantConnectionRequestNumber = Anschlussantragsnummer
+PowerPlantT0ObtentionDate = T0-Erhaltungsdatum
+PowerPlantBuybackContractNumber = Rückkaufvertragsnummer
+PowerPlantBuybackTariff = Rückkauftarif

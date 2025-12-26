@@ -83,7 +83,7 @@ $modulepart = GETPOST('modulepart', 'aZ09');	// Used by actions_setmoduleoptions
 $value = GETPOST('value', 'alpha');
 $label = GETPOST('label', 'alpha');
 $scandir = GETPOST('scan_dir', 'alpha');
-$type = 'myobject';
+$type = 'powerplant';
 
 $error = 0;
 $setupnotempty = 0;
@@ -197,8 +197,7 @@ $dirmodels = array_merge(array('/'), (array) $conf->modules_parts['models']);
 
 $moduledir = 'powerplantpv';
 $myTmpObjects = array();
-// TODO Scan list of objects to fill this array
-$myTmpObjects['myobject'] = array('label' => 'MyObject', 'includerefgeneration' => 0, 'includedocgeneration' => 0, 'class' => 'MyObject');
+$myTmpObjects['powerplant'] = array('label' => 'PowerPlant', 'includerefgeneration' => 1, 'includedocgeneration' => 1, 'class' => 'PowerPlant');
 
 $tmpobjectkey = GETPOST('object', 'aZ09');
 if ($tmpobjectkey && !array_key_exists($tmpobjectkey, $myTmpObjects)) {
@@ -421,7 +420,7 @@ foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
 
 								print '<td class="center">';
 								$constforvar = 'POWERPLANTPV_'.strtoupper($myTmpObjectKey).'_ADDON';
-								$defaultifnotset = 'thevaluetousebydefault';
+								$defaultifnotset = 'mod_powerplant_standard';
 								$activenumberingmodel = getDolGlobalString($constforvar, $defaultifnotset);
 								if ($activenumberingmodel == $file) {
 									print img_picto($langs->trans("Activated"), 'switch_on');
