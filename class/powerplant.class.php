@@ -132,6 +132,20 @@ class PowerPlant extends CommonObject
 		"rowid" => array("type" => "integer", "label" => "TechnicalID", "enabled" => "1", 'position' => 1, 'notnull' => 1, "visible" => "0", "noteditable" => "1", "index" => "1", "css" => "left", "comment" => "Id"),
 		"ref" => array("type" => "varchar(128)", "label" => "Ref", "enabled" => "1", 'position' => 20, 'notnull' => 1, "visible" => "1", "index" => "1", "searchall" => "1", "showoncombobox" => "1", "validate" => "1", "comment" => "Reference of object"),
 		"label" => array("type" => "varchar(255)", "label" => "Label", "enabled" => "1", 'position' => 30, 'notnull' => 0, "visible" => "1", "alwayseditable" => "1", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "help" => "Help text", "showoncombobox" => "2", "validate" => "1",),
+		"commissioning_date" => array("type" => "date", "label" => "PowerPlantCommissioningDate", "enabled" => "1", 'position' => 35, 'notnull' => 0, "visible" => "1", "validate" => "1",),
+		"prm_pdl_number" => array("type" => "varchar(128)", "label" => "PowerPlantPrmPdlNumber", "enabled" => "1", 'position' => 36, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"address" => array("type" => "varchar(255)", "label" => "PowerPlantAddress", "enabled" => "1", 'position' => 37, 'notnull' => 0, "visible" => "3", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "validate" => "1",),
+		"zip" => array("type" => "varchar(25)", "label" => "PowerPlantZip", "enabled" => "1", 'position' => 38, 'notnull' => 0, "visible" => "1", "searchall" => "1", "csslist" => "nowraponall", "validate" => "1",),
+		"town" => array("type" => "varchar(255)", "label" => "PowerPlantTown", "enabled" => "1", 'position' => 39, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"fk_country" => array("type" => "integer:Country:core/class/country.class.php:1", "label" => "PowerPlantCountry", "enabled" => "1", 'position' => 40, 'notnull' => 0, "visible" => "1", "index" => "1", "validate" => "1",),
+		"installed_power" => array("type" => "double(24,8)", "label" => "PowerPlantInstalledPower", "enabled" => "1", 'position' => 41, 'notnull' => 0, "visible" => "1", "isameasure" => "1", "validate" => "1",),
+		"connection_contract_power" => array("type" => "double(24,8)", "label" => "PowerPlantConnectionContractPower", "enabled" => "1", 'position' => 42, 'notnull' => 0, "visible" => "1", "isameasure" => "1", "validate" => "1",),
+		"connection_type" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionType", "enabled" => "1", 'position' => 43, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"enedis_commissioning_date" => array("type" => "date", "label" => "PowerPlantEnedisCommissioningDate", "enabled" => "1", 'position' => 44, 'notnull' => 0, "visible" => "1", "validate" => "1",),
+		"connection_request_number" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionRequestNumber", "enabled" => "1", 'position' => 45, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"t0_obtention_date" => array("type" => "date", "label" => "PowerPlantT0ObtentionDate", "enabled" => "1", 'position' => 46, 'notnull' => 0, "visible" => "1", "validate" => "1",),
+		"buyback_contract_number" => array("type" => "varchar(128)", "label" => "PowerPlantBuybackContractNumber", "enabled" => "1", 'position' => 47, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"buyback_tariff" => array("type" => "price", "label" => "PowerPlantBuybackTariff", "enabled" => "1", 'position' => 48, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"fk_soc" => array("type" => "integer:Societe:societe/class/societe.class.php:1:((status:=:1) AND (entity:IN:__SHARED_ENTITIES__))", "label" => "ThirdParty", "picto" => "company", "enabled" => "isModEnabled('societe')", 'position' => 50, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "help" => "OrganizationEventLinkToThirdParty", "validate" => "1",),
 		"fk_project" => array("type" => "integer:Project:projet/class/project.class.php:1", "label" => "Project", "picto" => "project", "enabled" => "isModEnabled('project')", 'position' => 52, 'notnull' => -1, "visible" => "-1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "validate" => "1",),
 		"description" => array("type" => "text", "label" => "Description", "enabled" => "1", 'position' => 60, 'notnull' => 0, "visible" => "3", "validate" => "1",),
@@ -149,6 +163,20 @@ class PowerPlant extends CommonObject
 	public $rowid;
 	public $ref;
 	public $label;
+	public $commissioning_date;
+	public $prm_pdl_number;
+	public $address;
+	public $zip;
+	public $town;
+	public $fk_country;
+	public $installed_power;
+	public $connection_contract_power;
+	public $connection_type;
+	public $enedis_commissioning_date;
+	public $connection_request_number;
+	public $t0_obtention_date;
+	public $buyback_contract_number;
+	public $buyback_tariff;
 	public $fk_soc;
 	public $fk_project;
 	public $description;
