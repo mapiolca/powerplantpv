@@ -296,8 +296,7 @@ if ($action == 'create') {
 
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
-	// FR: Afficher les champs communs avec les formulaires Dolibarr
-	$object->fields['fk_country']['type'] = 'sellist:'.MAIN_DB_PREFIX.'c_country:label:rowid::active=1';
+	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_add.tpl.php';
 
 	// Other attributes
@@ -335,8 +334,7 @@ if (($id || $ref) && $action == 'edit') {
 
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
-	// FR: Afficher les champs communs avec les formulaires Dolibarr
-	$object->fields['fk_country']['type'] = 'sellist:'.MAIN_DB_PREFIX.'c_country:label:rowid::active=1';
+	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 
 	// Other attributes
