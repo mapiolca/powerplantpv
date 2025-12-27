@@ -294,6 +294,15 @@ class PowerPlant extends CommonObject
 
 		$result = $this->createCommon($user, $notrigger);
 
+		if ($result > 0 && !empty($this->ref) && $this->ref === '(PROV)') {
+			// EN: Assign final reference using selected numbering module
+			// FR: Attribuer la référence finale via le module de numérotation sélectionné
+			$refResult = $this->assignFinalReference($user);
+			if ($refResult < 0) {
+				return $refResult;
+			}
+		}
+
 		// uncomment lines below if you want to validate object after creation
 		// if ($result > 0) {
 		// $this->fetch($this->id); // needed to retrieve some fields (ie date_creation for masked ref)
@@ -419,6 +428,61 @@ class PowerPlant extends CommonObject
 			$this->fetchLines($noextrafields);
 		}
 		return $result;
+	}
+
+	/**
+	 * Load numbering module and set final reference.
+	 *
+	 * @param	User	$user	Current user
+	 * @return	int				<0 if error, 0 if OK
+	 */
+	protected function assignFinalReference(User $user)
+	{
+		global $conf, $langs;
+
+		$moduleName = getDolGlobalString('POWERPLANTPV_POWERPLANT_ADDON', 'mod_powerplant_standard');
+		$dirmodels = array_merge(array('/'), (array) $conf->modules_parts['models']);
+		$loaded = false;
+
+		foreach ($dirmodels as $reldir) {
+			$file = dol_buildpath($reldir.'core/modules/powerplantpv/'.$moduleName.'.php', 0);
+			if (is_readable($file)) {
+				require_once $file;
+				$loaded = true;
+				break;
+			}
+		}
+
+		if (!$loaded || !class_exists($moduleName)) {
+			$this->error = $langs->trans('Error') . ' : ' . $moduleName;
+			return -1;
+		}
+
+		$module = new $moduleName($this->db);
+		if (empty($module->isEnabled()) && method_exists($module, 'isEnabled')) {
+			$this->error = $langs->trans('Error') . ' : ' . $moduleName;
+			return -1;
+		}
+
+		$nextRef = $module->getNextValue($this);
+		if (empty($nextRef) || preg_match('/^Error/', (string) $nextRef)) {
+			$this->error = $langs->trans('Error') . ' : ' . $module->error;
+			return -1;
+		}
+
+		$this->ref = $nextRef;
+
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET ref = '".$this->db->escape($this->ref)."'";
+		$sql .= " WHERE rowid = ".((int) $this->id);
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		return 0;
 	}
 
 	/**
