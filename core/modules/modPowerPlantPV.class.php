@@ -119,9 +119,7 @@ class modPowerPlantPV extends DolibarrModules
 			),
 			// Set here all hooks context managed by module. To find available hook context, make a "grep -r '>initHooks(' *" on source code. You can also set hook context to 'all'
 			/* BEGIN MODULEBUILDER HOOKSCONTEXTS */
-			'hooks' => array(
-				'productcard'
-			),
+			'hooks' => array(),
 			/* END MODULEBUILDER HOOKSCONTEXTS */
 			// Set this to 1 if features of module are opened to external users
 			'moduleforexternal' => 0,
@@ -185,7 +183,9 @@ class modPowerPlantPV extends DolibarrModules
 		// Array to add new pages in new tabs
 		/* BEGIN MODULEBUILDER TABS */
 		// Don't forget to deactivate/reactivate your module to test your changes
-		$this->tabs = array();
+		$this->tabs = array(
+			'product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->rights->produit->lire:/powerplantpv/product_pvpanel.php?id=__ID__'
+		);
 		/* END MODULEBUILDER TABS */
 		// Example:
 		// To add a new tab identified by code tabname1
