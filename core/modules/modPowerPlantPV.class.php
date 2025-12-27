@@ -538,6 +538,22 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array();
 
+		// Ensure PV product natures are present in dictionary
+		$natureTable = $this->db->prefix()."c_product_nature";
+		$pvNatures = array(
+			array('rowid' => 50, 'code' => 'PV_MODULES', 'label' => 'Modules photovoltaïque', 'type' => 0, 'position' => 50),
+			array('rowid' => 51, 'code' => 'PV_INVERTERS', 'label' => 'Onduleurs', 'type' => 0, 'position' => 51),
+			array('rowid' => 52, 'code' => 'PV_INTEGRATION', 'label' => 'Système d\'intégration', 'type' => 0, 'position' => 52),
+			array('rowid' => 53, 'code' => 'PV_MONITORING', 'label' => 'Monitoring', 'type' => 0, 'position' => 53),
+			array('rowid' => 54, 'code' => 'PV_AC_BOX', 'label' => 'Coffrets AC', 'type' => 0, 'position' => 54),
+			array('rowid' => 55, 'code' => 'PV_DC_BOX', 'label' => 'Coffret DC', 'type' => 0, 'position' => 55),
+		);
+
+		foreach ($pvNatures as $nature) {
+			$sql[] = "DELETE FROM ".$natureTable." WHERE rowid = ".((int) $nature['rowid'])." OR code = '".$this->db->escape($nature['code'])."'";
+			$sql[] = "INSERT INTO ".$natureTable." (rowid, code, label, active, type, position) VALUES (".((int) $nature['rowid']).", '".$this->db->escape($nature['code'])."', '".$this->db->escape($nature['label'])."', 1, ".((int) $nature['type']).", ".((int) $nature['position']).")";
+		}
+
 		// Document templates
 		$moduledir = dol_sanitizeFileName('powerplantpv');
 		$myTmpObjects = array();

@@ -52,3 +52,27 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 ) ENGINE=innodb;
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_rowid (rowid);
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_fk_product (fk_product);
+
+INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
+SELECT 50, 'PV_MODULES', 'Modules photovoltaïque', 1, 0, 50
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 50 OR code = 'PV_MODULES');
+
+INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
+SELECT 51, 'PV_INVERTERS', 'Onduleurs', 1, 0, 51
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 51 OR code = 'PV_INVERTERS');
+
+INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
+SELECT 52, 'PV_INTEGRATION', 'Système d''intégration', 1, 0, 52
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 52 OR code = 'PV_INTEGRATION');
+
+INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
+SELECT 53, 'PV_MONITORING', 'Monitoring', 1, 0, 53
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 53 OR code = 'PV_MONITORING');
+
+INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
+SELECT 54, 'PV_AC_BOX', 'Coffrets AC', 1, 0, 54
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 54 OR code = 'PV_AC_BOX');
+
+INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
+SELECT 55, 'PV_DC_BOX', 'Coffret DC', 1, 0, 55
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 55 OR code = 'PV_DC_BOX');

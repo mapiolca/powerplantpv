@@ -85,3 +85,11 @@ PVPanelProductWarranty = Garanzia prodotto (anni)
 PVPanelPowerWarranty = Garanzia potenza (anni)
 PVPanelModulesPerBox = Moduli per scatola (pz)
 PVPanelModulesPerContainer40 = Moduli per container 40’ (pz)
+
+# Product nature
+ProductNaturePVModules = Moduli fotovoltaici
+ProductNaturePVInverters = Inverter
+ProductNaturePVIntegration = Sistema di integrazione
+ProductNaturePVMonitoring = Monitoraggio
+ProductNaturePVACBox = Quadri AC
+ProductNaturePVDCBox = Quadro DC
