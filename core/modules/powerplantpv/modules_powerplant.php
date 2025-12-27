@@ -81,6 +81,25 @@ abstract class ModelePDFPowerPlant extends CommonDocGenerator
 abstract class ModeleNumRefPowerPlant extends CommonNumRefGenerator
 {
 	/**
+	 * Check if entity column exists on powerplant table
+	 *
+	 * @param	DoliDB	$db		Database handler
+	 * @return	bool			true if column exists, false otherwise
+	 */
+	protected function hasEntityField($db)
+	{
+		static $cache = null;
+
+		if ($cache === null) {
+			$sql = "SHOW COLUMNS FROM ".$db->prefix()."powerplantpv_powerplant LIKE 'entity'";
+			$resql = $db->query($sql);
+			$cache = ($resql && $db->num_rows($resql) > 0);
+		}
+
+		return (bool) $cache;
+	}
+
+	/**
 	 *  Return an example of numbering
 	 *
 	 *  @return     string      Example

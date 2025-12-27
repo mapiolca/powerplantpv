@@ -146,7 +146,9 @@ class mod_powerplant_advanced extends ModeleNumRefPowerPlant
 
 		$date = $object->date_creation;
 
-		$numFinal = get_next_value($db, $mask, 'powerplantpv_powerplant', 'ref', '', '', $date);
+		$checkentity = $this->hasEntityField($db) ? 1 : 0;
+
+		$numFinal = get_next_value($db, $mask, 'powerplantpv_powerplant', 'ref', '', '', $date, '', '', '', '', 0, $checkentity);
 
 		return  $numFinal;
 	}
