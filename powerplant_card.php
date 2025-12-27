@@ -116,6 +116,7 @@ $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 // Initialize a technical objects
 $object = new PowerPlant($db);
 $extrafields = new ExtraFields($db);
+$formcompany = new FormCompany($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
@@ -294,6 +295,9 @@ if ($action == 'create') {
 	print '<table class="border centpercent tableforfieldcreate">'."\n";
 
 	// Common attributes
+	// EN: Render common fields with Dolibarr forms
+	// FR: Afficher les champs communs avec les formulaires Dolibarr
+	$object->fields['fk_country']['type'] = 'sellist:'.MAIN_DB_PREFIX.'c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_add.tpl.php';
 
 	// Other attributes
@@ -330,6 +334,9 @@ if (($id || $ref) && $action == 'edit') {
 	print '<table class="border centpercent tableforfieldedit">'."\n";
 
 	// Common attributes
+	// EN: Render common fields with Dolibarr forms
+	// FR: Afficher les champs communs avec les formulaires Dolibarr
+	$object->fields['fk_country']['type'] = 'sellist:'.MAIN_DB_PREFIX.'c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 
 	// Other attributes
