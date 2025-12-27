@@ -66,26 +66,26 @@ ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerpla
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_product (fk_product);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_entity (entity);
 
-INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
-SELECT 50, '50', 'Modules photovoltaïque', 1, 0, 50
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 50 OR code = '50');
+INSERT INTO llx_c_product_nature (code, label, active, type, position)
+SELECT '50', 'Modules photovoltaïque', 1, 0, 50
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '50');
 
-INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
-SELECT 51, '51', 'Onduleurs', 1, 0, 51
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 51 OR code = '51');
+INSERT INTO llx_c_product_nature (code, label, active, type, position)
+SELECT '51', 'Onduleurs', 1, 0, 51
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '51');
 
-INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
-SELECT 52, '52', 'Système d''intégration', 1, 0, 52
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 52 OR code = '52');
+INSERT INTO llx_c_product_nature (code, label, active, type, position)
+SELECT '52', 'Système d''intégration', 1, 0, 52
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '52');
 
-INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
-SELECT 53, '53', 'Monitoring', 1, 0, 53
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 53 OR code = '53');
+INSERT INTO llx_c_product_nature (code, label, active, type, position)
+SELECT '53', 'Monitoring', 1, 0, 53
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '53');
 
-INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
-SELECT 54, '54', 'Coffrets AC', 1, 0, 54
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 54 OR code = '54');
+INSERT INTO llx_c_product_nature (code, label, active, type, position)
+SELECT '54', 'Coffrets AC', 1, 0, 54
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '54');
 
-INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
-SELECT 55, '55', 'Coffret DC', 1, 0, 55
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 55 OR code = '55');
+INSERT INTO llx_c_product_nature (code, label, active, type, position)
+SELECT '55', 'Coffret DC', 1, 0, 55
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '55');
