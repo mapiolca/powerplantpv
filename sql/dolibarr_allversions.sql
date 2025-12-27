@@ -66,26 +66,26 @@ ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerpla
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_product (fk_product);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_entity (entity);
 
-INSERT INTO llx_c_product_nature (code, label, active, type, position)
-SELECT '50', 'ProductNaturePVModules', 1, 0, 50
+INSERT INTO llx_c_product_nature (code, label, active, position)
+SELECT '50', 'ProductNaturePVModules', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '50');
 
-INSERT INTO llx_c_product_nature (code, label, active, type, position)
-SELECT '51', 'ProductNaturePVInverters', 1, 0, 51
+INSERT INTO llx_c_product_nature (code, label, active, position)
+SELECT '51', 'ProductNaturePVInverters', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '51');
 
-INSERT INTO llx_c_product_nature (code, label, active, type, position)
-SELECT '52', 'ProductNaturePVIntegration', 1, 0, 52
+INSERT INTO llx_c_product_nature (code, label, active, position)
+SELECT '52', 'ProductNaturePVIntegration', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '52');
 
-INSERT INTO llx_c_product_nature (code, label, active, type, position)
-SELECT '53', 'ProductNaturePVMonitoring', 1, 0, 53
+INSERT INTO llx_c_product_nature (code, label, active, position)
+SELECT '53', 'ProductNaturePVMonitoring', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '53');
 
-INSERT INTO llx_c_product_nature (code, label, active, type, position)
-SELECT '54', 'ProductNaturePVACBox', 1, 0, 54
+INSERT INTO llx_c_product_nature (code, label, active, position)
+SELECT '54', 'ProductNaturePVACBox', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '54');
 
-INSERT INTO llx_c_product_nature (code, label, active, type, position)
-SELECT '55', 'ProductNaturePVDCBox', 1, 0, 55
+INSERT INTO llx_c_product_nature (code, label, active, position)
+SELECT '55', 'ProductNaturePVDCBox', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '55');
