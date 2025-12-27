@@ -52,7 +52,7 @@ if (empty($object->id) || $object->fk_product_nature != '50') {
 	accessforbidden();
 }
 
-$permissiontoadd = $user->rights->produit->creer;
+$permissiontoadd = $user->hasRight('produit', 'creer');
 
 // Load existing data
 $sql = "SELECT * FROM ".$db->prefix()."powerplantpv_product_pvpanel WHERE fk_product = ".((int) $object->id);
