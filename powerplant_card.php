@@ -340,6 +340,10 @@ if (($id || $ref) && $action == 'edit') {
 
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
+	$object->fields['ref']['type'] = 'string';
+	$object->fields['ref']['noteditable'] = 1;
+	$object->fields['ref']['visible'] = 5;
+	unset($object->fields['status']);
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 
