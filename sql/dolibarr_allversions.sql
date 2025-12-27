@@ -53,6 +53,19 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_rowid (rowid);
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_fk_product (fk_product);
 
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	fk_powerplant integer NOT NULL,
+	fk_product integer NOT NULL,
+	nature_code integer NOT NULL,
+	qty double NOT NULL,
+	entity integer NOT NULL DEFAULT 1
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_rowid (rowid);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_powerplant (fk_powerplant);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_product (fk_product);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_entity (entity);
+
 INSERT INTO llx_c_product_nature (rowid, code, label, active, type, position)
 SELECT 50, 'PV_MODULES', 'Modules photovoltaïque', 1, 0, 50
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE rowid = 50 OR code = 'PV_MODULES');

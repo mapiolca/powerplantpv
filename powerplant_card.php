@@ -117,6 +117,7 @@ $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 $object = new PowerPlant($db);
 $extrafields = new ExtraFields($db);
 $formcompany = new FormCompany($db);
+$formproduct = new FormProduct($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
@@ -197,8 +198,28 @@ if (empty($reshook)) {
 			} else {
 				$backtopage = dol_buildpath('/powerplantpv/powerplant_card.php', 1).'?id='.((!empty($id) && $id > 0) ? $id : '__ID__');
 			}
-		}
 	}
+}
+
+// Composition actions
+if ($action == 'addcomposition' && $permissiontoadd) {
+	$naturecode = GETPOSTINT('naturecode');
+	$fk_product = GETPOSTINT('fk_product');
+	$qty = price2num(GETPOST('qty', 'alpha'), 'MT');
+
+	if ($fk_product > 0 && $qty > 0 && in_array($naturecode, array(50, 51, 52, 53, 54, 55))) {
+		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, nature_code, qty, entity)";
+		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((int) $naturecode).", ".((float) $qty).", ".((int) $conf->entity).")";
+		$db->query($sql);
+	}
+}
+if ($action == 'delcomposition' && $permissiontoadd) {
+	$lineid = GETPOSTINT('lineid');
+	if ($lineid > 0) {
+		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id);
+		$db->query($sql);
+	}
+}
 
 	$triggermodname = $object->TRIGGER_PREFIX.'_MODIFY'; // Name of trigger action code to execute when we modify record. Used in actions_addupdatedelete.inc.php
 
@@ -480,6 +501,60 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	print '</table>';
 	print '</div>';
+	print '</div>';
+
+	// EN: Composition sections
+	$sections = array(
+		50 => array('label' => $langs->trans('PVModules')),
+		51 => array('label' => $langs->trans('PVInverters')),
+		52 => array('label' => $langs->trans('PVIntegration')),
+		53 => array('label' => $langs->trans('PVMonitoring')),
+		54 => array('label' => $langs->trans('PVACBox')),
+		55 => array('label' => $langs->trans('PVDCBox')),
+	);
+
+	print '<div class="fichehalfleft">';
+	print '<div class="underbanner clearboth"></div>';
+	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
+
+	foreach ($sections as $code => $info) {
+		print '<h3>'.$info['label'].'</h3>';
+
+		print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="action" value="addcomposition">';
+		print '<input type="hidden" name="naturecode" value="'.$code.'">';
+		print '<table class="noborder centpercent">';
+		print '<tr class="liste_titre"><td>'.$langs->trans("Product").'</td><td class="right">'.$langs->trans("PVQuantity").'</td><td class="center"></td></tr>';
+
+		print '<tr class="oddeven">';
+		print '<td>';
+		print $formproduct->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
+		print '</td>';
+		print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
+		print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
+		print '</tr>';
+
+		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
+		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+		$sqlcomp .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
+		$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id)." AND c.nature_code = ".((int) $code);
+		$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
+		$rescomp = $db->query($sqlcomp);
+		if ($rescomp) {
+			while ($line = $db->fetch_object($rescomp)) {
+				print '<tr class="oddeven">';
+				print '<td>'.dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).'</td>';
+				print '<td class="right">'.price($line->qty).'</td>';
+				print '<td class="center"><a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a></td>';
+				print '</tr>';
+			}
+		}
+
+		print '</table>';
+		print '</form>';
+	}
+
 	print '</div>';
 
 	print '<div class="clearboth"></div>';
