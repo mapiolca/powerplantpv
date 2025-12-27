@@ -18,6 +18,7 @@ CREATE TABLE llx_powerplantpv_product_pvpanel(
 	-- BEGIN MODULEBUILDER FIELDS
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_product integer NOT NULL,
+	entity integer NOT NULL DEFAULT 1,
 	pmax double,
 	power_tolerance double,
 	module_efficiency double,

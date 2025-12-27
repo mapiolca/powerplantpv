@@ -17,4 +17,5 @@
 -- BEGIN MODULEBUILDER INDEXES
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX idx_powerplantpv_product_pvpanel_rowid (rowid);
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX idx_powerplantpv_product_pvpanel_fk_product (fk_product);
+ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX idx_powerplantpv_product_pvpanel_entity (entity);
 -- END MODULEBUILDER INDEXES

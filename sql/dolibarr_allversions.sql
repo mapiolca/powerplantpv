@@ -23,6 +23,7 @@ ALTER TABLE llx_powerplantpv_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_product integer NOT NULL,
+	entity integer NOT NULL DEFAULT 1,
 	pmax double,
 	power_tolerance double,
 	module_efficiency double,
@@ -52,6 +53,8 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 ) ENGINE=innodb;
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_rowid (rowid);
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_fk_product (fk_product);
+ALTER TABLE llx_powerplantpv_product_pvpanel ADD COLUMN IF NOT EXISTS entity integer NOT NULL DEFAULT 1;
+ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_entity (entity);
 
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,

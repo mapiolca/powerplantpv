@@ -48,14 +48,16 @@ if ($id > 0) {
 	$object->fetch($id);
 }
 
-if (empty($object->id) || $object->fk_product_nature != '50') {
+if (!$user->admin && (empty($object->id) || (int) $object->finished !== 50)) {
 	accessforbidden();
 }
 
 $permissiontoadd = $user->hasRight('produit', 'creer');
 
 // Load existing data
-$sql = "SELECT * FROM ".$db->prefix()."powerplantpv_product_pvpanel WHERE fk_product = ".((int) $object->id);
+$sql = "SELECT * FROM ".$db->prefix()."powerplantpv_product_pvpanel";
+$sql .= " WHERE fk_product = ".((int) $object->id);
+$sql .= " AND entity = ".((int) $conf->entity);
 $resql = $db->query($sql);
 $panel = $db->fetch_object($resql);
 
@@ -81,10 +83,11 @@ if ($action == 'save' && $permissiontoadd) {
 		}
 		$sql = "UPDATE ".$db->prefix()."powerplantpv_product_pvpanel SET ".implode(',', $sets);
 		$sql .= " WHERE rowid = ".((int) $panel->rowid);
+		$sql .= " AND entity = ".((int) $conf->entity);
 		$db->query($sql);
 	} else {
-		$cols = array('fk_product');
-		$vals = array((int) $object->id);
+		$cols = array('fk_product', 'entity');
+		$vals = array((int) $object->id, (int) $conf->entity);
 		foreach ($data as $key => $val) {
 			$cols[] = $key;
 			$vals[] = ($val === '' ? "null" : "'".$db->escape($val)."'");
