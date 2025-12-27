@@ -49,6 +49,7 @@ if ($id > 0) {
 }
 
 if (!$user->admin && (empty($object->id) || (int) $object->finished !== 50)) {
+	var_dump($object->finished);
 	accessforbidden();
 }
 
