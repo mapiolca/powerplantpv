@@ -60,7 +60,12 @@ $sql = "SELECT * FROM ".$db->prefix()."powerplantpv_product_pvpanel";
 $sql .= " WHERE fk_product = ".((int) $object->id);
 $sql .= " AND entity = ".((int) $conf->entity);
 $resql = $db->query($sql);
-$panel = $db->fetch_object($resql);
+if ($resql) {
+	$panel = $db->fetch_object($resql);
+} else {
+	setEventMessages($db->lasterror(), null, 'errors');
+	$panel = null;
+}
 
 if ($action == 'save' && $permissiontoadd) {
 	$fields = array(
