@@ -296,6 +296,12 @@ if ($action == 'create') {
 
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
+	if (empty($object->ref)) {
+		$object->ref = $object->getProvisionalRefPreview();
+	}
+	$object->fields['ref']['disabled'] = 1;
+	$object->fields['ref']['noteditable'] = 1;
+	$object->fields['ref']['default'] = $object->ref;
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_add.tpl.php';
 

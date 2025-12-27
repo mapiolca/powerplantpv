@@ -486,6 +486,33 @@ class PowerPlant extends CommonObject
 	}
 
 	/**
+	 * Compute provisional reference preview for creation form.
+	 *
+	 * @return	string	Provisional reference like (PROV1)
+	 */
+	public function getProvisionalRefPreview()
+	{
+		global $conf;
+
+		$nextId = 1;
+
+		$sql = "SELECT MAX(rowid) as maxid FROM ".$this->db->prefix().$this->table_element;
+		if ($this->ismultientitymanaged == 1 && !empty($this->fields['entity'])) {
+			$sql .= " WHERE entity = ".((int) $conf->entity);
+		}
+
+		$resql = $this->db->query($sql);
+		if ($resql) {
+			$obj = $this->db->fetch_object($resql);
+			if ($obj && $obj->maxid !== null) {
+				$nextId = ((int) $obj->maxid) + 1;
+			}
+		}
+
+		return '(PROV'.$nextId.')';
+	}
+
+	/**
 	 * Load object lines in memory from the database
 	 *
 	 * @param	int<0,1>	$noextrafields	0=Default to load extrafields, 1=No extrafields
