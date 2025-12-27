@@ -470,6 +470,9 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	//$keyforbreak='fieldkeytoswitchonsecondcolumn';	// We change column just before this field
 	//unset($object->fields['fk_project']);				// Hide field already shown in banner
 	//unset($object->fields['fk_soc']);					// Hide field already shown in banner
+	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
+	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 
 	// Other attributes. Fields from hook formObjectOptions and Extrafields.
