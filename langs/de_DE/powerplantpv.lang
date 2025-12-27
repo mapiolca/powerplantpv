@@ -85,6 +85,13 @@ PVPanelProductWarranty = Produktgarantie (Jahre)
 PVPanelPowerWarranty = Leistungsgarantie (Jahre)
 PVPanelModulesPerBox = Module pro Karton (Stk)
 PVPanelModulesPerContainer40 = Module pro 40’-Container (Stk)
+PVPanelTabTitle = Detaillierte Merkmale
+PVPanelElectricalSTC = Elektrische Daten (STC)
+PVPanelElectricalNOCT = Elektrische Daten (NOCT)
+PVPanelMechanicalData = Mechanische Daten
+PVPanelMaxRatings = Maximalwerte
+PVPanelWarranty = Garantie
+PVPanelPackaging = Verpackung
 
 # Product nature
 ProductNaturePVModules = Photovoltaikmodule

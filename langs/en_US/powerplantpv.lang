@@ -85,6 +85,13 @@ PVPanelProductWarranty = Product warranty (years)
 PVPanelPowerWarranty = Power warranty (years)
 PVPanelModulesPerBox = Modules per box (pcs)
 PVPanelModulesPerContainer40 = Modules per 40 ft container (pcs)
+PVPanelTabTitle = Detailed characteristics
+PVPanelElectricalSTC = Electrical data (STC)
+PVPanelElectricalNOCT = Electrical data (NOCT)
+PVPanelMechanicalData = Mechanical data
+PVPanelMaxRatings = Maximum ratings
+PVPanelWarranty = Warranty
+PVPanelPackaging = Packaging
 
 # Product nature
 ProductNaturePVModules = Photovoltaic modules
