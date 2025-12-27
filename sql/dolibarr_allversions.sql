@@ -69,23 +69,29 @@ ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerpla
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '50', 'ProductNaturePVModules', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '50');
+UPDATE llx_c_product_nature SET label = 'ProductNaturePVModules', active = 1 WHERE code = '50';
 
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '51', 'ProductNaturePVInverters', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '51');
+UPDATE llx_c_product_nature SET label = 'ProductNaturePVInverters', active = 1 WHERE code = '51';
 
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '52', 'ProductNaturePVIntegration', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '52');
+UPDATE llx_c_product_nature SET label = 'ProductNaturePVIntegration', active = 1 WHERE code = '52';
 
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '53', 'ProductNaturePVMonitoring', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '53');
+UPDATE llx_c_product_nature SET label = 'ProductNaturePVMonitoring', active = 1 WHERE code = '53';
 
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '54', 'ProductNaturePVACBox', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '54');
+UPDATE llx_c_product_nature SET label = 'ProductNaturePVACBox', active = 1 WHERE code = '54';
 
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '55', 'ProductNaturePVDCBox', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '55');
+UPDATE llx_c_product_nature SET label = 'ProductNaturePVDCBox', active = 1 WHERE code = '55';
