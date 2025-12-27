@@ -551,7 +551,7 @@ class modPowerPlantPV extends DolibarrModules
 
 		foreach ($pvNatures as $nature) {
 			$sql[] = "DELETE FROM ".$natureTable." WHERE code = '".$this->db->escape($nature['code'])."'";
-			$sql[] = "INSERT INTO ".$natureTable." (code, label, active, position) VALUES ('".$this->db->escape($nature['code'])."', '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', 1, 1)";
+			$sql[] = "INSERT INTO ".$natureTable." (code, label, active) VALUES ('".$this->db->escape($nature['code'])."', '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', 1)";
 		}
 
 		// Document templates
