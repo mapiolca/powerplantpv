@@ -93,7 +93,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
-dol_include_once('/core/class/html.formproduct.class.php');
+dol_include_once('/product/class/html.formproduct.class.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
@@ -534,15 +534,15 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		print '<table class="noborder centpercent">';
 		print '<tr class="liste_titre"><td>'.$langs->trans("Product").'</td><td class="right">'.$langs->trans("PVQuantity").'</td><td class="center"></td></tr>';
 
-		if ($showaddform) {
-			print '<tr class="oddeven">';
-			print '<td>';
-			print $formproduct->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
-			print '</td>';
-			print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
-			print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
-			print '</tr>';
-		}
+			if ($showaddform) {
+				print '<tr class="oddeven">';
+				print '<td>';
+				print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
+				print '</td>';
+				print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
+				print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
+				print '</tr>';
+			}
 
 		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
 		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
