@@ -186,20 +186,6 @@ if ($editmode) {
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="save">';
 }
-
-// Action buttons
-print '<div class="tabsAction">';
-
-if (!$editmode) {
-	if ($permissiontoadd) {
-		print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit">'.$langs->trans('Modify').'</a>';
-	}
-} else {
-	print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
-	print '<a class="butActionRefused" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">'.$langs->trans('Cancel').'</a>';
-}
-print '</div>';
-
 print '<div class="fichehalfleft">';
 
 print load_fiche_titre($langs->trans('PVPanelElectricalSTC'), '', '');
@@ -259,6 +245,18 @@ print '</table>';
 print '</div>';
 
 print '<div class="clearboth"></div>';
+// Action buttons
+print '<div class="tabsAction">';
+
+if (!$editmode) {
+	if ($permissiontoadd) {
+		print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit">'.$langs->trans('Modify').'</a>';
+	}
+} else {
+	print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+	print '<a class="butActionRefused" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">'.$langs->trans('Cancel').'</a>';
+}
+print '</div>';
 
 if ($editmode) {
 	print '</form>';
