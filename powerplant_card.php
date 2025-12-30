@@ -1,7 +1,7 @@
 <?php
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
- * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2025		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -92,6 +92,7 @@ if (!$res) {
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
+include_once DOL_DOCUMENT_ROOT.'/core/class/html.formproduct.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
