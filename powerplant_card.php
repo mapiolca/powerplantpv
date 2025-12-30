@@ -119,11 +119,7 @@ $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 $object = new PowerPlant($db);
 $extrafields = new ExtraFields($db);
 $formcompany = new FormCompany($db);
-if (class_exists('FormProduct')) {
-	$formproduct = new FormProduct($db);
-} else {
-	$formproduct = new Form($db);
-}
+$formproduct = new Form($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
