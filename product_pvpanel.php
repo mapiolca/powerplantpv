@@ -106,6 +106,13 @@ if ($action == 'save' && $permissiontoadd) {
 	exit;
 }
 
+$helpurl = '';
+$shortlabel = dol_trunc($object->label, 16);
+$title = $langs->trans('Product')." ".$shortlabel." - ".$langs->trans('Documents');
+$helpurl = 'EN:Module_Products|FR:Module_Produits|ES:M&oacute;dulo_Productos';
+
+llxHeader('', $title, $helpurl, '', 0, 0, '', '', '', 'mod-product page-card_product_pvpanel');
+
 $head = product_prepare_head($object, $user);
 /*
 $head[] = array(
@@ -114,7 +121,7 @@ $head[] = array(
 	'pvpanel'
 );
 */
-llxHeader('', $langs->trans('PVPanelTabTitle'));
+//llxHeader('', $langs->trans('PVPanelTabTitle'));
 
 print dol_get_fiche_head($head, 'pvpanel', $langs->trans("Product"));
 
