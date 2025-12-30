@@ -113,7 +113,7 @@ $head[] = array(
 	'pvpanel'
 );
 
-llxHeader('', $langs->trans('PVPanelTabTitle'));
+//llxHeader('', $langs->trans('PVPanelTabTitle'));
 
 print dol_get_fiche_head($head, 'pvpanel', $langs->trans("Product"));
 
