@@ -239,7 +239,7 @@ print '</table>';
 
 print '</div>';
 
-//print '<div class="clearboth"></div>';
+print '<div class="clearboth"></div>';
 // Action buttons
 print '<div class="tabsAction">';
 
