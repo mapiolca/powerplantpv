@@ -1,7 +1,7 @@
 <?php
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
- * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2025		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -89,9 +89,11 @@ if (!$res) {
  * @var User $user
  * @var Societe $mysoc
  */
+include_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
+dol_include_once('/core/class/html.formproduct.class.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
@@ -518,22 +520,29 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
 
 	foreach ($sections as $code => $info) {
-		print '<h3>'.$info['label'].'</h3>';
+		$showaddform = ($object->status == $object::STATUS_DRAFT && $permissiontoadd);
 
-		print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
-		print '<input type="hidden" name="token" value="'.newToken().'">';
-		print '<input type="hidden" name="action" value="addcomposition">';
-		print '<input type="hidden" name="naturecode" value="'.$code.'">';
+		print '<div class="ficheaddleft">';
+		print '<h3 class="marginbottomonly">'.$info['label'].'</h3>';
+		if ($showaddform) {
+			print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="addcomposition">';
+			print '<input type="hidden" name="naturecode" value="'.$code.'">';
+		}
+
 		print '<table class="noborder centpercent">';
 		print '<tr class="liste_titre"><td>'.$langs->trans("Product").'</td><td class="right">'.$langs->trans("PVQuantity").'</td><td class="center"></td></tr>';
 
-		print '<tr class="oddeven">';
-		print '<td>';
-		print $formproduct->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
-		print '</td>';
-		print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
-		print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
-		print '</tr>';
+		if ($showaddform) {
+			print '<tr class="oddeven">';
+			print '<td>';
+			print $formproduct->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
+			print '</td>';
+			print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
+			print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
+			print '</tr>';
+		}
 
 		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
 		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
@@ -546,13 +555,19 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 				print '<tr class="oddeven">';
 				print '<td>'.dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).'</td>';
 				print '<td class="right">'.price($line->qty).'</td>';
-				print '<td class="center"><a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a></td>';
+				print '<td class="center">'.($showaddform ? '<a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a>' : '').'</td>';
 				print '</tr>';
 			}
 		}
 
-		print '</table>';
-		print '</form>';
+		if ($showaddform) {
+			print '</table>';
+			print '</form>';
+		} else {
+			print '</table>';
+		}
+
+		print '</div>';
 	}
 
 	print '</div>';
