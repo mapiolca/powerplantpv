@@ -107,13 +107,14 @@ if ($action == 'save' && $permissiontoadd) {
 }
 
 $head = product_prepare_head($object, $user);
+/*
 $head[] = array(
 	dol_buildpath('/powerplantpv/product_pvpanel.php', 1).'?id='.$object->id,
 	$langs->trans('PVPanelTabTitle'),
 	'pvpanel'
 );
-
-//llxHeader('', $langs->trans('PVPanelTabTitle'));
+*/
+llxHeader('', $langs->trans('PVPanelTabTitle'));
 
 print dol_get_fiche_head($head, 'pvpanel', $langs->trans("Product"));
 
