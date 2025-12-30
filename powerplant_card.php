@@ -93,12 +93,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
-if (!class_exists('FormProduct')) {
-	dol_include_once('/core/class/html.formproduct.class.php');
-}
-if (!class_exists('FormProduct')) {
-	dol_include_once('/product/class/html.formproduct.class.php');
-}
+include_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
