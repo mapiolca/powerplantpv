@@ -162,11 +162,6 @@ $helpurl = 'EN:Module_Products|FR:Module_Produits|ES:M&oacute;dulo_Productos';
 llxHeader('', $title, $helpurl, '', 0, 0, '', '', '', 'mod-product page-card_product_pvpanel');
 
 $head = product_prepare_head($object, $user);
-$head[] = array(
-	dol_buildpath('/powerplantpv/product_pvpanel.php', 1).'?id='.$object->id,
-	$langs->trans('PVPanelTabTitle'),
-	'pvpanel'
-);
 
 print dol_get_fiche_head($head, 'pvpanel', $langs->trans('Product'));
 
@@ -244,7 +239,7 @@ print '</table>';
 
 print '</div>';
 
-print '<div class="clearboth"></div>';
+//print '<div class="clearboth"></div>';
 // Action buttons
 print '<div class="tabsAction">';
 
