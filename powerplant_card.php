@@ -89,10 +89,16 @@ if (!$res) {
  * @var User $user
  * @var Societe $mysoc
  */
+include_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
-include_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
+if (!class_exists('FormProduct')) {
+	dol_include_once('/core/class/html.formproduct.class.php');
+}
+if (!class_exists('FormProduct')) {
+	dol_include_once('/product/class/html.formproduct.class.php');
+}
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
@@ -118,7 +124,11 @@ $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 $object = new PowerPlant($db);
 $extrafields = new ExtraFields($db);
 $formcompany = new FormCompany($db);
-$formproduct = new FormProduct($db);
+if (class_exists('FormProduct')) {
+	$formproduct = new FormProduct($db);
+} else {
+	$formproduct = new Form($db);
+}
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
