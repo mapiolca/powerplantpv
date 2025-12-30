@@ -132,12 +132,6 @@ if ($user->socid && !in_array('product', explode(',', getDolGlobalString('MAIN_M
 }
 dol_banner_tab($object, 'ref', $linkback, $shownav, 'ref');
 
-
-print '<table class="border centpercent">';
-print '<tr><td class="titlefield">'.$langs->trans("Ref").'</td><td>'.$object->ref.'</td></tr>';
-print '<tr><td>'.$langs->trans("Label").'</td><td>'.$object->label.'</td></tr>';
-print '</table><br>';
-
 print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="save">';
