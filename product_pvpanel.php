@@ -173,7 +173,7 @@ if ($user->socid && !in_array('product', explode(',', getDolGlobalString('MAIN_M
 }
 
 dol_banner_tab($object, 'ref', $linkback, $shownav, 'ref');
-
+print dol_get_fiche_end();
 $editmode = ($action === 'edit');
 
 if ($editmode) {
@@ -256,8 +256,6 @@ print '</div>';
 if ($editmode) {
 	print '</form>';
 }
-
-print dol_get_fiche_end();
 
 llxFooter();
 $db->close();
