@@ -118,6 +118,9 @@ llxHeader('', $langs->trans('PVPanelTabTitle'));
 
 print dol_get_fiche_head($head, 'pvpanel', $langs->trans("Product"));
 
+dol_banner_tab($object, 'ref', $linkback, $shownav, 'ref');
+
+
 print '<table class="border centpercent">';
 print '<tr><td class="titlefield">'.$langs->trans("Ref").'</td><td>'.$object->ref.'</td></tr>';
 print '<tr><td>'.$langs->trans("Label").'</td><td>'.$object->label.'</td></tr>';
