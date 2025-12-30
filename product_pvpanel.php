@@ -257,7 +257,7 @@ if ($editmode) {
 	print '</form>';
 }
 
-//print dol_get_fiche_end();
+print dol_get_fiche_end();
 
 llxFooter();
 $db->close();
