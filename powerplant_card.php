@@ -1,7 +1,7 @@
 <?php
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
- * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2025		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -89,9 +89,11 @@ if (!$res) {
  * @var User $user
  * @var Societe $mysoc
  */
+include_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
+include_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
@@ -116,6 +118,8 @@ $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 // Initialize a technical objects
 $object = new PowerPlant($db);
 $extrafields = new ExtraFields($db);
+$formcompany = new FormCompany($db);
+$formproduct = new Form($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
@@ -196,8 +200,28 @@ if (empty($reshook)) {
 			} else {
 				$backtopage = dol_buildpath('/powerplantpv/powerplant_card.php', 1).'?id='.((!empty($id) && $id > 0) ? $id : '__ID__');
 			}
-		}
 	}
+}
+
+// Composition actions
+if ($action == 'addcomposition' && $permissiontoadd) {
+	$naturecode = GETPOSTINT('naturecode');
+	$fk_product = GETPOSTINT('fk_product');
+	$qty = price2num(GETPOST('qty', 'alpha'), 'MT');
+
+	if ($fk_product > 0 && $qty > 0 && in_array($naturecode, array(50, 51, 52, 53, 54, 55))) {
+		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, nature_code, qty, entity)";
+		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((int) $naturecode).", ".((float) $qty).", ".((int) $conf->entity).")";
+		$db->query($sql);
+	}
+}
+if ($action == 'delcomposition' && $permissiontoadd) {
+	$lineid = GETPOSTINT('lineid');
+	if ($lineid > 0) {
+		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id);
+		$db->query($sql);
+	}
+}
 
 	$triggermodname = $object->TRIGGER_PREFIX.'_MODIFY'; // Name of trigger action code to execute when we modify record. Used in actions_addupdatedelete.inc.php
 
@@ -294,6 +318,14 @@ if ($action == 'create') {
 	print '<table class="border centpercent tableforfieldcreate">'."\n";
 
 	// Common attributes
+	// EN: Render common fields with Dolibarr forms
+	if (empty($object->ref)) {
+		$object->ref = $object->getProvisionalRefPreview();
+	}
+	$object->fields['ref']['disabled'] = 1;
+	$object->fields['ref']['noteditable'] = 1;
+	$object->fields['ref']['default'] = $object->ref;
+	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_add.tpl.php';
 
 	// Other attributes
@@ -330,6 +362,12 @@ if (($id || $ref) && $action == 'edit') {
 	print '<table class="border centpercent tableforfieldedit">'."\n";
 
 	// Common attributes
+	// EN: Render common fields with Dolibarr forms
+	$object->fields['ref']['type'] = 'string';
+	$object->fields['ref']['noteditable'] = 1;
+	$object->fields['ref']['visible'] = 5;
+	unset($object->fields['status']);
+	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 
 	// Other attributes
@@ -445,8 +483,12 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
+	$isdraft = (isset($object->status) && ((int) $object->status === (int) $object::STATUS_DRAFT));
+
 
 	print '<div class="fichecenter">';
+
+	// Left column
 	print '<div class="fichehalfleft">';
 	print '<div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfield">'."\n";
@@ -455,14 +497,94 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	//$keyforbreak='fieldkeytoswitchonsecondcolumn';	// We change column just before this field
 	//unset($object->fields['fk_project']);				// Hide field already shown in banner
 	//unset($object->fields['fk_soc']);					// Hide field already shown in banner
+	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
+	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 
 	// Other attributes. Fields from hook formObjectOptions and Extrafields.
 	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
 
 	print '</table>';
-	print '</div>';
-	print '</div>';
+	print '</div>'; // fichehalfleft
+
+	// Right column
+	print '<div class="fichehalfright">';
+	print '<div class="underbanner clearboth"></div>';
+
+	// EN: Composition sections
+	$sections = array(
+		50 => array('label' => $langs->trans('PVModules')),
+		51 => array('label' => $langs->trans('PVInverters')),
+		52 => array('label' => $langs->trans('PVIntegration')),
+		53 => array('label' => $langs->trans('PVMonitoring')),
+		54 => array('label' => $langs->trans('PVACBox')),
+		55 => array('label' => $langs->trans('PVDCBox')),
+	);
+
+	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
+
+	foreach ($sections as $code => $info) {
+		print '<h3>'.$info['label'].'</h3>';
+
+		$caneditcomposition = ($isdraft && $permissiontoadd);
+		if ($caneditcomposition) {
+			print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="addcomposition">';
+			print '<input type="hidden" name="naturecode" value="'.$code.'">';
+		}
+
+		print '<div class="div-table-responsive-no-min">';
+		print '<table class="noborder centpercent">';
+		print '<tr class="liste_titre">';
+		print '<td>'.$langs->trans("Product").'</td>';
+		print '<td class="right">'.$langs->trans("PVQuantity").'</td>';
+		print '<td class="center"></td>';
+		print '</tr>';
+
+		// Row to add composition (only when draft)
+		if ($caneditcomposition) {
+			print '<tr class="oddeven">';
+			print '<td>';
+			print $formproduct->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
+			print '</td>';
+			print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
+			print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
+			print '</tr>';
+		}
+
+		// Existing composition lines (always visible)
+		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
+		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+		$sqlcomp .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
+		$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id)." AND c.nature_code = ".((int) $code);
+		$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
+		$rescomp = $db->query($sqlcomp);
+		if ($rescomp) {
+			while ($line = $db->fetch_object($rescomp)) {
+				print '<tr class="oddeven">';
+				print '<td>'.dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).'</td>';
+				print '<td class="right">'.price($line->qty).'</td>';
+				if ($caneditcomposition) {
+					print '<td class="center"><a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a></td>';
+				} else {
+					print '<td class="center"></td>';
+				}
+				print '</tr>';
+			}
+		}
+
+		print '</table>';
+		print '</div>';
+
+		if ($caneditcomposition) {
+			print '</form>';
+		}
+	}
+
+	print '</div>'; // fichehalfright
+	print '</div>'; // fichecenter
 
 	print '<div class="clearboth"></div>';
 
