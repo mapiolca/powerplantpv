@@ -58,7 +58,7 @@ $permissiontoadd = $user->hasRight('produit', 'creer');
 // Load existing data
 $sql = "SELECT * FROM ".$db->prefix()."powerplantpv_product_pvpanel";
 $sql .= " WHERE fk_product = ".((int) $object->id);
-$sql .= " AND entity = ".((int) $conf->entity);
+//$sql .= " AND entity = ".((int) $conf->entity);
 $resql = $db->query($sql);
 if ($resql) {
 	$panel = $db->fetch_object($resql);
