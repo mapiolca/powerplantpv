@@ -89,11 +89,11 @@ if ($action == 'save' && $permissiontoadd) {
 		}
 		$sql = "UPDATE ".$db->prefix()."powerplantpv_product_pvpanel SET ".implode(',', $sets);
 		$sql .= " WHERE rowid = ".((int) $panel->rowid);
-		$sql .= " AND entity = ".((int) $conf->entity);
+		//$sql .= " AND entity = ".((int) $conf->entity);
 		$db->query($sql);
 	} else {
 		$cols = array('fk_product', 'entity');
-		$vals = array((int) $object->id, (int) $conf->entity);
+		$vals = array((int) $object->id); // , (int) $conf->entity
 		foreach ($data as $key => $val) {
 			$cols[] = $key;
 			$vals[] = ($val === '' ? "null" : "'".$db->escape($val)."'");
