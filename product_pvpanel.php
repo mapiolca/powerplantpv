@@ -16,29 +16,30 @@
  */
 
 /**
- *	\file       htdocs/powerplantpv/product_pvpanel.php
- *	\ingroup    powerplantpv
- *	\brief      Product tab for PV panel detailed characteristics
+ *\file       htdocs/powerplantpv/product_pvpanel.php
+ *\ingroup    powerplantpv
+ *\brief      Product tab for PV panel detailed characteristics
  */
 
 // Load Dolibarr environment
 $res = 0;
-if (!$res && file_exists("../main.inc.php")) {
-	$res = @include "../main.inc.php";
+if (!$res && file_exists('../main.inc.php')) {
+	$res = @include '../main.inc.php';
 }
-if (!$res && file_exists("../../main.inc.php")) {
-	$res = @include "../../main.inc.php";
+if (!$res && file_exists('../../main.inc.php')) {
+	$res = @include '../../main.inc.php';
 }
-if (!$res && file_exists("../../../main.inc.php")) {
-	$res = @include "../../../main.inc.php";
+if (!$res && file_exists('../../../main.inc.php')) {
+	$res = @include '../../../main.inc.php';
 }
 if (!$res) {
-	die("Include of main fails");
+	die('Include of main fails');
 }
 
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 
-$langs->loadLangs(array("products", "powerplantpv@powerplantpv"));
+$langs->loadLangs(array('products', 'powerplantpv@powerplantpv'));
 
 $id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
@@ -48,26 +49,39 @@ if ($id > 0) {
 	$object->fetch($id);
 }
 
-if (!$user->admin && (empty($object->id) || (int) $object->finished !== 50)) {
-	var_dump($object->finished);
+if (empty($object->id)) {
 	accessforbidden();
 }
 
+$permissiontoread = $user->hasRight('produit', 'lire');
 $permissiontoadd = $user->hasRight('produit', 'creer');
 
+if (!$permissiontoread) {
+	accessforbidden();
+}
+
+// Security: keep your existing rule (only admin or product finished == 50)
+if (!$user->admin && (int) $object->finished !== 50) {
+	accessforbidden();
+}
+
+if ($action === 'edit' && !$permissiontoadd) {
+	accessforbidden();
+}
+
 // Load existing data
-$sql = "SELECT * FROM ".$db->prefix()."powerplantpv_product_pvpanel";
-$sql .= " WHERE fk_product = ".((int) $object->id);
-//$sql .= " AND entity = ".((int) $conf->entity);
+$panel = null;
+$sql = 'SELECT * FROM '.$db->prefix().'powerplantpv_product_pvpanel';
+$sql .= ' WHERE fk_product = '.((int) $object->id);
 $resql = $db->query($sql);
 if ($resql) {
 	$panel = $db->fetch_object($resql);
 } else {
 	setEventMessages($db->lasterror(), null, 'errors');
-	$panel = null;
 }
 
-if ($action == 'save' && $permissiontoadd) {
+// Save
+if ($action === 'save' && $permissiontoadd) {
 	$fields = array(
 		'pmax', 'power_tolerance', 'module_efficiency', 'vmp', 'imp', 'voc', 'isc',
 		'front_glass_thickness', 'back_glass_thickness', 'cable_section', 'cable_length',
@@ -82,123 +96,173 @@ if ($action == 'save' && $permissiontoadd) {
 		$data[$field] = price2num(GETPOST($field, 'alpha'), 'MT');
 	}
 
+	$db->begin();
+
 	if ($panel) {
 		$sets = array();
 		foreach ($data as $key => $val) {
-			$sets[] = $key."=".($val === '' ? "null" : "'".$db->escape($val)."'");
+			$sets[] = $key.'='.($val === '' ? 'null' : "'".$db->escape($val)."'");
 		}
-		$sql = "UPDATE ".$db->prefix()."powerplantpv_product_pvpanel SET ".implode(',', $sets);
-		$sql .= " WHERE rowid = ".((int) $panel->rowid);
-		//$sql .= " AND entity = ".((int) $conf->entity);
-		$db->query($sql);
+		$sql = 'UPDATE '.$db->prefix().'powerplantpv_product_pvpanel SET '.implode(',', $sets);
+		$sql .= ' WHERE rowid = '.((int) $panel->rowid);
+		$res = $db->query($sql);
 	} else {
-		$cols = array('fk_product'); //, 'entity'
-		$vals = array((int) $object->id); // , (int) $conf->entity
+		$cols = array('fk_product');
+		$vals = array((int) $object->id);
 		foreach ($data as $key => $val) {
 			$cols[] = $key;
-			$vals[] = ($val === '' ? "null" : "'".$db->escape($val)."'");
+			$vals[] = ($val === '' ? 'null' : "'".$db->escape($val)."'");
 		}
-		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_product_pvpanel(".implode(',', $cols).") VALUES(".implode(',', $vals).")";
-		$db->query($sql);
+		$sql = 'INSERT INTO '.$db->prefix().'powerplantpv_product_pvpanel('.implode(',', $cols).') VALUES('.implode(',', $vals).')';
+		$res = $db->query($sql);
 	}
 
-	header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
-	exit;
+	if ($res) {
+		$db->commit();
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.$object->id);
+		exit;
+	}
+
+	$db->rollback();
+	setEventMessages($db->lasterror(), null, 'errors');
+	$action = 'edit';
+}
+
+/**
+ * Helper to print a row in view or edit mode
+ *
+ * @param string $label
+ * @param string $name
+ * @param object|null $panel
+ * @param bool $edit
+ */
+function print_pvpanel_row($label, $name, $panel, $edit)
+{
+	global $langs;
+
+	$value = ($panel && isset($panel->{$name})) ? (string) $panel->{$name} : '';
+
+	print '<tr class="oddeven">';
+	print '<td>'.$label.'</td>';
+	print '<td>';
+	if ($edit) {
+		print '<input class="flat minwidth75" type="text" name="'.$name.'" value="'.dol_escape_htmltag($value).'">';
+	} else {
+		print ($value !== '' ? dol_escape_htmltag($value) : '<span class="opacitymedium">-</span>');
+	}
+	print '</td>';
+	print '</tr>';
 }
 
 $helpurl = '';
 $shortlabel = dol_trunc($object->label, 16);
-$title = $langs->trans('Product')." ".$shortlabel." - ".$langs->trans('Documents');
+$title = $langs->trans('Product').' '.$shortlabel.' - '.$langs->trans('PVPanelTabTitle');
 $helpurl = 'EN:Module_Products|FR:Module_Produits|ES:M&oacute;dulo_Productos';
 
 llxHeader('', $title, $helpurl, '', 0, 0, '', '', '', 'mod-product page-card_product_pvpanel');
 
 $head = product_prepare_head($object, $user);
-/*
 $head[] = array(
 	dol_buildpath('/powerplantpv/product_pvpanel.php', 1).'?id='.$object->id,
 	$langs->trans('PVPanelTabTitle'),
 	'pvpanel'
 );
-*/
-//llxHeader('', $langs->trans('PVPanelTabTitle'));
 
-print dol_get_fiche_head($head, 'pvpanel', $langs->trans("Product"));
-$linkback = '<a href="'.DOL_URL_ROOT.'/product/list.php?restore_lastsearch_values=1&type='.$object->type.'">'.$langs->trans("BackToList").'</a>';
-$object->next_prev_filter = "(te.fk_product_type:=:".((int) $object->type).")";
+print dol_get_fiche_head($head, 'pvpanel', $langs->trans('Product'));
+
+$linkback = '<a href="'.DOL_URL_ROOT.'/product/list.php?restore_lastsearch_values=1&type='.$object->type.'">'.$langs->trans('BackToList').'</a>';
+$object->next_prev_filter = '(te.fk_product_type:=:'.((int) $object->type).')';
 $shownav = 1;
 if ($user->socid && !in_array('product', explode(',', getDolGlobalString('MAIN_MODULES_FOR_EXTERNAL')))) {
 	$shownav = 0;
 }
+
 dol_banner_tab($object, 'ref', $linkback, $shownav, 'ref');
 
-print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
-print '<input type="hidden" name="token" value="'.newToken().'">';
-print '<input type="hidden" name="action" value="save">';
+$editmode = ($action === 'edit');
+
+if ($editmode) {
+	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="action" value="save">';
+}
+
+// Action buttons
+print '<div class="tabsAction">';
+
+if (!$editmode) {
+	if ($permissiontoadd) {
+		print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit">'.$langs->trans('Modify').'</a>';
+	}
+} else {
+	print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+	print '<a class="butActionRefused" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">'.$langs->trans('Cancel').'</a>';
+}
+print '</div>';
 
 print '<div class="fichehalfleft">';
+
 print load_fiche_titre($langs->trans('PVPanelElectricalSTC'), '', '');
 print '<table class="noborder centpercent">';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelNominalPower').'</td><td><input class="flat minwidth75" type="text" name="pmax" value="'.dol_escape_htmltag($panel ? $panel->pmax : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelPowerTolerance').'</td><td><input class="flat minwidth75" type="text" name="power_tolerance" value="'.dol_escape_htmltag($panel ? $panel->power_tolerance : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelVmp').'</td><td><input class="flat minwidth75" type="text" name="vmp" value="'.dol_escape_htmltag($panel ? $panel->vmp : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelImp').'</td><td><input class="flat minwidth75" type="text" name="imp" value="'.dol_escape_htmltag($panel ? $panel->imp : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelVoc').'</td><td><input class="flat minwidth75" type="text" name="voc" value="'.dol_escape_htmltag($panel ? $panel->voc : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelIsc').'</td><td><input class="flat minwidth75" type="text" name="isc" value="'.dol_escape_htmltag($panel ? $panel->isc : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelModuleEfficiency').'</td><td><input class="flat minwidth75" type="text" name="module_efficiency" value="'.dol_escape_htmltag($panel ? $panel->module_efficiency : '').'"></td></tr>';
+print_pvpanel_row($langs->trans('PVPanelNominalPower'), 'pmax', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelPowerTolerance'), 'power_tolerance', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelVmp'), 'vmp', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelImp'), 'imp', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelVoc'), 'voc', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelIsc'), 'isc', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelModuleEfficiency'), 'module_efficiency', $panel, $editmode);
 print '</table><br>';
 
 print load_fiche_titre($langs->trans('PVPanelElectricalNOCT'), '', '');
 print '<table class="noborder centpercent">';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelNOCT').'</td><td><input class="flat minwidth75" type="text" name="noct" value="'.dol_escape_htmltag($panel ? $panel->noct : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelTempCoeffPmax').'</td><td><input class="flat minwidth75" type="text" name="temp_coeff_pmax" value="'.dol_escape_htmltag($panel ? $panel->temp_coeff_pmax : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelTempCoeffVoc').'</td><td><input class="flat minwidth75" type="text" name="temp_coeff_voc" value="'.dol_escape_htmltag($panel ? $panel->temp_coeff_voc : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelTempCoeffIsc').'</td><td><input class="flat minwidth75" type="text" name="temp_coeff_isc" value="'.dol_escape_htmltag($panel ? $panel->temp_coeff_isc : '').'"></td></tr>';
+print_pvpanel_row($langs->trans('PVPanelNOCT'), 'noct', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelTempCoeffPmax'), 'temp_coeff_pmax', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelTempCoeffVoc'), 'temp_coeff_voc', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelTempCoeffIsc'), 'temp_coeff_isc', $panel, $editmode);
 print '</table><br>';
 
 print load_fiche_titre($langs->trans('PVPanelWarranty'), '', '');
 print '<table class="noborder centpercent">';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelProductWarranty').'</td><td><input class="flat minwidth75" type="text" name="product_warranty" value="'.dol_escape_htmltag($panel ? $panel->product_warranty : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelPowerWarranty').'</td><td><input class="flat minwidth75" type="text" name="power_warranty" value="'.dol_escape_htmltag($panel ? $panel->power_warranty : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelFirstYearDegradation').'</td><td><input class="flat minwidth75" type="text" name="first_year_degradation" value="'.dol_escape_htmltag($panel ? $panel->first_year_degradation : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelAnnualDegradation').'</td><td><input class="flat minwidth75" type="text" name="annual_degradation" value="'.dol_escape_htmltag($panel ? $panel->annual_degradation : '').'"></td></tr>';
+print_pvpanel_row($langs->trans('PVPanelProductWarranty'), 'product_warranty', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelPowerWarranty'), 'power_warranty', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelFirstYearDegradation'), 'first_year_degradation', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelAnnualDegradation'), 'annual_degradation', $panel, $editmode);
 print '</table>';
+
 print '</div>';
 
 print '<div class="fichehalfright">';
+
 print load_fiche_titre($langs->trans('PVPanelMechanicalData'), '', '');
 print '<table class="noborder centpercent">';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelFrontGlassThickness').'</td><td><input class="flat minwidth75" type="text" name="front_glass_thickness" value="'.dol_escape_htmltag($panel ? $panel->front_glass_thickness : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelBackGlassThickness').'</td><td><input class="flat minwidth75" type="text" name="back_glass_thickness" value="'.dol_escape_htmltag($panel ? $panel->back_glass_thickness : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelCableSection').'</td><td><input class="flat minwidth75" type="text" name="cable_section" value="'.dol_escape_htmltag($panel ? $panel->cable_section : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelCableLength').'</td><td><input class="flat minwidth75" type="text" name="cable_length" value="'.dol_escape_htmltag($panel ? $panel->cable_length : '').'"></td></tr>';
+print_pvpanel_row($langs->trans('PVPanelFrontGlassThickness'), 'front_glass_thickness', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelBackGlassThickness'), 'back_glass_thickness', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelCableSection'), 'cable_section', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelCableLength'), 'cable_length', $panel, $editmode);
 print '</table><br>';
 
 print load_fiche_titre($langs->trans('PVPanelMaxRatings'), '', '');
 print '<table class="noborder centpercent">';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelMaxSystemVoltage').'</td><td><input class="flat minwidth75" type="text" name="max_system_voltage" value="'.dol_escape_htmltag($panel ? $panel->max_system_voltage : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelMaxSeriesFuse').'</td><td><input class="flat minwidth75" type="text" name="max_series_fuse" value="'.dol_escape_htmltag($panel ? $panel->max_series_fuse : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelOperatingTemperature').'</td><td><input class="flat minwidth75" type="text" name="operating_temperature" value="'.dol_escape_htmltag($panel ? $panel->operating_temperature : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelSnowLoad').'</td><td><input class="flat minwidth75" type="text" name="snow_load" value="'.dol_escape_htmltag($panel ? $panel->snow_load : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelWindLoad').'</td><td><input class="flat minwidth75" type="text" name="wind_load" value="'.dol_escape_htmltag($panel ? $panel->wind_load : '').'"></td></tr>';
+print_pvpanel_row($langs->trans('PVPanelMaxSystemVoltage'), 'max_system_voltage', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelMaxSeriesFuse'), 'max_series_fuse', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelOperatingTemperature'), 'operating_temperature', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelSnowLoad'), 'snow_load', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelWindLoad'), 'wind_load', $panel, $editmode);
 print '</table><br>';
 
 print load_fiche_titre($langs->trans('PVPanelPackaging'), '', '');
 print '<table class="noborder centpercent">';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelModulesPerBox').'</td><td><input class="flat minwidth75" type="text" name="modules_per_box" value="'.dol_escape_htmltag($panel ? $panel->modules_per_box : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('PVPanelModulesPerContainer40').'</td><td><input class="flat minwidth75" type="text" name="modules_per_container40" value="'.dol_escape_htmltag($panel ? $panel->modules_per_container40 : '').'"></td></tr>';
+print_pvpanel_row($langs->trans('PVPanelModulesPerBox'), 'modules_per_box', $panel, $editmode);
+print_pvpanel_row($langs->trans('PVPanelModulesPerContainer40'), 'modules_per_container40', $panel, $editmode);
 print '</table>';
 
 print '</div>';
 
 print '<div class="clearboth"></div>';
-if ($permissiontoadd) {
-	print '<div class="center">';
-	print '<input type="submit" class="button button-save" value="'.$langs->trans("Save").'">';
-	print '</div>';
-}
 
-print '</form>';
+if ($editmode) {
+	print '</form>';
+}
 
 print dol_get_fiche_end();
 
