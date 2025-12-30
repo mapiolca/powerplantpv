@@ -92,7 +92,7 @@ if ($action == 'save' && $permissiontoadd) {
 		//$sql .= " AND entity = ".((int) $conf->entity);
 		$db->query($sql);
 	} else {
-		$cols = array('fk_product', 'entity');
+		$cols = array('fk_product'); //, 'entity'
 		$vals = array((int) $object->id); // , (int) $conf->entity
 		foreach ($data as $key => $val) {
 			$cols[] = $key;
