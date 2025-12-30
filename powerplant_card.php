@@ -485,7 +485,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 
 	print '<div class="fichecenter">';
-	print '<div class="fichehalfleft">';
 	print '<div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfield">'."\n";
 
@@ -503,7 +502,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	print '</table>';
 	print '</div>';
-	print '</div>';
 
 	// EN: Composition sections
 	$sections = array(
@@ -515,7 +513,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		55 => array('label' => $langs->trans('PVDCBox')),
 	);
 
-	print '<div class="fichehalfleft">';
+	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
 	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
 
