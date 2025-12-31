@@ -359,7 +359,8 @@ if (($id || $ref) && $action == 'edit') {
 
 	print dol_get_fiche_head();
 
-	print '<table class="border centpercent tableforfieldedit">'."\n";
+	print '<div class="fichecenter">';
+	print '<div class="underbanner clearboth"></div>';
 
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
@@ -368,12 +369,129 @@ if (($id || $ref) && $action == 'edit') {
 	$object->fields['ref']['visible'] = 5;
 	unset($object->fields['status']);
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
-	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
+
+	$allfields = $object->fields;
+
+	$findKey = function($regexes) use ($allfields, $langs) {
+		foreach ($allfields as $k => $def) {
+			$lab = !empty($def['label']) ? $def['label'] : '';
+			$labt = $lab ? $langs->transnoentitiesnoconv($lab) : '';
+			$hay = $k.' '.$lab.' '.$labt;
+			foreach ($regexes as $re) {
+				if (@preg_match($re, $hay) && preg_match($re, $hay)) {
+					return $k;
+				}
+			}
+		}
+		return '';
+	};
+
+	$k_description = isset($allfields['description']) ? 'description' : $findKey(array('#\bdescription\b#i'));
+	$k_address = isset($allfields['address']) ? 'address' : $findKey(array('#\baddress\b#i', '#adresse#i'));
+	$k_zip = isset($allfields['zip']) ? 'zip' : $findKey(array('#\bzip\b#i', '#code\s*postal#i'));
+	$k_town = isset($allfields['town']) ? 'town' : $findKey(array('#\btown\b#i', '#ville#i'));
+	$k_country = isset($allfields['fk_country']) ? 'fk_country' : $findKey(array('#\bcountry\b#i', '#pays#i'));
+
+	$k_prm_pdl = $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
+	$k_connection_type = $findKey(array('#raccord#i', '#connection\s*type#i'));
+	$k_commissioning_date = $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
+
+	$k_request_no = $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
+	$k_t0_date = $findKey(array('#\bt0\b#i'));
+
+	$k_conn_contract_power = isset($allfields['connection_contract_power']) ? 'connection_contract_power' : $findKey(array('#contract.*power#i', '#puissance.*contrat#i', '#raccordement.*puissance#i'));
+	$k_installed_power = isset($allfields['installed_power']) ? 'installed_power' : $findKey(array('#installed.*power#i', '#puissance.*install#i'));
+
+	$k_purchase_contract_no = $findKey(array('#contrat.*rachat#i', '#purchase.*contract#i'));
+	$k_purchase_tariff = $findKey(array('#tarif.*rachat#i', '#purchase.*tariff#i'));
+
+	$shownkeys = array();
+	foreach (array($k_description, $k_address, $k_zip, $k_town, $k_country, $k_prm_pdl, $k_connection_type, $k_commissioning_date, $k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
+		if (!empty($k)) $shownkeys[$k] = 1;
+	}
+	$shownkeys['ref'] = 1;
+
+	// Left column
+	print '<div class="fichehalfleft">';
+
+	print load_fiche_titre($langs->trans("Localisation"), '', '');
+	print '<table class="border centpercent tableforfieldedit">'."\n";
+	$object->fields = array();
+	foreach (array($k_description, $k_address) as $k) {
+		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
+	}
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+
+	// Zip | Town on same line (inputs)
+	if (!empty($k_zip) || !empty($k_town)) {
+		$zipval = (!empty($k_zip) ? $object->{$k_zip} : '');
+		$townval = (!empty($k_town) ? $object->{$k_town} : '');
+		print '<tr><td class="titlefieldcreate">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td>';
+		if (!empty($k_zip)) {
+			print '<input class="flat maxwidth100" type="text" name="'.$k_zip.'" value="'.dol_escape_htmltag($zipval).'" />';
+		}
+		if (!empty($k_town)) {
+			print ' <input class="flat maxwidth200" type="text" name="'.$k_town.'" value="'.dol_escape_htmltag($townval).'" />';
+		}
+		print '</td></tr>';
+	}
+
+	$object->fields = array();
+	if (!empty($k_country) && isset($allfields[$k_country])) $object->fields[$k_country] = $allfields[$k_country];
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	print '</table>';
+
+	print load_fiche_titre($langs->trans("Réseau"), '', '');
+	print '<table class="border centpercent tableforfieldedit">'."\n";
+	$object->fields = array();
+	foreach (array($k_prm_pdl, $k_connection_type, $k_commissioning_date) as $k) {
+		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
+	}
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	print '</table>';
+
+	print '</div>'; // fichehalfleft
+
+	// Right column
+	print '<div class="fichehalfright">';
+
+	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+	print '<table class="border centpercent tableforfieldedit">'."\n";
+	$object->fields = array();
+	foreach (array($k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
+		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
+	}
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	print '</table>';
+
+	print '</div>'; // fichehalfright
+
+	// Remaining fields + extrafields (full width, no duplicates)
+	print '<div class="clearboth"></div>';
+
+	$object->fields = $allfields;
+	foreach ($shownkeys as $k => $v) {
+		if (isset($object->fields[$k])) unset($object->fields[$k]);
+	}
+
+	print load_fiche_titre($langs->trans("Other"), '', '');
+	print '<table class="border centpercent tableforfieldedit">'."\n";
+
+	if (!empty($object->fields)) {
+		include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	}
 
 	// Other attributes
 	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_edit.tpl.php';
 
 	print '</table>';
+
+	// Restore
+	$object->fields = $allfields;
+
+	print '</div>';
 
 	print dol_get_fiche_end();
 
@@ -450,34 +568,34 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	/*
 		// Ref customer
 		$morehtmlref .= $form->editfieldkey("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string', '', 0, 1);
-		$morehtmlref .= $form->editfieldval("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string'.(getDolGlobalInt('THIRDPARTY_REF_INPUT_SIZE') ? ':'.getDolGlobalInt('THIRDPARTY_REF_INPUT_SIZE') : ''), '', null, null, '', 1);
-		// Thirdparty
-		$morehtmlref .= '<br>'.$object->thirdparty->getNomUrl(1, 'customer');
-		if (!getDolGlobalInt('MAIN_DISABLE_OTHER_LINK') && $object->thirdparty->id > 0) {
-			$morehtmlref .= ' (<a href="'.DOL_URL_ROOT.'/commande/list.php?socid='.$object->thirdparty->id.'&search_societe='.urlencode($object->thirdparty->name).'">'.$langs->trans("OtherOrders").'</a>)';
+		$morehtmlref .= $form->editfieldval("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string', '', null, null, '', 1);
+	*/
+	// Label (under reference)
+	if (!empty($object->label)) {
+		$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("Label").'</span>: '.dol_escape_htmltag($object->label);
+	}
+
+	// Thirdparty (under reference)
+	if (!empty($object->socid)) {
+		$object->fetch_thirdparty();
+		if (!empty($object->thirdparty) && !empty($object->thirdparty->id)) {
+			$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("ThirdParty").'</span>: '.$object->thirdparty->getNomUrl(1, 'customer');
 		}
-		// Project
-		if (isModEnabled('project')) {
-			$langs->load("projects");
-			$morehtmlref .= '<br>';
-			if ($permissiontoadd) {
-				$morehtmlref .= img_picto($langs->trans("Project"), 'project', 'class="pictofixedwidth"');
-				if ($action != 'classify') {
-					$morehtmlref .= '<a class="editfielda" href="'.dolBuildUrl($_SERVER['PHP_SELF'], ['action' => 'classify', 'id' => $object->id], true).'">'.img_edit($langs->transnoentitiesnoconv('SetProject')).'</a> ';
-				}
-				$morehtmlref .= $form->form_project($_SERVER['PHP_SELF'].'?id='.$object->id, $object->socid, $object->fk_project, ($action == 'classify' ? 'projectid' : 'none'), 0, 0, 0, 1, '', 'maxwidth300');
-			} else {
-				if (!empty($object->fk_project)) {
-					$proj = new Project($db);
-					$proj->fetch($object->fk_project);
-					$morehtmlref .= $proj->getNomUrl(1);
-					if ($proj->title) {
-						$morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($proj->title).'</span>';
-					}
-				}
+	}
+
+	// Project (under reference)
+	if (isModEnabled('project') && !empty($object->fk_project)) {
+		require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+		$langs->load("projects");
+		$proj = new Project($db);
+		if ($proj->fetch($object->fk_project) > 0) {
+			$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("Project").'</span>: '.$proj->getNomUrl(1);
+			if (!empty($proj->title)) {
+				$morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($proj->title).'</span>';
 			}
 		}
-	*/
+	}
+
 	$morehtmlref .= '</div>';
 
 
@@ -486,21 +604,135 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
-	print '<table class="border centpercent tableforfield">'."\n";
 
-	// Common attributes
-	//$keyforbreak='fieldkeytoswitchonsecondcolumn';	// We change column just before this field
-	//unset($object->fields['fk_project']);				// Hide field already shown in banner
-	//unset($object->fields['fk_soc']);					// Hide field already shown in banner
+	// Prepare field types
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
 	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
-	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 
-	// Other attributes. Fields from hook formObjectOptions and Extrafields.
-	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
+	$allfields = $object->fields;
 
+	$findKey = function($regexes) use ($allfields, $langs) {
+		foreach ($allfields as $k => $def) {
+			$lab = !empty($def['label']) ? $def['label'] : '';
+			$labt = $lab ? $langs->transnoentitiesnoconv($lab) : '';
+			$hay = $k.' '.$lab.' '.$labt;
+			foreach ($regexes as $re) {
+				if (@preg_match($re, $hay) && preg_match($re, $hay)) {
+					return $k;
+				}
+			}
+		}
+		return '';
+	};
+
+	// Field keys (robust: try standard keys, fallback on label matching)
+	$k_description = isset($allfields['description']) ? 'description' : $findKey(array('#\bdescription\b#i'));
+	$k_address = isset($allfields['address']) ? 'address' : $findKey(array('#\baddress\b#i', '#adresse#i'));
+	$k_zip = isset($allfields['zip']) ? 'zip' : $findKey(array('#\bzip\b#i', '#code\s*postal#i'));
+	$k_town = isset($allfields['town']) ? 'town' : $findKey(array('#\btown\b#i', '#ville#i'));
+	$k_country = isset($allfields['fk_country']) ? 'fk_country' : $findKey(array('#\bcountry\b#i', '#pays#i'));
+
+	$k_prm_pdl = $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
+	$k_connection_type = $findKey(array('#raccord#i', '#connection\s*type#i'));
+	$k_commissioning_date = $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
+
+	$k_request_no = $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
+	$k_t0_date = $findKey(array('#\bt0\b#i'));
+
+	$k_conn_contract_power = isset($allfields['connection_contract_power']) ? 'connection_contract_power' : $findKey(array('#contract.*power#i', '#puissance.*contrat#i', '#raccordement.*puissance#i'));
+	$k_installed_power = isset($allfields['installed_power']) ? 'installed_power' : $findKey(array('#installed.*power#i', '#puissance.*install#i'));
+
+	$k_purchase_contract_no = $findKey(array('#contrat.*rachat#i', '#purchase.*contract#i'));
+	$k_purchase_tariff = $findKey(array('#tarif.*rachat#i', '#purchase.*tariff#i'));
+
+	// Keep track of already printed keys (to avoid duplicates later)
+	$shownkeys = array();
+	foreach (array($k_description, $k_address, $k_zip, $k_town, $k_country, $k_prm_pdl, $k_connection_type, $k_commissioning_date, $k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
+		if (!empty($k)) $shownkeys[$k] = 1;
+	}
+	$shownkeys['ref'] = 1;
+	$shownkeys['label'] = 1;
+	$shownkeys['fk_soc'] = 1;
+	$shownkeys['fk_project'] = 1;
+
+	// Left column
+	print '<div class="fichehalfleft">';
+
+	// Localisation
+	print load_fiche_titre($langs->trans("Localisation"), '', '');
+	print '<table class="border centpercent tableforfield">'."\n";
+	$object->fields = array();
+	foreach (array($k_description, $k_address) as $k) {
+		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
+	}
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
+
+	// Zip | Town on same line
+	if (!empty($k_zip) || !empty($k_town)) {
+		print '<tr><td class="titlefield">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td>';
+		$zipval = (!empty($k_zip) ? $object->{$k_zip} : '');
+		$townval = (!empty($k_town) ? $object->{$k_town} : '');
+		print dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval);
+		print '</td></tr>';
+	}
+
+	$object->fields = array();
+	if (!empty($k_country) && isset($allfields[$k_country])) $object->fields[$k_country] = $allfields[$k_country];
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 	print '</table>';
+
+	// Réseau
+	print load_fiche_titre($langs->trans("Réseau"), '', '');
+	print '<table class="border centpercent tableforfield">'."\n";
+	$object->fields = array();
+	foreach (array($k_prm_pdl, $k_connection_type, $k_commissioning_date) as $k) {
+		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
+	}
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
+	print '</table>';
+
+	print '</div>'; // fichehalfleft
+
+	// Right column
+	print '<div class="fichehalfright">';
+
+	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+	print '<table class="border centpercent tableforfield">'."\n";
+	$object->fields = array();
+	foreach (array($k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
+		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
+	}
+	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
+	print '</table>';
+
+	print '</div>'; // fichehalfright
+
+	// Remaining fields + extrafields (full width, no duplicates)
+	print '<div class="clearboth"></div>';
+
+	$object->fields = $allfields;
+	foreach ($shownkeys as $k => $v) {
+		if (isset($object->fields[$k])) unset($object->fields[$k]);
+	}
+
+	$hasextra = (!empty($extrafields->attributes[$object->element]['label']));
+	if (!empty($object->fields) || $hasextra) {
+		print load_fiche_titre($langs->trans("Other"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+
+		if (!empty($object->fields)) {
+			include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
+		}
+		// Other attributes. Fields from hook formObjectOptions and Extrafields.
+		include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
+
+		print '</table>';
+	}
+
+	// Restore
+	$object->fields = $allfields;
+
 	print '</div>';
 
 	// EN: Composition sections
