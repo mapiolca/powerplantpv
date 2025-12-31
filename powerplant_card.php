@@ -394,18 +394,19 @@ if (($id || $ref) && $action == 'edit') {
 	$k_town = isset($allfields['town']) ? 'town' : $findKey(array('#\btown\b#i', '#ville#i'));
 	$k_country = isset($allfields['fk_country']) ? 'fk_country' : $findKey(array('#\bcountry\b#i', '#pays#i'));
 
-	$k_prm_pdl = $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
-	$k_connection_type = $findKey(array('#raccord#i', '#connection\s*type#i'));
-	$k_commissioning_date = $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
+	$k_prm_pdl = isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
+	// Be strict here: '#raccord#i' matches also "Puissance du contrat de raccordement".
+	$k_connection_type = isset($allfields['connection_type']) ? 'connection_type' : $findKey(array('#type\s*de\s*raccord#i', '#type.*raccord#i', '#connection\s*type#i'));
+	$k_commissioning_date = isset($allfields['commissioning_date']) ? 'commissioning_date' : $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
 
-	$k_request_no = $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
-	$k_t0_date = $findKey(array('#\bt0\b#i'));
+	$k_request_no = isset($allfields['connection_request_number']) ? 'connection_request_number' : $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
+	$k_t0_date = isset($allfields['t0_obtention_date']) ? 't0_obtention_date' : $findKey(array('#\bt0\b#i'));
 
 	$k_conn_contract_power = isset($allfields['connection_contract_power']) ? 'connection_contract_power' : $findKey(array('#contract.*power#i', '#puissance.*contrat#i', '#raccordement.*puissance#i'));
 	$k_installed_power = isset($allfields['installed_power']) ? 'installed_power' : $findKey(array('#installed.*power#i', '#puissance.*install#i'));
 
-	$k_purchase_contract_no = $findKey(array('#contrat.*rachat#i', '#purchase.*contract#i'));
-	$k_purchase_tariff = $findKey(array('#tarif.*rachat#i', '#purchase.*tariff#i'));
+	$k_purchase_contract_no = isset($allfields['buyback_contract_number']) ? 'buyback_contract_number' : $findKey(array('#contrat\s*de\s*rachat#i', '#contrat.*rachat(?!.*raccord)#i', '#buyback.*contract#i', '#purchase.*contract#i'));
+	$k_purchase_tariff = isset($allfields['buyback_tariff']) ? 'buyback_tariff' : $findKey(array('#tarif.*rachat#i', '#buyback.*tariff#i', '#purchase.*tariff#i'));
 
 	$shownkeys = array();
 	foreach (array($k_description, $k_address, $k_zip, $k_town, $k_country, $k_prm_pdl, $k_connection_type, $k_commissioning_date, $k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
@@ -418,29 +419,40 @@ if (($id || $ref) && $action == 'edit') {
 
 	print load_fiche_titre($langs->trans("Localisation"), '', '');
 	print '<table class="border centpercent tableforfieldedit">'."\n";
+	// IMPORTANT: commonfields_edit.tpl.php outputs its own <tbody>...</tbody>.
+	// If we include it multiple times and/or print <tr> outside the <tbody>, the browser will "repair" the DOM and break the 2-column layout.
+	// So we include the template ONCE and inject our custom "Zip | Town" row just before </tbody>.
 	$object->fields = array();
-	foreach (array($k_description, $k_address) as $k) {
+	foreach (array($k_description, $k_address, $k_country) as $k) {
 		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
 	}
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 
-	// Zip | Town on same line (inputs)
+	$customrow = '';
 	if (!empty($k_zip) || !empty($k_town)) {
 		$zipval = (!empty($k_zip) ? $object->{$k_zip} : '');
 		$townval = (!empty($k_town) ? $object->{$k_town} : '');
-		print '<tr><td class="titlefieldcreate">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td>';
+		$customrow .= '<tr><td class="titlefieldcreate">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td>';
 		if (!empty($k_zip)) {
-			print '<input class="flat maxwidth100" type="text" name="'.$k_zip.'" value="'.dol_escape_htmltag($zipval).'" />';
+			$customrow .= '<input class="flat maxwidth100" type="text" name="'.$k_zip.'" value="'.dol_escape_htmltag($zipval).'" />';
 		}
 		if (!empty($k_town)) {
-			print ' <input class="flat maxwidth200" type="text" name="'.$k_town.'" value="'.dol_escape_htmltag($townval).'" />';
+			$customrow .= ' <input class="flat maxwidth200" type="text" name="'.$k_town.'" value="'.dol_escape_htmltag($townval).'" />';
 		}
-		print '</td></tr>';
+		$customrow .= '</td></tr>';
 	}
 
-	$object->fields = array();
-	if (!empty($k_country) && isset($allfields[$k_country])) $object->fields[$k_country] = $allfields[$k_country];
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	ob_start();
+	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	$out = ob_get_clean();
+	if (!empty($customrow)) {
+		$pos = strripos($out, '</tbody>');
+		if ($pos !== false) {
+			$out = substr($out, 0, $pos).$customrow.substr($out, $pos);
+		} else {
+			$out .= $customrow;
+		}
+	}
+	print $out;
 	print '</table>';
 
 	print load_fiche_titre($langs->trans("Réseau"), '', '');
@@ -633,18 +645,19 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	$k_town = isset($allfields['town']) ? 'town' : $findKey(array('#\btown\b#i', '#ville#i'));
 	$k_country = isset($allfields['fk_country']) ? 'fk_country' : $findKey(array('#\bcountry\b#i', '#pays#i'));
 
-	$k_prm_pdl = $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
-	$k_connection_type = $findKey(array('#raccord#i', '#connection\s*type#i'));
-	$k_commissioning_date = $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
+	$k_prm_pdl = isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
+	// Be strict here: '#raccord#i' matches also "Puissance du contrat de raccordement".
+	$k_connection_type = isset($allfields['connection_type']) ? 'connection_type' : $findKey(array('#type\s*de\s*raccord#i', '#type.*raccord#i', '#connection\s*type#i'));
+	$k_commissioning_date = isset($allfields['commissioning_date']) ? 'commissioning_date' : $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
 
-	$k_request_no = $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
-	$k_t0_date = $findKey(array('#\bt0\b#i'));
+	$k_request_no = isset($allfields['connection_request_number']) ? 'connection_request_number' : $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
+	$k_t0_date = isset($allfields['t0_obtention_date']) ? 't0_obtention_date' : $findKey(array('#\bt0\b#i'));
 
 	$k_conn_contract_power = isset($allfields['connection_contract_power']) ? 'connection_contract_power' : $findKey(array('#contract.*power#i', '#puissance.*contrat#i', '#raccordement.*puissance#i'));
 	$k_installed_power = isset($allfields['installed_power']) ? 'installed_power' : $findKey(array('#installed.*power#i', '#puissance.*install#i'));
 
-	$k_purchase_contract_no = $findKey(array('#contrat.*rachat#i', '#purchase.*contract#i'));
-	$k_purchase_tariff = $findKey(array('#tarif.*rachat#i', '#purchase.*tariff#i'));
+	$k_purchase_contract_no = isset($allfields['buyback_contract_number']) ? 'buyback_contract_number' : $findKey(array('#contrat\s*de\s*rachat#i', '#contrat.*rachat(?!.*raccord)#i', '#buyback.*contract#i', '#purchase.*contract#i'));
+	$k_purchase_tariff = isset($allfields['buyback_tariff']) ? 'buyback_tariff' : $findKey(array('#tarif.*rachat#i', '#buyback.*tariff#i', '#purchase.*tariff#i'));
 
 	// Keep track of already printed keys (to avoid duplicates later)
 	$shownkeys = array();
@@ -662,24 +675,35 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// Localisation
 	print load_fiche_titre($langs->trans("Localisation"), '', '');
 	print '<table class="border centpercent tableforfield">'."\n";
+	// IMPORTANT: commonfields_view.tpl.php outputs its own <tbody>...</tbody>.
+	// To keep valid HTML (and avoid browser DOM "repairs" that break the 2-column layout), include it ONCE.
+	// We inject our custom "Zip | Town" row just before </tbody>.
 	$object->fields = array();
-	foreach (array($k_description, $k_address) as $k) {
+	foreach (array($k_description, $k_address, $k_country) as $k) {
 		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
 	}
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 
-	// Zip | Town on same line
+	$customrow = '';
 	if (!empty($k_zip) || !empty($k_town)) {
-		print '<tr><td class="titlefield">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td>';
 		$zipval = (!empty($k_zip) ? $object->{$k_zip} : '');
 		$townval = (!empty($k_town) ? $object->{$k_town} : '');
-		print dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval);
-		print '</td></tr>';
+		$customrow .= '<tr><td class="titlefieldmiddle">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td class="valuefield">';
+		$customrow .= dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval);
+		$customrow .= '</td></tr>';
 	}
 
-	$object->fields = array();
-	if (!empty($k_country) && isset($allfields[$k_country])) $object->fields[$k_country] = $allfields[$k_country];
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
+	ob_start();
+	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
+	$out = ob_get_clean();
+	if (!empty($customrow)) {
+		$pos = strripos($out, '</tbody>');
+		if ($pos !== false) {
+			$out = substr($out, 0, $pos).$customrow.substr($out, $pos);
+		} else {
+			$out .= $customrow;
+		}
+	}
+	print $out;
 	print '</table>';
 
 	// Réseau
