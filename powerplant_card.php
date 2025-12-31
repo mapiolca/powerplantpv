@@ -469,19 +469,19 @@ if (($id || $ref) && $action == 'edit') {
 		// Right column
 		print '<div class="fichehalfright">';
 
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
-		print '<table class="border centpercent tableforfieldedit">'."\n";
-		$printRowEdit($k_contract_power);
-		$printRowEdit($k_commissioning_date);
-		$printRowEdit($k_connection_request_no);
-		print '</table>';
-
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_t0_date);
 		$printRowEdit($k_installed_power);
 		$printRowEdit($k_purchase_contract_no);
 		$printRowEdit($k_purchase_tariff);
+		print '</table>';
+
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_contract_power);
+		$printRowEdit($k_commissioning_date);
+		$printRowEdit($k_connection_request_no);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
