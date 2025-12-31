@@ -479,7 +479,8 @@ if (($id || $ref) && $action == 'edit') {
 	print '</table>';
 
 	print '</div>'; // fichehalfright
-
+	print '</div>';
+	print '<div class="fichecenter">';
 	// Remaining fields + extrafields (full width, no duplicates)
 	print '<div class="clearboth"></div>';
 
