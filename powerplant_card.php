@@ -388,31 +388,28 @@ if (($id || $ref) && $action == 'edit') {
 		return '';
 	};
 
-	$k_description = isset($allfields['description']) ? 'description' : $findKey(array('#\bdescription\b#i'));
-	$k_address = isset($allfields['address']) ? 'address' : $findKey(array('#\baddress\b#i', '#adresse#i'));
-	$k_zip = isset($allfields['zip']) ? 'zip' : $findKey(array('#\bzip\b#i', '#code\s*postal#i'));
-	$k_town = isset($allfields['town']) ? 'town' : $findKey(array('#\btown\b#i', '#ville#i'));
-	$k_country = isset($allfields['fk_country']) ? 'fk_country' : $findKey(array('#\bcountry\b#i', '#pays#i'));
 
-	$k_prm_pdl = isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
-	// Be strict here: '#raccord#i' matches also "Puissance du contrat de raccordement".
-	$k_connection_type = isset($allfields['connection_type']) ? 'connection_type' : $findKey(array('#type\s*de\s*raccord#i', '#type.*raccord#i', '#connection\s*type#i'));
-	$k_commissioning_date = isset($allfields['commissioning_date']) ? 'commissioning_date' : $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
+// Field keys (explicit)
+$k_description = 'description';
+$k_address = 'address';
+$k_zip = 'zip';
+$k_town = 'town';
+$k_country = 'fk_country';
 
-	$k_request_no = isset($allfields['connection_request_number']) ? 'connection_request_number' : $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
-	$k_t0_date = isset($allfields['t0_obtention_date']) ? 't0_obtention_date' : $findKey(array('#\bt0\b#i'));
+// Réseau (2 colonnes)
+$k_enedis_commissioning_date = 'enedis_commissioning_date'; // Date de mise en service ENEDIS
+$k_connection_request_number = 'connection_request_number'; // N° de demande de raccordement
+$k_prm_pdl = isset($allfields['prm_pdl']) ? 'prm_pdl' : (isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : 'prm_pdl');
+$k_connection_type = 'connection_type';
+$k_commissioning_date = 'commissioning_date'; // Date de mise en service
+$k_connection_request_no = 'connection_request_no';
 
-	$k_conn_contract_power = isset($allfields['connection_contract_power']) ? 'connection_contract_power' : $findKey(array('#contract.*power#i', '#puissance.*contrat#i', '#raccordement.*puissance#i'));
-	$k_installed_power = isset($allfields['installed_power']) ? 'installed_power' : $findKey(array('#installed.*power#i', '#puissance.*install#i'));
-
-	$k_purchase_contract_no = isset($allfields['buyback_contract_number']) ? 'buyback_contract_number' : $findKey(array('#contrat\s*de\s*rachat#i', '#contrat.*rachat(?!.*raccord)#i', '#buyback.*contract#i', '#purchase.*contract#i'));
-	$k_purchase_tariff = isset($allfields['buyback_tariff']) ? 'buyback_tariff' : $findKey(array('#tarif.*rachat#i', '#buyback.*tariff#i', '#purchase.*tariff#i'));
-
-	$shownkeys = array();
-	foreach (array($k_description, $k_address, $k_zip, $k_town, $k_country, $k_prm_pdl, $k_connection_type, $k_commissioning_date, $k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
-		if (!empty($k)) $shownkeys[$k] = 1;
-	}
-	$shownkeys['ref'] = 1;
+// Contrats
+$k_t0_date = 't0_obtention_date';
+$k_connection_contract_power = 'connection_contract_power';
+$k_installed_power = 'installed_power';
+$k_purchase_contract_no = 'buyback_contract_number';
+$k_purchase_tariff = 'buyback_tariff';
 
 	// Helpers for structured rendering (no commonfields_* tpl includes)
 		$printRowEdit = function($key, $labelOverride = '', $morecss = '') use ($object, $langs) {
@@ -462,26 +459,28 @@ if (($id || $ref) && $action == 'edit') {
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_prm_pdl);
 		$printRowEdit($k_connection_type);
-		print '</table>';
+		$printRowEdit($k_commissioning_date);
+				print '</table>';
 
 		print '</div>'; // fichehalfleft
 
 		// Right column
 		print '<div class="fichehalfright">';
 
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_enedis_commissioning_date);
+		$printRowEdit($k_connection_request_number);
+		$printRowEdit($k_connection_request_no);
+		print '</table>';
+
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_t0_date);
+		$printRowEdit($k_connection_contract_power);
 		$printRowEdit($k_installed_power);
 		$printRowEdit($k_purchase_contract_no);
 		$printRowEdit($k_purchase_tariff);
-		print '</table>';
-
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
-		print '<table class="border centpercent tableforfieldedit">'."\n";
-		$printRowEdit($k_conn_contract_power);
-		$printRowEdit($k_commissioning_date);
-		$printRowEdit($k_connection_request_no);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
@@ -493,10 +492,14 @@ if (($id || $ref) && $action == 'edit') {
 		foreach (array(
 			$k_description, $k_address, $k_zip, $k_town, $k_country,
 			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
-			$k_connection_request_no, $k_t0_date, $k_contract_power, $k_installed_power,
+			$k_enedis_commissioning_date, $k_connection_request_number, $k_connection_request_no,
+			$k_t0_date, $k_connection_contract_power, $k_installed_power,
 			$k_purchase_contract_no, $k_purchase_tariff,
-			'ref', 'status'
+			'ref', 'label', 'fk_soc', 'socid', 'fk_project', 'status'
 		) as $k) {
+
+
+
 			if (!empty($k)) $exclude[$k] = 1;
 		}
 
@@ -675,35 +678,28 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	};
 
 	// Field keys (robust: try standard keys, fallback on label matching)
-	$k_description = isset($allfields['description']) ? 'description' : $findKey(array('#\bdescription\b#i'));
-	$k_address = isset($allfields['address']) ? 'address' : $findKey(array('#\baddress\b#i', '#adresse#i'));
-	$k_zip = isset($allfields['zip']) ? 'zip' : $findKey(array('#\bzip\b#i', '#code\s*postal#i'));
-	$k_town = isset($allfields['town']) ? 'town' : $findKey(array('#\btown\b#i', '#ville#i'));
-	$k_country = isset($allfields['fk_country']) ? 'fk_country' : $findKey(array('#\bcountry\b#i', '#pays#i'));
 
-	$k_prm_pdl = isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : $findKey(array('#\bprm\b#i', '#\bpdl\b#i'));
-	// Be strict here: '#raccord#i' matches also "Puissance du contrat de raccordement".
-	$k_connection_type = isset($allfields['connection_type']) ? 'connection_type' : $findKey(array('#type\s*de\s*raccord#i', '#type.*raccord#i', '#connection\s*type#i'));
-	$k_commissioning_date = isset($allfields['commissioning_date']) ? 'commissioning_date' : $findKey(array('#mise\s*en\s*service#i', '#commission#i', '#service\s*date#i'));
+// Field keys (explicit)
+$k_description = 'description';
+$k_address = 'address';
+$k_zip = 'zip';
+$k_town = 'town';
+$k_country = 'fk_country';
 
-	$k_request_no = isset($allfields['connection_request_number']) ? 'connection_request_number' : $findKey(array('#demande.*raccord#i', '#request.*connect#i'));
-	$k_t0_date = isset($allfields['t0_obtention_date']) ? 't0_obtention_date' : $findKey(array('#\bt0\b#i'));
+// Réseau (2 colonnes)
+$k_enedis_commissioning_date = 'enedis_commissioning_date'; // Date de mise en service ENEDIS
+$k_connection_request_number = 'connection_request_number'; // N° de demande de raccordement
+$k_prm_pdl = isset($allfields['prm_pdl']) ? 'prm_pdl' : (isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : 'prm_pdl');
+$k_connection_type = 'connection_type';
+$k_commissioning_date = 'commissioning_date'; // Date de mise en service
+$k_connection_request_no = 'connection_request_no';
 
-	$k_conn_contract_power = isset($allfields['connection_contract_power']) ? 'connection_contract_power' : $findKey(array('#contract.*power#i', '#puissance.*contrat#i', '#raccordement.*puissance#i'));
-	$k_installed_power = isset($allfields['installed_power']) ? 'installed_power' : $findKey(array('#installed.*power#i', '#puissance.*install#i'));
-
-	$k_purchase_contract_no = isset($allfields['buyback_contract_number']) ? 'buyback_contract_number' : $findKey(array('#contrat\s*de\s*rachat#i', '#contrat.*rachat(?!.*raccord)#i', '#buyback.*contract#i', '#purchase.*contract#i'));
-	$k_purchase_tariff = isset($allfields['buyback_tariff']) ? 'buyback_tariff' : $findKey(array('#tarif.*rachat#i', '#buyback.*tariff#i', '#purchase.*tariff#i'));
-
-	// Keep track of already printed keys (to avoid duplicates later)
-	$shownkeys = array();
-	foreach (array($k_description, $k_address, $k_zip, $k_town, $k_country, $k_prm_pdl, $k_connection_type, $k_commissioning_date, $k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff, $k_connection_request_no) as $k) {
-		if (!empty($k)) $shownkeys[$k] = 1;
-	}
-	$shownkeys['ref'] = 1;
-	$shownkeys['label'] = 1;
-	$shownkeys['fk_soc'] = 1;
-	$shownkeys['fk_project'] = 1;
+// Contrats
+$k_t0_date = 't0_obtention_date';
+$k_connection_contract_power = 'connection_contract_power';
+$k_installed_power = 'installed_power';
+$k_purchase_contract_no = 'buyback_contract_number';
+$k_purchase_tariff = 'buyback_tariff';
 
 	// Helpers for structured rendering (no commonfields_* tpl includes)
 		$printRowView = function($key, $labelOverride = '', $valueOverride = null) use ($object, $langs) {
@@ -748,26 +744,28 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_prm_pdl);
 		$printRowView($k_connection_type);
-		print '</table>';
+		$printRowView($k_commissioning_date);
+				print '</table>';
 
 		print '</div>'; // fichehalfleft
 
 		// Right column
 		print '<div class="fichehalfright">';
 
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_enedis_commissioning_date);
+		$printRowView($k_connection_request_number);
+		$printRowView($k_connection_request_no);
+		print '</table>';
+
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_t0_date);
+		$printRowView($k_connection_contract_power);
 		$printRowView($k_installed_power);
 		$printRowView($k_purchase_contract_no);
 		$printRowView($k_purchase_tariff);
-		print '</table>';
-
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
-		print '<table class="border centpercent tableforfield">'."\n";
-		$printRowView($k_conn_contract_power);
-		$printRowView($k_commissioning_date);
-		$printRowView($k_connection_request_no);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
@@ -779,10 +777,12 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		foreach (array(
 			$k_description, $k_address, $k_zip, $k_town, $k_country,
 			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
-			$k_connection_request_no, $k_t0_date, $k_contract_power, $k_installed_power,
+			$k_enedis_commissioning_date, $k_connection_request_number, $k_connection_request_no,
+			$k_t0_date, $k_connection_contract_power, $k_installed_power,
 			$k_purchase_contract_no, $k_purchase_tariff,
 			'ref', 'label', 'fk_soc', 'socid', 'fk_project', 'status'
 		) as $k) {
+
 			if (!empty($k)) $exclude[$k] = 1;
 		}
 
