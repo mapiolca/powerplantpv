@@ -479,7 +479,7 @@ if (($id || $ref) && $action == 'edit') {
 
 		print load_fiche_titre($langs->trans("Réseau"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
-		$printRowEdit($k_contract_power);
+		$printRowEdit($k_conn_contract_power);
 		$printRowEdit($k_commissioning_date);
 		$printRowEdit($k_connection_request_no);
 		print '</table>';
@@ -765,7 +765,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 		print load_fiche_titre($langs->trans("Réseau"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
-		$printRowView($k_contract_power);
+		$printRowView($k_conn_contract_power);
 		$printRowView($k_commissioning_date);
 		$printRowView($k_connection_request_no);
 		print '</table>';
