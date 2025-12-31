@@ -455,12 +455,6 @@ if (($id || $ref) && $action == 'edit') {
 	print $out;
 	print '</table>';
 
-	print '</div>'; // fichehalfleft
-
-	// Right column
-	print '<div class="fichehalfright">';
-
-
 	print load_fiche_titre($langs->trans("Réseau"), '', '');
 	print '<table class="border centpercent tableforfieldedit">'."\n";
 	$object->fields = array();
@@ -711,9 +705,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	}
 	print $out;
 	print '</table>';
-	print '</div>'; // fichehalfleft
-
-	print '<div class="fichehalfleft">';
 
 	// Réseau
 	print load_fiche_titre($langs->trans("Réseau"), '', '');
