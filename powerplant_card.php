@@ -462,7 +462,6 @@ if (($id || $ref) && $action == 'edit') {
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_prm_pdl);
 		$printRowEdit($k_connection_type);
-		$printRowEdit($k_commissioning_date);
 		print '</table>';
 
 		print '</div>'; // fichehalfleft
@@ -470,11 +469,16 @@ if (($id || $ref) && $action == 'edit') {
 		// Right column
 		print '<div class="fichehalfright">';
 
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_contract_power);
+		$printRowEdit($k_commissioning_date);
+		$printRowEdit($k_connection_request_no);
+		print '</table>';
+
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
-		$printRowEdit($k_connection_request_no);
 		$printRowEdit($k_t0_date);
-		$printRowEdit($k_contract_power);
 		$printRowEdit($k_installed_power);
 		$printRowEdit($k_purchase_contract_no);
 		$printRowEdit($k_purchase_tariff);
@@ -491,7 +495,7 @@ if (($id || $ref) && $action == 'edit') {
 			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
 			$k_connection_request_no, $k_t0_date, $k_contract_power, $k_installed_power,
 			$k_purchase_contract_no, $k_purchase_tariff,
-			'ref'
+			'ref', 'status'
 		) as $k) {
 			if (!empty($k)) $exclude[$k] = 1;
 		}
@@ -744,7 +748,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_prm_pdl);
 		$printRowView($k_connection_type);
-		$printRowView($k_commissioning_date);
 		print '</table>';
 
 		print '</div>'; // fichehalfleft
@@ -752,11 +755,16 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		// Right column
 		print '<div class="fichehalfright">';
 
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_contract_power);
+		$printRowView($k_commissioning_date);
+		$printRowView($k_connection_request_no);
+		print '</table>';
+
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
-		$printRowView($k_connection_request_no);
 		$printRowView($k_t0_date);
-		$printRowView($k_contract_power);
 		$printRowView($k_installed_power);
 		$printRowView($k_purchase_contract_no);
 		$printRowView($k_purchase_tariff);
@@ -773,7 +781,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
 			$k_connection_request_no, $k_t0_date, $k_contract_power, $k_installed_power,
 			$k_purchase_contract_no, $k_purchase_tariff,
-			'ref', 'label', 'fk_soc', 'socid', 'fk_project'
+			'ref', 'label', 'fk_soc', 'socid', 'fk_project', 'status'
 		) as $k) {
 			if (!empty($k)) $exclude[$k] = 1;
 		}
