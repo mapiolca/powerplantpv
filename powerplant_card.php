@@ -467,20 +467,19 @@ $k_purchase_tariff = 'buyback_tariff';
 		// Right column
 		print '<div class="fichehalfright">';
 
+		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_t0_date);
+		$printRowEdit($k_installed_power);
+		$printRowEdit($k_purchase_contract_no);
+		$printRowEdit($k_purchase_tariff);
+		print '</table>';
+
 		print load_fiche_titre($langs->trans("Réseau"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_enedis_commissioning_date);
 		$printRowEdit($k_connection_request_number);
-		$printRowEdit($k_connection_request_no);
-		print '</table>';
-
-		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
-		print '<table class="border centpercent tableforfieldedit">'."\n";
-		$printRowEdit($k_t0_date);
 		$printRowEdit($k_connection_contract_power);
-		$printRowEdit($k_installed_power);
-		$printRowEdit($k_purchase_contract_no);
-		$printRowEdit($k_purchase_tariff);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
@@ -755,7 +754,6 @@ $k_purchase_tariff = 'buyback_tariff';
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_t0_date);
-		$printRowView($k_connection_contract_power);
 		$printRowView($k_installed_power);
 		$printRowView($k_purchase_contract_no);
 		$printRowView($k_purchase_tariff);
@@ -765,7 +763,7 @@ $k_purchase_tariff = 'buyback_tariff';
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_enedis_commissioning_date);
 		$printRowView($k_connection_request_number);
-		$printRowView($k_connection_request_no);
+		$printRowView($k_connection_contract_power);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
