@@ -697,7 +697,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	// Keep track of already printed keys (to avoid duplicates later)
 	$shownkeys = array();
-	foreach (array($k_description, $k_address, $k_zip, $k_town, $k_country, $k_prm_pdl, $k_connection_type, $k_commissioning_date, $k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
+	foreach (array($k_description, $k_address, $k_zip, $k_town, $k_country, $k_prm_pdl, $k_connection_type, $k_commissioning_date, $k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff, $k_connection_request_no) as $k) {
 		if (!empty($k)) $shownkeys[$k] = 1;
 	}
 	$shownkeys['ref'] = 1;
