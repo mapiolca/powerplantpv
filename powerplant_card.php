@@ -755,19 +755,19 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		// Right column
 		print '<div class="fichehalfright">';
 
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
-		print '<table class="border centpercent tableforfield">'."\n";
-		$printRowView($k_contract_power);
-		$printRowView($k_commissioning_date);
-		$printRowView($k_connection_request_no);
-		print '</table>';
-
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_t0_date);
 		$printRowView($k_installed_power);
 		$printRowView($k_purchase_contract_no);
 		$printRowView($k_purchase_tariff);
+		print '</table>';
+
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_contract_power);
+		$printRowView($k_commissioning_date);
+		$printRowView($k_connection_request_no);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
