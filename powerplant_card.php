@@ -359,9 +359,6 @@ if (($id || $ref) && $action == 'edit') {
 
 	print dol_get_fiche_head();
 
-	print '<div class="fichecenter">';
-	print '<div class="underbanner clearboth"></div>';
-
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
 	$object->fields['ref']['type'] = 'string';
@@ -413,10 +410,7 @@ if (($id || $ref) && $action == 'edit') {
 		if (!empty($k)) $shownkeys[$k] = 1;
 	}
 	$shownkeys['ref'] = 1;
-
-	// Left column
-	print '<div class="fichehalfleft">';
-
+	
 	print load_fiche_titre($langs->trans("Localisation"), '', '');
 	print '<table class="border centpercent tableforfieldedit">'."\n";
 	// IMPORTANT: commonfields_edit.tpl.php outputs its own <tbody>...</tbody>.
@@ -464,11 +458,6 @@ if (($id || $ref) && $action == 'edit') {
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 	print '</table>';
 
-	print '</div>'; // fichehalfleft
-
-	// Right column
-	print '<div class="fichehalfright">';
-
 	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 	print '<table class="border centpercent tableforfieldedit">'."\n";
 	$object->fields = array();
@@ -477,12 +466,6 @@ if (($id || $ref) && $action == 'edit') {
 	}
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 	print '</table>';
-
-	print '</div>'; // fichehalfright
-	print '</div>';
-	print '<div class="fichecenter">';
-	// Remaining fields + extrafields (full width, no duplicates)
-	print '<div class="clearboth"></div>';
 
 	$object->fields = $allfields;
 	foreach ($shownkeys as $k => $v) {
@@ -503,8 +486,6 @@ if (($id || $ref) && $action == 'edit') {
 
 	// Restore
 	$object->fields = $allfields;
-
-	print '</div>';
 
 	print dol_get_fiche_end();
 
@@ -615,9 +596,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
 
-	print '<div class="fichecenter">';
-	print '<div class="underbanner clearboth"></div>';
-
 	// Prepare field types
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
@@ -670,9 +648,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	$shownkeys['fk_soc'] = 1;
 	$shownkeys['fk_project'] = 1;
 
-	// Left column
-	print '<div class="fichehalfleft">';
-
 	// Localisation
 	print load_fiche_titre($langs->trans("Localisation"), '', '');
 	print '<table class="border centpercent tableforfield">'."\n";
@@ -717,11 +692,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 	print '</table>';
 
-	print '</div>'; // fichehalfleft
-
-	// Right column
-	print '<div class="fichehalfright">';
-
 	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 	print '<table class="border centpercent tableforfield">'."\n";
 	$object->fields = array();
@@ -730,11 +700,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	}
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 	print '</table>';
-
-	print '</div>'; // fichehalfright
-
-	// Remaining fields + extrafields (full width, no duplicates)
-	print '<div class="clearboth"></div>';
 
 	$object->fields = $allfields;
 	foreach ($shownkeys as $k => $v) {
@@ -757,8 +722,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	// Restore
 	$object->fields = $allfields;
-
-	print '</div>';
 
 	// EN: Composition sections
 	$sections = array(
