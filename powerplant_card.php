@@ -415,7 +415,7 @@ if (($id || $ref) && $action == 'edit') {
 	$shownkeys['ref'] = 1;
 
 	// Left column
-	print '<div class="fichehalfleft">';
+	//print '<div class="fichehalfleft">';
 
 	print load_fiche_titre($langs->trans("Localisation"), '', '');
 	print '<table class="border centpercent tableforfieldedit">'."\n";
@@ -464,10 +464,10 @@ if (($id || $ref) && $action == 'edit') {
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 	print '</table>';
 
-	print '</div>'; // fichehalfleft
+	//print '</div>'; // fichehalfleft
 
 	// Right column
-	print '<div class="fichehalfright">';
+	//print '<div class="fichehalfright">';
 
 	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 	print '<table class="border centpercent tableforfieldedit">'."\n";
@@ -478,7 +478,7 @@ if (($id || $ref) && $action == 'edit') {
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
 	print '</table>';
 
-	print '</div>'; // fichehalfright
+	//print '</div>'; // fichehalfright
 
 	// Remaining fields + extrafields (full width, no duplicates)
 	print '<div class="clearboth"></div>';
@@ -670,7 +670,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	$shownkeys['fk_project'] = 1;
 
 	// Left column
-	print '<div class="fichehalfleft">';
+	//print '<div class="fichehalfleft">';
 
 	// Localisation
 	print load_fiche_titre($langs->trans("Localisation"), '', '');
@@ -716,10 +716,10 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 	print '</table>';
 
-	print '</div>'; // fichehalfleft
+	//print '</div>'; // fichehalfleft
 
 	// Right column
-	print '<div class="fichehalfright">';
+	//print '<div class="fichehalfright">';
 
 	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 	print '<table class="border centpercent tableforfield">'."\n";
@@ -730,7 +730,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 	print '</table>';
 
-	print '</div>'; // fichehalfright
+	//print '</div>'; // fichehalfright
 
 	// Remaining fields + extrafields (full width, no duplicates)
 	print '<div class="clearboth"></div>';
@@ -1025,3 +1025,4 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 // End of page
 llxFooter();
 $db->close();
+
