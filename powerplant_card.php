@@ -359,6 +359,9 @@ if (($id || $ref) && $action == 'edit') {
 
 	print dol_get_fiche_head();
 
+	print '<div class="fichecenter">';
+	print '<div class="underbanner clearboth"></div>';
+
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
 	$object->fields['ref']['type'] = 'string';
@@ -410,82 +413,129 @@ if (($id || $ref) && $action == 'edit') {
 		if (!empty($k)) $shownkeys[$k] = 1;
 	}
 	$shownkeys['ref'] = 1;
-	
-	print load_fiche_titre($langs->trans("Localisation"), '', '');
-	print '<table class="border centpercent tableforfieldedit">'."\n";
-	// IMPORTANT: commonfields_edit.tpl.php outputs its own <tbody>...</tbody>.
-	// If we include it multiple times and/or print <tr> outside the <tbody>, the browser will "repair" the DOM and break the 2-column layout.
-	// So we include the template ONCE and inject our custom "Zip | Town" row just before </tbody>.
-	$object->fields = array();
-	foreach (array($k_description, $k_address, $k_country) as $k) {
-		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
-	}
 
-	$customrow = '';
-	if (!empty($k_zip) || !empty($k_town)) {
-		$zipval = (!empty($k_zip) ? $object->{$k_zip} : '');
-		$townval = (!empty($k_town) ? $object->{$k_town} : '');
-		$customrow .= '<tr><td class="titlefieldcreate">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td>';
-		if (!empty($k_zip)) {
-			$customrow .= '<input class="flat maxwidth100" type="text" name="'.$k_zip.'" value="'.dol_escape_htmltag($zipval).'" />';
+	// Helpers for structured rendering (no commonfields_* tpl includes)
+		$printRowEdit = function($key, $labelOverride = '', $morecss = '') use ($object, $langs) {
+			if (empty($key) || empty($object->fields[$key])) return;
+
+			$def = $object->fields[$key];
+			$label = $labelOverride ?: $langs->trans(!empty($def['label']) ? $def['label'] : $key);
+			$value = (isset($object->$key) ? $object->$key : '');
+
+			print '<tr class="field_'.$key.'">';
+			print '<td class="titlefieldcreate">'.$label.'</td>';
+			print '<td class="valuefieldcreate">'.$object->showInputField($def, $key, $value, '', '', '', $morecss).'</td>';
+			print '</tr>';
+		};
+
+		$printRowZipTownEdit = function($zipKey, $townKey) use ($object, $langs) {
+			if (empty($zipKey) && empty($townKey)) return;
+
+			$zipval = (!empty($zipKey) && isset($object->$zipKey) ? $object->$zipKey : '');
+			$townval = (!empty($townKey) && isset($object->$townKey) ? $object->$townKey : '');
+
+			print '<tr class="field_zip_town">';
+			print '<td class="titlefieldcreate">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
+			print '<td class="valuefieldcreate">';
+			if (!empty($zipKey)) {
+				print '<input class="flat maxwidth100" type="text" name="'.$zipKey.'" value="'.dol_escape_htmltag($zipval).'" />';
+			}
+			if (!empty($townKey)) {
+				print ' <input class="flat maxwidth200" type="text" name="'.$townKey.'" value="'.dol_escape_htmltag($townval).'" />';
+			}
+			print '</td>';
+			print '</tr>';
+		};
+
+		// Left column
+		print '<div class="fichehalfleft">';
+
+		print load_fiche_titre($langs->trans("Localisation"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_description);
+		$printRowEdit($k_address);
+		$printRowZipTownEdit($k_zip, $k_town);
+		$printRowEdit($k_country);
+		print '</table>';
+
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_prm_pdl);
+		$printRowEdit($k_connection_type);
+		$printRowEdit($k_commissioning_date);
+		print '</table>';
+
+		print '</div>'; // fichehalfleft
+
+		// Right column
+		print '<div class="fichehalfright">';
+
+		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_connection_request_no);
+		$printRowEdit($k_t0_date);
+		$printRowEdit($k_contract_power);
+		$printRowEdit($k_installed_power);
+		$printRowEdit($k_purchase_contract_no);
+		$printRowEdit($k_purchase_tariff);
+		print '</table>';
+
+		print '</div>'; // fichehalfright
+
+		// Remaining fields + extrafields (full width, no duplicates)
+		print '<div class="clearboth"></div>';
+
+		$exclude = array();
+		foreach (array(
+			$k_description, $k_address, $k_zip, $k_town, $k_country,
+			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
+			$k_connection_request_no, $k_t0_date, $k_contract_power, $k_installed_power,
+			$k_purchase_contract_no, $k_purchase_tariff,
+			'ref'
+		) as $k) {
+			if (!empty($k)) $exclude[$k] = 1;
 		}
-		if (!empty($k_town)) {
-			$customrow .= ' <input class="flat maxwidth200" type="text" name="'.$k_town.'" value="'.dol_escape_htmltag($townval).'" />';
+
+		$hasextra = (!empty($extrafields->attributes[$object->element]['label']));
+
+		$hasremaining = 0;
+		foreach ($allfields as $key => $def) {
+			if (!empty($exclude[$key])) continue;
+			$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+			if ($vis <= 0 || $vis == 2) continue;
+			$hasremaining = 1;
+			break;
 		}
-		$customrow .= '</td></tr>';
-	}
 
-	ob_start();
-	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
-	$out = ob_get_clean();
-	if (!empty($customrow)) {
-		$pos = strripos($out, '</tbody>');
-		if ($pos !== false) {
-			$out = substr($out, 0, $pos).$customrow.substr($out, $pos);
-		} else {
-			$out .= $customrow;
+		if ($hasremaining || $hasextra) {
+			print load_fiche_titre($langs->trans("Other"), '', '');
+			print '<table class="border centpercent tableforfieldedit">'."\n";
+
+			if ($hasremaining) {
+				foreach ($allfields as $key => $def) {
+					if (!empty($exclude[$key])) continue;
+					$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+					if ($vis <= 0 || $vis == 2) continue;
+
+					$label = $langs->trans(!empty($def['label']) ? $def['label'] : $key);
+					$value = (isset($object->$key) ? $object->$key : '');
+
+					print '<tr class="field_'.$key.'">';
+					print '<td class="titlefieldcreate">'.$label.'</td>';
+					print '<td class="valuefieldcreate">'.$object->showInputField($def, $key, $value).'</td>';
+					print '</tr>';
+				}
+			}
+
+			// Other attributes
+			include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_edit.tpl.php';
+
+			print '</table>';
 		}
-	}
-	print $out;
-	print '</table>';
-
-	print load_fiche_titre($langs->trans("Réseau"), '', '');
-	print '<table class="border centpercent tableforfieldedit">'."\n";
-	$object->fields = array();
-	foreach (array($k_prm_pdl, $k_connection_type, $k_commissioning_date) as $k) {
-		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
-	}
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
-	print '</table>';
-
-	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
-	print '<table class="border centpercent tableforfieldedit">'."\n";
-	$object->fields = array();
-	foreach (array($k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
-		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
-	}
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
-	print '</table>';
-
-	$object->fields = $allfields;
-	foreach ($shownkeys as $k => $v) {
-		if (isset($object->fields[$k])) unset($object->fields[$k]);
-	}
-
-	print load_fiche_titre($langs->trans("Other"), '', '');
-	print '<table class="border centpercent tableforfieldedit">'."\n";
-
-	if (!empty($object->fields)) {
-		include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
-	}
-
-	// Other attributes
-	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_edit.tpl.php';
-
-	print '</table>';
-
 	// Restore
 	$object->fields = $allfields;
+
+	print '</div>';
 
 	print dol_get_fiche_end();
 
@@ -596,6 +646,9 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
 
+	print '<div class="fichecenter">';
+	print '<div class="underbanner clearboth"></div>';
+
 	// Prepare field types
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
@@ -648,80 +701,123 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	$shownkeys['fk_soc'] = 1;
 	$shownkeys['fk_project'] = 1;
 
-	// Localisation
-	print load_fiche_titre($langs->trans("Localisation"), '', '');
-	print '<table class="border centpercent tableforfield">'."\n";
-	// IMPORTANT: commonfields_view.tpl.php outputs its own <tbody>...</tbody>.
-	// To keep valid HTML (and avoid browser DOM "repairs" that break the 2-column layout), include it ONCE.
-	// We inject our custom "Zip | Town" row just before </tbody>.
-	$object->fields = array();
-	foreach (array($k_description, $k_address, $k_country) as $k) {
-		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
-	}
+	// Helpers for structured rendering (no commonfields_* tpl includes)
+		$printRowView = function($key, $labelOverride = '', $valueOverride = null) use ($object, $langs) {
+			if (empty($key) || empty($object->fields[$key])) return;
 
-	$customrow = '';
-	if (!empty($k_zip) || !empty($k_town)) {
-		$zipval = (!empty($k_zip) ? $object->{$k_zip} : '');
-		$townval = (!empty($k_town) ? $object->{$k_town} : '');
-		$customrow .= '<tr><td class="titlefieldmiddle">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td><td class="valuefield">';
-		$customrow .= dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval);
-		$customrow .= '</td></tr>';
-	}
+			$def = $object->fields[$key];
+			$label = $labelOverride ?: $langs->trans(!empty($def['label']) ? $def['label'] : $key);
+			$value = ($valueOverride !== null ? $valueOverride : (isset($object->$key) ? $object->$key : ''));
 
-	ob_start();
-	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
-	$out = ob_get_clean();
-	if (!empty($customrow)) {
-		$pos = strripos($out, '</tbody>');
-		if ($pos !== false) {
-			$out = substr($out, 0, $pos).$customrow.substr($out, $pos);
-		} else {
-			$out .= $customrow;
-		}
-	}
-	print $out;
-	print '</table>';
+			print '<tr class="field_'.$key.'">';
+			print '<td class="titlefieldmiddle">'.$label.'</td>';
+			print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+			print '</tr>';
+		};
 
-	// Réseau
-	print load_fiche_titre($langs->trans("Réseau"), '', '');
-	print '<table class="border centpercent tableforfield">'."\n";
-	$object->fields = array();
-	foreach (array($k_prm_pdl, $k_connection_type, $k_commissioning_date) as $k) {
-		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
-	}
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
-	print '</table>';
+		$printRowZipTownView = function($zipKey, $townKey) use ($object, $langs) {
+			if (empty($zipKey) && empty($townKey)) return;
 
-	print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
-	print '<table class="border centpercent tableforfield">'."\n";
-	$object->fields = array();
-	foreach (array($k_request_no, $k_t0_date, $k_conn_contract_power, $k_installed_power, $k_purchase_contract_no, $k_purchase_tariff) as $k) {
-		if (!empty($k) && isset($allfields[$k])) $object->fields[$k] = $allfields[$k];
-	}
-	if (!empty($object->fields)) include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
-	print '</table>';
+			$zipval = (!empty($zipKey) && isset($object->$zipKey) ? $object->$zipKey : '');
+			$townval = (!empty($townKey) && isset($object->$townKey) ? $object->$townKey : '');
 
-	$object->fields = $allfields;
-	foreach ($shownkeys as $k => $v) {
-		if (isset($object->fields[$k])) unset($object->fields[$k]);
-	}
+			print '<tr class="field_zip_town">';
+			print '<td class="titlefieldmiddle">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
+			print '<td class="valuefield">'.dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval).'</td>';
+			print '</tr>';
+		};
 
-	$hasextra = (!empty($extrafields->attributes[$object->element]['label']));
-	if (!empty($object->fields) || $hasextra) {
-		print load_fiche_titre($langs->trans("Other"), '', '');
+		// Left column
+		print '<div class="fichehalfleft">';
+
+		// Localisation
+		print load_fiche_titre($langs->trans("Localisation"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
-
-		if (!empty($object->fields)) {
-			include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
-		}
-		// Other attributes. Fields from hook formObjectOptions and Extrafields.
-		include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
-
+		$printRowView($k_description);
+		$printRowView($k_address);
+		$printRowZipTownView($k_zip, $k_town);
+		$printRowView($k_country);
 		print '</table>';
-	}
 
+		// Réseau
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_prm_pdl);
+		$printRowView($k_connection_type);
+		$printRowView($k_commissioning_date);
+		print '</table>';
+
+		print '</div>'; // fichehalfleft
+
+		// Right column
+		print '<div class="fichehalfright">';
+
+		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_connection_request_no);
+		$printRowView($k_t0_date);
+		$printRowView($k_contract_power);
+		$printRowView($k_installed_power);
+		$printRowView($k_purchase_contract_no);
+		$printRowView($k_purchase_tariff);
+		print '</table>';
+
+		print '</div>'; // fichehalfright
+
+		// Remaining fields + extrafields (full width, no duplicates)
+		print '<div class="clearboth"></div>';
+
+		$exclude = array();
+		foreach (array(
+			$k_description, $k_address, $k_zip, $k_town, $k_country,
+			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
+			$k_connection_request_no, $k_t0_date, $k_contract_power, $k_installed_power,
+			$k_purchase_contract_no, $k_purchase_tariff,
+			'ref', 'label', 'fk_soc', 'socid', 'fk_project'
+		) as $k) {
+			if (!empty($k)) $exclude[$k] = 1;
+		}
+
+		$hasextra = (!empty($extrafields->attributes[$object->element]['label']));
+
+		$hasremaining = 0;
+		foreach ($allfields as $key => $def) {
+			if (!empty($exclude[$key])) continue;
+			$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+			if ($vis <= 0 || $vis == 2) continue;
+			$hasremaining = 1;
+			break;
+		}
+
+		if ($hasremaining || $hasextra) {
+			print load_fiche_titre($langs->trans("Other"), '', '');
+			print '<table class="border centpercent tableforfield">'."\n";
+
+			if ($hasremaining) {
+				foreach ($allfields as $key => $def) {
+					if (!empty($exclude[$key])) continue;
+					$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+					if ($vis <= 0 || $vis == 2) continue;
+
+					$label = $langs->trans(!empty($def['label']) ? $def['label'] : $key);
+					$value = (isset($object->$key) ? $object->$key : '');
+
+					print '<tr class="field_'.$key.'">';
+					print '<td class="titlefieldmiddle">'.$label.'</td>';
+					print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+					print '</tr>';
+				}
+			}
+
+			// Other attributes
+			include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
+
+			print '</table>';
+		}
 	// Restore
 	$object->fields = $allfields;
+
+	print '</div>';
 
 	// EN: Composition sections
 	$sections = array(
