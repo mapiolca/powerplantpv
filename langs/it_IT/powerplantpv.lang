@@ -108,3 +108,5 @@ PVMonitoring = Monitoraggio
 PVACBox = Quadri AC
 PVDCBox = Quadro DC
 PVQuantity = Quantità
+PVProductType = Tipo PV
+PVProductTypeHelp = Selezionare il tipo fotovoltaico dal dizionario dedicato.

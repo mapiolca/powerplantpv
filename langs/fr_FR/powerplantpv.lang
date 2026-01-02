@@ -108,3 +108,5 @@ PVMonitoring = Monitoring
 PVACBox = Coffrets AC
 PVDCBox = Coffret DC
 PVQuantity = Quantité
+PVProductType = Type PV
+PVProductTypeHelp = Sélectionner le type photovoltaïque à partir du dictionnaire dédié.

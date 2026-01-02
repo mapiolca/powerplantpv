@@ -519,35 +519,64 @@ class modPowerPlantPV extends DolibarrModules
 			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
 		}
 
-		// Create extrafields during init
-		//include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
-		//$extrafields = new ExtraFields($this->db);
-		//$result0=$extrafields->addExtraField('powerplantpv_separator1', "Separator 1", 'separator', 1,  0, 'thirdparty',   0, 0, '', array('options'=>array(1=>1)), 1, '', 1, 0, '', '', 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
-		//$result1=$extrafields->addExtraField('powerplantpv_myattr1', "New Attr 1 label", 'boolean', 1,  3, 'thirdparty',   0, 0, '', '', 1, '', -1, 0, '', '', 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
-		//$result2=$extrafields->addExtraField('powerplantpv_myattr2', "New Attr 2 label", 'varchar', 1, 10, 'project',      0, 0, '', '', 1, '', -1, 0, '', '', 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
-		//$result3=$extrafields->addExtraField('powerplantpv_myattr3', "New Attr 3 label", 'varchar', 1, 10, 'bank_account', 0, 0, '', '', 1, '', -1, 0, '', '', 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
-		//$result4=$extrafields->addExtraField('powerplantpv_myattr4', "New Attr 4 label", 'select',  1,  3, 'thirdparty',   0, 1, '', array('options'=>array('code1'=>'Val1','code2'=>'Val2','code3'=>'Val3')), 1,'', -1, 0, '', '', 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
-		//$result5=$extrafields->addExtraField('powerplantpv_myattr5', "New Attr 5 label", 'text',    1, 10, 'user',         0, 0, '', '', 1, '', -1, 0, '', '', 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
-
 		// Permissions
 		$this->remove($options);
 
 		$sql = array();
 
-		// Ensure PV product natures are present in dictionary
-		$natureTable = $this->db->prefix()."c_product_nature";
-		$pvNatures = array(
-			array('code' => '50', 'labelkey' => 'ProductNaturePVModules'),
-			array('code' => '51', 'labelkey' => 'ProductNaturePVInverters'),
-			array('code' => '52', 'labelkey' => 'ProductNaturePVIntegration'),
-			array('code' => '53', 'labelkey' => 'ProductNaturePVMonitoring'),
-			array('code' => '54', 'labelkey' => 'ProductNaturePVACBox'),
-			array('code' => '55', 'labelkey' => 'ProductNaturePVDCBox'),
+		// Extra field for PV product type dictionary
+		require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
+		$extrafields = new ExtraFields($this->db);
+		$existingExtraFields = $extrafields->fetch_name_optionals_label('product');
+		if (!is_array($existingExtraFields)) {
+			$existingExtraFields = array();
+		}
+		if (!array_key_exists('pv_product_type', $existingExtraFields)) {
+			$extrafields->addExtraField(
+				'pv_product_type',
+				'PVProductType',
+				'sellist',
+				1,
+				'',
+				'product',
+				0,
+				0,
+				'',
+				array('options' => 'c_pv_product_type:label:rowid::active=1'),
+				1,
+				'',
+				1,
+				0,
+				'',
+				'',
+				'powerplantpv@powerplantpv',
+				'isModEnabled("powerplantpv")'
+			);
+		}
+
+		// Legacy migration: map finished codes to pv_product_type without overriding existing values
+		$legacyMap = array(
+			50 => 'MODULE_PV',
+			51 => 'ONDULEUR',
+			52 => 'STRUCTURE',
+			53 => 'COMPTAGE',
+			54 => 'ARMOIRE_AC',
+			55 => 'COFFRET_DC',
 		);
 
-		foreach ($pvNatures as $nature) {
-			$sql[] = "UPDATE ".$natureTable." SET label = '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', active = 1 WHERE code = '".$this->db->escape($nature['code'])."'";
-			$sql[] = "INSERT INTO ".$natureTable." (code, label, active) SELECT '".$this->db->escape($nature['code'])."', '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', 1 WHERE NOT EXISTS (SELECT 1 FROM ".$natureTable." WHERE code = '".$this->db->escape($nature['code'])."')";
+		$typeRowids = array();
+		foreach ($legacyMap as $finishedCode => $typeCode) {
+			$sqlSelect = "SELECT rowid FROM ".$this->db->prefix()."c_pv_product_type WHERE code = '".$this->db->escape($typeCode)."'";
+			$resSelect = $this->db->query($sqlSelect);
+			if ($resSelect && $this->db->num_rows($resSelect) > 0) {
+				$objType = $this->db->fetch_object($resSelect);
+				$typeRowids[(int) $finishedCode] = (int) $objType->rowid;
+			}
+		}
+
+		foreach ($typeRowids as $finishedCode => $typeRowid) {
+			$sql[] = "UPDATE ".$this->db->prefix()."product_extrafields as pe JOIN ".$this->db->prefix()."product as p ON p.rowid = pe.fk_object SET pe.pv_product_type = ".((int) $typeRowid)." WHERE (pe.pv_product_type IS NULL OR pe.pv_product_type = 0) AND p.finished = ".((int) $finishedCode)." AND p.entity IN (".getEntity('product', 1).")";
+			$sql[] = "INSERT INTO ".$this->db->prefix()."product_extrafields (fk_object, pv_product_type) SELECT p.rowid, ".((int) $typeRowid)." FROM ".$this->db->prefix()."product as p LEFT JOIN ".$this->db->prefix()."product_extrafields as pe ON pe.fk_object = p.rowid WHERE pe.fk_object IS NULL AND p.finished = ".((int) $finishedCode)." AND p.entity IN (".getEntity('product', 1).")";
 		}
 
 		// Document templates

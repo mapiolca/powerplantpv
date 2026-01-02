@@ -108,3 +108,5 @@ PVMonitoring = Monitoring
 PVACBox = AC-Verteilerkästen
 PVDCBox = DC-Verteilerkasten
 PVQuantity = Menge
+PVProductType = PV-Typ
+PVProductTypeHelp = Wählen Sie den PV-Typ aus dem eigenen Wörterbuch.

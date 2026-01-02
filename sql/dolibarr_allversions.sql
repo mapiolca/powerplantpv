@@ -69,32 +69,47 @@ ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerpla
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_product (fk_product);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_entity (entity);
 
-INSERT INTO llx_c_product_nature (code, label, active)
-SELECT '50', 'ProductNaturePVModules', 1
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '50');
-UPDATE llx_c_product_nature SET label = 'ProductNaturePVModules', active = 1 WHERE code = '50';
+CREATE TABLE IF NOT EXISTS llx_c_pv_product_type (
+	rowid integer AUTO_INCREMENT,
+	code varchar(32) NOT NULL,
+	label varchar(255) NOT NULL,
+	active tinyint DEFAULT 1,
+	entity integer DEFAULT 1,
+	position integer DEFAULT 0,
+	PRIMARY KEY(rowid),
+	UNIQUE(code, entity)
+) ENGINE=innodb;
 
-INSERT INTO llx_c_product_nature (code, label, active)
-SELECT '51', 'ProductNaturePVInverters', 1
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '51');
-UPDATE llx_c_product_nature SET label = 'ProductNaturePVInverters', active = 1 WHERE code = '51';
-
-INSERT INTO llx_c_product_nature (code, label, active)
-SELECT '52', 'ProductNaturePVIntegration', 1
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '52');
-UPDATE llx_c_product_nature SET label = 'ProductNaturePVIntegration', active = 1 WHERE code = '52';
-
-INSERT INTO llx_c_product_nature (code, label, active)
-SELECT '53', 'ProductNaturePVMonitoring', 1
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '53');
-UPDATE llx_c_product_nature SET label = 'ProductNaturePVMonitoring', active = 1 WHERE code = '53';
-
-INSERT INTO llx_c_product_nature (code, label, active)
-SELECT '54', 'ProductNaturePVACBox', 1
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '54');
-UPDATE llx_c_product_nature SET label = 'ProductNaturePVACBox', active = 1 WHERE code = '54';
-
-INSERT INTO llx_c_product_nature (code, label, active)
-SELECT '55', 'ProductNaturePVDCBox', 1
-WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '55');
-UPDATE llx_c_product_nature SET label = 'ProductNaturePVDCBox', active = 1 WHERE code = '55';
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'MODULE_PV', 'MODULE_PV', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'MODULE_PV' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'ONDULEUR', 'ONDULEUR', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'ONDULEUR' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'OPTIMISEUR', 'OPTIMISEUR', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'OPTIMISEUR' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'ARMOIRE_AC', 'ARMOIRE_AC', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'ARMOIRE_AC' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'COFFRET_DC', 'COFFRET_DC', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'COFFRET_DC' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'CABLE_DC', 'CABLE_DC', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'CABLE_DC' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'CABLE_AC', 'CABLE_AC', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'CABLE_AC' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'STRUCTURE', 'STRUCTURE', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'STRUCTURE' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'PROTECTION', 'PROTECTION', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'PROTECTION' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'COMPTAGE', 'COMPTAGE', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'COMPTAGE' AND entity = 1);
+INSERT INTO llx_c_pv_product_type (code, label, active, entity, position)
+SELECT 'DIVERS', 'DIVERS', 1, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM llx_c_pv_product_type WHERE code = 'DIVERS' AND entity = 1);

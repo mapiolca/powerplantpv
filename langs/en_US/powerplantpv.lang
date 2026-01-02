@@ -108,3 +108,5 @@ PVMonitoring = Monitoring
 PVACBox = AC combiner boxes
 PVDCBox = DC combiner boxes
 PVQuantity = Quantity
+PVProductType = PV type
+PVProductTypeHelp = Select the PV type from the dedicated dictionary.

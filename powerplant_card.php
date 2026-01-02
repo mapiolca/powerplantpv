@@ -977,15 +977,16 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print '</div>';
 
-	// EN: Composition sections
-	$sections = array(
-		50 => array('label' => $langs->trans('PVModules')),
-		51 => array('label' => $langs->trans('PVInverters')),
-		52 => array('label' => $langs->trans('PVIntegration')),
-		53 => array('label' => $langs->trans('PVMonitoring')),
-		54 => array('label' => $langs->trans('PVACBox')),
-		55 => array('label' => $langs->trans('PVDCBox')),
-	);
+		// EN: Composition sections
+		// FR: Sections de composition
+		$sections = array(
+			50 => array('label' => $langs->trans('PVModules'), 'type_code' => 'MODULE_PV'),
+			51 => array('label' => $langs->trans('PVInverters'), 'type_code' => 'ONDULEUR'),
+			52 => array('label' => $langs->trans('PVIntegration'), 'type_code' => 'STRUCTURE'),
+			53 => array('label' => $langs->trans('PVMonitoring'), 'type_code' => 'COMPTAGE'),
+			54 => array('label' => $langs->trans('PVACBox'), 'type_code' => 'ARMOIRE_AC'),
+			55 => array('label' => $langs->trans('PVDCBox'), 'type_code' => 'COFFRET_DC'),
+		);
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
@@ -1006,15 +1007,15 @@ $k_purchase_tariff = 'buyback_tariff';
 		print '<table class="noborder centpercent">';
 		print '<tr class="liste_titre"><td>'.$langs->trans("Product").'</td><td class="right">'.$langs->trans("PVQuantity").'</td><td class="center"></td></tr>';
 
-			if ($showaddform) {
-				print '<tr class="oddeven">';
-				print '<td>';
-				print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
-				print '</td>';
-				print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
-				print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
-				print '</tr>';
-			}
+				if ($showaddform) {
+					print '<tr class="oddeven">';
+					print '<td>';
+					print '<select class="flat selectpvproduct" name="fk_product" id="fk_product_'.$code.'" data-type-code="'.dol_escape_htmltag($info['type_code']).'" data-ajax-url="'.dol_buildpath('/powerplantpv/ajax/products.php', 1).'" data-placeholder="'.dol_escape_htmltag($langs->transnoentities('SearchProduct')).'"></select>';
+					print '</td>';
+					print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
+					print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
+					print '</tr>';
+				}
 
 		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
 		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
@@ -1237,6 +1238,35 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	include DOL_DOCUMENT_ROOT.'/core/tpl/card_presend.tpl.php';
 }
+
+// EN: Activate select2 for PV product lookups
+// FR: Activer select2 pour la recherche des produits PV
+print '<script>
+jQuery(function($){
+	$(".selectpvproduct").each(function(){
+		var $el = $(this);
+		$el.select2({
+			width: "resolve",
+			ajax: {
+				url: $el.data("ajax-url"),
+				dataType: "json",
+				delay: 250,
+				data: function(params){
+					return {
+						term: params.term || "",
+						type_code: $el.data("type-code")
+					};
+				},
+				processResults: function(data){
+					return {results: data};
+				}
+			},
+			placeholder: $el.data("placeholder"),
+			minimumInputLength: 0
+		});
+	});
+});
+</script>';
 
 // End of page
 llxFooter();

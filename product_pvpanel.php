@@ -47,6 +47,7 @@ $action = GETPOST('action', 'aZ09');
 $object = new Product($db);
 if ($id > 0) {
 	$object->fetch($id);
+	$object->fetch_optionals($id);
 }
 
 if (empty($object->id)) {
@@ -60,9 +61,23 @@ if (!$permissiontoread) {
 	accessforbidden();
 }
 
-// Security: keep your existing rule (only admin or product finished == 50)
-if (!$user->admin && (int) $object->finished !== 50) {
-	accessforbidden();
+// Security: only administrators or PV products of type MODULE_PV can access this tab
+if (!$user->admin) {
+	$typeRowid = isset($object->array_options['options_pv_product_type']) ? (int) $object->array_options['options_pv_product_type'] : 0;
+	$typeCode = '';
+	if ($typeRowid > 0) {
+		$sqlType = 'SELECT code FROM '.$db->prefix().'c_pv_product_type WHERE rowid = '.((int) $typeRowid);
+		$resType = $db->query($sqlType);
+		if ($resType) {
+			$objType = $db->fetch_object($resType);
+			if ($objType) {
+				$typeCode = $objType->code;
+			}
+		}
+	}
+	if ($typeCode !== 'MODULE_PV') {
+		accessforbidden();
+	}
 }
 
 if ($action === 'edit' && !$permissiontoadd) {
