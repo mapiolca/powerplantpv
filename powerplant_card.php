@@ -231,7 +231,7 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 			accessforbidden();
 		}
 
-		$field = GETPOST('field', 'aZ09_');
+		$field = preg_replace('/[^a-zA-Z0-9_]/', '', GETPOST('field', 'nohtml'));
 
 		// Security: allow only known fields from $object->fields (or our synthetic field zip_town)
 		if (empty($field) || ($field != 'zip_town' && empty($object->fields[$field]))) {
@@ -768,7 +768,9 @@ $k_purchase_contract_no = 'buyback_contract_number';
 $k_purchase_tariff = 'buyback_tariff';
 
 	// Helpers for structured rendering (no commonfields_* tpl includes)
-		$fieldtoedit = ($action == 'editfield' ? GETPOST('field', 'aZ09_') : '');
+		$fieldtoedit = ($action == 'editfield' ? GETPOST('field', 'nohtml') : '');
+		$fieldtoedit = preg_replace('/[^a-zA-Z0-9_]/', '', $fieldtoedit);
+		if (!empty($fieldtoedit) && $fieldtoedit !== 'zip_town' && empty($object->fields[$fieldtoedit])) $fieldtoedit = '';
 
 		$printRowView = function($key, $labelOverride = '', $valueOverride = null) use ($object, $langs, $permissiontoadd, $fieldtoedit) {
 			if (empty($key) || empty($object->fields[$key])) return;
