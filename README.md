@@ -10,6 +10,13 @@ Description of the module...
 
 Other external modules are available on [Dolistore.com](https://www.dolistore.com).
 
+## Synthèse récente
+
+- Le module n'utilise plus `c_product_nature` ni le champ `finished` pour filtrer les produits.
+- Nouveau champ produit : **Type PV** (`pv_product_type`) basé sur le dictionnaire dédié `llx_c_pv_product_type`.
+- Migration best-effort : les produits historiques avec `finished` 50/51/52/53/54/55 sont transférés vers `pv_product_type` sans écraser une valeur déjà renseignée.
+
+
 ## Translations
 
 Translations can be completed manually by editing files in the module directories under `langs`.
@@ -84,6 +91,17 @@ Using your browser:
   - You should now be able to find and enable the module
 
 
+
+## Checklist de tests manuels
+
+1. Activer le module : aucune écriture ne doit cibler `llx_c_product_nature`.
+2. Vérifier que la table `llx_c_pv_product_type` existe et contient les codes attendus.
+3. Vérifier que l'extrafield produit `pv_product_type` est visible sur la fiche produit.
+4. Dans `powerplant_card.php` :
+	- la section « Modules PV » ne propose que les produits avec `pv_product_type = MODULE_PV` via la recherche Ajax.
+	- la section « Onduleurs » ne propose que les produits avec `pv_product_type = ONDULEUR` via la recherche Ajax.
+5. Si le statut de la centrale n'est pas « brouillon », aucun select de composants n'apparaît.
+6. Après upgrade, un produit avec `finished = 50` voit son `pv_product_type` renseigné (non écrasé si déjà présent).
 
 ## Licenses
 
