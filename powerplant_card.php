@@ -227,8 +227,21 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 
 	// Inline update of a single field (row-level edition)
 	if ($action == 'updatefield' && $permissiontoadd) {
-		if (!checkToken()) {
-			accessforbidden();
+		// CSRF protection - compatible across Dolibarr versions
+		$token = GETPOST('token', 'alphanohtml');
+		if (function_exists('checkToken')) {
+			if (!checkToken()) {
+				accessforbidden();
+			}
+		} elseif (function_exists('dol_verifyToken')) {
+			if (!dol_verifyToken($token)) {
+				accessforbidden();
+			}
+		} else {
+			// Fallback for older versions
+			if (empty($token) || empty($_SESSION['newtoken']) || $token != $_SESSION['newtoken']) {
+				accessforbidden();
+			}
 		}
 
 		$field = preg_replace('/[^a-zA-Z0-9_]/', '', GETPOST('field', 'nohtml'));
