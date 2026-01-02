@@ -225,6 +225,71 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 
 	$triggermodname = $object->TRIGGER_PREFIX.'_MODIFY'; // Name of trigger action code to execute when we modify record. Used in actions_addupdatedelete.inc.php
 
+	// Inline update of a single field (row-level edition)
+	if ($action == 'updatefield' && $permissiontoadd) {
+		if (!checkToken()) {
+			accessforbidden();
+		}
+
+		$field = GETPOST('field', 'aZ09_');
+
+		// Security: allow only known fields from $object->fields (or our synthetic field zip_town)
+		if (empty($field) || ($field != 'zip_town' && empty($object->fields[$field]))) {
+			setEventMessages($langs->trans("ErrorBadParameter"), null, 'errors');
+		} else {
+			$res = 0;
+
+			// Special case: one line edits both zip + town
+			if ($field == 'zip_town') {
+				$zip = GETPOST('zip', 'restricthtml');
+				$town = GETPOST('town', 'restricthtml');
+
+				$res1 = $object->setValueFrom('zip', $zip, '', $object->id, 'text', '', $user, $triggermodname);
+				$res2 = $object->setValueFrom('town', $town, '', $object->id, 'text', '', $user, $triggermodname);
+
+				$res = ($res1 > 0 && $res2 > 0) ? 1 : -1;
+			} else {
+				$type = isset($object->fields[$field]['type']) ? $object->fields[$field]['type'] : '';
+				$format = 'text';
+				$newvalue = '';
+
+				// Date fields are posted as <field>day / <field>month / <field>year (and optionally hour/min)
+				if (strpos($type, 'date') !== false) {
+					$format = 'date';
+					$day = GETPOSTINT($field.'day');
+					$month = GETPOSTINT($field.'month');
+					$year = GETPOSTINT($field.'year');
+					$hour = GETPOSTINT($field.'hour');
+					$min = GETPOSTINT($field.'min');
+
+					if ($day && $month && $year) {
+						$newvalue = dol_mktime((strpos($type, 'datetime') !== false ? $hour : 0), (strpos($type, 'datetime') !== false ? $min : 0), 0, $month, $day, $year);
+					} else {
+						$newvalue = '';
+					}
+				} elseif (strpos($type, 'sellist:') === 0 || strpos($type, 'link:') === 0 || preg_match('/(^|[: ])(int|integer)/', $type)) {
+					$format = 'int';
+					$newvalue = GETPOSTINT($field);
+				} elseif (preg_match('/double|real|price|amount/', $type)) {
+					$format = 'text';
+					$newvalue = price2num(GETPOST($field, 'alpha'), 'MT');
+				} else {
+					$format = 'text';
+					$newvalue = GETPOST($field, 'restricthtml');
+				}
+
+				$res = $object->setValueFrom($field, $newvalue, '', $object->id, $format, '', $user, $triggermodname);
+			}
+
+			if ($res > 0) {
+				header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+				exit;
+			} else {
+				setEventMessages($object->error, $object->errors, 'errors');
+			}
+		}
+	}
+
 	// Actions cancel, add, update, update_extras, confirm_validate, confirm_delete, confirm_deleteline, confirm_clone, confirm_close, confirm_setdraft, confirm_reopen
 	include DOL_DOCUMENT_ROOT.'/core/actions_addupdatedelete.inc.php';
 
@@ -479,6 +544,7 @@ $k_purchase_tariff = 'buyback_tariff';
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_enedis_commissioning_date);
 		$printRowEdit($k_connection_request_number);
+		$printRowEdit($k_connection_request_no);
 		$printRowEdit($k_connection_contract_power);
 		print '</table>';
 
@@ -515,28 +581,29 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		if ($hasremaining || $hasextra) {
 			print load_fiche_titre($langs->trans("Other"), '', '');
-			print '<table class="border centpercent tableforfieldedit">'."\n";
 
 			if ($hasremaining) {
+				print '<table class="border centpercent tableforfield">'."
+";
+
 				foreach ($allfields as $key => $def) {
 					if (!empty($exclude[$key])) continue;
 					$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
 					if ($vis <= 0 || $vis == 2) continue;
 
-					$label = $langs->trans(!empty($def['label']) ? $def['label'] : $key);
-					$value = (isset($object->$key) ? $object->$key : '');
-
-					print '<tr class="field_'.$key.'">';
-					print '<td class="titlefieldcreate">'.$label.'</td>';
-					print '<td class="valuefieldcreate">'.$object->showInputField($def, $key, $value).'</td>';
-					print '</tr>';
+					$printRowView($key);
 				}
+
+				print '</table>';
 			}
 
-			// Other attributes
-			include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_edit.tpl.php';
-
-			print '</table>';
+			if ($hasextra) {
+				print '<table class="border centpercent tableforfield">'."
+";
+				// Other attributes
+				include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
+				print '</table>';
+			}
 		}
 	// Restore
 	$object->fields = $allfields;
@@ -701,28 +768,97 @@ $k_purchase_contract_no = 'buyback_contract_number';
 $k_purchase_tariff = 'buyback_tariff';
 
 	// Helpers for structured rendering (no commonfields_* tpl includes)
-		$printRowView = function($key, $labelOverride = '', $valueOverride = null) use ($object, $langs) {
+		$fieldtoedit = ($action == 'editfield' ? GETPOST('field', 'aZ09_') : '');
+
+		$printRowView = function($key, $labelOverride = '', $valueOverride = null) use ($object, $langs, $permissiontoadd, $fieldtoedit) {
 			if (empty($key) || empty($object->fields[$key])) return;
 
 			$def = $object->fields[$key];
 			$label = $labelOverride ?: $langs->trans(!empty($def['label']) ? $def['label'] : $key);
 			$value = ($valueOverride !== null ? $valueOverride : (isset($object->$key) ? $object->$key : ''));
 
-			print '<tr class="field_'.$key.'">';
+			$canedit = (!empty($permissiontoadd) && empty($def['noteditable']) && empty($def['disabled']));
+			$isedit = ($canedit && $fieldtoedit === $key);
+
+			$urlcard = $_SERVER["PHP_SELF"].'?id='.$object->id;
+			$urledit = $urlcard.'&action=editfield&field='.$key;
+
+			print '<tr class="field_'.$key.'" id="field_'.$key.'">';
 			print '<td class="titlefieldmiddle">'.$label.'</td>';
-			print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+
+			if ($isedit) {
+				$formid = 'form_'.$key;
+				print '<td class="valuefield">';
+				print '<form id="'.$formid.'" method="POST" action="'.$urlcard.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="updatefield">';
+				print '<input type="hidden" name="field" value="'.$key.'">';
+				print $object->showInputField($def, $key, $value, '', '', '', '');
+				print '</form>';
+				print '</td>';
+				print '<td class="right nowraponall">';
+				print '<button type="submit" form="'.$formid.'" class="reposition">'.img_picto($langs->trans("Save"), 'tick').'</button>';
+				print ' <a class="reposition" href="'.$urlcard.'">'.img_picto($langs->trans("Cancel"), 'cancel').'</a>';
+				print '</td>';
+			} else {
+				print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+				print '<td class="right nowraponall">';
+				if ($canedit) {
+					print '<a class="reposition" href="'.$urledit.'">'.img_edit().'</a>';
+				} else {
+					print '&nbsp;';
+				}
+				print '</td>';
+			}
+
 			print '</tr>';
 		};
 
-		$printRowZipTownView = function($zipKey, $townKey) use ($object, $langs) {
+		$printRowZipTownView = function($zipKey, $townKey) use ($object, $langs, $permissiontoadd, $fieldtoedit) {
 			if (empty($zipKey) && empty($townKey)) return;
 
 			$zipval = (!empty($zipKey) && isset($object->$zipKey) ? $object->$zipKey : '');
 			$townval = (!empty($townKey) && isset($object->$townKey) ? $object->$townKey : '');
 
-			print '<tr class="field_zip_town">';
+			$canedit = (!empty($permissiontoadd));
+			$isedit = ($canedit && $fieldtoedit === 'zip_town');
+
+			$urlcard = $_SERVER["PHP_SELF"].'?id='.$object->id;
+			$urledit = $urlcard.'&action=editfield&field=zip_town';
+
+			print '<tr class="field_zip_town" id="field_zip_town">';
 			print '<td class="titlefieldmiddle">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
-			print '<td class="valuefield">'.dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval).'</td>';
+
+			if ($isedit) {
+				$formid = 'form_zip_town';
+				print '<td class="valuefield">';
+				print '<form id="'.$formid.'" method="POST" action="'.$urlcard.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="updatefield">';
+				print '<input type="hidden" name="field" value="zip_town">';
+				if (!empty($zipKey)) {
+					print '<input class="flat maxwidth100" type="text" name="'.$zipKey.'" value="'.dol_escape_htmltag($zipval).'" />';
+				}
+				if (!empty($townKey)) {
+					print ' <input class="flat maxwidth200" type="text" name="'.$townKey.'" value="'.dol_escape_htmltag($townval).'" />';
+				}
+				print '</form>';
+				print '</td>';
+				print '<td class="right nowraponall">';
+				print '<button type="submit" form="'.$formid.'" class="reposition">'.img_picto($langs->trans("Save"), 'tick').'</button>';
+				print ' <a class="reposition" href="'.$urlcard.'">'.img_picto($langs->trans("Cancel"), 'cancel').'</a>';
+				print '</td>';
+			} else {
+				print '<td class="valuefield">'.dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval).'</td>';
+				print '<td class="right nowraponall">';
+				if ($canedit) {
+					print '<a class="reposition" href="'.$urledit.'">'.img_edit().'</a>';
+				} else {
+					print '&nbsp;';
+				}
+				print '</td>';
+			}
+
 			print '</tr>';
 		};
 
@@ -763,6 +899,7 @@ $k_purchase_tariff = 'buyback_tariff';
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_enedis_commissioning_date);
 		$printRowView($k_connection_request_number);
+		$printRowView($k_connection_request_no);
 		$printRowView($k_connection_contract_power);
 		print '</table>';
 
@@ -973,9 +1110,7 @@ $k_purchase_tariff = 'buyback_tariff';
 			}
 
 			// Modify
-			print dolGetButtonAction('', $langs->trans('Modify'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=edit&token='.newToken(), '', $permissiontoadd);
-
-			// Validate
+						// Validate
 			if ($object->status == $object::STATUS_DRAFT) {
 				if (empty($object->table_element_line) || (is_array($object->lines) && count($object->lines) > 0)) {
 					print dolGetButtonAction('', $langs->trans('Validate'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=confirm_validate&confirm=yes&token='.newToken(), '', $permissiontoadd);
