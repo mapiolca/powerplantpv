@@ -234,7 +234,7 @@ if ($id > 0 || !empty($ref)) {
 		$massactionbutton = '';
 		$newcardbutton = '';
 		if ($canedit) {
-			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition');
+			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition&token='.newToken());
 		}
 
 		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
