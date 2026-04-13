@@ -85,6 +85,10 @@ $search_nature = GETPOSTINT('search_nature');
 $search_serial = trim(GETPOST('search_serial', 'alphanohtml'));
 $search_commissioning = trim(GETPOST('search_commissioning', 'alphanohtml'));
 
+if (GETPOST('cancel', 'alpha')) {
+	$action = 'view';
+}
+
 $object = new PowerPlant($db);
 $form = new Form($db);
 $hookmanager->initHooks(array($object->element.'composition', 'globalcard'));
@@ -122,8 +126,9 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 }
 
 $canedit = ($permissiontoadd && (int) $object->status === (int) $object::STATUS_DRAFT);
+$showaddform = ($canedit && $action === 'addcomposition');
 
-if ($action === 'addcomposition' && $canedit) {
+if ($action === 'createcomposition' && $canedit) {
 	if (!checkToken()) {
 		accessforbidden();
 	}
@@ -141,6 +146,9 @@ if ($action === 'addcomposition' && $canedit) {
 		$sql .= ', '.((int) $conf->entity).')';
 		$db->query($sql);
 	}
+
+	$action = 'view';
+	$showaddform = false;
 }
 
 if ($action === 'delcomposition' && $canedit && $lineid > 0) {
@@ -226,16 +234,16 @@ if ($id > 0 || !empty($ref)) {
 		$massactionbutton = '';
 		$newcardbutton = '';
 		if ($canedit) {
-			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', '#addcomposition');
+			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition');
 		}
 
 		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
 
-		if ($canedit) {
+		if ($showaddform) {
 			print '<div id="addcomposition" class="fichecenter">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="addcomposition">';
+			print '<input type="hidden" name="action" value="createcomposition">';
 			print '<div class="inline-block valignmiddle">';
 			print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 0);
 			print '</div> ';
@@ -243,6 +251,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<div class="inline-block valignmiddle"><input type="text" class="flat minwidth100" name="serial_number" placeholder="'.$langs->trans('PowerPlantSerialNumber').'"></div> ';
 			print '<div class="inline-block valignmiddle">'.$form->selectDate('', 'commissioning_date', 0, 0, 1, '', 1, 0).'</div> ';
 			print '<input type="submit" class="button button-add valignmiddle" value="'.$langs->trans('Add').'">';
+			print ' <input type="submit" class="button button-cancel valignmiddle" name="cancel" value="'.$langs->trans('Cancel').'">';
 			print '</form>';
 			print '</div>';
 			print '<br>';
