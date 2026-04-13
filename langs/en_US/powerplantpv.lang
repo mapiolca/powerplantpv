@@ -108,3 +108,6 @@ PVMonitoring = Monitoring
 PVACBox = AC combiner boxes
 PVDCBox = DC combiner boxes
 PVQuantity = Quantity
+
+# Dictionary
+PhotovoltaicCategoryDictionary = Photovoltaic Category
