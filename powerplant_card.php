@@ -731,6 +731,8 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
+	$isdraft = (isset($object->status) && ((int) $object->status === (int) $object::STATUS_DRAFT));
+
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
