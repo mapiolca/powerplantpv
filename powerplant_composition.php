@@ -223,22 +223,30 @@ if ($id > 0 || !empty($ref)) {
 		$param .= '&search_commissioning='.urlencode($search_commissioning);
 	}
 
-	$newcardbutton = '';
-	if ($canedit) {
-		$newcardbutton .= '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
-		$newcardbutton .= '<input type="hidden" name="token" value="'.newToken().'">';
-		$newcardbutton .= '<input type="hidden" name="action" value="addcomposition">';
-		$newcardbutton .= '<div class="inline-block">';
-		$newcardbutton .= $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 0);
-		$newcardbutton .= '</div> ';
-		$newcardbutton .= '<div class="inline-block">'.$form->selectarray('naturecode', $categories, 50, 0).'</div> ';
-		$newcardbutton .= '<div class="inline-block"><input type="text" class="flat minwidth100" name="serial_number" placeholder="'.$langs->trans('PowerPlantSerialNumber').'"></div> ';
-		$newcardbutton .= '<div class="inline-block">'.$form->selectDate('', 'commissioning_date', 0, 0, 1, '', 1, 0).'</div> ';
-		$newcardbutton .= '<input type="submit" class="button button-add" value="+">';
-		$newcardbutton .= '</form>';
-	}
+		$massactionbutton = '';
+		$newcardbutton = '';
+		if ($canedit) {
+			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', '#addcomposition');
+		}
 
-	print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $newcardbutton, $nbtotalofrecords, $nbtotalofrecords, '', 0, '', '', $limit);
+		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
+
+		if ($canedit) {
+			print '<div id="addcomposition" class="fichecenter">';
+			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="addcomposition">';
+			print '<div class="inline-block valignmiddle">';
+			print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 0);
+			print '</div> ';
+			print '<div class="inline-block valignmiddle">'.$form->selectarray('naturecode', $categories, 50, 0).'</div> ';
+			print '<div class="inline-block valignmiddle"><input type="text" class="flat minwidth100" name="serial_number" placeholder="'.$langs->trans('PowerPlantSerialNumber').'"></div> ';
+			print '<div class="inline-block valignmiddle">'.$form->selectDate('', 'commissioning_date', 0, 0, 1, '', 1, 0).'</div> ';
+			print '<input type="submit" class="button button-add valignmiddle" value="'.$langs->trans('Add').'">';
+			print '</form>';
+			print '</div>';
+			print '<br>';
+		}
 
 	print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
 	print '<input type="hidden" name="id" value="'.$object->id.'">';
