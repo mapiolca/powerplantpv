@@ -62,12 +62,16 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	fk_product integer NOT NULL,
 	nature_code integer NOT NULL,
 	qty double NOT NULL,
+	serial_number varchar(128),
+	commissioning_date date,
 	entity integer NOT NULL DEFAULT 1
 ) ENGINE=innodb;
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_rowid (rowid);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_powerplant (fk_powerplant);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_product (fk_product);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_entity (entity);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS serial_number varchar(128);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS commissioning_date date;
 
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '50', 'ProductNaturePVModules', 1
