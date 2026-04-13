@@ -67,7 +67,7 @@ $limit = GETPOSTINT('limit') ? GETPOSTINT('limit') : $conf->liste_limit;
 $sortfield = GETPOST('sortfield', 'aZ09comma');
 $sortorder = GETPOST('sortorder', 'aZ09comma');
 $page = GETPOSTISSET('pageplusone') ? (GETPOSTINT('pageplusone') - 1) : GETPOSTINT('page');
-if (empty($page) || $page < 0 || GETPOST('button_search', 'alpha') || GETPOST('button_removefilter', 'alpha')) {
+if (empty($page) || $page < 0 || GETPOST('button_search', 'alpha') || GETPOST('button_search_x', 'alpha') || GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 'alpha')) {
 	$page = 0;
 }
 $offset = $limit * $page;
@@ -113,7 +113,7 @@ $categories = array(
 	55 => $langs->trans('PVDCBox'),
 );
 
-if (GETPOST('button_removefilter', 'alpha')) {
+if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 'alpha')) {
 	$search_ref = '';
 	$search_label = '';
 	$search_nature = 0;
@@ -253,17 +253,19 @@ if ($id > 0 || !empty($ref)) {
 	print '<div class="div-table-responsive">';
 	print '<table class="tagtable liste centpercent">';
 
-	print '<tr class="liste_titre_filter">';
-	print '<td><input type="text" class="flat maxwidth100" name="search_ref" value="'.dol_escape_htmltag($search_ref).'"></td>';
-	print '<td><input type="text" class="flat maxwidth150" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
-	print '<td>'.$form->selectarray('search_nature', array(0 => '') + $categories, $search_nature, 0).'</td>';
-	print '<td><input type="text" class="flat maxwidth100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
-	print '<td><input type="date" class="flat" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
-	print '<td class="right">';
-	print '<button class="button" type="submit" name="button_search" value="search">'.$langs->trans('Search').'</button> ';
-	print '<button class="button" type="submit" name="button_removefilter" value="remove">'.$langs->trans('RemoveFilter').'</button>';
-	print '</td>';
-	print '</tr>';
+		print '<tr class="liste_titre_filter">';
+		print '<td class="liste_titre center maxwidthsearch">';
+		print '<div class="nowraponall">';
+		print '<button type="submit" class="liste_titre button_search reposition" name="button_search_x" value="x"><span class="fas fa-search"></span></button>';
+		print '<button type="submit" class="liste_titre button_removefilter reposition" name="button_removefilter_x" value="x"><span class="fas fa-times"></span></button>';
+		print '</div>';
+		print '</td>';
+		print '<td class="liste_titre left"><input type="text" class="flat width75" name="search_ref" value="'.dol_escape_htmltag($search_ref).'"></td>';
+		print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
+		print '<td class="liste_titre left">'.$form->selectarray('search_nature', array(-1 => '') + $categories, ($search_nature > 0 ? $search_nature : -1), 0).'</td>';
+		print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
+		print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
+		print '</tr>';
 
 	print '<tr class="liste_titre">';
 	print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
