@@ -532,13 +532,14 @@ class modPowerPlantPV extends DolibarrModules
 			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
 		}
 
-		// EN: Create product extrafield for photovoltaic category.
-		// FR: Créer l'extrafield produit pour la catégorie photovoltaïque.
+		// Create product extrafield for photovoltaic category.
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafields = new ExtraFields($this->db);
 		$extrafields->fetch_name_optionals_label('product');
 		if (empty($extrafields->attributes['product']['label']['categorie_photovoltaique'])) {
-			$categorySellist = 'c_powerplantpv_categorypv:label:rowid::(active:=:1)';
+			$categorySellist = array(
+				'options' => array('c_powerplantpv_categorypv:label:rowid::(active:=:1)' => null)
+			);
 			$result = $extrafields->addExtraField(
 				'categorie_photovoltaique',
 				'ProductPhotovoltaicCategory',
