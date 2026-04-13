@@ -245,7 +245,19 @@ class modPowerPlantPV extends DolibarrModules
 		 );
 		 */
 		/* BEGIN MODULEBUILDER DICTIONARIES */
-		$this->dictionaries = array();
+		$this->dictionaries = array(
+			'langs' => 'powerplantpv@powerplantpv',
+			'tabname' => array('c_powerplantpv_categorypv'),
+			'tablib' => array('PhotovoltaicCategoryDictionary'),
+			'tabsql' => array('SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.$this->db->prefix().'c_powerplantpv_categorypv as f'),
+			'tabsqlsort' => array('f.label ASC'),
+			'tabfield' => array('code,label'),
+			'tabfieldvalue' => array('code,label'),
+			'tabfieldinsert' => array('code,label'),
+			'tabrowid' => array('rowid'),
+			'tabcond' => array(isModEnabled('powerplantpv')),
+			'tabhelp' => array(array('code' => $langs->trans('CodeTooltipHelp'))),
+		);
 		/* END MODULEBUILDER DICTIONARIES */
 
 		// Boxes/Widgets

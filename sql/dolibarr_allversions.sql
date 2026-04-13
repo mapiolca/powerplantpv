@@ -98,3 +98,13 @@ INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '55', 'ProductNaturePVDCBox', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '55');
 UPDATE llx_c_product_nature SET label = 'ProductNaturePVDCBox', active = 1 WHERE code = '55';
+
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_categorypv(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	active smallint NOT NULL DEFAULT 1
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_categorypv ADD INDEX IF NOT EXISTS idx_c_powerplantpv_categorypv_rowid (rowid);
+ALTER TABLE llx_c_powerplantpv_categorypv ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_categorypv_code (code);
+ALTER TABLE llx_c_powerplantpv_categorypv ADD INDEX IF NOT EXISTS idx_c_powerplantpv_categorypv_active (active);

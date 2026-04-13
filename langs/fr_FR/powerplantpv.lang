@@ -108,3 +108,6 @@ PVMonitoring = Monitoring
 PVACBox = Coffrets AC
 PVDCBox = Coffret DC
 PVQuantity = Quantité
+
+# Dictionary
+PhotovoltaicCategoryDictionary = Catégorie Photovoltaïque
