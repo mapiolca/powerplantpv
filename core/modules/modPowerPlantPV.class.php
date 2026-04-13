@@ -119,13 +119,7 @@ class modPowerPlantPV extends DolibarrModules
 			),
 			// Set here all hooks context managed by module. To find available hook context, make a "grep -r '>initHooks(' *" on source code. You can also set hook context to 'all'
 			/* BEGIN MODULEBUILDER HOOKSCONTEXTS */
-			'hooks' => array(
-				//   'data' => array(
-				//       'hookcontext1',
-				//       'hookcontext2',
-				//   ),
-				//   'entity' => '0',
-			),
+			'hooks' => array(),
 			/* END MODULEBUILDER HOOKSCONTEXTS */
 			// Set this to 1 if features of module are opened to external users
 			'moduleforexternal' => 0,
@@ -189,7 +183,9 @@ class modPowerPlantPV extends DolibarrModules
 		// Array to add new pages in new tabs
 		/* BEGIN MODULEBUILDER TABS */
 		// Don't forget to deactivate/reactivate your module to test your changes
-		$this->tabs = array();
+		$this->tabs = array(
+			"product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight('produit', 'lire'):/powerplantpv/product_pvpanel.php?id=__ID__"
+		);
 		/* END MODULEBUILDER TABS */
 		// Example:
 		// To add a new tab identified by code tabname1
@@ -537,6 +533,22 @@ class modPowerPlantPV extends DolibarrModules
 		$this->remove($options);
 
 		$sql = array();
+
+		// Ensure PV product natures are present in dictionary
+		$natureTable = $this->db->prefix()."c_product_nature";
+		$pvNatures = array(
+			array('code' => '50', 'labelkey' => 'ProductNaturePVModules'),
+			array('code' => '51', 'labelkey' => 'ProductNaturePVInverters'),
+			array('code' => '52', 'labelkey' => 'ProductNaturePVIntegration'),
+			array('code' => '53', 'labelkey' => 'ProductNaturePVMonitoring'),
+			array('code' => '54', 'labelkey' => 'ProductNaturePVACBox'),
+			array('code' => '55', 'labelkey' => 'ProductNaturePVDCBox'),
+		);
+
+		foreach ($pvNatures as $nature) {
+			$sql[] = "UPDATE ".$natureTable." SET label = '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', active = 1 WHERE code = '".$this->db->escape($nature['code'])."'";
+			$sql[] = "INSERT INTO ".$natureTable." (code, label, active) SELECT '".$this->db->escape($nature['code'])."', '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', 1 WHERE NOT EXISTS (SELECT 1 FROM ".$natureTable." WHERE code = '".$this->db->escape($nature['code'])."')";
+		}
 
 		// Document templates
 		$moduledir = dol_sanitizeFileName('powerplantpv');

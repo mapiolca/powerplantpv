@@ -95,7 +95,7 @@ class mod_powerplant_standard extends ModeleNumRefPowerPlant
 		$sql = "SELECT MAX(CAST(SUBSTRING(t.ref FROM ".$posindice.") AS SIGNED)) as max";
 		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplant as t";
 		$sql .= " WHERE t.ref LIKE '".$db->escape($this->prefix)."____-%'";
-		if ($object->ismultientitymanaged == 1) {
+		if ($object->ismultientitymanaged == 1 && $this->hasEntityField($db)) {
 			$sql .= " AND t.entity = ".((int) $conf->entity);
 		} elseif (preg_match('/^\w+@\w+$/', (string) $object->ismultientitymanaged)) {
 			$tmparray = explode('@', (string) $object->ismultientitymanaged);
@@ -135,7 +135,7 @@ class mod_powerplant_standard extends ModeleNumRefPowerPlant
 		$sql = "SELECT MAX(CAST(SUBSTRING(t.ref FROM ".$posindice.") AS SIGNED)) as max";
 		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplant as t";
 		$sql .= " WHERE t.ref LIKE '".$db->escape($this->prefix)."____-%'";
-		if ($object->ismultientitymanaged == 1) {
+		if ($object->ismultientitymanaged == 1 && $this->hasEntityField($db)) {
 			$sql .= " AND t.entity = ".((int) $conf->entity);
 		} elseif (preg_match('/^\w+@\w+$/', (string) $object->ismultientitymanaged)) {
 			$tmparray = explode('@', (string) $object->ismultientitymanaged);

@@ -93,7 +93,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
-include_once DOL_DOCUMENT_ROOT.'/product/class/html.formproduct.class.php';
+dol_include_once('/product/class/html.formproduct.class.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
@@ -119,7 +119,7 @@ $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 $object = new PowerPlant($db);
 $extrafields = new ExtraFields($db);
 $formcompany = new FormCompany($db);
-$formproduct = new Form($db);
+$formproduct = new FormProduct($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
@@ -224,6 +224,84 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 }
 
 	$triggermodname = $object->TRIGGER_PREFIX.'_MODIFY'; // Name of trigger action code to execute when we modify record. Used in actions_addupdatedelete.inc.php
+
+	// Inline update of a single field (row-level edition)
+	if ($action == 'updatefield' && $permissiontoadd) {
+		// CSRF protection - compatible across Dolibarr versions
+		$token = GETPOST('token', 'alphanohtml');
+		if (function_exists('checkToken')) {
+			if (!checkToken()) {
+				accessforbidden();
+			}
+		} elseif (function_exists('dol_verifyToken')) {
+			if (!dol_verifyToken($token)) {
+				accessforbidden();
+			}
+		} else {
+			// Fallback for older versions
+			if (empty($token) || empty($_SESSION['newtoken']) || $token != $_SESSION['newtoken']) {
+				accessforbidden();
+			}
+		}
+
+		$field = preg_replace('/[^a-zA-Z0-9_]/', '', GETPOST('field', 'nohtml'));
+
+		// Security: allow only known fields from $object->fields (or our synthetic field zip_town)
+		if (empty($field) || ($field != 'zip_town' && empty($object->fields[$field]))) {
+			setEventMessages($langs->trans("ErrorBadParameter"), null, 'errors');
+		} else {
+			$res = 0;
+
+			// Special case: one line edits both zip + town
+			if ($field == 'zip_town') {
+				$zip = GETPOST('zip', 'restricthtml');
+				$town = GETPOST('town', 'restricthtml');
+
+				$res1 = $object->setValueFrom('zip', $zip, '', $object->id, 'text', '', $user, $triggermodname);
+				$res2 = $object->setValueFrom('town', $town, '', $object->id, 'text', '', $user, $triggermodname);
+
+				$res = ($res1 > 0 && $res2 > 0) ? 1 : -1;
+			} else {
+				$type = isset($object->fields[$field]['type']) ? $object->fields[$field]['type'] : '';
+				$format = 'text';
+				$newvalue = '';
+
+				// Date fields are posted as <field>day / <field>month / <field>year (and optionally hour/min)
+				if (strpos($type, 'date') !== false) {
+					$format = 'date';
+					$day = GETPOSTINT($field.'day');
+					$month = GETPOSTINT($field.'month');
+					$year = GETPOSTINT($field.'year');
+					$hour = GETPOSTINT($field.'hour');
+					$min = GETPOSTINT($field.'min');
+
+					if ($day && $month && $year) {
+						$newvalue = dol_mktime((strpos($type, 'datetime') !== false ? $hour : 0), (strpos($type, 'datetime') !== false ? $min : 0), 0, $month, $day, $year);
+					} else {
+						$newvalue = '';
+					}
+				} elseif (strpos($type, 'sellist:') === 0 || strpos($type, 'link:') === 0 || preg_match('/(^|[: ])(int|integer)/', $type)) {
+					$format = 'int';
+					$newvalue = GETPOSTINT($field);
+				} elseif (preg_match('/double|real|price|amount/', $type)) {
+					$format = 'text';
+					$newvalue = price2num(GETPOST($field, 'alpha'), 'MT');
+				} else {
+					$format = 'text';
+					$newvalue = GETPOST($field, 'restricthtml');
+				}
+
+				$res = $object->setValueFrom($field, $newvalue, '', $object->id, $format, '', $user, $triggermodname);
+			}
+
+			if ($res > 0) {
+				header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+				exit;
+			} else {
+				setEventMessages($object->error, $object->errors, 'errors');
+			}
+		}
+	}
 
 	// Actions cancel, add, update, update_extras, confirm_validate, confirm_delete, confirm_deleteline, confirm_clone, confirm_close, confirm_setdraft, confirm_reopen
 	include DOL_DOCUMENT_ROOT.'/core/actions_addupdatedelete.inc.php';
@@ -359,7 +437,8 @@ if (($id || $ref) && $action == 'edit') {
 
 	print dol_get_fiche_head();
 
-	print '<table class="border centpercent tableforfieldedit">'."\n";
+	print '<div class="fichecenter">';
+	print '<div class="underbanner clearboth"></div>';
 
 	// Common attributes
 	// EN: Render common fields with Dolibarr forms
@@ -368,12 +447,181 @@ if (($id || $ref) && $action == 'edit') {
 	$object->fields['ref']['visible'] = 5;
 	unset($object->fields['status']);
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
-	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_edit.tpl.php';
+	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
 
-	// Other attributes
-	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_edit.tpl.php';
+	$allfields = $object->fields;
 
-	print '</table>';
+	$findKey = function($regexes) use ($allfields, $langs) {
+		foreach ($allfields as $k => $def) {
+			$lab = !empty($def['label']) ? $def['label'] : '';
+			$labt = $lab ? $langs->transnoentitiesnoconv($lab) : '';
+			$hay = $k.' '.$lab.' '.$labt;
+			foreach ($regexes as $re) {
+				if (@preg_match($re, $hay) && preg_match($re, $hay)) {
+					return $k;
+				}
+			}
+		}
+		return '';
+	};
+
+
+// Field keys (explicit)
+$k_description = 'description';
+$k_address = 'address';
+$k_zip = 'zip';
+$k_town = 'town';
+$k_country = 'fk_country';
+
+// Réseau (2 colonnes)
+$k_enedis_commissioning_date = 'enedis_commissioning_date'; // Date de mise en service ENEDIS
+$k_connection_request_number = 'connection_request_number'; // N° de demande de raccordement
+$k_prm_pdl = isset($allfields['prm_pdl']) ? 'prm_pdl' : (isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : 'prm_pdl');
+$k_connection_type = 'connection_type';
+$k_commissioning_date = 'commissioning_date'; // Date de mise en service
+$k_connection_request_no = 'connection_request_no';
+
+// Contrats
+$k_t0_date = 't0_obtention_date';
+$k_connection_contract_power = 'connection_contract_power';
+$k_installed_power = 'installed_power';
+$k_purchase_contract_no = 'buyback_contract_number';
+$k_purchase_tariff = 'buyback_tariff';
+
+	// Helpers for structured rendering (no commonfields_* tpl includes)
+		$printRowEdit = function($key, $labelOverride = '', $morecss = '') use ($object, $langs) {
+			if (empty($key) || empty($object->fields[$key])) return;
+
+			$def = $object->fields[$key];
+			$label = $labelOverride ?: $langs->trans(!empty($def['label']) ? $def['label'] : $key);
+			$value = (isset($object->$key) ? $object->$key : '');
+
+			print '<tr class="field_'.$key.'">';
+			print '<td class="titlefieldcreate">'.$label.'</td>';
+			print '<td class="valuefieldcreate">'.$object->showInputField($def, $key, $value, '', '', '', $morecss).'</td>';
+			print '</tr>';
+		};
+
+		$printRowZipTownEdit = function($zipKey, $townKey) use ($object, $langs) {
+			if (empty($zipKey) && empty($townKey)) return;
+
+			$zipval = (!empty($zipKey) && isset($object->$zipKey) ? $object->$zipKey : '');
+			$townval = (!empty($townKey) && isset($object->$townKey) ? $object->$townKey : '');
+
+			print '<tr class="field_zip_town">';
+			print '<td class="titlefieldcreate">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
+			print '<td class="valuefieldcreate">';
+			if (!empty($zipKey)) {
+				print '<input class="flat maxwidth100" type="text" name="'.$zipKey.'" value="'.dol_escape_htmltag($zipval).'" />';
+			}
+			if (!empty($townKey)) {
+				print ' <input class="flat maxwidth200" type="text" name="'.$townKey.'" value="'.dol_escape_htmltag($townval).'" />';
+			}
+			print '</td>';
+			print '</tr>';
+		};
+
+		// Left column
+		print '<div class="fichehalfleft">';
+
+		print load_fiche_titre($langs->trans("Localisation"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_description);
+		$printRowEdit($k_address);
+		$printRowZipTownEdit($k_zip, $k_town);
+		$printRowEdit($k_country);
+		print '</table>';
+
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_prm_pdl);
+		$printRowEdit($k_connection_type);
+		$printRowEdit($k_commissioning_date);
+				print '</table>';
+
+		print '</div>'; // fichehalfleft
+
+		// Right column
+		print '<div class="fichehalfright">';
+
+		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_t0_date);
+		$printRowEdit($k_installed_power);
+		$printRowEdit($k_purchase_contract_no);
+		$printRowEdit($k_purchase_tariff);
+		print '</table>';
+
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfieldedit">'."\n";
+		$printRowEdit($k_enedis_commissioning_date);
+		$printRowEdit($k_connection_request_number);
+		$printRowEdit($k_connection_request_no);
+		$printRowEdit($k_connection_contract_power);
+		print '</table>';
+
+		print '</div>'; // fichehalfright
+
+		// Remaining fields + extrafields (full width, no duplicates)
+		print '<div class="clearboth"></div>';
+
+		$exclude = array();
+		foreach (array(
+			$k_description, $k_address, $k_zip, $k_town, $k_country,
+			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
+			$k_enedis_commissioning_date, $k_connection_request_number, $k_connection_request_no,
+			$k_t0_date, $k_connection_contract_power, $k_installed_power,
+			$k_purchase_contract_no, $k_purchase_tariff,
+			'ref', 'label', 'fk_soc', 'socid', 'fk_project', 'status'
+		) as $k) {
+
+
+
+			if (!empty($k)) $exclude[$k] = 1;
+		}
+
+		$hasextra = (!empty($extrafields->attributes[$object->element]['label']));
+
+		$hasremaining = 0;
+		foreach ($allfields as $key => $def) {
+			if (!empty($exclude[$key])) continue;
+			$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+			if ($vis <= 0 || $vis == 2) continue;
+			$hasremaining = 1;
+			break;
+		}
+
+		if ($hasremaining || $hasextra) {
+			print load_fiche_titre($langs->trans("Other"), '', '');
+
+			if ($hasremaining) {
+				print '<table class="border centpercent tableforfield">'."
+";
+
+				foreach ($allfields as $key => $def) {
+					if (!empty($exclude[$key])) continue;
+					$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+					if ($vis <= 0 || $vis == 2) continue;
+
+					$printRowView($key);
+				}
+
+				print '</table>';
+			}
+
+			if ($hasextra) {
+				print '<table class="border centpercent tableforfield">'."
+";
+				// Other attributes
+				include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
+				print '</table>';
+			}
+		}
+	// Restore
+	$object->fields = $allfields;
+
+	print '</div>';
 
 	print dol_get_fiche_end();
 
@@ -450,34 +698,34 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	/*
 		// Ref customer
 		$morehtmlref .= $form->editfieldkey("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string', '', 0, 1);
-		$morehtmlref .= $form->editfieldval("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string'.(getDolGlobalInt('THIRDPARTY_REF_INPUT_SIZE') ? ':'.getDolGlobalInt('THIRDPARTY_REF_INPUT_SIZE') : ''), '', null, null, '', 1);
-		// Thirdparty
-		$morehtmlref .= '<br>'.$object->thirdparty->getNomUrl(1, 'customer');
-		if (!getDolGlobalInt('MAIN_DISABLE_OTHER_LINK') && $object->thirdparty->id > 0) {
-			$morehtmlref .= ' (<a href="'.DOL_URL_ROOT.'/commande/list.php?socid='.$object->thirdparty->id.'&search_societe='.urlencode($object->thirdparty->name).'">'.$langs->trans("OtherOrders").'</a>)';
+		$morehtmlref .= $form->editfieldval("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string', '', null, null, '', 1);
+	*/
+	// Label (under reference)
+	if (!empty($object->label)) {
+		$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("Label").'</span>: '.dol_escape_htmltag($object->label);
+	}
+
+	// Thirdparty (under reference)
+	if (!empty($object->socid)) {
+		$object->fetch_thirdparty();
+		if (!empty($object->thirdparty) && !empty($object->thirdparty->id)) {
+			$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("ThirdParty").'</span>: '.$object->thirdparty->getNomUrl(1, 'customer');
 		}
-		// Project
-		if (isModEnabled('project')) {
-			$langs->load("projects");
-			$morehtmlref .= '<br>';
-			if ($permissiontoadd) {
-				$morehtmlref .= img_picto($langs->trans("Project"), 'project', 'class="pictofixedwidth"');
-				if ($action != 'classify') {
-					$morehtmlref .= '<a class="editfielda" href="'.dolBuildUrl($_SERVER['PHP_SELF'], ['action' => 'classify', 'id' => $object->id], true).'">'.img_edit($langs->transnoentitiesnoconv('SetProject')).'</a> ';
-				}
-				$morehtmlref .= $form->form_project($_SERVER['PHP_SELF'].'?id='.$object->id, $object->socid, $object->fk_project, ($action == 'classify' ? 'projectid' : 'none'), 0, 0, 0, 1, '', 'maxwidth300');
-			} else {
-				if (!empty($object->fk_project)) {
-					$proj = new Project($db);
-					$proj->fetch($object->fk_project);
-					$morehtmlref .= $proj->getNomUrl(1);
-					if ($proj->title) {
-						$morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($proj->title).'</span>';
-					}
-				}
+	}
+
+	// Project (under reference)
+	if (isModEnabled('project') && !empty($object->fk_project)) {
+		require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+		$langs->load("projects");
+		$proj = new Project($db);
+		if ($proj->fetch($object->fk_project) > 0) {
+			$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("Project").'</span>: '.$proj->getNomUrl(1);
+			if (!empty($proj->title)) {
+				$morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($proj->title).'</span>';
 			}
 		}
-	*/
+	}
+
 	$morehtmlref .= '</div>';
 
 
@@ -487,30 +735,249 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 
 	print '<div class="fichecenter">';
-
-	// Left column
-	print '<div class="fichehalfleft">';
 	print '<div class="underbanner clearboth"></div>';
-	print '<table class="border centpercent tableforfield">'."\n";
 
-	// Common attributes
-	//$keyforbreak='fieldkeytoswitchonsecondcolumn';	// We change column just before this field
-	//unset($object->fields['fk_project']);				// Hide field already shown in banner
-	//unset($object->fields['fk_soc']);					// Hide field already shown in banner
+	// Prepare field types
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
 	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
-	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_view.tpl.php';
 
-	// Other attributes. Fields from hook formObjectOptions and Extrafields.
-	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
+	$allfields = $object->fields;
 
-	print '</table>';
-	print '</div>'; // fichehalfleft
+	$findKey = function($regexes) use ($allfields, $langs) {
+		foreach ($allfields as $k => $def) {
+			$lab = !empty($def['label']) ? $def['label'] : '';
+			$labt = $lab ? $langs->transnoentitiesnoconv($lab) : '';
+			$hay = $k.' '.$lab.' '.$labt;
+			foreach ($regexes as $re) {
+				if (@preg_match($re, $hay) && preg_match($re, $hay)) {
+					return $k;
+				}
+			}
+		}
+		return '';
+	};
 
-	// Right column
-	print '<div class="fichehalfright">';
-	print '<div class="underbanner clearboth"></div>';
+	// Field keys (robust: try standard keys, fallback on label matching)
+
+// Field keys (explicit)
+$k_description = 'description';
+$k_address = 'address';
+$k_zip = 'zip';
+$k_town = 'town';
+$k_country = 'fk_country';
+
+// Réseau (2 colonnes)
+$k_enedis_commissioning_date = 'enedis_commissioning_date'; // Date de mise en service ENEDIS
+$k_connection_request_number = 'connection_request_number'; // N° de demande de raccordement
+$k_prm_pdl = isset($allfields['prm_pdl']) ? 'prm_pdl' : (isset($allfields['prm_pdl_number']) ? 'prm_pdl_number' : 'prm_pdl');
+$k_connection_type = 'connection_type';
+$k_commissioning_date = 'commissioning_date'; // Date de mise en service
+$k_connection_request_no = 'connection_request_no';
+
+// Contrats
+$k_t0_date = 't0_obtention_date';
+$k_connection_contract_power = 'connection_contract_power';
+$k_installed_power = 'installed_power';
+$k_purchase_contract_no = 'buyback_contract_number';
+$k_purchase_tariff = 'buyback_tariff';
+
+	// Helpers for structured rendering (no commonfields_* tpl includes)
+		$fieldtoedit = ($action == 'editfield' ? GETPOST('field', 'nohtml') : '');
+		$fieldtoedit = preg_replace('/[^a-zA-Z0-9_]/', '', $fieldtoedit);
+		if (!empty($fieldtoedit) && $fieldtoedit !== 'zip_town' && empty($object->fields[$fieldtoedit])) $fieldtoedit = '';
+
+		$printRowView = function($key, $labelOverride = '', $valueOverride = null) use ($object, $langs, $permissiontoadd, $fieldtoedit) {
+			if (empty($key) || empty($object->fields[$key])) return;
+
+			$def = $object->fields[$key];
+			$label = $labelOverride ?: $langs->trans(!empty($def['label']) ? $def['label'] : $key);
+			$value = ($valueOverride !== null ? $valueOverride : (isset($object->$key) ? $object->$key : ''));
+
+			$canedit = (!empty($permissiontoadd) && empty($def['noteditable']) && empty($def['disabled']));
+			$isedit = ($canedit && $fieldtoedit === $key);
+
+			$urlcard = $_SERVER["PHP_SELF"].'?id='.$object->id;
+			$urledit = $urlcard.'&action=editfield&field='.$key;
+
+			print '<tr class="field_'.$key.'" id="field_'.$key.'">';
+			print '<td class="titlefieldmiddle">'.$label.'</td>';
+
+			if ($isedit) {
+				$formid = 'form_'.$key;
+				print '<td class="valuefield">';
+				print '<form id="'.$formid.'" method="POST" action="'.$urlcard.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="updatefield">';
+				print '<input type="hidden" name="field" value="'.$key.'">';
+				print $object->showInputField($def, $key, $value, '', '', '', '');
+				print '</form>';
+				print '</td>';
+				print '<td class="right nowraponall">';
+				print '<button type="submit" form="'.$formid.'" class="reposition">'.img_picto($langs->trans("Save"), 'tick').'</button>';
+				print ' <a class="reposition" href="'.$urlcard.'">'.img_picto($langs->trans("Cancel"), 'cancel').'</a>';
+				print '</td>';
+			} else {
+				print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+				print '<td class="right nowraponall">';
+				if ($canedit) {
+					print '<a class="reposition" href="'.$urledit.'">'.img_edit().'</a>';
+				} else {
+					print '&nbsp;';
+				}
+				print '</td>';
+			}
+
+			print '</tr>';
+		};
+
+		$printRowZipTownView = function($zipKey, $townKey) use ($object, $langs, $permissiontoadd, $fieldtoedit) {
+			if (empty($zipKey) && empty($townKey)) return;
+
+			$zipval = (!empty($zipKey) && isset($object->$zipKey) ? $object->$zipKey : '');
+			$townval = (!empty($townKey) && isset($object->$townKey) ? $object->$townKey : '');
+
+			$canedit = (!empty($permissiontoadd));
+			$isedit = ($canedit && $fieldtoedit === 'zip_town');
+
+			$urlcard = $_SERVER["PHP_SELF"].'?id='.$object->id;
+			$urledit = $urlcard.'&action=editfield&field=zip_town';
+
+			print '<tr class="field_zip_town" id="field_zip_town">';
+			print '<td class="titlefieldmiddle">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
+
+			if ($isedit) {
+				$formid = 'form_zip_town';
+				print '<td class="valuefield">';
+				print '<form id="'.$formid.'" method="POST" action="'.$urlcard.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="updatefield">';
+				print '<input type="hidden" name="field" value="zip_town">';
+				if (!empty($zipKey)) {
+					print '<input class="flat maxwidth100" type="text" name="'.$zipKey.'" value="'.dol_escape_htmltag($zipval).'" />';
+				}
+				if (!empty($townKey)) {
+					print ' <input class="flat maxwidth200" type="text" name="'.$townKey.'" value="'.dol_escape_htmltag($townval).'" />';
+				}
+				print '</form>';
+				print '</td>';
+				print '<td class="right nowraponall">';
+				print '<button type="submit" form="'.$formid.'" class="reposition">'.img_picto($langs->trans("Save"), 'tick').'</button>';
+				print ' <a class="reposition" href="'.$urlcard.'">'.img_picto($langs->trans("Cancel"), 'cancel').'</a>';
+				print '</td>';
+			} else {
+				print '<td class="valuefield">'.dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval).'</td>';
+				print '<td class="right nowraponall">';
+				if ($canedit) {
+					print '<a class="reposition" href="'.$urledit.'">'.img_edit().'</a>';
+				} else {
+					print '&nbsp;';
+				}
+				print '</td>';
+			}
+
+			print '</tr>';
+		};
+
+		// Left column
+		print '<div class="fichehalfleft">';
+
+		// Localisation
+		print load_fiche_titre($langs->trans("Localisation"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_description);
+		$printRowView($k_address);
+		$printRowZipTownView($k_zip, $k_town);
+		$printRowView($k_country);
+		print '</table>';
+
+		// Réseau
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_prm_pdl);
+		$printRowView($k_connection_type);
+		$printRowView($k_commissioning_date);
+				print '</table>';
+
+		print '</div>'; // fichehalfleft
+
+		// Right column
+		print '<div class="fichehalfright">';
+
+		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_t0_date);
+		$printRowView($k_installed_power);
+		$printRowView($k_purchase_contract_no);
+		$printRowView($k_purchase_tariff);
+		print '</table>';
+
+		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print '<table class="border centpercent tableforfield">'."\n";
+		$printRowView($k_enedis_commissioning_date);
+		$printRowView($k_connection_request_number);
+		$printRowView($k_connection_request_no);
+		$printRowView($k_connection_contract_power);
+		print '</table>';
+
+		print '</div>'; // fichehalfright
+
+		// Remaining fields + extrafields (full width, no duplicates)
+		print '<div class="clearboth"></div>';
+
+		$exclude = array();
+		foreach (array(
+			$k_description, $k_address, $k_zip, $k_town, $k_country,
+			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
+			$k_enedis_commissioning_date, $k_connection_request_number, $k_connection_request_no,
+			$k_t0_date, $k_connection_contract_power, $k_installed_power,
+			$k_purchase_contract_no, $k_purchase_tariff,
+			'ref', 'label', 'fk_soc', 'socid', 'fk_project', 'status'
+		) as $k) {
+
+			if (!empty($k)) $exclude[$k] = 1;
+		}
+
+		$hasextra = (!empty($extrafields->attributes[$object->element]['label']));
+
+		$hasremaining = 0;
+		foreach ($allfields as $key => $def) {
+			if (!empty($exclude[$key])) continue;
+			$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+			if ($vis <= 0 || $vis == 2) continue;
+			$hasremaining = 1;
+			break;
+		}
+
+		if ($hasremaining || $hasextra) {
+			print load_fiche_titre($langs->trans("Other"), '', '');
+			print '<table class="border centpercent tableforfield">'."\n";
+
+			if ($hasremaining) {
+				foreach ($allfields as $key => $def) {
+					if (!empty($exclude[$key])) continue;
+					$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
+					if ($vis <= 0 || $vis == 2) continue;
+
+					$label = $langs->trans(!empty($def['label']) ? $def['label'] : $key);
+					$value = (isset($object->$key) ? $object->$key : '');
+
+					print '<tr class="field_'.$key.'">';
+					print '<td class="titlefieldmiddle">'.$label.'</td>';
+					print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+					print '</tr>';
+				}
+			}
+
+			// Other attributes
+			include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
+
+			print '</table>';
+		}
+	// Restore
+	$object->fields = $allfields;
+
+	print '</div>';
 
 	// EN: Composition sections
 	$sections = array(
@@ -522,39 +989,35 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		55 => array('label' => $langs->trans('PVDCBox')),
 	);
 
+	print '<div class="fichecenter">';
+	print '<div class="underbanner clearboth"></div>';
 	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
 
 	foreach ($sections as $code => $info) {
-		print '<h3>'.$info['label'].'</h3>';
+		$showaddform = ($object->status == $object::STATUS_DRAFT && $permissiontoadd);
 
-		$caneditcomposition = ($isdraft && $permissiontoadd);
-		if ($caneditcomposition) {
+		print '<div class="ficheaddleft">';
+		print '<h3 class="marginbottomonly">'.$info['label'].'</h3>';
+		if ($showaddform) {
 			print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
 			print '<input type="hidden" name="action" value="addcomposition">';
 			print '<input type="hidden" name="naturecode" value="'.$code.'">';
 		}
 
-		print '<div class="div-table-responsive-no-min">';
 		print '<table class="noborder centpercent">';
-		print '<tr class="liste_titre">';
-		print '<td>'.$langs->trans("Product").'</td>';
-		print '<td class="right">'.$langs->trans("PVQuantity").'</td>';
-		print '<td class="center"></td>';
-		print '</tr>';
+		print '<tr class="liste_titre"><td>'.$langs->trans("Product").'</td><td class="right">'.$langs->trans("PVQuantity").'</td><td class="center"></td></tr>';
 
-		// Row to add composition (only when draft)
-		if ($caneditcomposition) {
-			print '<tr class="oddeven">';
-			print '<td>';
-			print $formproduct->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
-			print '</td>';
-			print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
-			print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
-			print '</tr>';
-		}
+			if ($showaddform) {
+				print '<tr class="oddeven">';
+				print '<td>';
+				print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
+				print '</td>';
+				print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
+				print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
+				print '</tr>';
+			}
 
-		// Existing composition lines (always visible)
 		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
 		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
 		$sqlcomp .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
@@ -566,25 +1029,22 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 				print '<tr class="oddeven">';
 				print '<td>'.dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).'</td>';
 				print '<td class="right">'.price($line->qty).'</td>';
-				if ($caneditcomposition) {
-					print '<td class="center"><a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a></td>';
-				} else {
-					print '<td class="center"></td>';
-				}
+				print '<td class="center">'.($showaddform ? '<a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a>' : '').'</td>';
 				print '</tr>';
 			}
 		}
 
-		print '</table>';
-		print '</div>';
-
-		if ($caneditcomposition) {
+		if ($showaddform) {
+			print '</table>';
 			print '</form>';
+		} else {
+			print '</table>';
 		}
+
+		print '</div>';
 	}
 
-	print '</div>'; // fichehalfright
-	print '</div>'; // fichecenter
+	print '</div>';
 
 	print '<div class="clearboth"></div>';
 
@@ -667,9 +1127,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 			}
 
 			// Modify
-			print dolGetButtonAction('', $langs->trans('Modify'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=edit&token='.newToken(), '', $permissiontoadd);
-
-			// Validate
+						// Validate
 			if ($object->status == $object::STATUS_DRAFT) {
 				if (empty($object->table_element_line) || (is_array($object->lines) && count($object->lines) > 0)) {
 					print dolGetButtonAction('', $langs->trans('Validate'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=confirm_validate&confirm=yes&token='.newToken(), '', $permissiontoadd);

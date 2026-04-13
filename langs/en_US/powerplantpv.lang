@@ -40,3 +40,71 @@ MyPageName = My page name
 #
 MyWidget = My widget
 MyWidgetDescription = My widget description
+
+PowerPlant = Power plant
+# PowerPlant fields
+PowerPlantCommissioningDate = Commissioning date
+PowerPlantPrmPdlNumber = PRM/PDL number
+PowerPlantAddress = Address
+PowerPlantZip = Postal code
+PowerPlantTown = City
+PowerPlantCountry = Country
+PowerPlantInstalledPower = Installed capacity
+PowerPlantConnectionContractPower = Connection contract power
+PowerPlantConnectionType = Connection type
+PowerPlantEnedisCommissioningDate = ENEDIS commissioning date
+PowerPlantConnectionRequestNumber = Connection request number
+PowerPlantT0ObtentionDate = T0 approval date
+PowerPlantBuybackContractNumber = Buyback contract number
+PowerPlantBuybackTariff = Buyback tariff
+
+# PV Panel
+PVPanelNominalPower = Nominal power (Pmax) (W)
+PVPanelPowerTolerance = Power tolerance (W)
+PVPanelModuleEfficiency = Module efficiency (ηm) (%)
+PVPanelVmp = Voltage at MPP (Vmp) (V)
+PVPanelImp = Current at MPP (Imp) (A)
+PVPanelVoc = Open-circuit voltage (Voc) (V)
+PVPanelIsc = Short-circuit current (Isc) (A)
+PVPanelFrontGlassThickness = Front glass thickness (mm)
+PVPanelBackGlassThickness = Back glass thickness (mm)
+PVPanelCableSection = Cable section (mm²)
+PVPanelCableLength = Cable length (mm)
+PVPanelOperatingTemperature = Operating temperature (°C)
+PVPanelMaxSystemVoltage = Maximum system voltage (V DC)
+PVPanelMaxSeriesFuse = Maximum series fuse (A)
+PVPanelSnowLoad = Snow load (Pa)
+PVPanelWindLoad = Wind load (Pa)
+PVPanelNOCT = NOCT (°C)
+PVPanelTempCoeffPmax = Temperature coefficient Pmax (%/°C)
+PVPanelTempCoeffVoc = Temperature coefficient Voc (%/°C)
+PVPanelTempCoeffIsc = Temperature coefficient Isc (%/°C)
+PVPanelFirstYearDegradation = First year degradation (%)
+PVPanelAnnualDegradation = Annual degradation (from year 2) (%/year)
+PVPanelProductWarranty = Product warranty (years)
+PVPanelPowerWarranty = Power warranty (years)
+PVPanelModulesPerBox = Modules per box (pcs)
+PVPanelModulesPerContainer40 = Modules per 40 ft container (pcs)
+PVPanelTabTitle = Detailed characteristics
+PVPanelElectricalSTC = Electrical data (STC)
+PVPanelElectricalNOCT = Electrical data (NOCT)
+PVPanelMechanicalData = Mechanical data
+PVPanelMaxRatings = Maximum ratings
+PVPanelWarranty = Warranty
+PVPanelPackaging = Packaging
+
+# Product nature
+ProductNaturePVModules = Photovoltaic modules
+ProductNaturePVInverters = Inverters
+ProductNaturePVIntegration = Mounting system
+ProductNaturePVMonitoring = Monitoring
+ProductNaturePVACBox = AC combiner boxes
+ProductNaturePVDCBox = DC combiner boxes
+PowerPlantComposition = Composition
+PVModules = Modules
+PVInverters = Inverters
+PVIntegration = Mounting system
+PVMonitoring = Monitoring
+PVACBox = AC combiner boxes
+PVDCBox = DC combiner boxes
+PVQuantity = Quantity

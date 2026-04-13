@@ -40,3 +40,71 @@ MyPageName = My page name
 #
 MyWidget = My widget
 MyWidgetDescription = My widget description
+
+PowerPlant = Centrale
+# PowerPlant fields
+PowerPlantCommissioningDate = Date de mise en service
+PowerPlantPrmPdlNumber = N° de PRM/PDL
+PowerPlantAddress = Adresse
+PowerPlantZip = Code postal
+PowerPlantTown = Ville
+PowerPlantCountry = Pays
+PowerPlantInstalledPower = Puissance installée
+PowerPlantConnectionContractPower = Puissance du contrat de raccordement
+PowerPlantConnectionType = Type de raccordement
+PowerPlantEnedisCommissioningDate = Date de mise en service ENEDIS
+PowerPlantConnectionRequestNumber = N° de demande de raccordement
+PowerPlantT0ObtentionDate = Date d'obtention du T0
+PowerPlantBuybackContractNumber = N° de contrat de rachat
+PowerPlantBuybackTariff = Tarif de rachat
+
+# PV Panel
+PVPanelNominalPower = Puissance nominale (Pmax) (W)
+PVPanelPowerTolerance = Tolérance de puissance (W)
+PVPanelModuleEfficiency = Rendement module (ηm) (%)
+PVPanelVmp = Tension au MPP (Vmp) (V)
+PVPanelImp = Courant au MPP (Imp) (A)
+PVPanelVoc = Tension à vide (Voc) (V)
+PVPanelIsc = Courant de court-circuit (Isc) (A)
+PVPanelFrontGlassThickness = Épaisseur verre avant (mm)
+PVPanelBackGlassThickness = Épaisseur verre arrière (mm)
+PVPanelCableSection = Section câble (mm²)
+PVPanelCableLength = Longueur câble (mm)
+PVPanelOperatingTemperature = Température de fonctionnement (°C)
+PVPanelMaxSystemVoltage = Tension système maximale (V DC)
+PVPanelMaxSeriesFuse = Fusible série maximal (A)
+PVPanelSnowLoad = Charge neige (Pa)
+PVPanelWindLoad = Charge vent (Pa)
+PVPanelNOCT = NOCT (°C)
+PVPanelTempCoeffPmax = Coefficient température Pmax (%/°C)
+PVPanelTempCoeffVoc = Coefficient température Voc (%/°C)
+PVPanelTempCoeffIsc = Coefficient température Isc (%/°C)
+PVPanelFirstYearDegradation = Dégradation 1ère année (%)
+PVPanelAnnualDegradation = Dégradation annuelle (à partir de l’année 2) (%/an)
+PVPanelProductWarranty = Garantie produit (ans)
+PVPanelPowerWarranty = Garantie puissance (ans)
+PVPanelModulesPerBox = Modules par boîte (pcs)
+PVPanelModulesPerContainer40 = Modules par conteneur 40’ (pcs)
+PVPanelTabTitle = Caractéristiques détaillées
+PVPanelElectricalSTC = Données électriques (STC)
+PVPanelElectricalNOCT = Données électriques (NOCT)
+PVPanelMechanicalData = Données mécaniques
+PVPanelMaxRatings = Valeurs maximales
+PVPanelWarranty = Garantie
+PVPanelPackaging = Configuration de conditionnement
+
+# Product nature
+ProductNaturePVModules = Modules photovoltaïque
+ProductNaturePVInverters = Onduleurs
+ProductNaturePVIntegration = Système d'intégration
+ProductNaturePVMonitoring = Monitoring
+ProductNaturePVACBox = Coffrets AC
+ProductNaturePVDCBox = Coffret DC
+PowerPlantComposition = Composition
+PVModules = Modules
+PVInverters = Onduleurs
+PVIntegration = Système d'intégration
+PVMonitoring = Monitoring
+PVACBox = Coffrets AC
+PVDCBox = Coffret DC
+PVQuantity = Quantité

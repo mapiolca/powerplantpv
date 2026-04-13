@@ -73,7 +73,7 @@ class PowerPlant extends CommonObject
 	 * @var int<0,1>|string		Does this object support multicompany module ?
 	 * 							0=No test on entity, 1=Test with field entity in local table, 'field@table'=Test entity into the field@table (example 'fk_soc@societe')
 	 */
-	public $ismultientitymanaged = 0;
+	public $ismultientitymanaged = 1;
 
 
 	const STATUS_DRAFT = 0;
@@ -130,8 +130,23 @@ class PowerPlant extends CommonObject
 	 */
 	public $fields = array(
 		"rowid" => array("type" => "integer", "label" => "TechnicalID", "enabled" => "1", 'position' => 1, 'notnull' => 1, "visible" => "0", "noteditable" => "1", "index" => "1", "css" => "left", "comment" => "Id"),
-		"ref" => array("type" => "varchar(128)", "label" => "Ref", "enabled" => "1", 'position' => 20, 'notnull' => 1, "visible" => "1", "index" => "1", "searchall" => "1", "showoncombobox" => "1", "validate" => "1", "comment" => "Reference of object"),
+		"ref" => array("type" => "varchar(128)", "label" => "Ref", "enabled" => "1", 'position' => 20, 'notnull' => 1, "visible" => "1", "index" => "1", "searchall" => "1", "showoncombobox" => "1", "validate" => "1", "default" => "(PROV)", "comment" => "Reference of object"),
 		"label" => array("type" => "varchar(255)", "label" => "Label", "enabled" => "1", 'position' => 30, 'notnull' => 0, "visible" => "1", "alwayseditable" => "1", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "help" => "Help text", "showoncombobox" => "2", "validate" => "1",),
+		"entity" => array("type" => "integer", "label" => "Entity", "enabled" => "1", 'position' => 45, 'notnull' => 1, "visible" => "-2", "default" => 1, "index" => "1"),
+		"commissioning_date" => array("type" => "date", "label" => "PowerPlantCommissioningDate", "enabled" => "1", 'position' => 35, 'notnull' => 0, "visible" => "1", "validate" => "1",),
+		"prm_pdl_number" => array("type" => "varchar(128)", "label" => "PowerPlantPrmPdlNumber", "enabled" => "1", 'position' => 36, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"address" => array("type" => "varchar(255)", "label" => "PowerPlantAddress", "enabled" => "1", 'position' => 37, 'notnull' => 0, "visible" => "3", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "validate" => "1",),
+		"zip" => array("type" => "varchar(25)", "label" => "PowerPlantZip", "enabled" => "1", 'position' => 38, 'notnull' => 0, "visible" => "1", "searchall" => "1", "csslist" => "nowraponall", "validate" => "1",),
+		"town" => array("type" => "varchar(255)", "label" => "PowerPlantTown", "enabled" => "1", 'position' => 39, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"fk_country" => array("type" => "integer", "label" => "PowerPlantCountry", "enabled" => "1", 'position' => 40, 'notnull' => 0, "visible" => "1", "index" => "1", "validate" => "1",),
+		"installed_power" => array("type" => "double(24,8)", "label" => "PowerPlantInstalledPower", "enabled" => "1", 'position' => 41, 'notnull' => 0, "visible" => "1", "isameasure" => "1", "validate" => "1", "css" => "right", "cssview" => "right", "csslist" => "right"),
+		"connection_contract_power" => array("type" => "double(24,8)", "label" => "PowerPlantConnectionContractPower", "enabled" => "1", 'position' => 42, 'notnull' => 0, "visible" => "1", "isameasure" => "1", "validate" => "1", "css" => "right", "cssview" => "right", "csslist" => "right"),
+		"connection_type" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionType", "enabled" => "1", 'position' => 43, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"enedis_commissioning_date" => array("type" => "date", "label" => "PowerPlantEnedisCommissioningDate", "enabled" => "1", 'position' => 44, 'notnull' => 0, "visible" => "1", "validate" => "1",),
+		"connection_request_number" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionRequestNumber", "enabled" => "1", 'position' => 45, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"t0_obtention_date" => array("type" => "date", "label" => "PowerPlantT0ObtentionDate", "enabled" => "1", 'position' => 46, 'notnull' => 0, "visible" => "1", "validate" => "1",),
+		"buyback_contract_number" => array("type" => "varchar(128)", "label" => "PowerPlantBuybackContractNumber", "enabled" => "1", 'position' => 47, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"buyback_tariff" => array("type" => "price", "label" => "PowerPlantBuybackTariff", "enabled" => "1", 'position' => 48, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"fk_soc" => array("type" => "integer:Societe:societe/class/societe.class.php:1:((status:=:1) AND (entity:IN:__SHARED_ENTITIES__))", "label" => "ThirdParty", "picto" => "company", "enabled" => "isModEnabled('societe')", 'position' => 50, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "help" => "OrganizationEventLinkToThirdParty", "validate" => "1",),
 		"fk_project" => array("type" => "integer:Project:projet/class/project.class.php:1", "label" => "Project", "picto" => "project", "enabled" => "isModEnabled('project')", 'position' => 52, 'notnull' => -1, "visible" => "-1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "validate" => "1",),
 		"description" => array("type" => "text", "label" => "Description", "enabled" => "1", 'position' => 60, 'notnull' => 0, "visible" => "3", "validate" => "1",),
@@ -144,11 +159,26 @@ class PowerPlant extends CommonObject
 		"last_main_doc" => array("type" => "varchar(255)", "label" => "LastMainDoc", "enabled" => "1", 'position' => 600, 'notnull' => 0, "visible" => "0",),
 		"import_key" => array("type" => "varchar(14)", "label" => "ImportId", "enabled" => "1", 'position' => 1000, 'notnull' => -1, "visible" => "-2",),
 		"model_pdf" => array("type" => "varchar(255)", "label" => "Model pdf", "enabled" => "1", 'position' => 1010, 'notnull' => -1, "visible" => "0",),
-		"status" => array("type" => "integer", "label" => "Status", "enabled" => "1", 'position' => 2000, 'notnull' => 1, "visible" => "1", "index" => "1", "arrayofkeyval" => array("0" => "Brouillon", "1" => "Validée", "2" => "Activée", "3" => "Désactivée"), "validate" => "1",),
+		"status" => array("type" => "integer", "label" => "Status", "enabled" => "1", 'position' => 2000, 'notnull' => 1, "visible" => "4", "index" => "1", "default" => self::STATUS_DRAFT, "arrayofkeyval" => array("0" => "Brouillon", "1" => "Validée", "2" => "Activée", "3" => "Désactivée"), "validate" => "1",),
 	);
 	public $rowid;
 	public $ref;
 	public $label;
+	public $entity;
+	public $commissioning_date;
+	public $prm_pdl_number;
+	public $address;
+	public $zip;
+	public $town;
+	public $fk_country;
+	public $installed_power;
+	public $connection_contract_power;
+	public $connection_type;
+	public $enedis_commissioning_date;
+	public $connection_request_number;
+	public $t0_obtention_date;
+	public $buyback_contract_number;
+	public $buyback_tariff;
 	public $fk_soc;
 	public $fk_project;
 	public $description;
@@ -254,7 +284,24 @@ class PowerPlant extends CommonObject
 	 */
 	public function create(User $user, $notrigger = 0)
 	{
+		// Ensure provisional reference and draft status before creation
+		if (empty($this->ref)) {
+			$this->ref = '(PROV)';
+		}
+		if (!isset($this->status)) {
+			$this->status = self::STATUS_DRAFT;
+		}
+
 		$result = $this->createCommon($user, $notrigger);
+
+		if ($result > 0 && !empty($this->ref) && $this->ref === '(PROV)') {
+			// EN: Assign final reference using selected numbering module
+			// FR: Attribuer la référence finale via le module de numérotation sélectionné
+			$refResult = $this->assignFinalReference($user);
+			if ($refResult < 0) {
+				return $refResult;
+			}
+		}
 
 		// uncomment lines below if you want to validate object after creation
 		// if ($result > 0) {
@@ -381,6 +428,88 @@ class PowerPlant extends CommonObject
 			$this->fetchLines($noextrafields);
 		}
 		return $result;
+	}
+
+	/**
+	 * Load numbering module and set final reference.
+	 *
+	 * @param	User	$user	Current user
+	 * @return	int				<0 if error, 0 if OK
+	 */
+	protected function assignFinalReference(User $user)
+	{
+		global $conf, $langs;
+
+		$moduleName = getDolGlobalString('POWERPLANTPV_POWERPLANT_ADDON', 'mod_powerplant_standard');
+		$dirmodels = array_merge(array('/'), (array) $conf->modules_parts['models']);
+		$loaded = false;
+
+		foreach ($dirmodels as $reldir) {
+			$file = dol_buildpath($reldir.'core/modules/powerplantpv/'.$moduleName.'.php', 0);
+			if (is_readable($file)) {
+				require_once $file;
+				$loaded = true;
+				break;
+			}
+		}
+
+		if (!$loaded || !class_exists($moduleName)) {
+			$this->error = $langs->trans('Error') . ' : ' . $moduleName;
+			return -1;
+		}
+
+		$module = new $moduleName($this->db);
+		if (empty($module->isEnabled()) && method_exists($module, 'isEnabled')) {
+			$this->error = $langs->trans('Error') . ' : ' . $moduleName;
+			return -1;
+		}
+
+		$nextRef = $module->getNextValue($this);
+		if (empty($nextRef) || preg_match('/^Error/', (string) $nextRef)) {
+			$this->error = $langs->trans('Error') . ' : ' . $module->error;
+			return -1;
+		}
+
+		$this->ref = $nextRef;
+
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET ref = '".$this->db->escape($this->ref)."'";
+		$sql .= " WHERE rowid = ".((int) $this->id);
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Compute provisional reference preview for creation form.
+	 *
+	 * @return	string	Provisional reference like (PROV1)
+	 */
+	public function getProvisionalRefPreview()
+	{
+		global $conf;
+
+		$nextId = 1;
+
+		$sql = "SELECT MAX(rowid) as maxid FROM ".$this->db->prefix().$this->table_element;
+		if ($this->ismultientitymanaged == 1 && !empty($this->fields['entity'])) {
+			$sql .= " WHERE entity = ".((int) $conf->entity);
+		}
+
+		$resql = $this->db->query($sql);
+		if ($resql) {
+			$obj = $this->db->fetch_object($resql);
+			if ($obj && $obj->maxid !== null) {
+				$nextId = ((int) $obj->maxid) + 1;
+			}
+		}
+
+		return '(PROV'.$nextId.')';
 	}
 
 	/**

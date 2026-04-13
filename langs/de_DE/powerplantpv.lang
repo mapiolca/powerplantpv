@@ -1,0 +1,110 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModulePowerPlantPVName'
+ModulePowerPlantPVName = PowerPlantPV
+# Module description 'ModulePowerPlantPVDesc'
+ModulePowerPlantPVDesc = PowerPlantPV Beschreibung
+
+#
+# Admin page
+#
+PowerPlantPVSetup = PowerPlantPV Einstellungen
+Settings = Einstellungen
+PowerPlantPVSetupPage = PowerPlantPV Einstellungsseite
+NewSection=Neue Sektion
+POWERPLANTPV_MYPARAM1 = Mein Parameter 1
+POWERPLANTPV_MYPARAM1Tooltip = Hinweis zu Parameter 1
+POWERPLANTPV_MYPARAM2=Mein Parameter 2
+POWERPLANTPV_MYPARAM2Tooltip=Hinweis zu Parameter 2
+
+
+#
+# About page
+#
+About = Über
+PowerPlantPVAbout = Über PowerPlantPV
+PowerPlantPVAboutPage = PowerPlantPV Infoseite
+
+#
+# Sample page
+#
+PowerPlantPVArea = Home PowerPlantPV
+MyPageName = Mein Seitenname
+
+#
+# Sample widget
+#
+MyWidget = Mein Widget
+MyWidgetDescription = Beschreibung des Widgets
+
+PowerPlant = Kraftwerk
+# PowerPlant fields
+PowerPlantCommissioningDate = Inbetriebnahmedatum
+PowerPlantPrmPdlNumber = PRM/PDL-Nummer
+PowerPlantAddress = Adresse
+PowerPlantZip = Postleitzahl
+PowerPlantTown = Stadt
+PowerPlantCountry = Land
+PowerPlantInstalledPower = Installierte Leistung
+PowerPlantConnectionContractPower = Leistung des Anschlussvertrags
+PowerPlantConnectionType = Anschlussart
+PowerPlantEnedisCommissioningDate = ENEDIS-Inbetriebnahmedatum
+PowerPlantConnectionRequestNumber = Anschlussantragsnummer
+PowerPlantT0ObtentionDate = T0-Erhaltungsdatum
+PowerPlantBuybackContractNumber = Rückkaufvertragsnummer
+PowerPlantBuybackTariff = Rückkauftarif
+
+# PV Panel
+PVPanelNominalPower = Nennleistung (Pmax) (W)
+PVPanelPowerTolerance = Leistungstoleranz (W)
+PVPanelModuleEfficiency = Modulwirkungsgrad (ηm) (%)
+PVPanelVmp = Spannung am MPP (Vmp) (V)
+PVPanelImp = Strom am MPP (Imp) (A)
+PVPanelVoc = Leerlaufspannung (Voc) (V)
+PVPanelIsc = Kurzschlussstrom (Isc) (A)
+PVPanelFrontGlassThickness = Stärke Frontglas (mm)
+PVPanelBackGlassThickness = Stärke Rückglas (mm)
+PVPanelCableSection = Kabelquerschnitt (mm²)
+PVPanelCableLength = Kabellänge (mm)
+PVPanelOperatingTemperature = Betriebstemperatur (°C)
+PVPanelMaxSystemVoltage = Maximale Systemspannung (V DC)
+PVPanelMaxSeriesFuse = Maximaler Serien-Sicherung (A)
+PVPanelSnowLoad = Schneelast (Pa)
+PVPanelWindLoad = Windlast (Pa)
+PVPanelNOCT = NOCT (°C)
+PVPanelTempCoeffPmax = Temperaturkoeffizient Pmax (%/°C)
+PVPanelTempCoeffVoc = Temperaturkoeffizient Voc (%/°C)
+PVPanelTempCoeffIsc = Temperaturkoeffizient Isc (%/°C)
+PVPanelFirstYearDegradation = Degradation im 1. Jahr (%)
+PVPanelAnnualDegradation = Jährliche Degradation (ab Jahr 2) (%/Jahr)
+PVPanelProductWarranty = Produktgarantie (Jahre)
+PVPanelPowerWarranty = Leistungsgarantie (Jahre)
+PVPanelModulesPerBox = Module pro Karton (Stk)
+PVPanelModulesPerContainer40 = Module pro 40’-Container (Stk)
+PVPanelTabTitle = Detaillierte Merkmale
+PVPanelElectricalSTC = Elektrische Daten (STC)
+PVPanelElectricalNOCT = Elektrische Daten (NOCT)
+PVPanelMechanicalData = Mechanische Daten
+PVPanelMaxRatings = Maximalwerte
+PVPanelWarranty = Garantie
+PVPanelPackaging = Verpackung
+
+# Product nature
+ProductNaturePVModules = Photovoltaikmodule
+ProductNaturePVInverters = Wechselrichter
+ProductNaturePVIntegration = Montagesystem
+ProductNaturePVMonitoring = Monitoring
+ProductNaturePVACBox = AC-Verteilerkästen
+ProductNaturePVDCBox = DC-Verteilerkasten
+PowerPlantComposition = Zusammensetzung
+PVModules = Module
+PVInverters = Wechselrichter
+PVIntegration = Montagesystem
+PVMonitoring = Monitoring
+PVACBox = AC-Verteilerkästen
+PVDCBox = DC-Verteilerkasten
+PVQuantity = Menge
