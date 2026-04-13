@@ -48,7 +48,7 @@ function powerplantPrepareHead($object)
 	$h++;
 
 
-	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplantpv_composition.php', 1), ['id' => $object->id]);
+	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_composition.php', 1), ['id' => $object->id]);
 	$head[$h][1] = $langs->trans('PowerPlantMaterialComposition');
 	$head[$h][2] = 'composition';
 	$h++;

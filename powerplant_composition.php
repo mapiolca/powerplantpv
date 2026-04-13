@@ -16,7 +16,7 @@
  */
 
 /**
- * \file		powerplantpv_composition.php
+ * \file		powerplant_composition.php
  * \ingroup	powerplantpv
  * \brief	Material composition list tab for power plant
  */
