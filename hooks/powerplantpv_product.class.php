@@ -23,39 +23,4 @@
 
 class ActionsPowerplantpv_product
 {
-	/**
-	 * Remove PV panel tab from product card when photovoltaic category is not allowed.
-	 *
-	 * @param	array			$parameters		Hook parameters
-	 * @param	Product			$object			Product object
-	 * @param	string			$action			Current action
-	 * @param	HookManager		$hookmanager	Hook manager
-	 * @return	int							0 on success
-	 */
-	public function completeTabsHead($parameters, &$object, &$action, $hookmanager)
-	{
-		if (!is_array($parameters) || empty($parameters['head']) || !is_array($parameters['head'])) {
-			return 0;
-		}
-		if (empty($object->id)) {
-			return 0;
-		}
-
-		$object->fetch_optionals($object->id, null);
-		$categoryRowId = !empty($object->array_options['options_categorie_photovoltaique']) ? (int) $object->array_options['options_categorie_photovoltaique'] : 0;
-		if ($categoryRowId === 1) {
-			return 0;
-		}
-
-		$newhead = $parameters['head'];
-		foreach ($newhead as $key => $tab) {
-			if (isset($tab[2]) && $tab[2] === 'pvpanel') {
-				unset($newhead[$key]);
-			}
-		}
-
-		$hookmanager->resArray = $newhead;
-
-		return 1;
-	}
 }
