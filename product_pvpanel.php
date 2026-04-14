@@ -65,6 +65,20 @@ if (!$user->admin && (int) $object->finished !== 50) {
 	accessforbidden();
 }
 
+$sql = "SELECT c.code";
+$sql .= " FROM ".$db->prefix()."product_extrafields as pe";
+$sql .= " LEFT JOIN ".$db->prefix()."c_powerplantpv_categorypv as c ON c.rowid = pe.categorie_photovoltaique";
+$sql .= " WHERE pe.fk_object = ".((int) $object->id);
+$resql = $db->query($sql);
+$categoryCode = '';
+if ($resql) {
+	$obj = $db->fetch_object($resql);
+	$categoryCode = !empty($obj->code) ? $obj->code : '';
+}
+if (!in_array($categoryCode, array('MODULE', 'ONDULE'), true)) {
+	accessforbidden();
+}
+
 if ($action === 'edit' && !$permissiontoadd) {
 	accessforbidden();
 }
