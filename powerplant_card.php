@@ -979,71 +979,47 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print '</div>';
 
-	// EN: Composition sections
-	$sections = array(
-		50 => array('label' => $langs->trans('PVModules')),
-		51 => array('label' => $langs->trans('PVInverters')),
-		52 => array('label' => $langs->trans('PVIntegration')),
-		53 => array('label' => $langs->trans('PVMonitoring')),
-		54 => array('label' => $langs->trans('PVACBox')),
-		55 => array('label' => $langs->trans('PVDCBox')),
+	$compositionsummary = array(
+		'modules' => 0,
+		'inverters' => 0,
+		'acboxes' => 0,
+		'dcboxes' => 0,
+		'otherlabels' => array(),
 	);
+
+	$sqlcomp = "SELECT c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
+	$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+	$sqlcomp .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
+	$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id);
+	$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
+	$rescomp = $db->query($sqlcomp);
+	if ($rescomp) {
+		while ($line = $db->fetch_object($rescomp)) {
+			$qty = (float) $line->qty;
+			if ((int) $line->nature_code == 50) {
+				$compositionsummary['modules'] += $qty;
+			} elseif ((int) $line->nature_code == 51) {
+				$compositionsummary['inverters'] += $qty;
+			} elseif ((int) $line->nature_code == 54) {
+				$compositionsummary['acboxes'] += $qty;
+			} elseif ((int) $line->nature_code == 55) {
+				$compositionsummary['dcboxes'] += $qty;
+			} else {
+				$compositionsummary['otherlabels'][] = dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).' (x'.price($qty).')';
+			}
+		}
+	}
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
 	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
-
-	foreach ($sections as $code => $info) {
-		$showaddform = ($object->status == $object::STATUS_DRAFT && $permissiontoadd);
-
-		print '<div class="ficheaddleft">';
-		print '<h3 class="marginbottomonly">'.$info['label'].'</h3>';
-		if ($showaddform) {
-			print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
-			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="addcomposition">';
-			print '<input type="hidden" name="naturecode" value="'.$code.'">';
-		}
-
-		print '<table class="noborder centpercent">';
-		print '<tr class="liste_titre"><td>'.$langs->trans("Product").'</td><td class="right">'.$langs->trans("PVQuantity").'</td><td class="center"></td></tr>';
-
-			if ($showaddform) {
-				print '<tr class="oddeven">';
-				print '<td>';
-				print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
-				print '</td>';
-				print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
-				print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
-				print '</tr>';
-			}
-
-		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
-		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
-		$sqlcomp .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
-		$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id)." AND c.nature_code = ".((int) $code);
-		$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
-		$rescomp = $db->query($sqlcomp);
-		if ($rescomp) {
-			while ($line = $db->fetch_object($rescomp)) {
-				print '<tr class="oddeven">';
-				print '<td>'.dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).'</td>';
-				print '<td class="right">'.price($line->qty).'</td>';
-				print '<td class="center">'.($showaddform ? '<a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a>' : '').'</td>';
-				print '</tr>';
-			}
-		}
-
-		if ($showaddform) {
-			print '</table>';
-			print '</form>';
-		} else {
-			print '</table>';
-		}
-
-		print '</div>';
-	}
-
+	print '<table class="border centpercent tableforfield">';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryModulesCount').'</td><td>'.price($compositionsummary['modules']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryInvertersCount').'</td><td>'.price($compositionsummary['inverters']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryACBoxesCount').'</td><td>'.price($compositionsummary['acboxes']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryDCBoxesCount').'</td><td>'.price($compositionsummary['dcboxes']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryOtherElementsList').'</td><td>'.(!empty($compositionsummary['otherlabels']) ? implode('<br>', $compositionsummary['otherlabels']) : $langs->trans('PVSummaryNone')).'</td></tr>';
+	print '</table>';
 	print '</div>';
 
 	print '<div class="clearboth"></div>';

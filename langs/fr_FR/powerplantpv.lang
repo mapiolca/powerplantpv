@@ -108,6 +108,12 @@ PVMonitoring = Monitoring
 PVACBox = Coffrets AC
 PVDCBox = Coffret DC
 PVQuantity = Quantité
+PVSummaryModulesCount = Nombre de modules
+PVSummaryInvertersCount = Nombre d'onduleurs
+PVSummaryACBoxesCount = Nombre de coffrets AC
+PVSummaryDCBoxesCount = Nombre de coffrets DC
+PVSummaryOtherElementsList = Liste des autres éléments
+PVSummaryNone = Aucun
 
 # Dictionary
 PhotovoltaicCategoryDictionary = Catégorie Photovoltaïque
