@@ -127,14 +127,14 @@ if (!isModEnabled($object->module) || !$permissiontoread) {
 
 include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php';
 
-$categories = array(
-	50 => $langs->trans('PVModules'),
-	51 => $langs->trans('PVInverters'),
-	52 => $langs->trans('PVIntegration'),
-	53 => $langs->trans('PVMonitoring'),
-	54 => $langs->trans('PVACBox'),
-	55 => $langs->trans('PVDCBox'),
-);
+$categories = array();
+$sqlcategories = "SELECT rowid, label FROM ".$db->prefix()."c_powerplantpv_categorypv WHERE active = 1 ORDER BY label ASC";
+$rescategories = $db->query($sqlcategories);
+if ($rescategories) {
+	while ($objcat = $db->fetch_object($rescategories)) {
+		$categories[(int) $objcat->rowid] = $objcat->label;
+	}
+}
 
 if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 'alpha')) {
 	$search_ref = '';
@@ -196,7 +196,7 @@ if ($search_label !== '') {
 	$sqlwhere .= " AND p.label LIKE '%".$db->escape($search_label)."%'";
 }
 if ($search_nature > 0) {
-	$sqlwhere .= ' AND p.fk_product_nature = '.((int) $search_nature);
+	$sqlwhere .= ' AND pe.categorie_photovoltaique = '.((int) $search_nature);
 }
 if ($search_serial !== '') {
 	$sqlwhere .= " AND c.serial_number LIKE '%".$db->escape($search_serial)."%'";
@@ -208,6 +208,7 @@ if ($search_commissioning !== '') {
 $sqlcount = 'SELECT COUNT(c.rowid) as nb';
 $sqlcount .= ' FROM '.$db->prefix().'powerplantpv_powerplantcomp as c';
 $sqlcount .= ' JOIN '.$db->prefix().'product as p ON p.rowid = c.fk_product';
+$sqlcount .= ' LEFT JOIN '.$db->prefix().'product_extrafields as pe ON pe.fk_object = p.rowid';
 $sqlcount .= $sqlwhere;
 $rescount = $db->query($sqlcount);
 $nbtotalofrecords = 0;
@@ -216,9 +217,11 @@ if ($rescount) {
 	$nbtotalofrecords = (int) $objcount->nb;
 }
 
-$sql = 'SELECT c.rowid, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label, p.fk_product_nature as product_nature';
+$sql = 'SELECT c.rowid, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
 $sql .= ' FROM '.$db->prefix().'powerplantpv_powerplantcomp as c';
 $sql .= ' JOIN '.$db->prefix().'product as p ON p.rowid = c.fk_product';
+$sql .= ' LEFT JOIN '.$db->prefix().'product_extrafields as pe ON pe.fk_object = p.rowid';
+$sql .= ' LEFT JOIN '.$db->prefix().'c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique';
 $sql .= $sqlwhere;
 $sql .= $db->order($sortfield, $sortorder);
 $sql .= $db->plimit($limit + 1, $offset);
@@ -311,7 +314,7 @@ if ($id > 0 || !empty($ref)) {
 	print '<tr class="liste_titre">';
 	print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
-	print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'p.fk_product_nature', '', $param, '', $sortfield, $sortorder);
+	print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'cpv.label', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('PowerPlantSerialNumber'), $_SERVER['PHP_SELF'], 'c.serial_number', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('PowerPlantCommissioningDate'), $_SERVER['PHP_SELF'], 'c.commissioning_date', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
@@ -325,7 +328,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<tr class="oddeven">';
 			print '<td>'.dol_escape_htmltag($objline->product_ref).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
-				print '<td>'.(isset($categories[(int) $objline->product_nature]) ? $categories[(int) $objline->product_nature] : '').'</td>';
+				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
 			print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
 			print '<td class="center">';
