@@ -996,13 +996,13 @@ $k_purchase_tariff = 'buyback_tariff';
 	$rescomp = $db->query($sqlcomp);
 	if ($rescomp) {
 		while ($line = $db->fetch_object($rescomp)) {
-			if ((int) $line->category_code == 50) {
+			if ($line->category_code == 'MODULE') {
 				$compositionsummary['modules'] += (int) $line->nb_products;
-			} elseif ((int) $line->category_code == 51) {
+			} elseif ($line->category_code == 'ONDULE') {
 				$compositionsummary['inverters'] += (int) $line->nb_products;
-			} elseif ((int) $line->category_code == 54) {
+			} elseif ($line->category_code == 'COFFAC') {
 				$compositionsummary['acboxes'] += (int) $line->nb_products;
-			} elseif ((int) $line->category_code == 55) {
+			} elseif ($line->category_code == 'COFFDC') {
 				$compositionsummary['dcboxes'] += (int) $line->nb_products;
 			} else {
 				$compositionsummary['other'] += (int) $line->nb_products;
