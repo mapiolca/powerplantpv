@@ -23,38 +23,4 @@
 
 class ActionsPowerplantpv_product
 {
-	/**
-	 * Add tab on product card.
-	 *
-	 * @param	array			$parameters		Hook parameters
-	 * @param	Product			$object			Product object
-	 * @param	string			$action			Current action
-	 * @param	HookManager		$hookmanager	Hook manager
-	 * @return	int							0 or 1 to replace standard behavior, <0 on error
-	 */
-	public function addMoreTabs($parameters, &$object, &$action, $hookmanager)
-	{
-		global $langs;
-
-		$langs->loadLangs(array('powerplantpv@powerplantpv'));
-
-		$categoryRowId = 0;
-		if (!empty($object->array_options['options_categorie_photovoltaique'])) {
-			$categoryRowId = (int) $object->array_options['options_categorie_photovoltaique'];
-		}
-		if (!$categoryRowId && !empty($object->id)) {
-			$object->fetch_optionals($object->id, null);
-			$categoryRowId = (int) $object->array_options['options_categorie_photovoltaique'];
-		}
-		if ((int) $object->fk_product_nature === 50 && in_array($categoryRowId, array(1, 2), true)) {
-			$tabs = array(array(
-				'url' => dol_buildpath('/powerplantpv/product_pvpanel.php', 1).'?id='.$object->id,
-				'title' => $langs->trans('PVPanelTabTitle'),
-				'id' => 'pvpanel'
-			));
-			$hookmanager->resArray = array_merge($hookmanager->resArray, $tabs);
-		}
-
-		return 0;
-	}
 }
