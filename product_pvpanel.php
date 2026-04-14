@@ -67,7 +67,7 @@ if (!$user->admin && (int) $object->finished !== 50) {
 
 $object->fetch_optionals($object->id, null);
 $categoryRowId = !empty($object->array_options['options_categorie_photovoltaique']) ? (int) $object->array_options['options_categorie_photovoltaique'] : 0;
-if (!in_array($categoryRowId, array(1, 2), true)) {
+if ($categoryRowId !== 1) {
 	accessforbidden();
 }
 

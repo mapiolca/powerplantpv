@@ -185,7 +185,7 @@ class modPowerPlantPV extends DolibarrModules
 		/* BEGIN MODULEBUILDER TABS */
 		// Don't forget to deactivate/reactivate your module to test your changes
 		$this->tabs = array(
-			"product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight('produit', 'lire') && (int) \$object->fetch_optionals(\$object->id, null) >= 0 && in_array((int) \$object->array_options['options_categorie_photovoltaique'], array(1, 2), true):/powerplantpv/product_pvpanel.php?id=__ID__"
+			"product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight('produit', 'lire') && (int) \$object->fetch_optionals(\$object->id, null) >= 0 && (int) \$object->array_options['options_categorie_photovoltaique'] === 1:/powerplantpv/product_pvpanel.php?id=__ID__"
 		);
 		/* END MODULEBUILDER TABS */
 		// Example:
