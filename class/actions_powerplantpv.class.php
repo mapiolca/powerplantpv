@@ -1,5 +1,5 @@
 <?php
-/* Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+/* Copyright (C) 2026	Pierre Ardoin			<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,12 +16,11 @@
  */
 
 /**
- * 	\file       powerplantpv/hooks/powerplantpv_product.class.php
- *	\ingroup    powerplantpv
- *	\brief      Hook for product card.
+ * \file		class/actions_powerplantpv.class.php
+ * \ingroup	powerplantpv
+ * \brief		Hook class for PowerPlantPV module.
  */
-
-class ActionsPowerplantpv_product
+class ActionsPowerplantpv
 {
 	/**
 	 * Add tab on product card.
