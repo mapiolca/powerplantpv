@@ -190,6 +190,20 @@ if ($action === 'delcomposition' && $canedit && $lineid > 0) {
 	$db->query($sql);
 }
 
+if ($action === 'updateline' && $canedit && $lineid > 0) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+
+	$serial_number = GETPOST('serial_number', 'alphanohtml');
+	$commissioning_date = dol_mktime(0, 0, 0, GETPOSTINT('commissioning_datemonth'), GETPOSTINT('commissioning_dateday'), GETPOSTINT('commissioning_dateyear'));
+	$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+	$sql .= " SET serial_number = '".$db->escape($serial_number)."', commissioning_date = ".($commissioning_date > 0 ? "'".$db->idate($commissioning_date)."'" : "NULL");
+	$sql .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+	$db->query($sql);
+	$action = 'view';
+}
+
 if ($massaction === 'massdelete' && $canedit && is_array($toselect) && count($toselect) > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
@@ -316,6 +330,35 @@ if ($id > 0 || !empty($ref)) {
 		print '});';
 		print '</script>';
 
+		if ($canedit && $action === 'editline' && $lineid > 0) {
+			$sqledit = "SELECT rowid, serial_number, commissioning_date FROM ".$db->prefix()."powerplantpv_powerplantcomp";
+			$sqledit .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$resedit = $db->query($sqledit);
+			if ($resedit && ($objedit = $db->fetch_object($resedit))) {
+				print '<div id="dialog-editcomposition" class="hideobject">';
+				print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="updateline">';
+				print '<input type="hidden" name="lineid" value="'.((int) $objedit->rowid).'">';
+				print '<table class="noborder centpercent">';
+				print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlantSerialNumber').'</td><td><input type="text" class="flat minwidth100" name="serial_number" value="'.dol_escape_htmltag($objedit->serial_number).'"></td></tr>';
+				print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$form->selectDate(($objedit->commissioning_date ? $db->jdate($objedit->commissioning_date) : -1), 'commissioning_date', 0, 0, 1, '', 1, 0).'</td></tr>';
+				print '</table>';
+				print '<div class="center">';
+				print '<input type="submit" class="button button-edit" value="'.$langs->trans('Modify').'">';
+				print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+				print '</div>';
+				print '</form>';
+				print '</div>';
+
+				print '<script nonce="'.getNonce().'">';
+				print 'jQuery(function(){';
+				print 'jQuery("#dialog-editcomposition").dialog({autoOpen:true,modal:true,width:700,title:"'.dol_escape_js($langs->trans('Modify')).'"});';
+				print '});';
+				print '</script>';
+			}
+		}
+
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="id" value="'.$object->id.'">';
@@ -363,12 +406,13 @@ if ($id > 0 || !empty($ref)) {
 				print '<td>'.dol_escape_htmltag($objline->product_ref).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
-			print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
-			print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
-			print '<td class="center">';
-			if ($canedit) {
-				print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
-			}
+				print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
+				print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
+				print '<td class="center">';
+				if ($canedit) {
+					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_edit().'</a>';
+					print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
+				}
 			print '</td>';
 			print '</tr>';
 			$i++;
