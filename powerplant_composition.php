@@ -324,6 +324,35 @@ if ($id > 0 || !empty($ref)) {
 		print '<script nonce="'.getNonce().'">';
 		print 'jQuery(function(){';
 		print 'jQuery("#dialog-addcomposition").dialog({autoOpen:false,modal:true,width:900,title:"'.dol_escape_js($langs->trans('PowerPlantMaterialComposition')).'"});';
+		print 'if (jQuery("#fk_product").length) {';
+		print 'jQuery("#fk_product").addClass("flat minwidth200imp maxwidth300");';
+		print 'jQuery("#fk_product").select2({';
+		print 'dir:"ltr",';
+		print 'width:"resolve",';
+		print 'minimumInputLength:0,';
+		print 'language:(typeof select2arrayoflanguage === "undefined") ? "en" : select2arrayoflanguage,';
+		print 'theme:"default",';
+		print 'containerCssClass:":all:",';
+		print 'selectionCssClass:":all:",';
+		print 'dropdownCssClass:"ui-dialog",';
+		print 'matcher:function(params,data){';
+		print 'if (jQuery.trim(params.term) === "") { return data; }';
+		print 'var term = params.term.toLowerCase();';
+		print 'var text = (data.text || "").toLowerCase();';
+		print 'var keywords = term.split(" ");';
+		print 'for (var i = 0; i < keywords.length; i++) { if (text.indexOf(keywords[i]) === -1) { return null; } }';
+		print 'return data;';
+		print '},';
+		print 'templateResult:function(data,container){';
+		print 'if (data.element) { jQuery(container).addClass(jQuery(data.element).attr("class")); }';
+		print 'if (data.id == "-1" && jQuery(data.element).attr("data-html") == undefined) { return "&nbsp;"; }';
+		print 'if (jQuery(data.element).attr("data-html") != undefined && typeof htmlEntityDecodeJs === "function") { return htmlEntityDecodeJs(jQuery(data.element).attr("data-html")); }';
+		print 'return data.text;';
+		print '},';
+		print 'templateSelection:function(selection){ if (selection.id == "-1") return "<span class=\"placeholder\">"+selection.text+"</span>"; return selection.text; },';
+		print 'escapeMarkup:function(markup){ return markup; }';
+		print '});';
+		print '}';
 		if ($openaddmodal) {
 			print 'jQuery("#dialog-addcomposition").dialog("open");';
 		}
