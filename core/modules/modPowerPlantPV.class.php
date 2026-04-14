@@ -566,6 +566,37 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		// Seed photovoltaic category dictionary.
+		$categoryRows = array(
+			'MODULE' => 'Module photovoltaïque',
+			'ONDULE' => 'Onduleur',
+			'ONDACC' => 'Accessoire Onduleur',
+			'DATLOG' => 'Datalogger',
+			'OPTMIZ' => 'Optimiseur',
+			'COFFAC' => 'Coffret AC',
+			'COFFDC' => 'Coffret DC',
+			'SYSINT' => 'Système d\'intégration',
+		);
+		foreach ($categoryRows as $code => $label) {
+			$sql = "INSERT INTO ".$this->db->prefix()."c_powerplantpv_categorypv(code, label, active)";
+			$sql .= " SELECT '".$this->db->escape($code)."', '".$this->db->escape($label)."', 1";
+			$sql .= " WHERE NOT EXISTS (SELECT 1 FROM ".$this->db->prefix()."c_powerplantpv_categorypv WHERE code = '".$this->db->escape($code)."')";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+
+			$sql = "UPDATE ".$this->db->prefix()."c_powerplantpv_categorypv";
+			$sql .= " SET label = '".$this->db->escape($label)."', active = 1";
+			$sql .= " WHERE code = '".$this->db->escape($code)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
 		// Permissions
 		$this->remove($options);
 
