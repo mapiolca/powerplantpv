@@ -164,7 +164,18 @@ if ($action === 'createcomposition' && $canedit) {
 		$qty = 1;
 	}
 
+	$isallowedproduct = 0;
 	if ($fk_product > 0) {
+		$sqlcheck = "SELECT pe.fk_object FROM ".$db->prefix()."product_extrafields as pe";
+		$sqlcheck .= " WHERE pe.fk_object = ".((int) $fk_product);
+		$sqlcheck .= " AND pe.categorie_photovoltaique IS NOT NULL AND pe.categorie_photovoltaique <> ''";
+		$rescheck = $db->query($sqlcheck);
+		if ($rescheck && $db->num_rows($rescheck) > 0) {
+			$isallowedproduct = 1;
+		}
+	}
+
+	if ($fk_product > 0 && $isallowedproduct) {
 		$i = 0;
 		while ($i < $qty) {
 			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, serial_number, commissioning_date, entity)";
@@ -311,7 +322,7 @@ if ($id > 0 || !empty($ref)) {
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="action" value="createcomposition">';
 		print '<table class="noborder centpercent">';
-		print '<tr><td class="titlefieldcreate">'.$langs->trans('Product').'</td><td>'.$form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '', 0, '', $filterforproducts).'</td></tr>';
+		print '<tr><td class="titlefieldcreate">'.$langs->trans('Product').'</td><td>'.$form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', $filterforproducts).'</td></tr>';
 		print '<tr><td class="titlefieldcreate">'.$langs->trans('PVQuantity').'</td><td><input type="number" class="flat width50" min="1" name="qty" value="1"></td></tr>';
 		print '</table>';
 		print '<div class="center">';
