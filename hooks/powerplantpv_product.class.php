@@ -23,30 +23,4 @@
 
 class ActionsPowerplantpv_product
 {
-	/**
-	 * Add tab on product card.
-	 *
-	 * @param	array			$parameters		Hook parameters
-	 * @param	Product			$object			Product object
-	 * @param	string			$action			Current action
-	 * @param	HookManager		$hookmanager	Hook manager
-	 * @return	int							0 or 1 to replace standard behavior, <0 on error
-	 */
-	public function addMoreTabs($parameters, &$object, &$action, $hookmanager)
-	{
-		global $langs;
-
-		$langs->loadLangs(array('powerplantpv@powerplantpv'));
-
-		if ($object->fk_product_nature == '50') {
-			$tabs = array(array(
-				'url' => dol_buildpath('/powerplantpv/product_pvpanel.php', 1).'?id='.$object->id,
-				'title' => $langs->trans('PVPanelTabTitle'),
-				'id' => 'pvpanel'
-			));
-			$hookmanager->resArray = array_merge($hookmanager->resArray, $tabs);
-		}
-
-		return 0;
-	}
 }

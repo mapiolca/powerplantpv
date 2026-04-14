@@ -16,7 +16,7 @@
  */
 
 /**
- *\file       htdocs/powerplantpv/product_pvpanel.php
+ *\file       htdocs/powerplantpv/product_detailedcaracteristics.php
  *\ingroup    powerplantpv
  *\brief      Product tab for PV panel detailed characteristics
  */
@@ -60,10 +60,9 @@ if (!$permissiontoread) {
 	accessforbidden();
 }
 
-// Security: keep your existing rule (only admin or product finished == 50)
-if (!$user->admin && (int) $object->finished !== 50) {
-	accessforbidden();
-}
+$object->fetch_optionals($object->id, null);
+$categoryRowId = !empty($object->array_options['options_categorie_photovoltaique']) ? (int) $object->array_options['options_categorie_photovoltaique'] : 0;
+$hasDetailedCharacteristics = ($categoryRowId === 1);
 
 if ($action === 'edit' && !$permissiontoadd) {
 	accessforbidden();
@@ -71,17 +70,19 @@ if ($action === 'edit' && !$permissiontoadd) {
 
 // Load existing data
 $panel = null;
-$sql = 'SELECT * FROM '.$db->prefix().'powerplantpv_product_pvpanel';
-$sql .= ' WHERE fk_product = '.((int) $object->id);
-$resql = $db->query($sql);
-if ($resql) {
-	$panel = $db->fetch_object($resql);
-} else {
-	setEventMessages($db->lasterror(), null, 'errors');
+if ($hasDetailedCharacteristics) {
+	$sql = 'SELECT * FROM '.$db->prefix().'powerplantpv_product_pvpanel';
+	$sql .= ' WHERE fk_product = '.((int) $object->id);
+	$resql = $db->query($sql);
+	if ($resql) {
+		$panel = $db->fetch_object($resql);
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
 }
 
 // Save
-if ($action === 'save' && $permissiontoadd) {
+if ($hasDetailedCharacteristics && $action === 'save' && $permissiontoadd) {
 	$fields = array(
 		'pmax', 'power_tolerance', 'module_efficiency', 'vmp', 'imp', 'voc', 'isc',
 		'front_glass_thickness', 'back_glass_thickness', 'cable_section', 'cable_length',
@@ -159,7 +160,7 @@ $shortlabel = dol_trunc($object->label, 16);
 $title = $langs->trans('Product').' '.$shortlabel.' - '.$langs->trans('PVPanelTabTitle');
 $helpurl = 'EN:Module_Products|FR:Module_Produits|ES:M&oacute;dulo_Productos';
 
-llxHeader('', $title, $helpurl, '', 0, 0, '', '', '', 'mod-product page-card_product_pvpanel');
+llxHeader('', $title, $helpurl, '', 0, 0, '', '', '', 'mod-product page-card_product_detailedcaracteristics');
 
 $head = product_prepare_head($object, $user);
 
@@ -174,6 +175,13 @@ if ($user->socid && !in_array('product', explode(',', getDolGlobalString('MAIN_M
 
 dol_banner_tab($object, 'ref', $linkback, $shownav, 'ref');
 print dol_get_fiche_end();
+
+if (!$hasDetailedCharacteristics) {
+	print '<div class="info">'.$langs->trans('NoDetailedCharacteristicsForProductType').'</div>';
+	llxFooter();
+	$db->close();
+	exit;
+}
 $editmode = ($action === 'edit');
 
 if ($editmode) {
