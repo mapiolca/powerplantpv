@@ -205,13 +205,12 @@ if (empty($reshook)) {
 
 // Composition actions
 if ($action == 'addcomposition' && $permissiontoadd) {
-	$naturecode = GETPOSTINT('naturecode');
 	$fk_product = GETPOSTINT('fk_product');
 	$qty = price2num(GETPOST('qty', 'alpha'), 'MT');
 
-	if ($fk_product > 0 && $qty > 0 && in_array($naturecode, array(50, 51, 52, 53, 54, 55))) {
-		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, nature_code, qty, entity)";
-		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((int) $naturecode).", ".((float) $qty).", ".((int) $conf->entity).")";
+	if ($fk_product > 0 && $qty > 0) {
+		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, entity)";
+		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".((int) $conf->entity).")";
 		$db->query($sql);
 	}
 }
@@ -987,23 +986,26 @@ $k_purchase_tariff = 'buyback_tariff';
 		'other' => 0,
 	);
 
-	$sqlcomp = "SELECT c.nature_code";
+	$sqlcomp = "SELECT cpv.code as category_code, COUNT(c.rowid) as nb_products";
 	$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+	$sqlcomp .= " LEFT JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = c.fk_product";
+	$sqlcomp .= " LEFT JOIN ".$db->prefix()."c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique";
 	$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id);
 	$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
+	$sqlcomp .= " GROUP BY cpv.code";
 	$rescomp = $db->query($sqlcomp);
 	if ($rescomp) {
 		while ($line = $db->fetch_object($rescomp)) {
-			if ((int) $line->nature_code == 50) {
-				$compositionsummary['modules']++;
-			} elseif ((int) $line->nature_code == 51) {
-				$compositionsummary['inverters']++;
-			} elseif ((int) $line->nature_code == 54) {
-				$compositionsummary['acboxes']++;
-			} elseif ((int) $line->nature_code == 55) {
-				$compositionsummary['dcboxes']++;
+			if ((int) $line->category_code == 50) {
+				$compositionsummary['modules'] += (int) $line->nb_products;
+			} elseif ((int) $line->category_code == 51) {
+				$compositionsummary['inverters'] += (int) $line->nb_products;
+			} elseif ((int) $line->category_code == 54) {
+				$compositionsummary['acboxes'] += (int) $line->nb_products;
+			} elseif ((int) $line->category_code == 55) {
+				$compositionsummary['dcboxes'] += (int) $line->nb_products;
 			} else {
-				$compositionsummary['other']++;
+				$compositionsummary['other'] += (int) $line->nb_products;
 			}
 		}
 	}
