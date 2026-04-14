@@ -161,19 +161,12 @@ if ($action === 'createcomposition' && $canedit) {
 	if ($qty < 1) {
 		$qty = 1;
 	}
-	$naturecode = 0;
-	$sqlproduct = 'SELECT fk_product_nature FROM '.$db->prefix().'product WHERE rowid = '.((int) $fk_product);
-	$resproduct = $db->query($sqlproduct);
-	if ($resproduct) {
-		$objproduct = $db->fetch_object($resproduct);
-		$naturecode = (int) $objproduct->fk_product_nature;
-	}
 
 	if ($fk_product > 0) {
 		$i = 0;
 		while ($i < $qty) {
-			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, nature_code, qty, serial_number, commissioning_date, entity)";
-			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', '.((int) $naturecode).', 1, \'\', NULL, '.((int) $conf->entity).')';
+			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, serial_number, commissioning_date, entity)";
+			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', 1, \'\', NULL, '.((int) $conf->entity).')';
 			$db->query($sql);
 			$i++;
 		}
@@ -203,7 +196,7 @@ if ($search_label !== '') {
 	$sqlwhere .= " AND p.label LIKE '%".$db->escape($search_label)."%'";
 }
 if ($search_nature > 0) {
-	$sqlwhere .= ' AND c.nature_code = '.((int) $search_nature);
+	$sqlwhere .= ' AND p.fk_product_nature = '.((int) $search_nature);
 }
 if ($search_serial !== '') {
 	$sqlwhere .= " AND c.serial_number LIKE '%".$db->escape($search_serial)."%'";
@@ -223,7 +216,7 @@ if ($rescount) {
 	$nbtotalofrecords = (int) $objcount->nb;
 }
 
-$sql = 'SELECT c.rowid, c.nature_code, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label';
+$sql = 'SELECT c.rowid, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label, p.fk_product_nature as product_nature';
 $sql .= ' FROM '.$db->prefix().'powerplantpv_powerplantcomp as c';
 $sql .= ' JOIN '.$db->prefix().'product as p ON p.rowid = c.fk_product';
 $sql .= $sqlwhere;
@@ -318,7 +311,7 @@ if ($id > 0 || !empty($ref)) {
 	print '<tr class="liste_titre">';
 	print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
-	print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'c.nature_code', '', $param, '', $sortfield, $sortorder);
+	print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'p.fk_product_nature', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('PowerPlantSerialNumber'), $_SERVER['PHP_SELF'], 'c.serial_number', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('PowerPlantCommissioningDate'), $_SERVER['PHP_SELF'], 'c.commissioning_date', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
@@ -332,7 +325,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<tr class="oddeven">';
 			print '<td>'.dol_escape_htmltag($objline->product_ref).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
-			print '<td>'.(isset($categories[(int) $objline->nature_code]) ? $categories[(int) $objline->nature_code] : '').'</td>';
+				print '<td>'.(isset($categories[(int) $objline->product_nature]) ? $categories[(int) $objline->product_nature] : '').'</td>';
 			print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
 			print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
 			print '<td class="center">';
