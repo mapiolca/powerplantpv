@@ -108,6 +108,12 @@ PVMonitoring = Monitoring
 PVACBox = AC combiner boxes
 PVDCBox = DC combiner boxes
 PVQuantity = Quantity
+PVSummaryModulesCount = Number of modules
+PVSummaryInvertersCount = Number of inverters
+PVSummaryACBoxesCount = Number of AC boxes
+PVSummaryDCBoxesCount = Number of DC boxes
+PVSummaryOtherElementsList = List of other elements
+PVSummaryNone = None
 
 # Dictionary
 PhotovoltaicCategoryDictionary = Photovoltaic Category

@@ -102,9 +102,6 @@ $sortfieldlist = array(
 	'c.serial_number',
 	'c.commissioning_date'
 );
-if ($sortfield === 'c.nature_code') {
-	$sortfield = 'cpv.label';
-}
 if (empty($sortfield) || !in_array($sortfield, $sortfieldlist, true)) {
 	$sortfield = 'p.ref';
 }

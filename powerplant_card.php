@@ -205,13 +205,12 @@ if (empty($reshook)) {
 
 // Composition actions
 if ($action == 'addcomposition' && $permissiontoadd) {
-	$naturecode = GETPOSTINT('naturecode');
 	$fk_product = GETPOSTINT('fk_product');
 	$qty = price2num(GETPOST('qty', 'alpha'), 'MT');
 
-	if ($fk_product > 0 && $qty > 0 && in_array($naturecode, array(50, 51, 52, 53, 54, 55))) {
-		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, nature_code, qty, entity)";
-		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((int) $naturecode).", ".((float) $qty).", ".((int) $conf->entity).")";
+	if ($fk_product > 0 && $qty > 0) {
+		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, entity)";
+		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".((int) $conf->entity).")";
 		$db->query($sql);
 	}
 }
@@ -979,71 +978,48 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print '</div>';
 
-	// EN: Composition sections
-	$sections = array(
-		50 => array('label' => $langs->trans('PVModules')),
-		51 => array('label' => $langs->trans('PVInverters')),
-		52 => array('label' => $langs->trans('PVIntegration')),
-		53 => array('label' => $langs->trans('PVMonitoring')),
-		54 => array('label' => $langs->trans('PVACBox')),
-		55 => array('label' => $langs->trans('PVDCBox')),
+	$compositionsummary = array(
+		'modules' => 0,
+		'inverters' => 0,
+		'acboxes' => 0,
+		'dcboxes' => 0,
+		'other' => 0,
 	);
+
+	$sqlcomp = "SELECT cpv.code as category_code, COUNT(c.rowid) as nb_products";
+	$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+	$sqlcomp .= " LEFT JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = c.fk_product";
+	$sqlcomp .= " LEFT JOIN ".$db->prefix()."c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique";
+	$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id);
+	$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
+	$sqlcomp .= " GROUP BY cpv.code";
+	$rescomp = $db->query($sqlcomp);
+	if ($rescomp) {
+		while ($line = $db->fetch_object($rescomp)) {
+			if ($line->category_code == 'MODULE') {
+				$compositionsummary['modules'] += (int) $line->nb_products;
+			} elseif ($line->category_code == 'ONDULE') {
+				$compositionsummary['inverters'] += (int) $line->nb_products;
+			} elseif ($line->category_code == 'COFFAC') {
+				$compositionsummary['acboxes'] += (int) $line->nb_products;
+			} elseif ($line->category_code == 'COFFDC') {
+				$compositionsummary['dcboxes'] += (int) $line->nb_products;
+			} else {
+				$compositionsummary['other'] += (int) $line->nb_products;
+			}
+		}
+	}
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
 	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
-
-	foreach ($sections as $code => $info) {
-		$showaddform = ($object->status == $object::STATUS_DRAFT && $permissiontoadd);
-
-		print '<div class="ficheaddleft">';
-		print '<h3 class="marginbottomonly">'.$info['label'].'</h3>';
-		if ($showaddform) {
-			print '<form method="POST" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'">';
-			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="addcomposition">';
-			print '<input type="hidden" name="naturecode" value="'.$code.'">';
-		}
-
-		print '<table class="noborder centpercent">';
-		print '<tr class="liste_titre"><td>'.$langs->trans("Product").'</td><td class="right">'.$langs->trans("PVQuantity").'</td><td class="center"></td></tr>';
-
-			if ($showaddform) {
-				print '<tr class="oddeven">';
-				print '<td>';
-				print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', " AND p.fk_product_nature = ".((int) $code));
-				print '</td>';
-				print '<td class="right"><input type="text" class="flat width50" name="qty" value="1"></td>';
-				print '<td class="center"><input type="submit" class="button small" value="'.$langs->trans("Add").'"></td>';
-				print '</tr>';
-			}
-
-		$sqlcomp = "SELECT c.rowid, c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
-		$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
-		$sqlcomp .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
-		$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id)." AND c.nature_code = ".((int) $code);
-		$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
-		$rescomp = $db->query($sqlcomp);
-		if ($rescomp) {
-			while ($line = $db->fetch_object($rescomp)) {
-				print '<tr class="oddeven">';
-				print '<td>'.dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).'</td>';
-				print '<td class="right">'.price($line->qty).'</td>';
-				print '<td class="center">'.($showaddform ? '<a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=delcomposition&lineid='.$line->rowid.'&token='.newToken().'">'.img_delete().'</a>' : '').'</td>';
-				print '</tr>';
-			}
-		}
-
-		if ($showaddform) {
-			print '</table>';
-			print '</form>';
-		} else {
-			print '</table>';
-		}
-
-		print '</div>';
-	}
-
+	print '<table class="border centpercent tableforfield">';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryModulesCount').'</td><td>'.((int) $compositionsummary['modules']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryInvertersCount').'</td><td>'.((int) $compositionsummary['inverters']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryACBoxesCount').'</td><td>'.((int) $compositionsummary['acboxes']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryDCBoxesCount').'</td><td>'.((int) $compositionsummary['dcboxes']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryOtherElementsList').'</td><td>'.((int) $compositionsummary['other']).'</td></tr>';
+	print '</table>';
 	print '</div>';
 
 	print '<div class="clearboth"></div>';
