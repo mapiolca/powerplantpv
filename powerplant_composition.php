@@ -58,6 +58,25 @@ dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'products', 'other'));
 
+if (!function_exists('powerplantpv_check_token')) {
+	/**
+	 * Cross-version CSRF token check helper.
+	 *
+	 * @return bool
+	 */
+	function powerplantpv_check_token()
+	{
+		$token = GETPOST('token', 'alphanohtml');
+		if (function_exists('checkToken')) {
+			return checkToken();
+		}
+		if (function_exists('dol_verifyToken')) {
+			return dol_verifyToken($token);
+		}
+		return (!empty($token) && !empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	}
+}
+
 $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
@@ -133,7 +152,7 @@ if ($showaddform) {
 }
 
 if ($action === 'createcomposition' && $canedit) {
-	if (!checkToken()) {
+	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
 
@@ -165,7 +184,7 @@ if ($action === 'createcomposition' && $canedit) {
 }
 
 if ($action === 'delcomposition' && $canedit && $lineid > 0) {
-	if (!checkToken()) {
+	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
 
