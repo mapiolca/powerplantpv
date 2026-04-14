@@ -30,15 +30,34 @@ class ActionsPowerplantpv_product
 	 * @param	Product			$object			Product object
 	 * @param	string			$action			Current action
 	 * @param	HookManager		$hookmanager	Hook manager
-	 * @return	int							0 or 1 to replace standard behavior, <0 on error
+	 * @return	int						0 or 1 to replace standard behavior, <0 on error
 	 */
 	public function addMoreTabs($parameters, &$object, &$action, $hookmanager)
 	{
-		global $langs;
+		global $db, $langs, $user;
 
 		$langs->loadLangs(array('powerplantpv@powerplantpv'));
 
-		if ($object->fk_product_nature == '50') {
+		if (empty($object->id) || !$user->hasRight('produit', 'lire')) {
+			return 0;
+		}
+
+		$allowedCodes = array('ONDULE', 'MODULE');
+		$sql = 'SELECT cpv.code';
+		$sql .= ' FROM '.$db->prefix().'product_extrafields as pe';
+		$sql .= ' LEFT JOIN '.$db->prefix().'c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique';
+		$sql .= ' WHERE pe.fk_object = '.((int) $object->id);
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			return 0;
+		}
+
+		$obj = $db->fetch_object($resql);
+		$categoryCode = !empty($obj->code) ? (string) $obj->code : '';
+		$db->free($resql);
+
+		if (in_array($categoryCode, $allowedCodes, true)) {
 			$tabs = array(array(
 				'url' => dol_buildpath('/powerplantpv/product_pvpanel.php', 1).'?id='.$object->id,
 				'title' => $langs->trans('PVPanelTabTitle'),
