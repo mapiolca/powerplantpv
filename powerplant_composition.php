@@ -80,7 +80,9 @@ if (!function_exists('powerplantpv_check_token')) {
 $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
+$massaction = GETPOST('massaction', 'alpha');
 $lineid = GETPOSTINT('lineid');
+$toselect = GETPOST('toselect', 'array:int');
 
 $limit = GETPOSTINT('limit') ? GETPOSTINT('limit') : $conf->liste_limit;
 $sortfield = GETPOST('sortfield', 'aZ09comma');
@@ -188,6 +190,24 @@ if ($action === 'delcomposition' && $canedit && $lineid > 0) {
 	$db->query($sql);
 }
 
+if ($massaction === 'massdelete' && $canedit && is_array($toselect) && count($toselect) > 0) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+
+	$idstodelete = array_map('intval', $toselect);
+	$idstodelete = array_filter($idstodelete, function ($v) {
+		return ($v > 0);
+	});
+	if (!empty($idstodelete)) {
+		$sql = 'DELETE FROM '.$db->prefix().'powerplantpv_powerplantcomp';
+		$sql .= ' WHERE fk_powerplant = '.((int) $object->id);
+		$sql .= ' AND entity = '.((int) $conf->entity);
+		$sql .= ' AND rowid IN ('.implode(',', $idstodelete).')';
+		$db->query($sql);
+	}
+}
+
 $sqlwhere = ' WHERE c.fk_powerplant = '.((int) $object->id).' AND c.entity = '.((int) $conf->entity);
 if ($search_ref !== '') {
 	$sqlwhere .= " AND p.ref LIKE '%".$db->escape($search_ref)."%'";
@@ -262,6 +282,10 @@ if ($id > 0 || !empty($ref)) {
 		$massactionbutton = '';
 		$newcardbutton = '';
 		if ($canedit) {
+			$arrayofmassactions = array(
+				'massdelete' => img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete')
+			);
+			$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
 			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition&token='.newToken());
 		}
 
@@ -292,13 +316,19 @@ if ($id > 0 || !empty($ref)) {
 		print '});';
 		print '</script>';
 
-	print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
-	print '<input type="hidden" name="id" value="'.$object->id.'">';
-	print '<div class="div-table-responsive">';
-	print '<table class="tagtable liste centpercent">';
+		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="id" value="'.$object->id.'">';
+		print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
+		print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
+		print '<input type="hidden" name="page" value="'.((int) $page).'">';
+		print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
+		print '<div class="div-table-responsive">';
+		print '<table class="tagtable liste centpercent">';
 
-		print '<tr class="liste_titre_filter">';
-		print '<td class="liste_titre center maxwidthsearch">';
+			print '<tr class="liste_titre_filter">';
+			print '<td class="liste_titre center maxwidthsearch">&nbsp;</td>';
+			print '<td class="liste_titre center maxwidthsearch">';
 		print '<div class="nowraponall">';
 		print '<button type="submit" class="liste_titre button_search reposition" name="button_search_x" value="x"><span class="fas fa-search"></span></button>';
 		print '<button type="submit" class="liste_titre button_removefilter reposition" name="button_removefilter_x" value="x"><span class="fas fa-times"></span></button>';
@@ -311,8 +341,9 @@ if ($id > 0 || !empty($ref)) {
 		print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
 		print '</tr>';
 
-	print '<tr class="liste_titre">';
-	print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
+		print '<tr class="liste_titre">';
+		print_liste_field_titre($form->showCheckAddButtons('checkforselect', 1), $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
+		print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'cpv.label', '', $param, '', $sortfield, $sortorder);
 	print_liste_field_titre($langs->trans('PowerPlantSerialNumber'), $_SERVER['PHP_SELF'], 'c.serial_number', '', $param, '', $sortfield, $sortorder);
@@ -325,8 +356,11 @@ if ($id > 0 || !empty($ref)) {
 		$i = 0;
 		while ($i < $num) {
 			$objline = $db->fetch_object($resql);
-			print '<tr class="oddeven">';
-			print '<td>'.dol_escape_htmltag($objline->product_ref).'</td>';
+				print '<tr class="oddeven">';
+				print '<td class="center">';
+				print '<input class="flat checkforselect" type="checkbox" name="toselect[]" value="'.((int) $objline->rowid).'">';
+				print '</td>';
+				print '<td>'.dol_escape_htmltag($objline->product_ref).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
@@ -339,9 +373,9 @@ if ($id > 0 || !empty($ref)) {
 			print '</tr>';
 			$i++;
 		}
-	} else {
-		print '<tr class="oddeven"><td colspan="6"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
-	}
+		} else {
+			print '<tr class="oddeven"><td colspan="7"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+		}
 
 	print '</table>';
 	print '</div>';
