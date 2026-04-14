@@ -53,6 +53,7 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
@@ -273,7 +274,7 @@ if ($rescount) {
 	$nbtotalofrecords = (int) $objcount->nb;
 }
 
-$sql = 'SELECT c.rowid, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
+$sql = 'SELECT c.rowid, c.serial_number, c.commissioning_date, p.rowid as fk_product, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
 $sql .= ' FROM '.$db->prefix().'powerplantpv_powerplantcomp as c';
 $sql .= ' JOIN '.$db->prefix().'product as p ON p.rowid = c.fk_product';
 $sql .= ' LEFT JOIN '.$db->prefix().'product_extrafields as pe ON pe.fk_object = p.rowid';
@@ -454,7 +455,11 @@ if ($id > 0 || !empty($ref)) {
 				print '<td class="center">';
 				print '<input class="flat checkforselect" type="checkbox" name="toselect[]" value="'.((int) $objline->rowid).'">';
 				print '</td>';
-				print '<td>'.dol_escape_htmltag($objline->product_ref).'</td>';
+				$productstatic = new Product($db);
+				$productstatic->id = (int) $objline->fk_product;
+				$productstatic->ref = $objline->product_ref;
+				$productstatic->label = $objline->product_label;
+				print '<td>'.$productstatic->getNomUrl(1).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
