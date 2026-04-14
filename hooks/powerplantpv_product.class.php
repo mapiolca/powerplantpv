@@ -34,11 +34,10 @@ class ActionsPowerplantpv_product
 	 */
 	public function addMoreTabs($parameters, &$object, &$action, $hookmanager)
 	{
-		global $db, $langs;
+		global $langs;
 
 		$langs->loadLangs(array('powerplantpv@powerplantpv'));
 
-		$categoryCode = '';
 		$categoryRowId = 0;
 		if (!empty($object->array_options['options_categorie_photovoltaique'])) {
 			$categoryRowId = (int) $object->array_options['options_categorie_photovoltaique'];
@@ -47,17 +46,7 @@ class ActionsPowerplantpv_product
 			$object->fetch_optionals($object->id, null);
 			$categoryRowId = (int) $object->array_options['options_categorie_photovoltaique'];
 		}
-		if ($categoryRowId > 0) {
-			$sql = "SELECT code FROM ".$db->prefix()."c_powerplantpv_categorypv";
-			$sql .= " WHERE rowid = ".((int) $categoryRowId);
-			$resql = $db->query($sql);
-			if ($resql) {
-				$obj = $db->fetch_object($resql);
-				$categoryCode = !empty($obj->code) ? $obj->code : '';
-			}
-		}
-
-		if ((int) $object->fk_product_nature === 50 && in_array($categoryCode, array('MODULE', 'ONDULE'), true)) {
+		if ((int) $object->fk_product_nature === 50 && in_array($categoryRowId, array(1, 2), true)) {
 			$tabs = array(array(
 				'url' => dol_buildpath('/powerplantpv/product_pvpanel.php', 1).'?id='.$object->id,
 				'title' => $langs->trans('PVPanelTabTitle'),
