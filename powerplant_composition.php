@@ -328,13 +328,30 @@ if ($id > 0 || !empty($ref)) {
 
 		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
 
-		$filterforproducts = " AND EXISTS (SELECT 1 FROM ".$db->prefix()."product_extrafields pe WHERE pe.fk_object = p.rowid AND pe.categorie_photovoltaique IS NOT NULL AND pe.categorie_photovoltaique <> '')";
+		$productsforcomposition = array();
+		$sqlproducts = "SELECT p.rowid, p.ref, p.label";
+		$sqlproducts .= " FROM ".$db->prefix()."product as p";
+		$sqlproducts .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = p.rowid";
+		$sqlproducts .= " WHERE pe.categorie_photovoltaique IS NOT NULL AND pe.categorie_photovoltaique <> ''";
+		$sqlproducts .= " AND p.entity IN (".getEntity('product').")";
+		$sqlproducts .= " ORDER BY p.ref ASC";
+		$resproducts = $db->query($sqlproducts);
+		if ($resproducts) {
+			while ($objproduct = $db->fetch_object($resproducts)) {
+				$productlabel = $objproduct->ref;
+				if (!empty($objproduct->label)) {
+					$productlabel .= ' - '.$objproduct->label;
+				}
+				$productsforcomposition[(int) $objproduct->rowid] = $productlabel;
+			}
+		}
+
 		print '<div id="dialog-addcomposition" class="hideobject">';
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="action" value="createcomposition">';
 		print '<table class="noborder centpercent">';
-		print '<tr><td class="titlefieldcreate">'.$langs->trans('Product').'</td><td>'.$form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '1', 0, 'finished', $filterforproducts).'</td></tr>';
+		print '<tr><td class="titlefieldcreate">'.$langs->trans('Product').'</td><td>'.$form->selectarray('fk_product', $productsforcomposition, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth200imp maxwidth300').'</td></tr>';
 		print '<tr><td class="titlefieldcreate">'.$langs->trans('PVQuantity').'</td><td><input type="number" class="flat width50" min="1" name="qty" value="1"></td></tr>';
 		print '</table>';
 		print '<div class="center">';
