@@ -18,7 +18,8 @@ CREATE TABLE llx_powerplantpv_powerplantcomp(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_powerplant integer NOT NULL,
 	fk_product integer NOT NULL,
-	nature_code integer NOT NULL,
 	qty double NOT NULL,
+	serial_number varchar(20),
+	commissioning_date date,
 	entity integer NOT NULL DEFAULT 1
 ) ENGINE=innodb;

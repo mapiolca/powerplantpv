@@ -112,3 +112,6 @@ PVQuantity = Quantità
 # Dictionary
 PhotovoltaicCategoryDictionary = Categoria fotovoltaica
 ProductPhotovoltaicCategory = Categoria fotovoltaica
+
+PowerPlantMaterialComposition = Composizione materiale
+PowerPlantSerialNumber = N. di serie

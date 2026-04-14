@@ -47,6 +47,12 @@ function powerplantPrepareHead($object)
 	$head[$h][2] = 'card';
 	$h++;
 
+
+	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_composition.php', 1), ['id' => $object->id]);
+	$head[$h][1] = $langs->trans('PowerPlantMaterialComposition');
+	$head[$h][2] = 'composition';
+	$h++;
+
 	if ($showtabofpagecontact) {
 		$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/powerplant_contact.php", 1), ['id' => $object->id]);
 		$head[$h][1] = $langs->trans("Contacts");
