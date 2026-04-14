@@ -127,6 +127,10 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 
 $canedit = ($permissiontoadd && (int) $object->status === (int) $object::STATUS_DRAFT);
 $showaddform = ($canedit && $action === 'addcomposition');
+$openaddmodal = 0;
+if ($showaddform) {
+	$openaddmodal = 1;
+}
 
 if ($action === 'createcomposition' && $canedit) {
 	if (!checkToken()) {
@@ -134,17 +138,26 @@ if ($action === 'createcomposition' && $canedit) {
 	}
 
 	$fk_product = GETPOSTINT('fk_product');
-	$naturecode = GETPOSTINT('naturecode');
-	$serial_number = GETPOST('serial_number', 'alphanohtml');
-	$commissioning_date = dol_mktime(0, 0, 0, GETPOSTINT('commissioning_datemonth'), GETPOSTINT('commissioning_dateday'), GETPOSTINT('commissioning_dateyear'));
+	$qty = GETPOSTINT('qty');
+	if ($qty < 1) {
+		$qty = 1;
+	}
+	$naturecode = 0;
+	$sqlproduct = 'SELECT fk_product_nature FROM '.$db->prefix().'product WHERE rowid = '.((int) $fk_product);
+	$resproduct = $db->query($sqlproduct);
+	if ($resproduct) {
+		$objproduct = $db->fetch_object($resproduct);
+		$naturecode = (int) $objproduct->fk_product_nature;
+	}
 
-	if ($fk_product > 0 && isset($categories[$naturecode])) {
-		$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, nature_code, qty, serial_number, commissioning_date, entity)";
-		$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', '.((int) $naturecode).', 1';
-		$sql .= ", '".$db->escape($serial_number)."'";
-		$sql .= ', '.($commissioning_date > 0 ? "'".$db->idate($commissioning_date)."'" : 'NULL');
-		$sql .= ', '.((int) $conf->entity).')';
-		$db->query($sql);
+	if ($fk_product > 0) {
+		$i = 0;
+		while ($i < $qty) {
+			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, nature_code, qty, serial_number, commissioning_date, entity)";
+			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', '.((int) $naturecode).', 1, \'\', NULL, '.((int) $conf->entity).')';
+			$db->query($sql);
+			$i++;
+		}
 	}
 
 	$action = 'view';
@@ -239,23 +252,30 @@ if ($id > 0 || !empty($ref)) {
 
 		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
 
-		if ($showaddform) {
-			print '<div id="addcomposition" class="fichecenter">';
-			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
-			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="createcomposition">';
-			print '<div class="inline-block valignmiddle">';
-			print $form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 0);
-			print '</div> ';
-			print '<div class="inline-block valignmiddle">'.$form->selectarray('naturecode', $categories, 50, 0).'</div> ';
-			print '<div class="inline-block valignmiddle"><input type="text" class="flat minwidth100" name="serial_number" placeholder="'.$langs->trans('PowerPlantSerialNumber').'"></div> ';
-			print '<div class="inline-block valignmiddle">'.$form->selectDate('', 'commissioning_date', 0, 0, 1, '', 1, 0).'</div> ';
-			print '<input type="submit" class="button button-add valignmiddle" value="'.$langs->trans('Add').'">';
-			print ' <input type="submit" class="button button-cancel valignmiddle" name="cancel" value="'.$langs->trans('Cancel').'">';
-			print '</form>';
-			print '</div>';
-			print '<br>';
+		$filterforproducts = " AND EXISTS (SELECT 1 FROM ".$db->prefix()."product_extrafields pe WHERE pe.fk_object = p.rowid AND pe.categorie_photovoltaique IS NOT NULL AND pe.categorie_photovoltaique <> '')";
+		print '<div id="dialog-addcomposition" class="hideobject">';
+		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="action" value="createcomposition">';
+		print '<table class="noborder centpercent">';
+		print '<tr><td class="titlefieldcreate">'.$langs->trans('Product').'</td><td>'.$form->select_produits(0, 'fk_product', '', 0, 0, -1, 2, '', 0, array(), '', 1, 1, '', '', 0, '', $filterforproducts).'</td></tr>';
+		print '<tr><td class="titlefieldcreate">'.$langs->trans('PVQuantity').'</td><td><input type="number" class="flat width50" min="1" name="qty" value="1"></td></tr>';
+		print '</table>';
+		print '<div class="center">';
+		print '<input type="submit" class="button button-add" value="'.$langs->trans('Add').'">';
+		print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+		print '</div>';
+		print '</form>';
+		print '</div>';
+
+		print '<script nonce="'.getNonce().'">';
+		print 'jQuery(function(){';
+		print 'jQuery("#dialog-addcomposition").dialog({autoOpen:false,modal:true,width:900,title:"'.dol_escape_js($langs->trans('PowerPlantMaterialComposition')).'"});';
+		if ($openaddmodal) {
+			print 'jQuery("#dialog-addcomposition").dialog("open");';
 		}
+		print '});';
+		print '</script>';
 
 	print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
 	print '<input type="hidden" name="id" value="'.$object->id.'">';
