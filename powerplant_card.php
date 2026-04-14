@@ -984,28 +984,26 @@ $k_purchase_tariff = 'buyback_tariff';
 		'inverters' => 0,
 		'acboxes' => 0,
 		'dcboxes' => 0,
-		'otherlabels' => array(),
+		'other' => 0,
 	);
 
-	$sqlcomp = "SELECT c.qty, c.nature_code, p.label as product_label, p.ref as product_ref";
+	$sqlcomp = "SELECT c.nature_code";
 	$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
-	$sqlcomp .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
 	$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id);
 	$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
 	$rescomp = $db->query($sqlcomp);
 	if ($rescomp) {
 		while ($line = $db->fetch_object($rescomp)) {
-			$qty = (float) $line->qty;
 			if ((int) $line->nature_code == 50) {
-				$compositionsummary['modules'] += $qty;
+				$compositionsummary['modules']++;
 			} elseif ((int) $line->nature_code == 51) {
-				$compositionsummary['inverters'] += $qty;
+				$compositionsummary['inverters']++;
 			} elseif ((int) $line->nature_code == 54) {
-				$compositionsummary['acboxes'] += $qty;
+				$compositionsummary['acboxes']++;
 			} elseif ((int) $line->nature_code == 55) {
-				$compositionsummary['dcboxes'] += $qty;
+				$compositionsummary['dcboxes']++;
 			} else {
-				$compositionsummary['otherlabels'][] = dol_escape_htmltag($line->product_ref).' - '.dol_escape_htmltag($line->product_label).' (x'.price($qty).')';
+				$compositionsummary['other']++;
 			}
 		}
 	}
@@ -1014,11 +1012,11 @@ $k_purchase_tariff = 'buyback_tariff';
 	print '<div class="underbanner clearboth"></div>';
 	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
 	print '<table class="border centpercent tableforfield">';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryModulesCount').'</td><td>'.price($compositionsummary['modules']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryInvertersCount').'</td><td>'.price($compositionsummary['inverters']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryACBoxesCount').'</td><td>'.price($compositionsummary['acboxes']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryDCBoxesCount').'</td><td>'.price($compositionsummary['dcboxes']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryOtherElementsList').'</td><td>'.(!empty($compositionsummary['otherlabels']) ? implode('<br>', $compositionsummary['otherlabels']) : $langs->trans('PVSummaryNone')).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryModulesCount').'</td><td>'.((int) $compositionsummary['modules']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryInvertersCount').'</td><td>'.((int) $compositionsummary['inverters']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryACBoxesCount').'</td><td>'.((int) $compositionsummary['acboxes']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryDCBoxesCount').'</td><td>'.((int) $compositionsummary['dcboxes']).'</td></tr>';
+	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryOtherElementsList').'</td><td>'.((int) $compositionsummary['other']).'</td></tr>';
 	print '</table>';
 	print '</div>';
 
