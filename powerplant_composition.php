@@ -93,10 +93,21 @@ if (empty($page) || $page < 0 || GETPOST('button_search', 'alpha') || GETPOST('b
 }
 $offset = $limit * $page;
 
-if (empty($sortfield)) {
+// Keep sort fields restricted to existing SQL columns to avoid SQL errors with old saved list params.
+$sortfieldlist = array(
+	'p.ref',
+	'p.label',
+	'cpv.label',
+	'c.serial_number',
+	'c.commissioning_date'
+);
+if ($sortfield === 'c.nature_code') {
+	$sortfield = 'cpv.label';
+}
+if (empty($sortfield) || !in_array($sortfield, $sortfieldlist, true)) {
 	$sortfield = 'p.ref';
 }
-if (empty($sortorder)) {
+if (empty($sortorder) || !in_array(strtoupper($sortorder), array('ASC', 'DESC'), true)) {
 	$sortorder = 'ASC';
 }
 
