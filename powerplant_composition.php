@@ -254,7 +254,7 @@ if ($action === 'updateline' && $canedit && $lineid > 0) {
 	$action = 'view';
 }
 
-if (($action === '' || $action === 'view') && $massaction !== '' && $canedit && is_array($toselect) && count($toselect) > 0) {
+if (($action === '' || $action === 'view' || $action === 'list') && $massaction !== '' && $canedit && is_array($toselect) && count($toselect) > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
