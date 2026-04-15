@@ -797,7 +797,7 @@ $k_purchase_tariff = 'buyback_tariff';
 			$isedit = ($canedit && $fieldtoedit === $key);
 
 			$urlcard = $_SERVER["PHP_SELF"].'?id='.$object->id;
-			$urledit = $urlcard.'&action=editfield&field='.$key;
+			$urledit = $urlcard.'&action=editfield&field='.$key.'&token='.newToken();
 
 			print '<tr class="field_'.$key.'" id="field_'.$key.'">';
 			print '<td class="titlefieldmiddle">'.$label.'</td>';
@@ -820,7 +820,7 @@ $k_purchase_tariff = 'buyback_tariff';
 				print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
 				print '<td class="right nowraponall">';
 				if ($canedit) {
-					print '<a class="reposition" href="'.$urledit.'">'.img_edit().'</a>';
+					print '<a class="editfielda reposition" href="'.$urledit.'">'.img_edit().'</a>';
 				} else {
 					print '&nbsp;';
 				}
@@ -840,7 +840,7 @@ $k_purchase_tariff = 'buyback_tariff';
 			$isedit = ($canedit && $fieldtoedit === 'zip_town');
 
 			$urlcard = $_SERVER["PHP_SELF"].'?id='.$object->id;
-			$urledit = $urlcard.'&action=editfield&field=zip_town';
+			$urledit = $urlcard.'&action=editfield&field=zip_town&token='.newToken();
 
 			print '<tr class="field_zip_town" id="field_zip_town">';
 			print '<td class="titlefieldmiddle">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
@@ -868,7 +868,7 @@ $k_purchase_tariff = 'buyback_tariff';
 				print '<td class="valuefield">'.dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval).'</td>';
 				print '<td class="right nowraponall">';
 				if ($canedit) {
-					print '<a class="reposition" href="'.$urledit.'">'.img_edit().'</a>';
+					print '<a class="editfielda reposition" href="'.$urledit.'">'.img_edit().'</a>';
 				} else {
 					print '&nbsp;';
 				}
