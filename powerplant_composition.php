@@ -454,9 +454,9 @@ if ($id > 0 || !empty($ref)) {
 			print '<td class="liste_titre left"><input type="text" class="flat width75" name="search_ref" value="'.dol_escape_htmltag($search_ref).'"></td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
 			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array(-1 => '') + $categories, ($search_nature > 0 ? $search_nature : -1), 0).'</td>';
-			print '<td class="liste_titre left"><input type="number" class="flat width50" min="1" name="search_status" value="'.($search_status > 0 ? (int) $search_status : '').'"></td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
 			print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
+			print '<td class="liste_titre left"><input type="number" class="flat width50" min="1" name="search_status" value="'.($search_status > 0 ? (int) $search_status : '').'"></td>';
 			print '<td class="liste_titre"></td>';
 			print '</tr>';
 
@@ -465,9 +465,9 @@ if ($id > 0 || !empty($ref)) {
 		print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'cpv.label', '', $param, '', $sortfield, $sortorder);
-		print_liste_field_titre($langs->trans('PowerPlantStatus'), $_SERVER['PHP_SELF'], 'c.fk_status', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('PowerPlantSerialNumber'), $_SERVER['PHP_SELF'], 'c.serial_number', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('PowerPlantCommissioningDate'), $_SERVER['PHP_SELF'], 'c.commissioning_date', '', $param, '', $sortfield, $sortorder);
+		print_liste_field_titre($langs->trans('PowerPlantStatus'), $_SERVER['PHP_SELF'], 'c.fk_status', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
 		print '</tr>';
 
@@ -487,9 +487,9 @@ if ($id > 0 || !empty($ref)) {
 				print '<td>'.$productstatic->getNomUrl(1).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
-				print '<td>'.($objline->fk_status !== null ? (int) $objline->fk_status : '').'</td>';
 				print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
 				print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
+				print '<td>'.($objline->fk_status !== null ? (int) $objline->fk_status : '').'</td>';
 				print '<td class="center">';
 				if ($canedit) {
 					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_edit().'</a>';
