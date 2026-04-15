@@ -516,9 +516,7 @@ if ($id > 0 || !empty($ref)) {
 			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition&token='.newToken());
 		}
 
-		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
-
-		$productsforcomposition = array();
+			$productsforcomposition = array();
 		$sqlproducts = "SELECT p.rowid, p.ref, p.label";
 		$sqlproducts .= " FROM ".$db->prefix()."product as p";
 		$sqlproducts .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = p.rowid";
@@ -847,6 +845,7 @@ if ($id > 0 || !empty($ref)) {
 		print '<input type="hidden" name="page" value="'.((int) $page).'">';
 		print '<input type="hidden" name="page_y" value="">';
 		print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
+		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
 		print '<div class="div-table-responsive">';
 		print '<table class="tagtable liste centpercent">';
 
