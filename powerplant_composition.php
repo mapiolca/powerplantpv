@@ -828,18 +828,18 @@ if ($id > 0 || !empty($ref)) {
 			foreach ($massselectedids as $selectedid) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
-			print '<table class="noborder centpercent">';
-			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
-				if (!empty($masslines)) {
-					foreach ($masslines as $massline) {
-						print '<tr>';
-						print '<td><input type="hidden" name="lineid_mass_replace[]" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace[]', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
-						print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace[]" value=""></td>';
-						print '<td><input type="date" class="flat width100" name="commissioning_date_mass_replace[]" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
-						print '<td>'.$form->selectarray('fk_status_mass_replace[]', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
-						print '</tr>';
-					}
-				} else {
+				print '<table class="noborder centpercent">';
+				print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
+					if (!empty($masslines)) {
+						foreach ($masslines as $idx => $massline) {
+							print '<tr>';
+							print '<td><input type="hidden" name="lineid_mass_replace['.$idx.']" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace['.$idx.']', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
+							print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace['.$idx.']" value=""></td>';
+							print '<td><input type="date" class="flat width100" name="commissioning_date_mass_replace['.$idx.']" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+							print '<td>'.$form->selectarray('fk_status_mass_replace['.$idx.']', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
+							print '</tr>';
+						}
+					} else {
 					print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 				}
 			print '</table>';
