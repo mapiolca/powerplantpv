@@ -254,12 +254,20 @@ if ($action === 'updateline' && $canedit && $lineid > 0) {
 	$action = 'view';
 }
 
-if ($massaction === 'massdelete' && $canedit && is_array($toselect) && count($toselect) > 0) {
+if ($massaction !== '' && $canedit && is_array($toselect) && count($toselect) > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
+	if (in_array($massaction, array('massreplace', 'massdelete', 'massupdatecommissioning', 'massupdatestatus'), true)) {
+		$action = $massaction;
+	}
+}
 
-	$idstodelete = array_map('intval', $toselect);
+if ($action === 'domassdelete' && $canedit) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+	$idstodelete = array_map('intval', GETPOST('toselect', 'array:int'));
 	$idstodelete = array_filter($idstodelete, function ($v) {
 		return ($v > 0);
 	});
@@ -270,6 +278,110 @@ if ($massaction === 'massdelete' && $canedit && is_array($toselect) && count($to
 		$sql .= ' AND rowid IN ('.implode(',', $idstodelete).')';
 		$db->query($sql);
 	}
+	$action = 'view';
+}
+
+if ($action === 'domassupdatecommissioning' && $canedit) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+	$idstoupdate = array_map('intval', GETPOST('toselect', 'array:int'));
+	$idstoupdate = array_filter($idstoupdate, function ($v) {
+		return ($v > 0);
+	});
+	$commissioning_date_mass = GETPOST('commissioning_date_mass', 'alphanohtml');
+	$apply_to_all_date = GETPOSTINT('apply_to_all_date');
+	if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $commissioning_date_mass)) {
+		$commissioning_date_mass = '';
+	}
+	if (!empty($idstoupdate) && $commissioning_date_mass !== '') {
+		$idslist = $idstoupdate;
+		if (!$apply_to_all_date) {
+			$idslist = array((int) $idstoupdate[0]);
+		}
+		$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+		$sql .= " SET commissioning_date = '".$db->escape($commissioning_date_mass)."'";
+		$sql .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+		$sql .= " AND rowid IN (".implode(',', $idslist).")";
+		$db->query($sql);
+	}
+	$action = 'view';
+}
+
+if ($action === 'domassupdatestatus' && $canedit) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+	$lineids = array_map('intval', GETPOST('lineid_mass_status', 'array:int'));
+	$statuses = GETPOST('status_mass_line', 'array');
+	$apply_to_all_status = GETPOSTINT('apply_to_all_status');
+	$status_for_all = GETPOST('status_for_all', 'alphanohtml');
+	$status_for_all = ($status_for_all === '' ? 4 : (int) $status_for_all);
+	if (!array_key_exists((int) $status_for_all, $componentstatus)) {
+		$status_for_all = 4;
+	}
+	if (!empty($lineids)) {
+		$db->begin();
+		foreach ($lineids as $idx => $lineidmass) {
+			$lineidmass = (int) $lineidmass;
+			if ($lineidmass <= 0) {
+				continue;
+			}
+			$statusline = $status_for_all;
+			if (!$apply_to_all_status) {
+				$tmp = isset($statuses[$idx]) ? (int) $statuses[$idx] : 4;
+				if (array_key_exists($tmp, $componentstatus)) {
+					$statusline = $tmp;
+				}
+			}
+			$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+			$sql .= " SET fk_status = ".((int) $statusline);
+			$sql .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$db->query($sql);
+		}
+		$db->commit();
+	}
+	$action = 'view';
+}
+
+if ($action === 'domassreplace' && $canedit) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+	$lineids = array_map('intval', GETPOST('lineid_mass_replace', 'array:int'));
+	$products = array_map('intval', GETPOST('fk_product_mass_replace', 'array:int'));
+	$serials = GETPOST('serial_number_mass_replace', 'array');
+	$dates = GETPOST('commissioning_date_mass_replace', 'array');
+	$statuses = GETPOST('fk_status_mass_replace', 'array');
+	if (!empty($lineids)) {
+		$db->begin();
+		foreach ($lineids as $idx => $lineidmass) {
+			$lineidmass = (int) $lineidmass;
+			$productid = isset($products[$idx]) ? (int) $products[$idx] : 0;
+			$serial = isset($serials[$idx]) ? $db->escape($serials[$idx]) : '';
+			$dateval = isset($dates[$idx]) ? $dates[$idx] : '';
+			$statusval = isset($statuses[$idx]) ? (int) $statuses[$idx] : 4;
+			if (!array_key_exists($statusval, $componentstatus)) {
+				$statusval = 4;
+			}
+			if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateval)) {
+				$dateval = dol_print_date(dol_now(), '%Y-%m-%d');
+			}
+			if ($lineidmass <= 0 || $productid <= 0) {
+				continue;
+			}
+			$sqlold = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+			$sqlold .= " SET fk_status = 6";
+			$sqlold .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$db->query($sqlold);
+
+			$sqlnew = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
+			$sqlnew .= " VALUES (".((int) $object->id).", ".((int) $productid).", ".((int) $statusval).", 1, '".$serial."', '".$db->escape($dateval)."', ".((int) $conf->entity).")";
+			$db->query($sqlnew);
+		}
+		$db->commit();
+	}
+	$action = 'view';
 }
 
 if ($action === 'confirmreplacecomposition' && $canedit && $lineid > 0) {
@@ -395,6 +507,9 @@ if ($id > 0 || !empty($ref)) {
 		$newcardbutton = '';
 		if ($canedit) {
 			$arrayofmassactions = array(
+				'massreplace' => img_picto('', 'refresh', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassReplaceSelected'),
+				'massupdatecommissioning' => img_picto('', 'date', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateCommissioningDate'),
+				'massupdatestatus' => img_picto('', 'statut', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateStatus'),
 				'massdelete' => img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete')
 			);
 			$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
@@ -598,6 +713,120 @@ if ($id > 0 || !empty($ref)) {
 				print '});';
 				print '</script>';
 			}
+		}
+
+		$massselectedids = array_map('intval', (array) $toselect);
+		$massselectedids = array_filter($massselectedids, function ($v) {
+			return ($v > 0);
+		});
+		$massselectedids = array_values($massselectedids);
+		$masslines = array();
+		if (!empty($massselectedids) && in_array($action, array('massreplace', 'massupdatestatus'), true)) {
+			$sqlmasslines = "SELECT rowid, fk_product, serial_number, commissioning_date, fk_status";
+			$sqlmasslines .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp";
+			$sqlmasslines .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$sqlmasslines .= " AND rowid IN (".implode(',', $massselectedids).")";
+			$sqlmasslines .= " ORDER BY rowid ASC";
+			$resmasslines = $db->query($sqlmasslines);
+			if ($resmasslines) {
+				while ($objmassline = $db->fetch_object($resmasslines)) {
+					$masslines[] = $objmassline;
+				}
+			}
+		}
+
+		if ($canedit && $action === 'massdelete' && !empty($massselectedids)) {
+			print '<div id="dialog-massdeletecomposition" class="hideobject">';
+			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="domassdelete">';
+			foreach ($massselectedids as $selectedid) {
+				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
+			}
+			print '<p>'.$langs->trans('ConfirmDelete').'</p>';
+			print '<div class="center">';
+			print '<input type="submit" class="button button-delete" value="'.$langs->trans('Delete').'">';
+			print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+			print '</div>';
+			print '</form>';
+			print '</div>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdeletecomposition").dialog({autoOpen:true,modal:true,width:550,title:"'.dol_escape_js($langs->trans('Delete')).'"});});</script>';
+		}
+
+		if ($canedit && $action === 'massupdatecommissioning' && !empty($massselectedids)) {
+			print '<div id="dialog-massdatecomposition" class="hideobject">';
+			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="domassupdatecommissioning">';
+			foreach ($massselectedids as $selectedid) {
+				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
+			}
+			print '<table class="noborder centpercent">';
+			print '<tr><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td><input type="date" class="flat width100" name="commissioning_date_mass" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td></tr>';
+			print '<tr><td>'.$langs->trans('PowerPlantApplyToAll').'</td><td><input type="checkbox" class="flat" name="apply_to_all_date" value="1" checked></td></tr>';
+			print '</table>';
+			print '<div class="center">';
+			print '<input type="submit" class="button button-edit" value="'.$langs->trans('Modify').'">';
+			print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+			print '</div>';
+			print '</form>';
+			print '</div>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdatecomposition").dialog({autoOpen:true,modal:true,width:650,title:"'.dol_escape_js($langs->trans('PowerPlantMassUpdateCommissioningDate')).'"});});</script>';
+		}
+
+		if ($canedit && $action === 'massupdatestatus' && !empty($massselectedids)) {
+			print '<div id="dialog-massstatuscomposition" class="hideobject">';
+			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="domassupdatestatus">';
+			print '<table class="noborder centpercent">';
+			print '<tr><td>'.$langs->trans('PowerPlantApplyToAll').'</td><td><input type="checkbox" class="flat" name="apply_to_all_status" value="1"></td></tr>';
+			print '<tr><td>'.$langs->trans('PowerPlantStatus').'</td><td>'.$form->selectarray('status_for_all', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td></tr>';
+			print '</table>';
+			print '<table class="noborder centpercent">';
+			print '<tr class="liste_titre"><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
+			foreach ($masslines as $massline) {
+				print '<tr>';
+				print '<td>#'.((int) $massline->rowid).'</td>';
+				print '<td>';
+				print '<input type="hidden" name="lineid_mass_status[]" value="'.((int) $massline->rowid).'">';
+				print $form->selectarray('status_mass_line[]', $componentstatus, ($massline->fk_status !== null ? (int) $massline->fk_status : 4), 0, 0, '', 0, 0, 0, '', 'flat minwidth100');
+				print '</td>';
+				print '</tr>';
+			}
+			print '</table>';
+			print '<div class="center">';
+			print '<input type="submit" class="button button-edit" value="'.$langs->trans('Modify').'">';
+			print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+			print '</div>';
+			print '</form>';
+			print '</div>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massstatuscomposition").dialog({autoOpen:true,modal:true,width:800,title:"'.dol_escape_js($langs->trans('PowerPlantMassUpdateStatus')).'"});if(jQuery(\"#status_for_all\").length){jQuery(\"#status_for_all\").select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});}});</script>';
+		}
+
+		if ($canedit && $action === 'massreplace' && !empty($massselectedids)) {
+			print '<div id="dialog-massreplacecomposition" class="hideobject">';
+			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="domassreplace">';
+			print '<table class="noborder centpercent">';
+			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
+			foreach ($masslines as $massline) {
+				print '<tr>';
+				print '<td><input type="hidden" name="lineid_mass_replace[]" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace[]', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200').'</td>';
+				print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace[]" value=""></td>';
+				print '<td><input type="date" class="flat width100" name="commissioning_date_mass_replace[]" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+				print '<td>'.$form->selectarray('fk_status_mass_replace[]', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
+				print '</tr>';
+			}
+			print '</table>';
+			print '<div class="center">';
+			print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
+			print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+			print '</div>';
+			print '</form>';
+			print '</div>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massreplacecomposition").dialog({autoOpen:true,modal:true,width:980,title:"'.dol_escape_js($langs->trans('PowerPlantMassReplaceSelected')).'"});});</script>';
 		}
 
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
