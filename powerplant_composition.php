@@ -830,18 +830,18 @@ if ($id > 0 || !empty($ref)) {
 			}
 			print '<table class="noborder centpercent">';
 			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
-			if (!empty($masslines)) {
-				foreach ($masslines as $massline) {
-					print '<tr>';
-					print '<td><input type="hidden" name="lineid_mass_replace[]" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace[]', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200').'</td>';
-					print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace[]" value=""></td>';
-					print '<td><input type="date" class="flat width100" name="commissioning_date_mass_replace[]" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
-					print '<td>'.$form->selectarray('fk_status_mass_replace[]', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
-					print '</tr>';
+				if (!empty($masslines)) {
+					foreach ($masslines as $massline) {
+						print '<tr>';
+						print '<td><input type="hidden" name="lineid_mass_replace[]" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace[]', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
+						print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace[]" value=""></td>';
+						print '<td><input type="date" class="flat width100" name="commissioning_date_mass_replace[]" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+						print '<td>'.$form->selectarray('fk_status_mass_replace[]', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
+						print '</tr>';
+					}
+				} else {
+					print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 				}
-			} else {
-				print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
-			}
 			print '</table>';
 			print '<div class="center">';
 			print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
@@ -849,7 +849,26 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massreplacecomposition").dialog({autoOpen:true,modal:true,width:980,title:"'.dol_escape_js($langs->trans('PowerPlantMassReplaceSelected')).'"});});</script>';
+			print '<script nonce="'.getNonce().'">';
+			print 'jQuery(function(){';
+			print 'jQuery("#dialog-massreplacecomposition").dialog({';
+			print 'autoOpen:true,';
+			print 'modal:true,';
+			print 'width:980,';
+			print 'title:"'.dol_escape_js($langs->trans('PowerPlantMassReplaceSelected')).'",';
+			print 'open:function(){';
+			print 'jQuery(this).find(".massreplace-product-select").each(function(){';
+			print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
+			print 'jQuery(this).select2({width:"resolve",dropdownCssClass:"ui-dialog"});';
+			print '});';
+			print 'jQuery(this).find(".massreplace-status-select").each(function(){';
+			print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
+			print 'jQuery(this).select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
+			print '});';
+			print '}';
+			print '});';
+			print '});';
+			print '</script>';
 		}
 
 		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
