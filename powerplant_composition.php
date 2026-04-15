@@ -115,6 +115,10 @@ $search_label = trim(GETPOST('search_label', 'alphanohtml'));
 $search_nature = GETPOSTINT('search_nature');
 $search_status = GETPOST('search_status', 'alphanohtml');
 $search_status = ($search_status === '' ? '' : (string) ((int) $search_status));
+$search_nature = ($search_nature < 0 ? 0 : $search_nature);
+if ($search_status !== '' && (int) $search_status < 0) {
+	$search_status = '';
+}
 $search_serial = trim(GETPOST('search_serial', 'alphanohtml'));
 $search_commissioning = trim(GETPOST('search_commissioning', 'alphanohtml'));
 
@@ -864,10 +868,10 @@ if ($id > 0 || !empty($ref)) {
 			print '</td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width75" name="search_ref" value="'.dol_escape_htmltag($search_ref).'"></td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
-			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array(-1 => '') + $categories, ($search_nature > 0 ? $search_nature : -1), 0).'</td>';
+			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array('' => '') + $categories, ($search_nature > 0 ? $search_nature : ''), 0).'</td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
 			print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
-			print '<td class="liste_titre left">'.$form->selectarray('search_status', array(-1 => '') + $componentstatus, ($search_status !== '' ? (int) $search_status : -1), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
+			print '<td class="liste_titre left">'.$form->selectarray('search_status', array('' => '') + $componentstatus, ($search_status !== '' ? (int) $search_status : ''), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
 			print '<td class="liste_titre"></td>';
 			print '</tr>';
 
