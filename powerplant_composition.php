@@ -263,7 +263,7 @@ if (($action === '' || $action === 'view') && $massaction !== '' && $canedit && 
 	}
 }
 
-if ($action === 'domassdelete' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && $massaction === 'massdelete' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -281,7 +281,7 @@ if ($action === 'domassdelete' && $canedit) {
 	$action = 'view';
 }
 
-if ($action === 'domassupdatecommissioning' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && $massaction === 'massupdatecommissioning' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -308,7 +308,7 @@ if ($action === 'domassupdatecommissioning' && $canedit) {
 	$action = 'view';
 }
 
-if ($action === 'domassupdatestatus' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && $massaction === 'massupdatestatus' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -344,7 +344,7 @@ if ($action === 'domassupdatestatus' && $canedit) {
 	$action = 'view';
 }
 
-if ($action === 'domassreplace' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && $massaction === 'massreplace' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -739,7 +739,9 @@ if ($id > 0 || !empty($ref)) {
 			print '<div id="dialog-massdeletecomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="domassdelete">';
+			print '<input type="hidden" name="action" value="view">';
+			print '<input type="hidden" name="massaction" value="massdelete">';
+			print '<input type="hidden" name="confirmmassaction" value="1">';
 			foreach ($massselectedids as $selectedid) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
@@ -757,7 +759,9 @@ if ($id > 0 || !empty($ref)) {
 			print '<div id="dialog-massdatecomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="domassupdatecommissioning">';
+			print '<input type="hidden" name="action" value="view">';
+			print '<input type="hidden" name="massaction" value="massupdatecommissioning">';
+			print '<input type="hidden" name="confirmmassaction" value="1">';
 			foreach ($massselectedids as $selectedid) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
@@ -778,7 +782,9 @@ if ($id > 0 || !empty($ref)) {
 			print '<div id="dialog-massstatuscomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="domassupdatestatus">';
+			print '<input type="hidden" name="action" value="view">';
+			print '<input type="hidden" name="massaction" value="massupdatestatus">';
+			print '<input type="hidden" name="confirmmassaction" value="1">';
 			print '<table class="noborder centpercent">';
 			print '<tr><td>'.$langs->trans('PowerPlantApplyToAll').'</td><td><input type="checkbox" class="flat" name="apply_to_all_status" value="1"></td></tr>';
 			print '<tr><td>'.$langs->trans('PowerPlantStatus').'</td><td>'.$form->selectarray('status_for_all', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td></tr>';
@@ -808,7 +814,9 @@ if ($id > 0 || !empty($ref)) {
 			print '<div id="dialog-massreplacecomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="domassreplace">';
+			print '<input type="hidden" name="action" value="view">';
+			print '<input type="hidden" name="massaction" value="massreplace">';
+			print '<input type="hidden" name="confirmmassaction" value="1">';
 			print '<table class="noborder centpercent">';
 			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
 			foreach ($masslines as $massline) {
