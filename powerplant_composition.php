@@ -263,6 +263,28 @@ if (($action === '' || $action === 'view' || $action === 'list') && $massaction 
 	}
 }
 
+$massselectedids = array_map('intval', (array) $toselect);
+$massselectedids = array_filter($massselectedids, function ($v) {
+	return ($v > 0);
+});
+$massselectedids = array_values($massselectedids);
+$masslines = array();
+
+// Load selected lines outside modal rendering to keep data available after list reload.
+if (!empty($massselectedids)) {
+	$sqlmasslines = "SELECT rowid, fk_product, serial_number, commissioning_date, fk_status";
+	$sqlmasslines .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp";
+	$sqlmasslines .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+	$sqlmasslines .= " AND rowid IN (".implode(',', $massselectedids).")";
+	$sqlmasslines .= " ORDER BY rowid ASC";
+	$resmasslines = $db->query($sqlmasslines);
+	if ($resmasslines) {
+		while ($objmassline = $db->fetch_object($resmasslines)) {
+			$masslines[] = $objmassline;
+		}
+	}
+}
+
 if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massdelete' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
@@ -710,26 +732,6 @@ if ($id > 0 || !empty($ref)) {
 				print '}';
 				print '});';
 				print '</script>';
-			}
-		}
-
-		$massselectedids = array_map('intval', (array) $toselect);
-		$massselectedids = array_filter($massselectedids, function ($v) {
-			return ($v > 0);
-		});
-		$massselectedids = array_values($massselectedids);
-		$masslines = array();
-		if (!empty($massselectedids) && in_array($action, array('massreplace', 'massupdatestatus'), true)) {
-			$sqlmasslines = "SELECT rowid, fk_product, serial_number, commissioning_date, fk_status";
-			$sqlmasslines .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp";
-			$sqlmasslines .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
-			$sqlmasslines .= " AND rowid IN (".implode(',', $massselectedids).")";
-			$sqlmasslines .= " ORDER BY rowid ASC";
-			$resmasslines = $db->query($sqlmasslines);
-			if ($resmasslines) {
-				while ($objmassline = $db->fetch_object($resmasslines)) {
-					$masslines[] = $objmassline;
-				}
 			}
 		}
 
