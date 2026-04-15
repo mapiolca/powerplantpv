@@ -561,11 +561,11 @@ if ($id > 0 || !empty($ref)) {
 					print '<span class="badge badge-status'.$statuskey.'">'.dol_escape_htmltag($statuslabel).'</span>';
 				}
 				print '</td>';
-				print '<td class="center">';
-				if ($canedit) {
-					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_edit().'</a>';
-					print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
-				}
+					print '<td class="center">';
+					if ($canedit) {
+						print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&lineid='.(int) $objline->rowid.'&token='.newToken().'"><span class="fas fa-pencil-alt" style=" color: #444; float: right" title="Éditer"></span></a>';
+						print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
+					}
 				print '</td>';
 				print '</tr>';
 			$i++;
