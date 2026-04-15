@@ -237,9 +237,18 @@ if ($action === 'updateline' && $canedit && $lineid > 0) {
 	}
 
 	$serial_number = GETPOST('serial_number', 'alphanohtml');
-	$commissioning_date = dol_mktime(0, 0, 0, GETPOSTINT('commissioning_datemonth'), GETPOSTINT('commissioning_dateday'), GETPOSTINT('commissioning_dateyear'));
+	$fk_status = GETPOST('fk_status_edit', 'alphanohtml');
+	$fk_status = ($fk_status === '' ? 4 : (int) $fk_status);
+	if (!array_key_exists((int) $fk_status, $componentstatus)) {
+		$fk_status = 4;
+	}
+	$commissioning_date = GETPOST('commissioning_date', 'alphanohtml');
+	$commissioning_date_sql = 'NULL';
+	if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $commissioning_date)) {
+		$commissioning_date_sql = "'".$db->escape($commissioning_date)."'";
+	}
 	$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
-	$sql .= " SET serial_number = '".$db->escape($serial_number)."', commissioning_date = ".($commissioning_date > 0 ? "'".$db->idate($commissioning_date)."'" : "NULL");
+	$sql .= " SET serial_number = '".$db->escape($serial_number)."', fk_status = ".((int) $fk_status).", commissioning_date = ".$commissioning_date_sql;
 	$sql .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
 	$db->query($sql);
 	$action = 'view';
@@ -444,7 +453,7 @@ if ($id > 0 || !empty($ref)) {
 		print '</script>';
 
 		if ($canedit && $action === 'editline' && $lineid > 0) {
-			$sqledit = "SELECT rowid, serial_number, commissioning_date FROM ".$db->prefix()."powerplantpv_powerplantcomp";
+			$sqledit = "SELECT rowid, fk_status, serial_number, commissioning_date FROM ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sqledit .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
 			$resedit = $db->query($sqledit);
 			if ($resedit && ($objedit = $db->fetch_object($resedit))) {
@@ -454,8 +463,16 @@ if ($id > 0 || !empty($ref)) {
 				print '<input type="hidden" name="action" value="updateline">';
 				print '<input type="hidden" name="lineid" value="'.((int) $objedit->rowid).'">';
 				print '<table class="noborder centpercent">';
-				print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlantSerialNumber').'</td><td><input type="text" class="flat minwidth100" name="serial_number" value="'.dol_escape_htmltag($objedit->serial_number).'"></td></tr>';
-				print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$form->selectDate(($objedit->commissioning_date ? $db->jdate($objedit->commissioning_date) : -1), 'commissioning_date', 0, 0, 1, '', 1, 0).'</td></tr>';
+				print '<tr class="liste_titre">';
+				print '<td>'.$langs->trans('PowerPlantSerialNumber').'</td>';
+				print '<td>'.$langs->trans('PowerPlantStatus').'</td>';
+				print '<td>'.$langs->trans('PowerPlantCommissioningDate').'</td>';
+				print '</tr>';
+				print '<tr>';
+				print '<td><input type="text" class="flat minwidth100" name="serial_number" value="'.dol_escape_htmltag($objedit->serial_number).'"></td>';
+				print '<td>'.$form->selectarray('fk_status_edit', $componentstatus, ($objedit->fk_status !== null ? (int) $objedit->fk_status : 4), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
+				print '<td><input type="date" class="flat width100" name="commissioning_date" value="'.($objedit->commissioning_date ? dol_print_date($db->jdate($objedit->commissioning_date), '%Y-%m-%d') : '').'"></td>';
+				print '</tr>';
 				print '</table>';
 				print '<div class="center">';
 				print '<input type="submit" class="button button-edit" value="'.$langs->trans('Modify').'">';
@@ -467,6 +484,16 @@ if ($id > 0 || !empty($ref)) {
 				print '<script nonce="'.getNonce().'">';
 				print 'jQuery(function(){';
 				print 'jQuery("#dialog-editcomposition").dialog({autoOpen:true,modal:true,width:700,title:"'.dol_escape_js($langs->trans('Modify')).'"});';
+				print 'if (jQuery("#fk_status_edit").length) {';
+				print 'jQuery("#fk_status_edit").select2({';
+				print 'dir:"ltr",';
+				print 'width:"resolve",';
+				print 'minimumResultsForSearch:0,';
+				print 'language:(typeof select2arrayoflanguage === "undefined") ? "en" : select2arrayoflanguage,';
+				print 'theme:"default",';
+				print 'dropdownCssClass:"ui-dialog"';
+				print '});';
+				print '}';
 				print '});';
 				print '</script>';
 			}
