@@ -272,6 +272,48 @@ if ($massaction === 'massdelete' && $canedit && is_array($toselect) && count($to
 	}
 }
 
+if ($action === 'confirmreplacecomposition' && $canedit && $lineid > 0) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+
+	$fk_product_replace = GETPOSTINT('fk_product_replace');
+	$serial_number_replace = GETPOST('serial_number_replace', 'alphanohtml');
+	$fk_status_replace = GETPOST('fk_status_replace', 'alphanohtml');
+	$fk_status_replace = ($fk_status_replace === '' ? 4 : (int) $fk_status_replace);
+	if (!array_key_exists((int) $fk_status_replace, $componentstatus)) {
+		$fk_status_replace = 4;
+	}
+	$commissioning_date_replace = GETPOST('commissioning_date_replace', 'alphanohtml');
+	if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $commissioning_date_replace)) {
+		$commissioning_date_replace = dol_print_date(dol_now(), '%Y-%m-%d');
+	}
+
+	$sqlcheckline = "SELECT rowid FROM ".$db->prefix()."powerplantpv_powerplantcomp";
+	$sqlcheckline .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+	$rescheckline = $db->query($sqlcheckline);
+	if ($rescheckline && $db->num_rows($rescheckline) > 0 && $fk_product_replace > 0) {
+		$db->begin();
+
+		$sqlreplaceold = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+		$sqlreplaceold .= " SET fk_status = 6";
+		$sqlreplaceold .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+		$resreplaceold = $db->query($sqlreplaceold);
+
+		$sqladdnew = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
+		$sqladdnew .= " VALUES (".((int) $object->id).", ".((int) $fk_product_replace).", ".((int) $fk_status_replace).", 1, '".$db->escape($serial_number_replace)."', '".$db->escape($commissioning_date_replace)."', ".((int) $conf->entity).")";
+		$resaddnew = $db->query($sqladdnew);
+
+		if ($resreplaceold && $resaddnew) {
+			$db->commit();
+		} else {
+			$db->rollback();
+		}
+	}
+
+	$action = 'view';
+}
+
 $sqlwhere = ' WHERE c.fk_powerplant = '.((int) $object->id).' AND c.entity = '.((int) $conf->entity);
 if ($search_ref !== '') {
 	$sqlwhere .= " AND p.ref LIKE '%".$db->escape($search_ref)."%'";
@@ -499,6 +541,59 @@ if ($id > 0 || !empty($ref)) {
 			}
 		}
 
+		if ($canedit && $action === 'replaceline' && $lineid > 0) {
+			$sqlreplace = "SELECT rowid, fk_product, serial_number FROM ".$db->prefix()."powerplantpv_powerplantcomp";
+			$sqlreplace .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$resreplace = $db->query($sqlreplace);
+			if ($resreplace && ($objreplace = $db->fetch_object($resreplace))) {
+				print '<div id="dialog-replacecomposition" class="hideobject">';
+				print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="confirmreplacecomposition">';
+				print '<input type="hidden" name="lineid" value="'.((int) $objreplace->rowid).'">';
+				print '<table class="noborder centpercent">';
+				print '<tr>';
+				print '<td>'.$form->selectarray('fk_product_replace', $productsforcomposition, (int) $objreplace->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth200imp maxwidth300').'</td>';
+				print '<td><input type="text" class="flat minwidth100" name="serial_number_replace" value=""></td>';
+				print '<td><input type="date" class="flat width100" name="commissioning_date_replace" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+				print '<td>'.$form->selectarray('fk_status_replace', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
+				print '</tr>';
+				print '</table>';
+				print '<div class="center">';
+				print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
+				print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+				print '</div>';
+				print '</form>';
+				print '</div>';
+
+				print '<script nonce="'.getNonce().'">';
+				print 'jQuery(function(){';
+				print 'jQuery("#dialog-replacecomposition").dialog({autoOpen:true,modal:true,width:950,title:"'.dol_escape_js($langs->trans('PowerPlantReplacement')).'"});';
+				print 'if (jQuery("#fk_product_replace").length) {';
+				print 'jQuery("#fk_product_replace").select2({';
+				print 'dir:"ltr",';
+				print 'width:"resolve",';
+				print 'minimumInputLength:0,';
+				print 'language:(typeof select2arrayoflanguage === "undefined") ? "en" : select2arrayoflanguage,';
+				print 'theme:"default",';
+				print 'dropdownCssClass:"ui-dialog"';
+				print '});';
+				print '}';
+				print 'if (jQuery("#fk_status_replace").length) {';
+				print 'jQuery("#fk_status_replace").select2({';
+				print 'dir:"ltr",';
+				print 'width:"resolve",';
+				print 'minimumResultsForSearch:0,';
+				print 'language:(typeof select2arrayoflanguage === "undefined") ? "en" : select2arrayoflanguage,';
+				print 'theme:"default",';
+				print 'dropdownCssClass:"ui-dialog"';
+				print '});';
+				print '}';
+				print '});';
+				print '</script>';
+			}
+		}
+
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="id" value="'.$object->id.'">';
@@ -562,10 +657,11 @@ if ($id > 0 || !empty($ref)) {
 				}
 				print '</td>';
 					print '<td class="center">';
-					if ($canedit) {
-						print '<a class="editfielda reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&token='.newToken().'&lineid='.(int) $objline->rowid.'">'.img_edit().'</a>';
-						print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
-					}
+						if ($canedit) {
+							print '<a class="editfielda reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&token='.newToken().'&lineid='.(int) $objline->rowid.'">'.img_edit().'</a>';
+							print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=replaceline&lineid='.(int) $objline->rowid.'&token='.newToken().'" title="'.$langs->trans('PowerPlantReplace').'"><span class="fas fa-exchange-alt"></span></a>';
+							print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
+						}
 				print '</td>';
 				print '</tr>';
 			$i++;
