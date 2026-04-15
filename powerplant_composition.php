@@ -837,12 +837,15 @@ if ($id > 0 || !empty($ref)) {
 			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massreplacecomposition").dialog({autoOpen:true,modal:true,width:980,title:"'.dol_escape_js($langs->trans('PowerPlantMassReplaceSelected')).'"});});</script>';
 		}
 
-		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="formfilteraction" id="formfilteraction" value="list">';
+		print '<input type="hidden" name="action" value="list">';
 		print '<input type="hidden" name="id" value="'.$object->id.'">';
 		print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
 		print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
 		print '<input type="hidden" name="page" value="'.((int) $page).'">';
+		print '<input type="hidden" name="page_y" value="">';
 		print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
 		print '<div class="div-table-responsive">';
 		print '<table class="tagtable liste centpercent">';
