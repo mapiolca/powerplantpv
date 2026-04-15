@@ -370,7 +370,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massreplace' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massreplace' && $canedit && !GETPOST('cancel', 'alpha')) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -706,7 +706,7 @@ if ($id > 0 || !empty($ref)) {
 				print '</table>';
 				print '<div class="center">';
 				print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
-				print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+				print ' <input type="button" class="button button-cancel" id="massreplace-cancel-btn" value="'.$langs->trans('Cancel').'">';
 				print '</div>';
 				print '</form>';
 				print '</div>';
@@ -843,10 +843,10 @@ if ($id > 0 || !empty($ref)) {
 					print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 				}
 			print '</table>';
-			print '<div class="center">';
-			print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
-			print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
-			print '</div>';
+				print '<div class="center">';
+				print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
+				print ' <input type="button" class="button button-cancel" id="massreplace-cancel-btn" value="'.$langs->trans('Cancel').'">';
+				print '</div>';
 			print '</form>';
 			print '</div>';
 			print '<script nonce="'.getNonce().'">';
@@ -866,6 +866,9 @@ if ($id > 0 || !empty($ref)) {
 			print 'jQuery(this).select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
 			print '});';
 			print '}';
+			print '});';
+			print 'jQuery("#massreplace-cancel-btn").on("click", function(){';
+			print 'jQuery("#dialog-massreplacecomposition").dialog("close");';
 			print '});';
 			print '});';
 			print '</script>';
