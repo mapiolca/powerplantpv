@@ -120,5 +120,6 @@ PhotovoltaicCategoryDictionary = Photovoltaik-Kategorie
 ProductPhotovoltaicCategory = Photovoltaik-Kategorie
 
 PowerPlantMaterialComposition = Materialzusammensetzung
+PowerPlantStatus = Status
 PowerPlantSerialNumber = Seriennummer
 NoDetailedCharacteristicsForProductType = Für diesen Produkttyp sind keine detaillierten Merkmale vorgesehen

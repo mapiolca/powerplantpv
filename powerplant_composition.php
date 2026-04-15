@@ -99,6 +99,7 @@ $sortfieldlist = array(
 	'p.ref',
 	'p.label',
 	'cpv.label',
+	'c.fk_status',
 	'c.serial_number',
 	'c.commissioning_date'
 );
@@ -112,6 +113,7 @@ if (empty($sortorder) || !in_array(strtoupper($sortorder), array('ASC', 'DESC'),
 $search_ref = trim(GETPOST('search_ref', 'alphanohtml'));
 $search_label = trim(GETPOST('search_label', 'alphanohtml'));
 $search_nature = GETPOSTINT('search_nature');
+$search_status = GETPOSTINT('search_status');
 $search_serial = trim(GETPOST('search_serial', 'alphanohtml'));
 $search_commissioning = trim(GETPOST('search_commissioning', 'alphanohtml'));
 
@@ -151,6 +153,7 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 	$search_ref = '';
 	$search_label = '';
 	$search_nature = 0;
+	$search_status = 0;
 	$search_serial = '';
 	$search_commissioning = '';
 }
@@ -252,6 +255,9 @@ if ($search_label !== '') {
 if ($search_nature > 0) {
 	$sqlwhere .= ' AND pe.categorie_photovoltaique = '.((int) $search_nature);
 }
+if ($search_status > 0) {
+	$sqlwhere .= ' AND c.fk_status = '.((int) $search_status);
+}
 if ($search_serial !== '') {
 	$sqlwhere .= " AND c.serial_number LIKE '%".$db->escape($search_serial)."%'";
 }
@@ -271,7 +277,7 @@ if ($rescount) {
 	$nbtotalofrecords = (int) $objcount->nb;
 }
 
-$sql = 'SELECT c.rowid, c.serial_number, c.commissioning_date, p.rowid as fk_product, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
+$sql = 'SELECT c.rowid, c.fk_status, c.serial_number, c.commissioning_date, p.rowid as fk_product, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
 $sql .= ' FROM '.$db->prefix().'powerplantpv_powerplantcomp as c';
 $sql .= ' JOIN '.$db->prefix().'product as p ON p.rowid = c.fk_product';
 $sql .= ' LEFT JOIN '.$db->prefix().'product_extrafields as pe ON pe.fk_object = p.rowid';
@@ -305,6 +311,9 @@ if ($id > 0 || !empty($ref)) {
 	}
 	if ($search_nature > 0) {
 		$param .= '&search_nature='.$search_nature;
+	}
+	if ($search_status > 0) {
+		$param .= '&search_status='.$search_status;
 	}
 	if ($search_serial !== '') {
 		$param .= '&search_serial='.urlencode($search_serial);
@@ -445,6 +454,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<td class="liste_titre left"><input type="text" class="flat width75" name="search_ref" value="'.dol_escape_htmltag($search_ref).'"></td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
 			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array(-1 => '') + $categories, ($search_nature > 0 ? $search_nature : -1), 0).'</td>';
+			print '<td class="liste_titre left"><input type="number" class="flat width50" min="1" name="search_status" value="'.($search_status > 0 ? (int) $search_status : '').'"></td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
 			print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
 			print '<td class="liste_titre"></td>';
@@ -453,12 +463,13 @@ if ($id > 0 || !empty($ref)) {
 		print '<tr class="liste_titre">';
 		print_liste_field_titre($form->showCheckAddButtons('checkforselect', 1), $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
-	print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
-	print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'cpv.label', '', $param, '', $sortfield, $sortorder);
-	print_liste_field_titre($langs->trans('PowerPlantSerialNumber'), $_SERVER['PHP_SELF'], 'c.serial_number', '', $param, '', $sortfield, $sortorder);
-	print_liste_field_titre($langs->trans('PowerPlantCommissioningDate'), $_SERVER['PHP_SELF'], 'c.commissioning_date', '', $param, '', $sortfield, $sortorder);
-	print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
-	print '</tr>';
+		print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
+		print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'cpv.label', '', $param, '', $sortfield, $sortorder);
+		print_liste_field_titre($langs->trans('PowerPlantStatus'), $_SERVER['PHP_SELF'], 'c.fk_status', '', $param, '', $sortfield, $sortorder);
+		print_liste_field_titre($langs->trans('PowerPlantSerialNumber'), $_SERVER['PHP_SELF'], 'c.serial_number', '', $param, '', $sortfield, $sortorder);
+		print_liste_field_titre($langs->trans('PowerPlantCommissioningDate'), $_SERVER['PHP_SELF'], 'c.commissioning_date', '', $param, '', $sortfield, $sortorder);
+		print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
+		print '</tr>';
 
 	if ($resql && $db->num_rows($resql) > 0) {
 		$num = min($db->num_rows($resql), $limit);
@@ -474,8 +485,9 @@ if ($id > 0 || !empty($ref)) {
 				$productstatic->ref = $objline->product_ref;
 				$productstatic->label = $objline->product_label;
 				print '<td>'.$productstatic->getNomUrl(1).'</td>';
-			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
+				print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
+				print '<td>'.($objline->fk_status !== null ? (int) $objline->fk_status : '').'</td>';
 				print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
 				print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
 				print '<td class="center">';
@@ -483,13 +495,13 @@ if ($id > 0 || !empty($ref)) {
 					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_edit().'</a>';
 					print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
 				}
-			print '</td>';
-			print '</tr>';
+				print '</td>';
+				print '</tr>';
 			$i++;
 		}
-		} else {
-			print '<tr class="oddeven"><td colspan="7"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
-		}
+	} else {
+		print '<tr class="oddeven"><td colspan="8"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+	}
 
 	print '</table>';
 	print '</div>';
