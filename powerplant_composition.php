@@ -552,8 +552,14 @@ if ($id > 0 || !empty($ref)) {
 				print '<input type="hidden" name="action" value="confirmreplacecomposition">';
 				print '<input type="hidden" name="lineid" value="'.((int) $objreplace->rowid).'">';
 				print '<table class="noborder centpercent">';
+				print '<tr class="liste_titre">';
+				print '<td>'.$langs->trans('Product').'</td>';
+				print '<td>'.$langs->trans('PowerPlantSerialNumber').'</td>';
+				print '<td>'.$langs->trans('PowerPlantCommissioningDate').'</td>';
+				print '<td>'.$langs->trans('PowerPlantStatus').'</td>';
+				print '</tr>';
 				print '<tr>';
-				print '<td>'.$form->selectarray('fk_product_replace', $productsforcomposition, (int) $objreplace->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth200imp maxwidth300').'</td>';
+				print '<td>'.$form->selectarray('fk_product_replace', $productsforcomposition, (int) $objreplace->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200').'</td>';
 				print '<td><input type="text" class="flat minwidth100" name="serial_number_replace" value=""></td>';
 				print '<td><input type="date" class="flat width100" name="commissioning_date_replace" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
 				print '<td>'.$form->selectarray('fk_status_replace', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
