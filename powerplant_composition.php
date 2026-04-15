@@ -835,7 +835,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massreplacecomposition").dialog({autoOpen:true,modal:true,width:980,title:"'.dol_escape_js($langs->trans('PowerPlantMassReplaceSelected')).'"});});</script>';
 		}
 
-		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'">';
+		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="formfilteraction" id="formfilteraction" value="list">';
 		print '<input type="hidden" name="action" value="list">';
