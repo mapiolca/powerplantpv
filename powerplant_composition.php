@@ -180,6 +180,16 @@ if ($action === 'createcomposition' && $canedit) {
 
 	$fk_product = GETPOSTINT('fk_product');
 	$qty = GETPOSTINT('qty');
+	$fk_status = GETPOST('fk_status', 'alphanohtml');
+	$fk_status = ($fk_status === '' ? 4 : (int) $fk_status);
+	if (!array_key_exists((int) $fk_status, $componentstatus)) {
+		$fk_status = 4;
+	}
+	$commissioning_date = GETPOST('commissioning_date', 'alphanohtml');
+	$commissioning_date_sql = 'NULL';
+	if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $commissioning_date)) {
+		$commissioning_date_sql = "'".$db->escape($commissioning_date)."'";
+	}
 	if ($qty < 1) {
 		$qty = 1;
 	}
@@ -198,8 +208,8 @@ if ($action === 'createcomposition' && $canedit) {
 	if ($fk_product > 0 && $isallowedproduct) {
 		$i = 0;
 		while ($i < $qty) {
-			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, serial_number, commissioning_date, entity)";
-			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', 1, \'\', NULL, '.((int) $conf->entity).')';
+			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
+			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', '.((int) $fk_status).', 1, \'\', '.$commissioning_date_sql.', '.((int) $conf->entity).')';
 			$db->query($sql);
 			$i++;
 		}
@@ -365,8 +375,18 @@ if ($id > 0 || !empty($ref)) {
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="action" value="createcomposition">';
 		print '<table class="noborder centpercent">';
-		print '<tr><td class="titlefieldcreate">'.$langs->trans('Product').'</td><td>'.$form->selectarray('fk_product', $productsforcomposition, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth200imp maxwidth300').'</td></tr>';
-		print '<tr><td class="titlefieldcreate">'.$langs->trans('PVQuantity').'</td><td><input type="number" class="flat width50" min="1" name="qty" value="1"></td></tr>';
+		print '<tr class="liste_titre">';
+		print '<td>'.$langs->trans('Product').'</td>';
+		print '<td>'.$langs->trans('PVQuantity').'</td>';
+		print '<td>'.$langs->trans('PowerPlantStatus').'</td>';
+		print '<td>'.$langs->trans('PowerPlantCommissioningDate').'</td>';
+		print '</tr>';
+		print '<tr>';
+		print '<td>'.$form->selectarray('fk_product', $productsforcomposition, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth200imp maxwidth300').'</td>';
+		print '<td><input type="number" class="flat width50" min="1" name="qty" value="1"></td>';
+		print '<td>'.$form->selectarray('fk_status', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
+		print '<td><input type="date" class="flat width100" name="commissioning_date" value=""></td>';
+		print '</tr>';
 		print '</table>';
 		print '<div class="center">';
 		print '<input type="submit" class="button button-add" value="'.$langs->trans('Add').'">';
@@ -405,6 +425,16 @@ if ($id > 0 || !empty($ref)) {
 		print '},';
 		print 'templateSelection:function(selection){ if (selection.id == "-1") return "<span class=\"placeholder\">"+selection.text+"</span>"; return selection.text; },';
 		print 'escapeMarkup:function(markup){ return markup; }';
+		print '});';
+		print '}';
+		print 'if (jQuery("#fk_status").length) {';
+		print 'jQuery("#fk_status").select2({';
+		print 'dir:"ltr",';
+		print 'width:"resolve",';
+		print 'minimumResultsForSearch:0,';
+		print 'language:(typeof select2arrayoflanguage === "undefined") ? "en" : select2arrayoflanguage,';
+		print 'theme:"default",';
+		print 'dropdownCssClass:"ui-dialog"';
 		print '});';
 		print '}';
 		if ($openaddmodal) {
