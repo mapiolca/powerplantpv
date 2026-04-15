@@ -17,4 +17,5 @@
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX idx_powerplantpv_powerplantcomp_rowid (rowid);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX idx_powerplantpv_powerplantcomp_fk_powerplant (fk_powerplant);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX idx_powerplantpv_powerplantcomp_fk_product (fk_product);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX idx_powerplantpv_powerplantcomp_fk_status (fk_status);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX idx_powerplantpv_powerplantcomp_entity (entity);
