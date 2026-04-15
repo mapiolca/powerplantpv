@@ -254,7 +254,7 @@ if ($action === 'updateline' && $canedit && $lineid > 0) {
 	$action = 'view';
 }
 
-if ($massaction !== '' && $canedit && is_array($toselect) && count($toselect) > 0) {
+if (($action === '' || $action === 'view') && $massaction !== '' && $canedit && is_array($toselect) && count($toselect) > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -508,8 +508,8 @@ if ($id > 0 || !empty($ref)) {
 		if ($canedit) {
 			$arrayofmassactions = array(
 				'massreplace' => img_picto('', 'refresh', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassReplaceSelected'),
-				'massupdatecommissioning' => img_picto('', 'date', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateCommissioningDate'),
-				'massupdatestatus' => img_picto('', 'statut', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateStatus'),
+				'massupdatecommissioning' => img_picto('', 'calendar', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateCommissioningDate'),
+				'massupdatestatus' => img_picto('', 'status', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateStatus'),
 				'massdelete' => img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete')
 			);
 			$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
