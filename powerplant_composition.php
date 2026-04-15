@@ -113,7 +113,8 @@ if (empty($sortorder) || !in_array(strtoupper($sortorder), array('ASC', 'DESC'),
 $search_ref = trim(GETPOST('search_ref', 'alphanohtml'));
 $search_label = trim(GETPOST('search_label', 'alphanohtml'));
 $search_nature = GETPOSTINT('search_nature');
-$search_status = GETPOSTINT('search_status');
+$search_status = GETPOST('search_status', 'alphanohtml');
+$search_status = ($search_status === '' ? '' : (string) ((int) $search_status));
 $search_serial = trim(GETPOST('search_serial', 'alphanohtml'));
 $search_commissioning = trim(GETPOST('search_commissioning', 'alphanohtml'));
 
@@ -153,10 +154,17 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 	$search_ref = '';
 	$search_label = '';
 	$search_nature = 0;
-	$search_status = 0;
+	$search_status = '';
 	$search_serial = '';
 	$search_commissioning = '';
 }
+
+$componentstatus = array(
+	0 => $langs->trans('PowerPlantCompStatusInactive'),
+	4 => $langs->trans('PowerPlantCompStatusActive'),
+	6 => $langs->trans('PowerPlantCompStatusReplaced'),
+	8 => $langs->trans('PowerPlantCompStatusOutOfService')
+);
 
 $canedit = ($permissiontoadd && (int) $object->status === (int) $object::STATUS_DRAFT);
 $showaddform = ($canedit && $action === 'addcomposition');
@@ -255,7 +263,7 @@ if ($search_label !== '') {
 if ($search_nature > 0) {
 	$sqlwhere .= ' AND pe.categorie_photovoltaique = '.((int) $search_nature);
 }
-if ($search_status > 0) {
+if ($search_status !== '') {
 	$sqlwhere .= ' AND c.fk_status = '.((int) $search_status);
 }
 if ($search_serial !== '') {
@@ -312,7 +320,7 @@ if ($id > 0 || !empty($ref)) {
 	if ($search_nature > 0) {
 		$param .= '&search_nature='.$search_nature;
 	}
-	if ($search_status > 0) {
+	if ($search_status !== '') {
 		$param .= '&search_status='.$search_status;
 	}
 	if ($search_serial !== '') {
@@ -456,7 +464,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array(-1 => '') + $categories, ($search_nature > 0 ? $search_nature : -1), 0).'</td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
 			print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
-			print '<td class="liste_titre left"><input type="number" class="flat width50" min="1" name="search_status" value="'.($search_status > 0 ? (int) $search_status : '').'"></td>';
+			print '<td class="liste_titre left">'.$form->selectarray('search_status', array(-1 => '') + $componentstatus, ($search_status !== '' ? (int) $search_status : -1), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
 			print '<td class="liste_titre"></td>';
 			print '</tr>';
 
@@ -489,7 +497,13 @@ if ($id > 0 || !empty($ref)) {
 				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
 				print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
 				print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
-				print '<td>'.($objline->fk_status !== null ? (int) $objline->fk_status : '').'</td>';
+				print '<td>';
+				if ($objline->fk_status !== null && $objline->fk_status !== '') {
+					$statuskey = (int) $objline->fk_status;
+					$statuslabel = isset($componentstatus[$statuskey]) ? $componentstatus[$statuskey] : $statuskey;
+					print '<span class="badge badge-status'.$statuskey.'">'.dol_escape_htmltag($statuslabel).'</span>';
+				}
+				print '</td>';
 				print '<td class="center">';
 				if ($canedit) {
 					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_edit().'</a>';

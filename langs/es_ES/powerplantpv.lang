@@ -120,6 +120,10 @@ PhotovoltaicCategoryDictionary = Categoría fotovoltaica
 ProductPhotovoltaicCategory = Categoría fotovoltaica
 
 PowerPlantMaterialComposition = Composición de material
+PowerPlantCompStatusActive = Activo
+PowerPlantCompStatusInactive = Inactivo
+PowerPlantCompStatusReplaced = Reemplazado
+PowerPlantCompStatusOutOfService = Fuera de servicio
 PowerPlantStatus = Estado
 PowerPlantSerialNumber = N.º de serie
 NoDetailedCharacteristicsForProductType = No hay características detalladas previstas para este tipo de producto
