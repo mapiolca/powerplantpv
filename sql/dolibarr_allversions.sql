@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	serial_number varchar(20),
 	commissioning_date date,
 	entity integer NOT NULL DEFAULT 1
-) ENGINE=innodb;
+) ENGINE=innodb DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_rowid (rowid);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_powerplant (fk_powerplant);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_product (fk_product);
@@ -75,6 +75,7 @@ ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS fk_status i
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS serial_number varchar(20);
 ALTER TABLE llx_powerplantpv_powerplantcomp MODIFY COLUMN serial_number varchar(20);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS commissioning_date date;
+ALTER TABLE llx_powerplantpv_powerplantcomp CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE llx_powerplantpv_powerplantcomp DROP COLUMN IF EXISTS nature_code;
 
 INSERT INTO llx_c_product_nature (code, label, active)

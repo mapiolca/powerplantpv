@@ -23,4 +23,4 @@ CREATE TABLE llx_powerplantpv_powerplantcomp(
 	serial_number varchar(20),
 	commissioning_date date,
 	entity integer NOT NULL DEFAULT 1
-) ENGINE=innodb;
+) ENGINE=innodb DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
