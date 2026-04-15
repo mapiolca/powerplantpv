@@ -575,7 +575,7 @@ if ($id > 0 || !empty($ref)) {
 		print '<td>'.$form->selectarray('fk_product', $productsforcomposition, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth200imp maxwidth300').'</td>';
 		print '<td><input type="number" class="flat width50" min="1" name="qty" value="1"></td>';
 		print '<td>'.$form->selectarray('fk_status', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
-		print '<td><input type="date" class="flat width100" name="commissioning_date" value=""></td>';
+		print '<td><input type="date" class="flat width125" name="commissioning_date" value=""></td>';
 		print '</tr>';
 		print '</table>';
 		print '<div class="center">';
@@ -587,7 +587,7 @@ if ($id > 0 || !empty($ref)) {
 
 		print '<script nonce="'.getNonce().'">';
 		print 'jQuery(function(){';
-		print 'jQuery("#dialog-addcomposition").dialog({autoOpen:false,modal:true,width:900,title:"'.dol_escape_js($langs->trans('PowerPlantMaterialComposition')).'"});';
+		print 'jQuery("#dialog-addcomposition").dialog({autoOpen:false,modal:true,width:900,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMaterialComposition')).'"});';
 		print 'if (jQuery("#fk_product").length) {';
 		print 'jQuery("#fk_product").addClass("flat minwidth200imp maxwidth300");';
 		print 'jQuery("#fk_product").select2({';
@@ -652,7 +652,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<tr>';
 				print '<td><input type="text" class="flat minwidth100" name="serial_number" value="'.dol_escape_htmltag($objedit->serial_number).'"></td>';
 				print '<td>'.$form->selectarray('fk_status_edit', $componentstatus, ($objedit->fk_status !== null ? (int) $objedit->fk_status : 4), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
-				print '<td><input type="date" class="flat width100" name="commissioning_date" value="'.($objedit->commissioning_date ? dol_print_date($db->jdate($objedit->commissioning_date), '%Y-%m-%d') : '').'"></td>';
+				print '<td><input type="date" class="flat width125" name="commissioning_date" value="'.($objedit->commissioning_date ? dol_print_date($db->jdate($objedit->commissioning_date), '%Y-%m-%d') : '').'"></td>';
 				print '</tr>';
 				print '</table>';
 				print '<div class="center">';
@@ -664,7 +664,7 @@ if ($id > 0 || !empty($ref)) {
 
 				print '<script nonce="'.getNonce().'">';
 				print 'jQuery(function(){';
-				print 'jQuery("#dialog-editcomposition").dialog({autoOpen:true,modal:true,width:700,title:"'.dol_escape_js($langs->trans('Modify')).'"});';
+				print 'jQuery("#dialog-editcomposition").dialog({autoOpen:true,modal:true,width:700,title:"'.dol_escape_js($langs->transnoentitiesnoconv('Modify')).'"});';
 				print 'if (jQuery("#fk_status_edit").length) {';
 				print 'jQuery("#fk_status_edit").select2({';
 				print 'dir:"ltr",';
@@ -700,20 +700,20 @@ if ($id > 0 || !empty($ref)) {
 				print '<tr>';
 				print '<td>'.$form->selectarray('fk_product_replace', $productsforcomposition, (int) $objreplace->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200').'</td>';
 				print '<td><input type="text" class="flat minwidth100" name="serial_number_replace" value=""></td>';
-				print '<td><input type="date" class="flat width100" name="commissioning_date_replace" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+				print '<td><input type="date" class="flat width125" name="commissioning_date_replace" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
 				print '<td>'.$form->selectarray('fk_status_replace', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
 				print '</tr>';
 				print '</table>';
 				print '<div class="center">';
 				print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
-				print ' <input type="button" class="button button-cancel" id="massreplace-cancel-btn" value="'.$langs->trans('Cancel').'">';
+				print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
 				print '</div>';
 				print '</form>';
 				print '</div>';
 
 				print '<script nonce="'.getNonce().'">';
 				print 'jQuery(function(){';
-				print 'jQuery("#dialog-replacecomposition").dialog({autoOpen:true,modal:true,width:950,title:"'.dol_escape_js($langs->trans('PowerPlantReplacement')).'"});';
+				print 'jQuery("#dialog-replacecomposition").dialog({autoOpen:true,modal:true,width:950,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantReplacement')).'"});';
 				print 'if (jQuery("#fk_product_replace").length) {';
 				print 'jQuery("#fk_product_replace").select2({';
 				print 'dir:"ltr",';
@@ -757,7 +757,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdeletecomposition").dialog({autoOpen:true,modal:true,width:550,title:"'.dol_escape_js($langs->trans('Delete')).'"});});</script>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdeletecomposition").dialog({autoOpen:true,modal:true,width:550,title:"'.dol_escape_js($langs->transnoentitiesnoconv('Delete')).'"});});</script>';
 		}
 
 		if ($canedit && $action === 'massupdatecommissioning' && !empty($massselectedids)) {
@@ -772,7 +772,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
 			print '<table class="noborder centpercent">';
-			print '<tr><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td><input type="date" class="flat width100" name="commissioning_date_mass" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td></tr>';
+			print '<tr><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td><input type="date" class="flat width125" name="commissioning_date_mass" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td></tr>';
 			print '<tr><td>'.$langs->trans('PowerPlantApplyToAll').'</td><td><input type="checkbox" class="flat" name="apply_to_all_date" value="1" checked></td></tr>';
 			print '</table>';
 			print '<div class="center">';
@@ -781,7 +781,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdatecomposition").dialog({autoOpen:true,modal:true,width:650,title:"'.dol_escape_js($langs->trans('PowerPlantMassUpdateCommissioningDate')).'"});});</script>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdatecomposition").dialog({autoOpen:true,modal:true,width:650,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateCommissioningDate')).'"});});</script>';
 		}
 
 		if ($canedit && $action === 'massupdatestatus' && !empty($massselectedids)) {
@@ -814,7 +814,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massstatuscomposition").dialog({autoOpen:true,modal:true,width:800,title:"'.dol_escape_js($langs->trans('PowerPlantMassUpdateStatus')).'"});if(jQuery(\"#status_for_all\").length){jQuery(\"#status_for_all\").select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});}jQuery(\".massstatus-line-select\").each(function(){jQuery(this).select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});});});</script>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massstatuscomposition").dialog({autoOpen:true,modal:true,width:800,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateStatus')).'"});if(jQuery(\"#status_for_all\").length){jQuery(\"#status_for_all\").select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});}jQuery(\".massstatus-line-select\").each(function(){jQuery(this).select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});});});</script>';
 		}
 
 		if ($canedit && $action === 'massreplace' && !empty($massselectedids)) {
@@ -835,7 +835,7 @@ if ($id > 0 || !empty($ref)) {
 							print '<tr>';
 							print '<td><input type="hidden" name="lineid_mass_replace['.$idx.']" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace['.$idx.']', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
 							print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace['.$idx.']" value=""></td>';
-							print '<td><input type="date" class="flat width100" name="commissioning_date_mass_replace['.$idx.']" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+							print '<td><input type="date" class="flat width125" name="commissioning_date_mass_replace['.$idx.']" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
 							print '<td>'.$form->selectarray('fk_status_mass_replace['.$idx.']', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
 							print '</tr>';
 						}
@@ -855,7 +855,7 @@ if ($id > 0 || !empty($ref)) {
 			print 'autoOpen:true,';
 			print 'modal:true,';
 			print 'width:980,';
-			print 'title:"'.dol_escape_js($langs->trans('PowerPlantMassReplaceSelected')).'",';
+			print 'title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassReplaceSelected')).'",';
 			print 'open:function(){';
 			print 'jQuery(this).find(".massreplace-product-select").each(function(){';
 			print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
