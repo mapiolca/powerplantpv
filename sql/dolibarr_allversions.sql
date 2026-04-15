@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_powerplant integer NOT NULL,
 	fk_product integer NOT NULL,
+	fk_status integer,
 	qty double NOT NULL,
 	serial_number varchar(20),
 	commissioning_date date,
@@ -68,7 +69,9 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_rowid (rowid);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_powerplant (fk_powerplant);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_product (fk_product);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_status (fk_status);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_entity (entity);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS fk_status integer;
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS serial_number varchar(20);
 ALTER TABLE llx_powerplantpv_powerplantcomp MODIFY COLUMN serial_number varchar(20);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS commissioning_date date;

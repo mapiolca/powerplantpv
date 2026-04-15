@@ -18,6 +18,7 @@ CREATE TABLE llx_powerplantpv_powerplantcomp(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_powerplant integer NOT NULL,
 	fk_product integer NOT NULL,
+	fk_status integer,
 	qty double NOT NULL,
 	serial_number varchar(20),
 	commissioning_date date,
