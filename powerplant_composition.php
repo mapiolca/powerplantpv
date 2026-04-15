@@ -263,7 +263,7 @@ if (($action === '' || $action === 'view' || $action === 'list') && $massaction 
 	}
 }
 
-if (GETPOSTINT('confirmmassaction') && $massaction === 'massdelete' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massdelete' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -281,7 +281,7 @@ if (GETPOSTINT('confirmmassaction') && $massaction === 'massdelete' && $canedit)
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && $massaction === 'massupdatecommissioning' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatecommissioning' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -308,7 +308,7 @@ if (GETPOSTINT('confirmmassaction') && $massaction === 'massupdatecommissioning'
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && $massaction === 'massupdatestatus' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatestatus' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -344,7 +344,7 @@ if (GETPOSTINT('confirmmassaction') && $massaction === 'massupdatestatus' && $ca
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && $massaction === 'massreplace' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massreplace' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -740,6 +740,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<input type="hidden" name="action" value="view">';
 			print '<input type="hidden" name="massaction" value="massdelete">';
 			print '<input type="hidden" name="confirmmassaction" value="1">';
+			print '<input type="hidden" name="massaction_confirmed" value="1">';
 			foreach ($massselectedids as $selectedid) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
@@ -760,6 +761,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<input type="hidden" name="action" value="view">';
 			print '<input type="hidden" name="massaction" value="massupdatecommissioning">';
 			print '<input type="hidden" name="confirmmassaction" value="1">';
+			print '<input type="hidden" name="massaction_confirmed" value="1">';
 			foreach ($massselectedids as $selectedid) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
@@ -783,6 +785,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<input type="hidden" name="action" value="view">';
 			print '<input type="hidden" name="massaction" value="massupdatestatus">';
 			print '<input type="hidden" name="confirmmassaction" value="1">';
+			print '<input type="hidden" name="massaction_confirmed" value="1">';
 			print '<table class="noborder centpercent">';
 			print '<tr><td>'.$langs->trans('PowerPlantApplyToAll').'</td><td><input type="checkbox" class="flat" name="apply_to_all_status" value="1"></td></tr>';
 			print '<tr><td>'.$langs->trans('PowerPlantStatus').'</td><td>'.$form->selectarray('status_for_all', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td></tr>';
@@ -815,6 +818,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<input type="hidden" name="action" value="view">';
 			print '<input type="hidden" name="massaction" value="massreplace">';
 			print '<input type="hidden" name="confirmmassaction" value="1">';
+			print '<input type="hidden" name="massaction_confirmed" value="1">';
 			print '<table class="noborder centpercent">';
 			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
 			foreach ($masslines as $massline) {
