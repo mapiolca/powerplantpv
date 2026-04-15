@@ -115,6 +115,10 @@ $search_label = trim(GETPOST('search_label', 'alphanohtml'));
 $search_nature = GETPOSTINT('search_nature');
 $search_status = GETPOST('search_status', 'alphanohtml');
 $search_status = ($search_status === '' ? '' : (string) ((int) $search_status));
+$search_nature = ($search_nature < 0 ? 0 : $search_nature);
+if ($search_status !== '' && (int) $search_status < 0) {
+	$search_status = '';
+}
 $search_serial = trim(GETPOST('search_serial', 'alphanohtml'));
 $search_commissioning = trim(GETPOST('search_commissioning', 'alphanohtml'));
 
@@ -263,6 +267,28 @@ if (($action === '' || $action === 'view' || $action === 'list') && $massaction 
 	}
 }
 
+$massselectedids = array_map('intval', (array) $toselect);
+$massselectedids = array_filter($massselectedids, function ($v) {
+	return ($v > 0);
+});
+$massselectedids = array_values($massselectedids);
+$masslines = array();
+
+// Load selected lines outside modal rendering to keep data available after list reload.
+if (!empty($massselectedids)) {
+	$sqlmasslines = "SELECT rowid, fk_product, serial_number, commissioning_date, fk_status";
+	$sqlmasslines .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp";
+	$sqlmasslines .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+	$sqlmasslines .= " AND rowid IN (".implode(',', $massselectedids).")";
+	$sqlmasslines .= " ORDER BY rowid ASC";
+	$resmasslines = $db->query($sqlmasslines);
+	if ($resmasslines) {
+		while ($objmassline = $db->fetch_object($resmasslines)) {
+			$masslines[] = $objmassline;
+		}
+	}
+}
+
 if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massdelete' && $canedit) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
@@ -344,7 +370,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massreplace' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massreplace' && $canedit && !GETPOST('cancel', 'alpha')) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -549,7 +575,7 @@ if ($id > 0 || !empty($ref)) {
 		print '<td>'.$form->selectarray('fk_product', $productsforcomposition, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth200imp maxwidth300').'</td>';
 		print '<td><input type="number" class="flat width50" min="1" name="qty" value="1"></td>';
 		print '<td>'.$form->selectarray('fk_status', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
-		print '<td><input type="date" class="flat width100" name="commissioning_date" value=""></td>';
+		print '<td><input type="date" class="flat width125" name="commissioning_date" value=""></td>';
 		print '</tr>';
 		print '</table>';
 		print '<div class="center">';
@@ -561,7 +587,7 @@ if ($id > 0 || !empty($ref)) {
 
 		print '<script nonce="'.getNonce().'">';
 		print 'jQuery(function(){';
-		print 'jQuery("#dialog-addcomposition").dialog({autoOpen:false,modal:true,width:900,title:"'.dol_escape_js($langs->trans('PowerPlantMaterialComposition')).'"});';
+		print 'jQuery("#dialog-addcomposition").dialog({autoOpen:false,modal:true,width:900,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMaterialComposition')).'"});';
 		print 'if (jQuery("#fk_product").length) {';
 		print 'jQuery("#fk_product").addClass("flat minwidth200imp maxwidth300");';
 		print 'jQuery("#fk_product").select2({';
@@ -626,7 +652,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<tr>';
 				print '<td><input type="text" class="flat minwidth100" name="serial_number" value="'.dol_escape_htmltag($objedit->serial_number).'"></td>';
 				print '<td>'.$form->selectarray('fk_status_edit', $componentstatus, ($objedit->fk_status !== null ? (int) $objedit->fk_status : 4), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
-				print '<td><input type="date" class="flat width100" name="commissioning_date" value="'.($objedit->commissioning_date ? dol_print_date($db->jdate($objedit->commissioning_date), '%Y-%m-%d') : '').'"></td>';
+				print '<td><input type="date" class="flat width125" name="commissioning_date" value="'.($objedit->commissioning_date ? dol_print_date($db->jdate($objedit->commissioning_date), '%Y-%m-%d') : '').'"></td>';
 				print '</tr>';
 				print '</table>';
 				print '<div class="center">';
@@ -638,7 +664,7 @@ if ($id > 0 || !empty($ref)) {
 
 				print '<script nonce="'.getNonce().'">';
 				print 'jQuery(function(){';
-				print 'jQuery("#dialog-editcomposition").dialog({autoOpen:true,modal:true,width:700,title:"'.dol_escape_js($langs->trans('Modify')).'"});';
+				print 'jQuery("#dialog-editcomposition").dialog({autoOpen:true,modal:true,width:700,title:"'.dol_escape_js($langs->transnoentitiesnoconv('Modify')).'"});';
 				print 'if (jQuery("#fk_status_edit").length) {';
 				print 'jQuery("#fk_status_edit").select2({';
 				print 'dir:"ltr",';
@@ -674,7 +700,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<tr>';
 				print '<td>'.$form->selectarray('fk_product_replace', $productsforcomposition, (int) $objreplace->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200').'</td>';
 				print '<td><input type="text" class="flat minwidth100" name="serial_number_replace" value=""></td>';
-				print '<td><input type="date" class="flat width100" name="commissioning_date_replace" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+				print '<td><input type="date" class="flat width125" name="commissioning_date_replace" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
 				print '<td>'.$form->selectarray('fk_status_replace', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
 				print '</tr>';
 				print '</table>';
@@ -687,7 +713,7 @@ if ($id > 0 || !empty($ref)) {
 
 				print '<script nonce="'.getNonce().'">';
 				print 'jQuery(function(){';
-				print 'jQuery("#dialog-replacecomposition").dialog({autoOpen:true,modal:true,width:950,title:"'.dol_escape_js($langs->trans('PowerPlantReplacement')).'"});';
+				print 'jQuery("#dialog-replacecomposition").dialog({autoOpen:true,modal:true,width:950,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantReplacement')).'"});';
 				print 'if (jQuery("#fk_product_replace").length) {';
 				print 'jQuery("#fk_product_replace").select2({';
 				print 'dir:"ltr",';
@@ -713,26 +739,6 @@ if ($id > 0 || !empty($ref)) {
 			}
 		}
 
-		$massselectedids = array_map('intval', (array) $toselect);
-		$massselectedids = array_filter($massselectedids, function ($v) {
-			return ($v > 0);
-		});
-		$massselectedids = array_values($massselectedids);
-		$masslines = array();
-		if (!empty($massselectedids) && in_array($action, array('massreplace', 'massupdatestatus'), true)) {
-			$sqlmasslines = "SELECT rowid, fk_product, serial_number, commissioning_date, fk_status";
-			$sqlmasslines .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp";
-			$sqlmasslines .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
-			$sqlmasslines .= " AND rowid IN (".implode(',', $massselectedids).")";
-			$sqlmasslines .= " ORDER BY rowid ASC";
-			$resmasslines = $db->query($sqlmasslines);
-			if ($resmasslines) {
-				while ($objmassline = $db->fetch_object($resmasslines)) {
-					$masslines[] = $objmassline;
-				}
-			}
-		}
-
 		if ($canedit && $action === 'massdelete' && !empty($massselectedids)) {
 			print '<div id="dialog-massdeletecomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
@@ -751,7 +757,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdeletecomposition").dialog({autoOpen:true,modal:true,width:550,title:"'.dol_escape_js($langs->trans('Delete')).'"});});</script>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdeletecomposition").dialog({autoOpen:true,modal:true,width:550,title:"'.dol_escape_js($langs->transnoentitiesnoconv('Delete')).'"});});</script>';
 		}
 
 		if ($canedit && $action === 'massupdatecommissioning' && !empty($massselectedids)) {
@@ -766,7 +772,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
 			print '<table class="noborder centpercent">';
-			print '<tr><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td><input type="date" class="flat width100" name="commissioning_date_mass" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td></tr>';
+			print '<tr><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td><input type="date" class="flat width125" name="commissioning_date_mass" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td></tr>';
 			print '<tr><td>'.$langs->trans('PowerPlantApplyToAll').'</td><td><input type="checkbox" class="flat" name="apply_to_all_date" value="1" checked></td></tr>';
 			print '</table>';
 			print '<div class="center">';
@@ -775,7 +781,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdatecomposition").dialog({autoOpen:true,modal:true,width:650,title:"'.dol_escape_js($langs->trans('PowerPlantMassUpdateCommissioningDate')).'"});});</script>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdatecomposition").dialog({autoOpen:true,modal:true,width:650,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateCommissioningDate')).'"});});</script>';
 		}
 
 		if ($canedit && $action === 'massupdatestatus' && !empty($massselectedids)) {
@@ -808,7 +814,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massstatuscomposition").dialog({autoOpen:true,modal:true,width:800,title:"'.dol_escape_js($langs->trans('PowerPlantMassUpdateStatus')).'"});if(jQuery(\"#status_for_all\").length){jQuery(\"#status_for_all\").select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});}jQuery(\".massstatus-line-select\").each(function(){jQuery(this).select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});});});</script>';
+			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massstatuscomposition").dialog({autoOpen:true,modal:true,width:800,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateStatus')).'"});if(jQuery(\"#status_for_all\").length){jQuery(\"#status_for_all\").select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});}jQuery(\".massstatus-line-select\").each(function(){jQuery(this).select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});});});</script>';
 		}
 
 		if ($canedit && $action === 'massreplace' && !empty($massselectedids)) {
@@ -819,24 +825,53 @@ if ($id > 0 || !empty($ref)) {
 			print '<input type="hidden" name="massaction" value="massreplace">';
 			print '<input type="hidden" name="confirmmassaction" value="1">';
 			print '<input type="hidden" name="massaction_confirmed" value="1">';
-			print '<table class="noborder centpercent">';
-			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
-			foreach ($masslines as $massline) {
-				print '<tr>';
-				print '<td><input type="hidden" name="lineid_mass_replace[]" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace[]', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
-				print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace[]" value=""></td>';
-				print '<td><input type="date" class="flat width100" name="commissioning_date_mass_replace[]" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
-				print '<td>'.$form->selectarray('fk_status_mass_replace[]', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
-				print '</tr>';
+			foreach ($massselectedids as $selectedid) {
+				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
+				print '<table class="noborder centpercent">';
+				print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
+					if (!empty($masslines)) {
+						foreach ($masslines as $idx => $massline) {
+							print '<tr>';
+							print '<td><input type="hidden" name="lineid_mass_replace['.$idx.']" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace['.$idx.']', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
+							print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace['.$idx.']" value=""></td>';
+							print '<td><input type="date" class="flat width125" name="commissioning_date_mass_replace['.$idx.']" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+							print '<td>'.$form->selectarray('fk_status_mass_replace['.$idx.']', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
+							print '</tr>';
+						}
+					} else {
+					print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+				}
 			print '</table>';
-			print '<div class="center">';
-			print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
-			print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
-			print '</div>';
+				print '<div class="center">';
+				print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
+				print ' <input type="button" class="button button-cancel" id="massreplace-cancel-btn" value="'.$langs->trans('Cancel').'">';
+				print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massreplacecomposition").dialog({autoOpen:true,modal:true,width:980,title:"'.dol_escape_js($langs->trans('PowerPlantMassReplaceSelected')).'"});jQuery(\".massreplace-product-select\").each(function(){jQuery(this).select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});});jQuery(\".massreplace-status-select\").each(function(){jQuery(this).select2({width:\"resolve\",minimumResultsForSearch:0,dropdownCssClass:\"ui-dialog\"});});});</script>';
+			print '<script nonce="'.getNonce().'">';
+			print 'jQuery(function(){';
+			print 'jQuery("#dialog-massreplacecomposition").dialog({';
+			print 'autoOpen:true,';
+			print 'modal:true,';
+			print 'width:980,';
+			print 'title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassReplaceSelected')).'",';
+			print 'open:function(){';
+			print 'jQuery(this).find(".massreplace-product-select").each(function(){';
+			print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
+			print 'jQuery(this).select2({width:"resolve",dropdownCssClass:"ui-dialog"});';
+			print '});';
+			print 'jQuery(this).find(".massreplace-status-select").each(function(){';
+			print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
+			print 'jQuery(this).select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
+			print '});';
+			print '}';
+			print '});';
+			print 'jQuery("#massreplace-cancel-btn").on("click", function(){';
+			print 'jQuery("#dialog-massreplacecomposition").dialog("close");';
+			print '});';
+			print '});';
+			print '</script>';
 		}
 
 		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
@@ -862,10 +897,10 @@ if ($id > 0 || !empty($ref)) {
 			print '</td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width75" name="search_ref" value="'.dol_escape_htmltag($search_ref).'"></td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
-			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array(-1 => '') + $categories, ($search_nature > 0 ? $search_nature : -1), 0).'</td>';
+			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array('' => '') + $categories, ($search_nature > 0 ? $search_nature : ''), 0).'</td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
 			print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
-			print '<td class="liste_titre left">'.$form->selectarray('search_status', array(-1 => '') + $componentstatus, ($search_status !== '' ? (int) $search_status : -1), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
+			print '<td class="liste_titre left">'.$form->selectarray('search_status', array('' => '') + $componentstatus, ($search_status !== '' ? (int) $search_status : ''), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
 			print '<td class="liste_titre"></td>';
 			print '</tr>';
 
