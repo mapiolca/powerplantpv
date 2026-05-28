@@ -303,6 +303,13 @@ class PowerPlant extends CommonObject
 			}
 		}
 
+		if ($result > 0 && !empty($this->origin) && !empty($this->origin_id)) {
+			$linkResult = $this->linkOriginObject($user, $notrigger);
+			if ($linkResult < 0) {
+				return $linkResult;
+			}
+		}
+
 		// uncomment lines below if you want to validate object after creation
 		// if ($result > 0) {
 		// $this->fetch($this->id); // needed to retrieve some fields (ie date_creation for masked ref)
@@ -311,6 +318,58 @@ class PowerPlant extends CommonObject
 		// }
 
 		return $result;
+	}
+
+	/**
+	 * Link this power plant to the creation origin.
+	 *
+	 * @param	User		$user		User that creates the link
+	 * @param	int<0,1>	$notrigger	1=disable triggers
+	 * @return	int<-1,1>				Return integer <0 if KO, >0 if OK
+	 */
+	protected function linkOriginObject(User $user, $notrigger = 0)
+	{
+		$origin = (string) $this->origin;
+		$originid = (int) $this->origin_id;
+		if ($origin == 'order') {
+			$origin = 'commande';
+		}
+		if ($origin == 'contract') {
+			$origin = 'contrat';
+		}
+		if ($origin === '' || $originid <= 0 || empty($this->id)) {
+			return 1;
+		}
+
+		$targettype = $this->getElementType();
+		$sql = "SELECT ee.rowid";
+		$sql .= " FROM ".$this->db->prefix()."element_element as ee";
+		$sql .= " WHERE ee.fk_source = ".$originid;
+		$sql .= " AND ee.sourcetype = '".$this->db->escape($origin)."'";
+		$sql .= " AND ee.fk_target = ".((int) $this->id);
+		$sql .= " AND ee.targettype = '".$this->db->escape($targettype)."'";
+
+		$resql = $this->db->query($sql);
+		if ($resql) {
+			if ($this->db->num_rows($resql) > 0) {
+				$this->db->free($resql);
+				return 1;
+			}
+			$this->db->free($resql);
+		} else {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$result = $this->add_object_linked($origin, $originid, $user, $notrigger);
+		if ($result <= 0) {
+			if (empty($this->error)) {
+				$this->error = 'ErrorFailedToLinkToOrigin';
+			}
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**

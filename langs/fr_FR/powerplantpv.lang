@@ -49,6 +49,10 @@ MyWidget = My widget
 MyWidgetDescription = My widget description
 
 PowerPlant = Centrale
+CreatePowerPlant = Créer une centrale
+LinkToPowerPlant = Lier à une centrale
+PowerPlantCreatedFrom = Centrale créée depuis %s
+ErrorFailedToLinkToOrigin = Échec de la liaison avec l'objet d'origine
 # PowerPlant fields
 PowerPlantCommissioningDate = Date de mise en service
 PowerPlantPrmPdlNumber = N° de PRM/PDL

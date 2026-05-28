@@ -49,6 +49,10 @@ MyWidget = Mio widget
 MyWidgetDescription = Descrizione del widget
 
 PowerPlant = Impianto
+CreatePowerPlant = Creare impianto
+LinkToPowerPlant = Collegare a un impianto
+PowerPlantCreatedFrom = Impianto creato da %s
+ErrorFailedToLinkToOrigin = Errore nel collegamento all'oggetto di origine
 # PowerPlant fields
 PowerPlantCommissioningDate = Data di messa in servizio
 PowerPlantPrmPdlNumber = Numero PRM/PDL

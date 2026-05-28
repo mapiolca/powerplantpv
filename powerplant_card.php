@@ -95,6 +95,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
 dol_include_once('/product/class/html.formproduct.class.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 // Load translation files required by the page
@@ -105,13 +106,18 @@ $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
 $lineid   = GETPOSTINT('lineid');
 //$socid = GETPOSTINT('socid');
+$origin = GETPOST('origin', 'alphanohtml');
+$originid = GETPOSTINT('originid') ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
+$fk_soc = GETPOSTINT('fk_soc');
+$fk_project = GETPOSTINT('fk_project');
+$origin = powerplantpvNormalizeOriginType($origin);
 
 $action = GETPOST('action', 'aZ09');
 $confirm = GETPOST('confirm', 'alpha');
 $cancel = GETPOST('cancel');
 $contextpage = GETPOST('contextpage', 'aZ') ? GETPOST('contextpage', 'aZ') : getDolDefaultContextPage(__FILE__); // To manage different context of search
-$backtopage = GETPOST('backtopage', 'alpha');					// if not set, a default page will be used
-$backtopageforcancel = GETPOST('backtopageforcancel', 'alpha');	// if not set, $backtopage will be used
+$backtopage = GETPOST('backtopage', 'restricthtml');					// if not set, a default page will be used
+$backtopageforcancel = GETPOST('backtopageforcancel', 'restricthtml');	// if not set, $backtopage will be used
 $optioncss = GETPOST('optioncss', 'aZ'); // Option for the css output (always '' except when 'print')
 $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 
@@ -123,6 +129,10 @@ $formproduct = new FormProduct($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
+if (!empty($origin) && $originid > 0) {
+	$object->origin = $origin;
+	$object->origin_id = $originid;
+}
 
 // Fetch optionals attributes and labels
 $extrafields->fetch_name_optionals_label($object->table_element);
@@ -178,6 +188,10 @@ if (!$permissiontoread) {
 }
 
 $error = 0;
+if ($action == 'add' && !empty($origin) && $originid > 0) {
+	$object->origin = $origin;
+	$object->origin_id = $originid;
+}
 
 
 /*
@@ -334,8 +348,6 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 	include DOL_DOCUMENT_ROOT.'/core/actions_sendmails.inc.php';
 }
 
-
-
 /*
  * View
  */
@@ -373,20 +385,33 @@ if ($action == 'create') {
 	if (empty($permissiontoadd)) {
 		accessforbidden('NotEnoughPermissions', 0, 1);
 	}
+	if (!empty($origin) && $originid > 0) {
+		powerplantpvApplyOriginDefaults($object, $origin, $originid);
+	}
+	if ($fk_soc > 0) {
+		$object->fk_soc = $fk_soc;
+	}
+	if ($fk_project > 0) {
+		$object->fk_project = $fk_project;
+	}
 
 	print load_fiche_titre($title, '', $object->picto);
 
 	print '<form method="POST" action="'.dolBuildUrl($_SERVER["PHP_SELF"]).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="add">';
+	if (!empty($origin) && $originid > 0) {
+		print '<input type="hidden" name="origin" value="'.dol_escape_htmltag($origin).'">';
+		print '<input type="hidden" name="originid" value="'.((int) $originid).'">';
+	}
 	if ($backtopage) {
-		print '<input type="hidden" name="backtopage" value="'.$backtopage.'">';
+		print '<input type="hidden" name="backtopage" value="'.dol_escape_htmltag($backtopage).'">';
 	}
 	if ($backtopageforcancel) {
-		print '<input type="hidden" name="backtopageforcancel" value="'.$backtopageforcancel.'">';
+		print '<input type="hidden" name="backtopageforcancel" value="'.dol_escape_htmltag($backtopageforcancel).'">';
 	}
 	if ($dol_openinpopup) {
-		print '<input type="hidden" name="dol_openinpopup" value="'.$dol_openinpopup.'">';
+		print '<input type="hidden" name="dol_openinpopup" value="'.dol_escape_htmltag($dol_openinpopup).'">';
 	}
 
 	print dol_get_fiche_head(array(), '');
@@ -1215,7 +1240,12 @@ $k_purchase_tariff = 'buyback_tariff';
 		}
 
 		// Show links to link elements
-		$tmparray = $form->showLinkToObjectBlock($object, array(), array('powerplant'), 1);
+		$tmparray = $form->showLinkToObjectBlock(
+			$object,
+			array(),
+			array('powerplant', 'powerplantpv_powerplant', 'powerplant@powerplantpv'),
+			1
+		);
 		if (is_array($tmparray)) {
 			$linktoelem = $tmparray['linktoelem'];
 			$htmltoenteralink = $tmparray['htmltoenteralink'];

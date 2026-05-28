@@ -49,6 +49,10 @@ MyWidget = Mein Widget
 MyWidgetDescription = Beschreibung des Widgets
 
 PowerPlant = Kraftwerk
+CreatePowerPlant = Kraftwerk erstellen
+LinkToPowerPlant = Mit einem Kraftwerk verknuepfen
+PowerPlantCreatedFrom = Kraftwerk erstellt aus %s
+ErrorFailedToLinkToOrigin = Verknuepfung mit dem Ursprungsobjekt fehlgeschlagen
 # PowerPlant fields
 PowerPlantCommissioningDate = Inbetriebnahmedatum
 PowerPlantPrmPdlNumber = PRM/PDL-Nummer
