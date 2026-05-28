@@ -119,7 +119,7 @@ $formfile = new FormFile($db);
 
 llxHeader("", $langs->trans("PowerPlantPVArea"), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-index');
 
-print load_fiche_titre($langs->trans("PowerPlantPVArea"), '', 'powerplantpv.png@powerplantpv');
+print load_fiche_titre($langs->trans("PowerPlantPVArea"), '', 'fa-sun');
 
 print '<div class="fichecenter"><div class="fichethirdleft">';
 

@@ -978,34 +978,44 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print '</div>';
 
-	$compositionsummary = array(
-		'modules' => 0,
-		'inverters' => 0,
-		'acboxes' => 0,
-		'dcboxes' => 0,
-		'other' => 0,
+	$compositionstatuslist = array(
+		4 => 'PowerPlantCompStatusActivePlural',
+		0 => 'PowerPlantCompStatusInactivePlural',
+		8 => 'PowerPlantCompStatusOutOfServicePlural',
+		6 => 'PowerPlantCompStatusReplacedPlural',
 	);
+	$compositionsummary = array();
 
-	$sqlcomp = "SELECT cpv.code as category_code, COUNT(c.rowid) as nb_products";
+	$sqlcomp = "SELECT cpv.rowid as category_id, cpv.label as category_label, cpv.code as category_code, c.fk_status, COUNT(c.rowid) as nb_products";
 	$sqlcomp .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
 	$sqlcomp .= " LEFT JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = c.fk_product";
 	$sqlcomp .= " LEFT JOIN ".$db->prefix()."c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique";
 	$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id);
 	$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
-	$sqlcomp .= " GROUP BY cpv.code";
+	$sqlcomp .= " GROUP BY cpv.rowid, cpv.label, cpv.code, c.fk_status";
+	$sqlcomp .= " ORDER BY cpv.label ASC, cpv.rowid ASC, c.fk_status ASC";
 	$rescomp = $db->query($sqlcomp);
 	if ($rescomp) {
 		while ($line = $db->fetch_object($rescomp)) {
-			if ($line->category_code == 'MODULE') {
-				$compositionsummary['modules'] += (int) $line->nb_products;
-			} elseif ($line->category_code == 'ONDULE') {
-				$compositionsummary['inverters'] += (int) $line->nb_products;
-			} elseif ($line->category_code == 'COFFAC') {
-				$compositionsummary['acboxes'] += (int) $line->nb_products;
-			} elseif ($line->category_code == 'COFFDC') {
-				$compositionsummary['dcboxes'] += (int) $line->nb_products;
+			$categoryid = (int) $line->category_id;
+			$categorykey = ($categoryid > 0 ? (string) $categoryid : '0');
+			if (!isset($compositionsummary[$categorykey])) {
+				$compositionsummary[$categorykey] = array(
+					'category_id' => $categoryid,
+					'label' => ($categoryid > 0 ? $line->category_label : $langs->trans('PVSummaryOtherElementsList')),
+					'total' => 0,
+					'statuses' => array_fill_keys(array_keys($compositionstatuslist), 0),
+				);
+			}
+			$nbproducts = (int) $line->nb_products;
+			$compositionsummary[$categorykey]['total'] += $nbproducts;
+			if ($line->fk_status !== null && $line->fk_status !== '') {
+				$statuskey = (int) $line->fk_status;
 			} else {
-				$compositionsummary['other'] += (int) $line->nb_products;
+				$statuskey = null;
+			}
+			if ($statuskey !== null && isset($compositionstatuslist[$statuskey])) {
+				$compositionsummary[$categorykey]['statuses'][$statuskey] += $nbproducts;
 			}
 		}
 	}
@@ -1014,11 +1024,43 @@ $k_purchase_tariff = 'buyback_tariff';
 	print '<div class="underbanner clearboth"></div>';
 	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
 	print '<table class="border centpercent tableforfield">';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryModulesCount').'</td><td>'.((int) $compositionsummary['modules']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryInvertersCount').'</td><td>'.((int) $compositionsummary['inverters']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryACBoxesCount').'</td><td>'.((int) $compositionsummary['acboxes']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryDCBoxesCount').'</td><td>'.((int) $compositionsummary['dcboxes']).'</td></tr>';
-	print '<tr><td class="titlefield">'.$langs->trans('PVSummaryOtherElementsList').'</td><td>'.((int) $compositionsummary['other']).'</td></tr>';
+	print '<tr class="liste_titre">';
+	print '<td>'.$langs->trans('Category').'</td>';
+	print '<td class="right">'.$langs->trans('Total').'</td>';
+	foreach ($compositionstatuslist as $statuslabelkey) {
+		print '<td class="right">'.$langs->trans($statuslabelkey).'</td>';
+	}
+	print '</tr>';
+	if (empty($compositionsummary)) {
+		print '<tr class="oddeven"><td colspan="6" class="opacitymedium">'.$langs->trans('PVSummaryNone').'</td></tr>';
+	} else {
+		$compositionbaseurl = dol_buildpath('/powerplantpv/powerplant_composition.php', 1).'?id='.((int) $object->id);
+		foreach ($compositionsummary as $summaryline) {
+			$categoryid = (int) $summaryline['category_id'];
+			$categoryurl = $compositionbaseurl.($categoryid > 0 ? '&search_nature='.$categoryid : '');
+			print '<tr class="oddeven">';
+			print '<td class="titlefield">'.dol_escape_htmltag($summaryline['label']).'</td>';
+			print '<td class="right">';
+			if ($categoryid > 0) {
+				print '<a href="'.dol_escape_htmltag($categoryurl).'">'.((int) $summaryline['total']).'</a>';
+			} else {
+				print (int) $summaryline['total'];
+			}
+			print '</td>';
+			foreach ($compositionstatuslist as $statuskey => $statuslabelkey) {
+				$nbstatus = (int) $summaryline['statuses'][$statuskey];
+				$statusurl = $categoryurl.($categoryid > 0 ? '&search_status='.((int) $statuskey) : '');
+				print '<td class="right">';
+				if ($categoryid > 0) {
+					print '<a href="'.dol_escape_htmltag($statusurl).'">'.$nbstatus.'</a>';
+				} else {
+					print $nbstatus;
+				}
+				print '</td>';
+			}
+			print '</tr>';
+		}
+	}
 	print '</table>';
 	print '</div>';
 

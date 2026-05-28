@@ -62,7 +62,7 @@ class PowerPlant extends CommonObject
 	/**
 	 * @var string 		String with name of icon for powerplant. Must be a 'fa-xxx' fontawesome code (or 'fa-xxx_fa_color_size') or 'powerplant@powerplantpv' if picto is file 'img/object_powerplant.png'.
 	 */
-	public $picto = 'far fa-sun';
+	public $picto = 'fa-sun';
 
 	/**
 	 * @var int<0,1>	Does object support extrafields ? 0=No, 1=Yes

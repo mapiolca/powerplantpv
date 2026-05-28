@@ -67,9 +67,9 @@ class modPowerPlantPV extends DolibarrModules
 
 		// DESCRIPTION_FLAG
 		// Module description, used if translation string 'ModulePowerPlantPVDesc' not found (PowerPlantPV is name of module).
-		$this->description = "PowerPlantPVDescription";
+		$this->description = "ModulePowerPlantPVDesc";
 		// Used only if file README.md and README-LL.md not found.
-		$this->descriptionlong = "PowerPlantPVDescription";
+		$this->descriptionlong = "ModulePowerPlantPVDesc";
 
 		// Author
 		$this->editor_name = 'Les Métiers du Bâtiment';
@@ -88,7 +88,7 @@ class modPowerPlantPV extends DolibarrModules
 		// If file is in theme/yourtheme/img directory under name object_pictovalue.png, use this->picto='pictovalue'
 		// If file is in module/img directory under name object_pictovalue.png, use this->picto='pictovalue@module'
 		// To use a supported fa-xxx css style of font awesome, use this->picto='xxx'
-		$this->picto = 'far fa-sun';
+		$this->picto = 'fa-sun';
 
 		// Define some features supported by module (triggers, login, substitutions, menus, css, etc...)
 		$this->module_parts = array(
@@ -365,7 +365,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
 			'type' => 'left',
-			'titre' => 'List PowerPlant',
+			'titre' => 'List',
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplantpv_powerplant_list',
 			'url' => '/powerplantpv/powerplant_list.php',
@@ -380,7 +380,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
 			'type' => 'left',
-			'titre' => 'New PowerPlant',
+			'titre' => 'New',
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplantpv_powerplant_new',
 			'url' => '/powerplantpv/powerplant_card.php?action=create',

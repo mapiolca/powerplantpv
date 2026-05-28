@@ -5,34 +5,41 @@
 #
 
 # Module label 'ModulePowerPlantPVName'
-ModulePowerPlantPVName = PowerPlantPV
+ModulePowerPlantPVName = Impianti FV
 # Module description 'ModulePowerPlantPVDesc'
-ModulePowerPlantPVDesc = Descrizione di PowerPlantPV
+ModulePowerPlantPVDesc = Gestione degli impianti fotovoltaici
 
 #
 # Admin page
 #
-PowerPlantPVSetup = Configurazione PowerPlantPV
-Settings = Impostazioni
-PowerPlantPVSetupPage = Pagina di configurazione PowerPlantPV
+PowerPlantPVSetup = Configurazione Impianti FV
+PowerPlantPVSetupPage = Pagina di configurazione Impianti FV
 NewSection=Nuova sezione
-POWERPLANTPV_MYPARAM1 = Mio parametro 1
-POWERPLANTPV_MYPARAM1Tooltip = Suggerimento parametro 1
-POWERPLANTPV_MYPARAM2=Mio parametro 2
-POWERPLANTPV_MYPARAM2Tooltip=Suggerimento parametro 2
+POWERPLANTPV_MYPARAM1 = Parametro 1
+POWERPLANTPV_MYPARAM1Tooltip = Aiuto del parametro 1
+POWERPLANTPV_MYPARAM2=Parametro 2
+POWERPLANTPV_MYPARAM2Tooltip=Aiuto del parametro 2
+POWERPLANTPV_MYPARAM3=Parametro 3
+POWERPLANTPV_MYPARAM4=Terza parte
+POWERPLANTPV_MYPARAM5=Attiva opzione
+POWERPLANTPV_MYPARAM6=Modello e-mail
+POWERPLANTPV_MYPARAM8=Prodotto
+POWERPLANTPV_MYPARAM9=Elenco di selezione
+POWERPLANTPV_MYPARAM10=Selezione multipla
+POWERPLANTPV_MYPARAM11=Contenuto HTML
+POWERPLANTPV_MYPARAM12=Valore forzato
 
 
 #
 # About page
 #
-About = Informazioni
-PowerPlantPVAbout = Informazioni su PowerPlantPV
-PowerPlantPVAboutPage = Pagina informazioni PowerPlantPV
+PowerPlantPVAbout = Informazioni su Impianti FV
+PowerPlantPVAboutPage = Pagina informazioni Impianti FV
 
 #
 # Sample page
 #
-PowerPlantPVArea = Home PowerPlantPV
+PowerPlantPVArea = Pagina iniziale Impianti FV
 MyPageName = Nome della mia pagina
 
 #
@@ -101,6 +108,7 @@ ProductNaturePVMonitoring = Monitoraggio
 ProductNaturePVACBox = Quadri AC
 ProductNaturePVDCBox = Quadro DC
 PowerPlantComposition = Composizione
+PowerPlantLines = Righe impianto fotovoltaico
 PVModules = Moduli
 PVInverters = Inverter
 PVIntegration = Sistema di integrazione
@@ -124,6 +132,10 @@ PowerPlantCompStatusActive = Attivo
 PowerPlantCompStatusInactive = Inattivo
 PowerPlantCompStatusReplaced = Sostituito
 PowerPlantCompStatusOutOfService = Fuori servizio
+PowerPlantCompStatusActivePlural = Attivi
+PowerPlantCompStatusInactivePlural = Inattivi
+PowerPlantCompStatusReplacedPlural = Sostituiti
+PowerPlantCompStatusOutOfServicePlural = Fuori servizio
 PowerPlantReplace = Sostituire
 PowerPlantReplacement = Sostituzione
 PowerPlantMassReplaceSelected = Sostituire elementi selezionati

@@ -5,34 +5,41 @@
 #
 
 # Module label 'ModulePowerPlantPVName'
-ModulePowerPlantPVName = PowerPlantPV
+ModulePowerPlantPVName = PV plants
 # Module description 'ModulePowerPlantPVDesc'
-ModulePowerPlantPVDesc = PowerPlantPV description
+ModulePowerPlantPVDesc = Photovoltaic power plant management
 
 #
 # Admin page
 #
-PowerPlantPVSetup = PowerPlantPV setup
-Settings = Settings
-PowerPlantPVSetupPage = PowerPlantPV setup page
+PowerPlantPVSetup = PV plants setup
+PowerPlantPVSetupPage = PV plants setup page
 NewSection=New section
-POWERPLANTPV_MYPARAM1 = My param 1
-POWERPLANTPV_MYPARAM1Tooltip = My param 1 tooltip
-POWERPLANTPV_MYPARAM2=My param 2
-POWERPLANTPV_MYPARAM2Tooltip=My param 2 tooltip
+POWERPLANTPV_MYPARAM1 = Parameter 1
+POWERPLANTPV_MYPARAM1Tooltip = Parameter 1 help
+POWERPLANTPV_MYPARAM2=Parameter 2
+POWERPLANTPV_MYPARAM2Tooltip=Parameter 2 help
+POWERPLANTPV_MYPARAM3=Parameter 3
+POWERPLANTPV_MYPARAM4=Third party
+POWERPLANTPV_MYPARAM5=Enable option
+POWERPLANTPV_MYPARAM6=Email template
+POWERPLANTPV_MYPARAM8=Product
+POWERPLANTPV_MYPARAM9=Selection list
+POWERPLANTPV_MYPARAM10=Multiple selection
+POWERPLANTPV_MYPARAM11=HTML content
+POWERPLANTPV_MYPARAM12=Forced value
 
 
 #
 # About page
 #
-About = About
-PowerPlantPVAbout = About PowerPlantPV
-PowerPlantPVAboutPage = PowerPlantPV about page
+PowerPlantPVAbout = About PV plants
+PowerPlantPVAboutPage = PV plants about page
 
 #
 # Sample page
 #
-PowerPlantPVArea = Home PowerPlantPV
+PowerPlantPVArea = PV plants home
 MyPageName = My page name
 
 #
@@ -101,6 +108,7 @@ ProductNaturePVMonitoring = Monitoring
 ProductNaturePVACBox = AC combiner boxes
 ProductNaturePVDCBox = DC combiner boxes
 PowerPlantComposition = Composition
+PowerPlantLines = Power plant lines
 PVModules = Modules
 PVInverters = Inverters
 PVIntegration = Mounting system
@@ -124,6 +132,10 @@ PowerPlantCompStatusActive = Active
 PowerPlantCompStatusInactive = Inactive
 PowerPlantCompStatusReplaced = Replaced
 PowerPlantCompStatusOutOfService = Out of service
+PowerPlantCompStatusActivePlural = Active
+PowerPlantCompStatusInactivePlural = Inactive
+PowerPlantCompStatusReplacedPlural = Replaced
+PowerPlantCompStatusOutOfServicePlural = Out of service
 PowerPlantReplace = Replace
 PowerPlantReplacement = Replacement
 PowerPlantMassReplaceSelected = Replace selected elements

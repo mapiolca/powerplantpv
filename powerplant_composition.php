@@ -101,13 +101,24 @@ $sortfieldlist = array(
 	'cpv.label',
 	'c.fk_status',
 	'c.serial_number',
-	'c.commissioning_date'
+	'c.commissioning_date',
+	'c.rowid'
 );
-if (empty($sortfield) || !in_array($sortfield, $sortfieldlist, true)) {
-	$sortfield = 'p.ref';
+$sortfields = array_filter(array_map('trim', explode(',', $sortfield)));
+if (empty($sortfields) || count(array_diff($sortfields, $sortfieldlist)) > 0) {
+	$sortfield = 'c.fk_status,cpv.label,c.rowid';
+	$sortorder = '';
+} else {
+	$sortfield = implode(',', $sortfields);
 }
-if (empty($sortorder) || !in_array(strtoupper($sortorder), array('ASC', 'DESC'), true)) {
-	$sortorder = 'ASC';
+$sortorders = array_filter(array_map('trim', explode(',', $sortorder)));
+foreach ($sortorders as $key => $val) {
+	$sortorders[$key] = strtoupper($val);
+}
+if (empty($sortorders) || count(array_diff($sortorders, array('ASC', 'DESC'))) > 0) {
+	$sortorder = 'ASC,ASC,ASC';
+} else {
+	$sortorder = implode(',', $sortorders);
 }
 
 $search_ref = trim(GETPOST('search_ref', 'alphanohtml'));
@@ -698,7 +709,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<input type="hidden" name="token" value="'.newToken().'">';
 				print '<input type="hidden" name="action" value="confirmreplacecomposition">';
 				print '<input type="hidden" name="lineid" value="'.((int) $objreplace->rowid).'">';
-				print '<table class="noborder centpercent">';
+				print '<table class="noborder">';
 				print '<tr class="liste_titre">';
 				print '<td>'.$langs->trans('Product').'</td>';
 				print '<td>'.$langs->trans('PowerPlantSerialNumber').'</td>';
@@ -706,7 +717,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<td>'.$langs->trans('PowerPlantStatus').'</td>';
 				print '</tr>';
 				print '<tr>';
-				print '<td>'.$form->selectarray('fk_product_replace', $productsforcomposition, (int) $objreplace->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200').'</td>';
+				print '<td>'.$form->selectarray('fk_product_replace', $productsforcomposition, (int) $objreplace->fk_product, 0, 0, '', 0, 0, 0, '', 'flat').'</td>';
 				print '<td><input type="text" class="flat minwidth100" name="serial_number_replace" value=""></td>';
 				print '<td><input type="date" class="flat width125" name="commissioning_date_replace" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
 				print '<td>'.$form->selectarray('fk_status_replace', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
@@ -721,11 +732,11 @@ if ($id > 0 || !empty($ref)) {
 
 				print '<script nonce="'.getNonce().'">';
 				print 'jQuery(function(){';
-				print 'jQuery("#dialog-replacecomposition").dialog({autoOpen:true,modal:true,width:950,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantReplacement')).'"});';
+				print 'jQuery("#dialog-replacecomposition").dialog({autoOpen:true,modal:true,width:"auto",title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantReplacement')).'"});';
 				print 'if (jQuery("#fk_product_replace").length) {';
 				print 'jQuery("#fk_product_replace").select2({';
 				print 'dir:"ltr",';
-				print 'width:"resolve",';
+				print 'width:"75px",';
 				print 'minimumInputLength:0,';
 				print 'language:(typeof select2arrayoflanguage === "undefined") ? "en" : select2arrayoflanguage,';
 				print 'theme:"default",';
@@ -972,7 +983,7 @@ if ($id > 0 || !empty($ref)) {
 					print '<td class="center">';
 						if ($canedit) {
 							print '<a class="editfielda reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&token='.newToken().'&lineid='.(int) $objline->rowid.'">'.img_edit().'</a>';
-							print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=replaceline&lineid='.(int) $objline->rowid.'&token='.newToken().'" title="'.$langs->trans('PowerPlantReplace').'"><span class="fas fa-exchange-alt"></span></a>';
+							print '<a class="reposition marginleftonly marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=replaceline&lineid='.(int) $objline->rowid.'&token='.newToken().'" title="'.$langs->trans('PowerPlantReplace').'"><span class="fas fa-exchange-alt"></span></a>';
 							print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
 						}
 				print '</td>';

@@ -5,34 +5,41 @@
 #
 
 # Module label 'ModulePowerPlantPVName'
-ModulePowerPlantPVName = PowerPlantPV
+ModulePowerPlantPVName = Centrale PV
 # Module description 'ModulePowerPlantPVDesc'
-ModulePowerPlantPVDesc = PowerPlantPV description
+ModulePowerPlantPVDesc = Gestion des centrales photovoltaïques
 
 #
 # Admin page
 #
-PowerPlantPVSetup = PowerPlantPV setup
-Settings = Settings
-PowerPlantPVSetupPage = PowerPlantPV setup page
-NewSection=New section
-POWERPLANTPV_MYPARAM1 = My param 1
-POWERPLANTPV_MYPARAM1Tooltip = My param 1 tooltip
-POWERPLANTPV_MYPARAM2=My param 2
-POWERPLANTPV_MYPARAM2Tooltip=My param 2 tooltip
+PowerPlantPVSetup = Configuration Centrale PV
+PowerPlantPVSetupPage = Page de configuration Centrale PV
+NewSection=Nouvelle section
+POWERPLANTPV_MYPARAM1 = Paramètre 1
+POWERPLANTPV_MYPARAM1Tooltip = Aide du paramètre 1
+POWERPLANTPV_MYPARAM2=Paramètre 2
+POWERPLANTPV_MYPARAM2Tooltip=Aide du paramètre 2
+POWERPLANTPV_MYPARAM3=Paramètre 3
+POWERPLANTPV_MYPARAM4=Tiers
+POWERPLANTPV_MYPARAM5=Activer l'option
+POWERPLANTPV_MYPARAM6=Modèle d'e-mail
+POWERPLANTPV_MYPARAM8=Produit
+POWERPLANTPV_MYPARAM9=Liste de sélection
+POWERPLANTPV_MYPARAM10=Sélection multiple
+POWERPLANTPV_MYPARAM11=Contenu HTML
+POWERPLANTPV_MYPARAM12=Valeur forcée
 
 
 #
 # About page
 #
-About = About
-PowerPlantPVAbout = About PowerPlantPV
-PowerPlantPVAboutPage = PowerPlantPV about page
+PowerPlantPVAbout = À propos de Centrale PV
+PowerPlantPVAboutPage = Page À propos de Centrale PV
 
 #
 # Sample page
 #
-PowerPlantPVArea = Home PowerPlantPV
+PowerPlantPVArea = Accueil Centrale PV
 MyPageName = My page name
 
 #
@@ -101,6 +108,7 @@ ProductNaturePVMonitoring = Monitoring
 ProductNaturePVACBox = Coffrets AC
 ProductNaturePVDCBox = Coffret DC
 PowerPlantComposition = Composition
+PowerPlantLines = Lignes de centrale photovoltaïque
 PVModules = Modules
 PVInverters = Onduleurs
 PVIntegration = Système d'intégration
@@ -124,6 +132,10 @@ PowerPlantCompStatusActive = Actif
 PowerPlantCompStatusInactive = Inactif
 PowerPlantCompStatusReplaced = Remplacé
 PowerPlantCompStatusOutOfService = Hors service
+PowerPlantCompStatusActivePlural = Actifs
+PowerPlantCompStatusInactivePlural = Inactifs
+PowerPlantCompStatusReplacedPlural = Remplacés
+PowerPlantCompStatusOutOfServicePlural = Hors service
 PowerPlantReplace = Remplacer
 PowerPlantReplacement = Remplacement
 PowerPlantMassReplaceSelected = Remplacer les éléments sélectionnés
