@@ -56,6 +56,96 @@ ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerpl
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD COLUMN IF NOT EXISTS entity integer NOT NULL DEFAULT 1;
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_entity (entity);
 
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	fk_product integer NOT NULL,
+	entity integer NOT NULL DEFAULT 1,
+	pv_max_power double(24,8),
+	dc_max_voltage double(24,8),
+	startup_voltage double(24,8),
+	mppt_voltage_min double(24,8),
+	mppt_voltage_max double(24,8),
+	nominal_dc_voltage double(24,8),
+	ac_nominal_power double(24,8),
+	ac_max_power double(24,8),
+	ac_apparent_power double(24,8),
+	ac_nominal_voltage varchar(128),
+	grid_frequency varchar(64),
+	ac_max_output_current double(24,8),
+	power_factor varchar(64),
+	thd varchar(64),
+	max_efficiency double(6,3),
+	european_efficiency double(6,3),
+	dc_switch smallint,
+	dc_spd varchar(128),
+	ac_spd varchar(128),
+	afci smallint,
+	pid_recovery smallint,
+	anti_islanding smallint,
+	dc_reverse_polarity_protection smallint,
+	insulation_monitoring smallint,
+	residual_current_monitoring smallint,
+	ip_rating varchar(64),
+	operating_temperature varchar(128),
+	relative_humidity varchar(128),
+	cooling varchar(128),
+	max_altitude integer,
+	noise varchar(64),
+	topology varchar(128),
+	night_consumption varchar(64),
+	display_type varchar(128),
+	communication_interfaces varchar(255),
+	dc_connector varchar(128),
+	ac_connector varchar(128),
+	mounting varchar(128),
+	warranty varchar(128),
+	certifications text,
+	datec datetime,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer,
+	fk_user_modif integer
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_product_inverter ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_rowid (rowid);
+ALTER TABLE llx_powerplantpv_product_inverter ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_inverter_product_entity (fk_product, entity);
+ALTER TABLE llx_powerplantpv_product_inverter ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_fk_product (fk_product);
+ALTER TABLE llx_powerplantpv_product_inverter ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_entity (entity);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter_mppt(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	fk_inverter integer NOT NULL,
+	entity integer NOT NULL DEFAULT 1,
+	position integer NOT NULL DEFAULT 1,
+	label varchar(128),
+	voltage_min double(24,8),
+	voltage_max double(24,8),
+	max_input_current double(24,8),
+	max_short_circuit_current double(24,8),
+	max_dc_power double(24,8),
+	note_private text,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_product_inverter_mppt ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_mppt_rowid (rowid);
+ALTER TABLE llx_powerplantpv_product_inverter_mppt ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_mppt_fk_inverter (fk_inverter);
+ALTER TABLE llx_powerplantpv_product_inverter_mppt ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_inverter_mppt_position (fk_inverter, entity, position);
+ALTER TABLE llx_powerplantpv_product_inverter_mppt ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_mppt_entity (entity);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter_pvinput(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	fk_mppt integer NOT NULL,
+	entity integer NOT NULL DEFAULT 1,
+	position integer NOT NULL DEFAULT 1,
+	label varchar(128),
+	max_input_current double(24,8),
+	max_short_circuit_current double(24,8),
+	connector_type varchar(128),
+	note_private text,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_product_inverter_pvinput ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_pvinput_rowid (rowid);
+ALTER TABLE llx_powerplantpv_product_inverter_pvinput ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_pvinput_fk_mppt (fk_mppt);
+ALTER TABLE llx_powerplantpv_product_inverter_pvinput ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_inverter_pvinput_position (fk_mppt, entity, position);
+ALTER TABLE llx_powerplantpv_product_inverter_pvinput ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_pvinput_entity (entity);
+
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_powerplant integer NOT NULL,
