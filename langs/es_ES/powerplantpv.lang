@@ -7,25 +7,32 @@
 # Module label 'ModulePowerPlantPVName'
 ModulePowerPlantPVName = PowerPlantPV
 # Module description 'ModulePowerPlantPVDesc'
-ModulePowerPlantPVDesc = Descripción de PowerPlantPV
+ModulePowerPlantPVDesc = Gestión de plantas fotovoltaicas
 
 #
 # Admin page
 #
 PowerPlantPVSetup = Configuración PowerPlantPV
-Settings = Ajustes
 PowerPlantPVSetupPage = Página de configuración PowerPlantPV
 NewSection=Nueva sección
-POWERPLANTPV_MYPARAM1 = Mi parámetro 1
-POWERPLANTPV_MYPARAM1Tooltip = Ayuda para parámetro 1
-POWERPLANTPV_MYPARAM2=Mi parámetro 2
-POWERPLANTPV_MYPARAM2Tooltip=Ayuda para parámetro 2
+POWERPLANTPV_MYPARAM1 = Parámetro 1
+POWERPLANTPV_MYPARAM1Tooltip = Ayuda del parámetro 1
+POWERPLANTPV_MYPARAM2=Parámetro 2
+POWERPLANTPV_MYPARAM2Tooltip=Ayuda del parámetro 2
+POWERPLANTPV_MYPARAM3=Parámetro 3
+POWERPLANTPV_MYPARAM4=Tercero
+POWERPLANTPV_MYPARAM5=Activar opción
+POWERPLANTPV_MYPARAM6=Plantilla de correo electrónico
+POWERPLANTPV_MYPARAM8=Producto
+POWERPLANTPV_MYPARAM9=Lista de selección
+POWERPLANTPV_MYPARAM10=Selección múltiple
+POWERPLANTPV_MYPARAM11=Contenido HTML
+POWERPLANTPV_MYPARAM12=Valor forzado
 
 
 #
 # About page
 #
-About = Acerca de
 PowerPlantPVAbout = Acerca de PowerPlantPV
 PowerPlantPVAboutPage = Página acerca de PowerPlantPV
 
@@ -101,6 +108,7 @@ ProductNaturePVMonitoring = Monitorización
 ProductNaturePVACBox = Cajas AC
 ProductNaturePVDCBox = Caja DC
 PowerPlantComposition = Composición
+PowerPlantLines = Líneas de planta fotovoltaica
 PVModules = Módulos
 PVInverters = Inversores
 PVIntegration = Sistema de integración
