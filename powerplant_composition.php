@@ -334,38 +334,46 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatestatus' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatestatus' && $canedit && !GETPOST('cancel', 'alpha')) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
-	$lineids = array_map('intval', GETPOST('lineid_mass_status', 'array:int'));
+	$lineids = GETPOST('lineid_mass_status', 'array:int');
 	$statuses = GETPOST('status_mass_line', 'array');
-	$apply_to_all_status = GETPOSTINT('apply_to_all_status');
-	$status_for_all = GETPOST('status_for_all', 'alphanohtml');
-	$status_for_all = ($status_for_all === '' ? 4 : (int) $status_for_all);
-	if (!array_key_exists((int) $status_for_all, $componentstatus)) {
-		$status_for_all = 4;
+	if (!is_array($lineids)) {
+		$lineids = array();
 	}
+	if (!is_array($statuses)) {
+		$statuses = array();
+	}
+	$lineids = array_map('intval', $lineids);
 	if (!empty($lineids)) {
+		$error = 0;
 		$db->begin();
 		foreach ($lineids as $idx => $lineidmass) {
 			$lineidmass = (int) $lineidmass;
-			if ($lineidmass <= 0) {
+			if ($lineidmass <= 0 || !isset($statuses[$idx])) {
 				continue;
 			}
-			$statusline = $status_for_all;
-			if (!$apply_to_all_status) {
-				$tmp = isset($statuses[$idx]) ? (int) $statuses[$idx] : 4;
-				if (array_key_exists($tmp, $componentstatus)) {
-					$statusline = $tmp;
-				}
+			$statusline = (int) $statuses[$idx];
+			if (!array_key_exists($statusline, $componentstatus)) {
+				continue;
 			}
 			$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sql .= " SET fk_status = ".((int) $statusline);
 			$sql .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
-			$db->query($sql);
+			$resupdate = $db->query($sql);
+			if (!$resupdate) {
+				$error++;
+				setEventMessages($db->lasterror(), null, 'errors');
+				break;
+			}
 		}
-		$db->commit();
+		if ($error) {
+			$db->rollback();
+		} else {
+			$db->commit();
+		}
 	}
 	$action = 'view';
 }
@@ -792,29 +800,50 @@ if ($id > 0 || !empty($ref)) {
 			print '<input type="hidden" name="massaction" value="massupdatestatus">';
 			print '<input type="hidden" name="confirmmassaction" value="1">';
 			print '<input type="hidden" name="massaction_confirmed" value="1">';
+			foreach ($massselectedids as $selectedid) {
+				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
+			}
 			print '<table class="noborder centpercent">';
-			print '<tr><td>'.$langs->trans('PowerPlantApplyToAll').'</td><td><input type="checkbox" class="flat" name="apply_to_all_status" value="1"></td></tr>';
-			print '<tr><td>'.$langs->trans('PowerPlantStatus').'</td><td>'.$form->selectarray('status_for_all', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td></tr>';
-			print '</table>';
-				print '<table class="noborder centpercent">';
-				print '<tr class="liste_titre"><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
-				foreach ($masslines as $massline) {
-				print '<tr>';
-				print '<td>#'.((int) $massline->rowid).'</td>';
-				print '<td>';
-				print '<input type="hidden" name="lineid_mass_status[]" value="'.((int) $massline->rowid).'">';
-					print $form->selectarray('status_mass_line[]', $componentstatus, ($massline->fk_status !== null ? (int) $massline->fk_status : 4), 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massstatus-line-select');
-					print '</td>';
+			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
+			if (!empty($masslines)) {
+				foreach ($masslines as $idx => $massline) {
+					$productlabel = isset($productsforcomposition[(int) $massline->fk_product]) ? $productsforcomposition[(int) $massline->fk_product] : '#'.((int) $massline->fk_product);
+					print '<tr>';
+					print '<td><input type="hidden" name="lineid_mass_status['.$idx.']" value="'.((int) $massline->rowid).'">'.dol_escape_htmltag($productlabel).'</td>';
+					print '<td>'.dol_escape_htmltag($massline->serial_number).'</td>';
+					print '<td>'.(!empty($massline->commissioning_date) ? dol_print_date($db->jdate($massline->commissioning_date), 'day') : '').'</td>';
+					print '<td>'.$form->selectarray('status_mass_line['.$idx.']', $componentstatus, ($massline->fk_status !== null ? (int) $massline->fk_status : 4), 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massstatus-line-select').'</td>';
 					print '</tr>';
 				}
+			} else {
+				print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+			}
 			print '</table>';
 			print '<div class="center">';
 			print '<input type="submit" class="button button-edit" value="'.$langs->trans('Modify').'">';
-			print ' <input type="submit" class="button button-cancel" name="cancel" value="'.$langs->trans('Cancel').'">';
+			print ' <input type="button" class="button button-cancel" id="massstatus-cancel-btn" value="'.$langs->trans('Cancel').'">';
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massstatuscomposition").dialog({autoOpen:true,modal:true,width:800,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateStatus')).'"});if(jQuery(\"#status_for_all\").length){jQuery(\"#status_for_all\").select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});}jQuery(\".massstatus-line-select\").each(function(){jQuery(this).select2({width:\"resolve\",dropdownCssClass:\"ui-dialog\"});});});</script>';
+			print '<script nonce="'.getNonce().'">';
+			print 'jQuery(function(){';
+			print 'jQuery("#dialog-massstatuscomposition").dialog({';
+			print 'autoOpen:true,';
+			print 'modal:true,';
+			print 'width:980,';
+			print 'title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateStatus')).'",';
+			print 'open:function(){';
+			print 'jQuery(this).find(".massstatus-line-select").each(function(){';
+			print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
+			print 'jQuery(this).select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
+			print '});';
+			print '}';
+			print '});';
+			print 'jQuery("#massstatus-cancel-btn").on("click", function(){';
+			print 'jQuery("#dialog-massstatuscomposition").dialog("close");';
+			print '});';
+			print '});';
+			print '</script>';
 		}
 
 		if ($canedit && $action === 'massreplace' && !empty($massselectedids)) {
