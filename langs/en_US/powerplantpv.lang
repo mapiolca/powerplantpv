@@ -5,15 +5,15 @@
 #
 
 # Module label 'ModulePowerPlantPVName'
-ModulePowerPlantPVName = PowerPlantPV
+ModulePowerPlantPVName = PV plants
 # Module description 'ModulePowerPlantPVDesc'
 ModulePowerPlantPVDesc = Photovoltaic power plant management
 
 #
 # Admin page
 #
-PowerPlantPVSetup = PowerPlantPV setup
-PowerPlantPVSetupPage = PowerPlantPV setup page
+PowerPlantPVSetup = PV plants setup
+PowerPlantPVSetupPage = PV plants setup page
 NewSection=New section
 POWERPLANTPV_MYPARAM1 = Parameter 1
 POWERPLANTPV_MYPARAM1Tooltip = Parameter 1 help
@@ -33,13 +33,13 @@ POWERPLANTPV_MYPARAM12=Forced value
 #
 # About page
 #
-PowerPlantPVAbout = About PowerPlantPV
-PowerPlantPVAboutPage = PowerPlantPV about page
+PowerPlantPVAbout = About PV plants
+PowerPlantPVAboutPage = PV plants about page
 
 #
 # Sample page
 #
-PowerPlantPVArea = Home PowerPlantPV
+PowerPlantPVArea = PV plants home
 MyPageName = My page name
 
 #
@@ -132,6 +132,10 @@ PowerPlantCompStatusActive = Active
 PowerPlantCompStatusInactive = Inactive
 PowerPlantCompStatusReplaced = Replaced
 PowerPlantCompStatusOutOfService = Out of service
+PowerPlantCompStatusActivePlural = Active
+PowerPlantCompStatusInactivePlural = Inactive
+PowerPlantCompStatusReplacedPlural = Replaced
+PowerPlantCompStatusOutOfServicePlural = Out of service
 PowerPlantReplace = Replace
 PowerPlantReplacement = Replacement
 PowerPlantMassReplaceSelected = Replace selected elements

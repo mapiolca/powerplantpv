@@ -114,7 +114,7 @@ print load_fiche_titre($langs->trans($page_name), $linkback, 'title_setup');
 
 $head = powerplantpvAdminPrepareHead();
 
-print dol_get_fiche_head($head, 'powerplant_extrafields', $langs->trans($page_name), -1, 'far fa-sun');
+print dol_get_fiche_head($head, 'powerplant_extrafields', $langs->trans($page_name), -1, 'fa-sun');
 
 require DOL_DOCUMENT_ROOT.'/core/tpl/admin_extrafields_view.tpl.php';
 

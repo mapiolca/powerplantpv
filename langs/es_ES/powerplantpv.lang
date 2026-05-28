@@ -5,15 +5,15 @@
 #
 
 # Module label 'ModulePowerPlantPVName'
-ModulePowerPlantPVName = PowerPlantPV
+ModulePowerPlantPVName = Plantas FV
 # Module description 'ModulePowerPlantPVDesc'
 ModulePowerPlantPVDesc = Gestión de plantas fotovoltaicas
 
 #
 # Admin page
 #
-PowerPlantPVSetup = Configuración PowerPlantPV
-PowerPlantPVSetupPage = Página de configuración PowerPlantPV
+PowerPlantPVSetup = Configuración Plantas FV
+PowerPlantPVSetupPage = Página de configuración Plantas FV
 NewSection=Nueva sección
 POWERPLANTPV_MYPARAM1 = Parámetro 1
 POWERPLANTPV_MYPARAM1Tooltip = Ayuda del parámetro 1
@@ -33,13 +33,13 @@ POWERPLANTPV_MYPARAM12=Valor forzado
 #
 # About page
 #
-PowerPlantPVAbout = Acerca de PowerPlantPV
-PowerPlantPVAboutPage = Página acerca de PowerPlantPV
+PowerPlantPVAbout = Acerca de Plantas FV
+PowerPlantPVAboutPage = Página acerca de Plantas FV
 
 #
 # Sample page
 #
-PowerPlantPVArea = Inicio PowerPlantPV
+PowerPlantPVArea = Inicio Plantas FV
 MyPageName = Nombre de mi página
 
 #
@@ -132,6 +132,10 @@ PowerPlantCompStatusActive = Activo
 PowerPlantCompStatusInactive = Inactivo
 PowerPlantCompStatusReplaced = Reemplazado
 PowerPlantCompStatusOutOfService = Fuera de servicio
+PowerPlantCompStatusActivePlural = Activos
+PowerPlantCompStatusInactivePlural = Inactivos
+PowerPlantCompStatusReplacedPlural = Reemplazados
+PowerPlantCompStatusOutOfServicePlural = Fuera de servicio
 PowerPlantReplace = Reemplazar
 PowerPlantReplacement = Reemplazo
 PowerPlantMassReplaceSelected = Reemplazar elementos seleccionados

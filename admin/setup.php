@@ -334,7 +334,7 @@ print load_fiche_titre($langs->trans($title), $linkback, 'title_setup');
 
 // Configuration header
 $head = powerplantpvAdminPrepareHead();
-print dol_get_fiche_head($head, 'settings', $langs->trans($title), -1, 'far fa-sun');
+print dol_get_fiche_head($head, 'settings', $langs->trans($title), -1, 'fa-sun');
 
 // Setup page goes here
 echo '<span class="opacitymedium">'.$langs->trans("PowerPlantPVSetupPage").'</span><br><br>';
