@@ -153,7 +153,7 @@ class modPowerPlantPV extends DolibarrModules
 		// Prerequisites
 		$this->phpmin = array(7, 2); // Minimum version of PHP required by module
 		// $this->phpmax = array(8, 0); // Maximum version of PHP required by module
-		$this->need_dolibarr_version = array(19, -3); // Minimum version of Dolibarr required by module
+		$this->need_dolibarr_version = array(20, 0); // Minimum version of Dolibarr required by module
 		// $this->max_dolibarr_version = array(19, -3); // Maximum version of Dolibarr required by module
 		$this->need_javascript_ajax = 0;
 
