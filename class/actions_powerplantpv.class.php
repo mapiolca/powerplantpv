@@ -93,7 +93,7 @@ class ActionsPowerplantpv
 		}
 
 		$buttonid = 'powerplantpv-create-powerplant-'.$origin.'-'.((int) $object->id);
-		$dropdownhtml = '<a class="dropdown-item" href="'.dol_escape_htmltag($url).'" id="'.dol_escape_htmltag($buttonid.'-dropdown').'">'.dol_escape_htmltag($langs->trans('CreatePowerPlantDropdown')).'</a>';
+		$dropdownhtml = '<a class="butAction" href="'.dol_escape_htmltag($url).'" id="'.dol_escape_htmltag($buttonid.'-dropdown').'">'.dol_escape_htmltag($langs->trans('CreatePowerPlantDropdown')).'</a>';
 		print '<span id="'.dol_escape_htmltag($buttonid.'-holder').'" class="powerplantpv-create-powerplant-holder">';
 		print dolGetButtonAction($langs->trans('CreatePowerPlant'), $langs->trans('CreatePowerPlantDropdown'), 'default', $url, $buttonid, true);
 		print '</span>';
