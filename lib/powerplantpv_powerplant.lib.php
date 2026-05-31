@@ -172,16 +172,7 @@ function powerplantGetDocumentRelativePath($object)
 {
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 
-	global $conf;
-
-	$entity = (!empty($object->entity) ? $object->entity : $conf->entity);
-	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
-		$diroutput = $conf->powerplantpv->multidir_output[$entity];
-	} else {
-		$diroutput = $conf->powerplantpv->dir_output;
-	}
-
-	return $diroutput.'/powerplant/'.dol_sanitizeFileName($object->ref);
+	return 'powerplant/'.dol_sanitizeFileName($object->ref);
 }
 
 /**
@@ -201,7 +192,7 @@ function powerplantGetDocumentUploadDir($object)
 		$diroutput = $conf->powerplantpv->dir_output;
 	}
 
-	return powerplantGetDocumentRelativePath($object);
+	return $diroutput.'/'.powerplantGetDocumentRelativePath($object);
 }
 
 /**
