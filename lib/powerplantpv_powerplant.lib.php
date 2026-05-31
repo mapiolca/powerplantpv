@@ -172,7 +172,7 @@ function powerplantGetDocumentRelativePath($object)
 {
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 
-	return 'powerplantpv/powerplant/'.dol_sanitizeFileName($object->ref);
+	return 'powerplant/'.dol_sanitizeFileName($object->ref);
 }
 
 /**
