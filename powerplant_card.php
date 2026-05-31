@@ -375,60 +375,6 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 			setEventMessages($object->error, $object->errors, 'errors');
 		}
 	}
-
-	$entityfordoc = !empty($object->entity) ? (int) $object->entity : 1;
-	if (!isset($conf->powerplantpv) || !is_object($conf->powerplantpv)) {
-		$conf->powerplantpv = new stdClass();
-	}
-	if (empty($conf->powerplantpv->multidir_output) || !is_array($conf->powerplantpv->multidir_output)) {
-		$conf->powerplantpv->multidir_output = array();
-	}
-	$defaultpowerplantpvoutput = DOL_DATA_ROOT.($entityfordoc > 1 ? '/'.$entityfordoc : '').'/powerplant';
-	$powerplantpvoutput = !empty($conf->powerplantpv->multidir_output[$entityfordoc]) ? $conf->powerplantpv->multidir_output[$entityfordoc] : (!empty($conf->powerplantpv->dir_output) ? $conf->powerplantpv->dir_output : $defaultpowerplantpvoutput);
-	if ($entityfordoc > 1 && preg_match('/\/'.preg_quote((string) $entityfordoc, '/').'\//', (string) $powerplantpvoutput) === 0) {
-		$powerplantpvoutput = $defaultpowerplantpvoutput;
-	}
-	$conf->powerplantpv->multidir_output[$entityfordoc] = $powerplantpvoutput;
-	if (!isset($conf->powerplantpv->enabled)) {
-		$conf->powerplantpv->enabled = 1;
-	}
-
-	$objref = dol_sanitizeFileName($object->ref);
-	$upload_dir = $powerplantpvoutput.'/'.$object->element.'/'.$objref;
-	dol_syslog(__METHOD__.' upload_dir entity='.(int) $entityfordoc.' powerplantpvoutput='.$powerplantpvoutput.' upload_dir='.$upload_dir, LOG_DEBUG);
-	//include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
-
-	// EN: Manage attachment upload and deletion with Dolibarr helper to keep buttons functional.
-	// FR: Gère l'envoi et la suppression des pièces jointes avec l'aide Dolibarr pour garder les boutons fonctionnels.
-	// Delete file in doc form
-	if ($action == 'remove_file' && $permissiontoadd) {
-		if ($object->id > 0) {
-			require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
-
-			$langs->load("other");
-			//$upload_dir = $conf->powerplantpv->multidir_output[isset($object->entity) ? $object->entity : 1].'/'.$object->element.'/'.$objref;
-			$filetodelete = GETPOST('file', 'alpha');
-			$filetodelete = ltrim((string) $filetodelete, '/');
-			$fullpathtodelete = '';
-			if ($filetodelete !== '' && preg_match('/\.\./', $filetodelete)) {
-				$fullpathtodelete = '';
-			} elseif (preg_match('/^'.preg_quote($object->element, '/').'\//', $filetodelete)) {
-				$fullpathtodelete = $powerplantpvoutput.'/'.$filetodelete;
-			} else {
-				$fullpathtodelete = $upload_dir.'/'.basename($filetodelete);
-			}
-			dol_syslog(__METHOD__.' remove_file entity='.(int) $entityfordoc.' file_param='.$filetodelete.' fullpath='.$fullpathtodelete, LOG_DEBUG);
-			$ret = (!empty($fullpathtodelete) ? dol_delete_file($fullpathtodelete, 0, 0, 0, $object) : 0);
-			if ($ret) {
-				setEventMessages($langs->trans("FileWasRemoved", $filetodelete), null, 'mesgs');
-			} else {
-				setEventMessages($langs->trans("ErrorFailToDeleteFile", $filetodelete), null, 'errors');
-			}
-			$action = '';
-		}
-	}
-
-
 	if ($action == 'setinservice' && $permissiontoadd) {
 		if (function_exists('checkToken') && !checkToken()) {
 			accessforbidden();
