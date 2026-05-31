@@ -50,6 +50,7 @@ MyWidgetDescription = My widget description
 
 PowerPlant = Power plant
 CreatePowerPlant = Create a power plant
+CreatePowerPlantDropdown = PV plant
 LinkToPowerPlant = Link to a power plant
 PowerPlantCreatedFrom = Power plant created from %s
 ErrorFailedToLinkToOrigin = Failed to link to origin object
@@ -132,6 +133,11 @@ PhotovoltaicCategoryDictionary = Photovoltaic Category
 ProductPhotovoltaicCategory = Photovoltaic Category
 
 PowerPlantMaterialComposition = Material composition
+PowerPlantAutomaticMaterialSummary = Material composition to create
+PowerPlantComponentsToCreate = Components to create
+PowerPlantIgnoredFractionalQty = Ignored decimal quantity
+PowerPlantFractionalQuantityIgnored = Decimal quantity ignored for %s: %s
+PowerPlantNoAutomaticMaterial = No photovoltaic material line to create
 PowerPlantCompStatusActive = Active
 PowerPlantCompStatusInactive = Inactive
 PowerPlantCompStatusReplaced = Replaced

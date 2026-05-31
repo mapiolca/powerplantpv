@@ -50,6 +50,7 @@ MyWidgetDescription = Descripción del widget
 
 PowerPlant = Planta de energía
 CreatePowerPlant = Crear planta de energia
+CreatePowerPlantDropdown = Planta FV
 LinkToPowerPlant = Vincular a una planta de energia
 PowerPlantCreatedFrom = Planta de energia creada desde %s
 ErrorFailedToLinkToOrigin = Error al vincular con el objeto de origen
@@ -132,6 +133,11 @@ PhotovoltaicCategoryDictionary = Categoría fotovoltaica
 ProductPhotovoltaicCategory = Categoría fotovoltaica
 
 PowerPlantMaterialComposition = Composición de material
+PowerPlantAutomaticMaterialSummary = Composición de material a crear
+PowerPlantComponentsToCreate = Elementos a crear
+PowerPlantIgnoredFractionalQty = Cantidad decimal ignorada
+PowerPlantFractionalQuantityIgnored = Cantidad decimal ignorada para %s: %s
+PowerPlantNoAutomaticMaterial = No hay línea de material fotovoltaico que crear
 PowerPlantCompStatusActive = Activo
 PowerPlantCompStatusInactive = Inactivo
 PowerPlantCompStatusReplaced = Reemplazado

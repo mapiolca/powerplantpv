@@ -50,6 +50,7 @@ MyWidgetDescription = My widget description
 
 PowerPlant = Centrale
 CreatePowerPlant = Créer une centrale
+CreatePowerPlantDropdown = Centrale PV
 LinkToPowerPlant = Lier à une centrale
 PowerPlantCreatedFrom = Centrale créée depuis %s
 ErrorFailedToLinkToOrigin = Échec de la liaison avec l'objet d'origine
@@ -132,6 +133,11 @@ PhotovoltaicCategoryDictionary = Catégorie Photovoltaïque
 ProductPhotovoltaicCategory = Catégorie Photovoltaïque
 
 PowerPlantMaterialComposition = Composition matérielle
+PowerPlantAutomaticMaterialSummary = Composition matérielle à créer
+PowerPlantComponentsToCreate = Éléments à créer
+PowerPlantIgnoredFractionalQty = Quantité décimale ignorée
+PowerPlantFractionalQuantityIgnored = Quantité décimale ignorée pour %s : %s
+PowerPlantNoAutomaticMaterial = Aucune ligne de matériel photovoltaïque à créer
 PowerPlantCompStatusActive = Actif
 PowerPlantCompStatusInactive = Inactif
 PowerPlantCompStatusReplaced = Remplacé

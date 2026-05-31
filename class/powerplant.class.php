@@ -2,6 +2,7 @@
 /* Copyright (C) 2017       Laurent Destailleur      <eldy@users.sourceforge.net>
  * Copyright (C) 2023-2025  Frédéric France          <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -192,6 +193,11 @@ class PowerPlant extends CommonObject
 	public $import_key;
 	public $model_pdf;
 	public $status;
+
+	/**
+	 * @var int<0,1> Create material composition from the origin object after creation.
+	 */
+	public $create_material_from_origin = 0;
 	// END MODULEBUILDER PROPERTIES
 
 
@@ -292,13 +298,23 @@ class PowerPlant extends CommonObject
 			$this->status = self::STATUS_DRAFT;
 		}
 
+		$this->db->begin();
+
 		$result = $this->createCommon($user, $notrigger);
+		if ($result < 0) {
+			$this->db->rollback();
+			return $result;
+		}
 
 		if ($result > 0 && !empty($this->ref) && $this->ref === '(PROV)') {
 			// EN: Assign final reference using selected numbering module
 			// FR: Attribuer la référence finale via le module de numérotation sélectionné
 			$refResult = $this->assignFinalReference($user);
 			if ($refResult < 0) {
+				if (!empty($this->error)) {
+					$this->errors[] = $this->error;
+				}
+				$this->db->rollback();
 				return $refResult;
 			}
 		}
@@ -306,7 +322,23 @@ class PowerPlant extends CommonObject
 		if ($result > 0 && !empty($this->origin) && !empty($this->origin_id)) {
 			$linkResult = $this->linkOriginObject($user, $notrigger);
 			if ($linkResult < 0) {
+				if (!empty($this->error)) {
+					$this->errors[] = $this->error;
+				}
+				$this->db->rollback();
 				return $linkResult;
+			}
+		}
+
+		if ($result > 0 && !empty($this->create_material_from_origin) && !empty($this->origin) && !empty($this->origin_id)) {
+			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+			$compositionResult = powerplantpvCreateComponentsFromOrigin($this, $this->origin, (int) $this->origin_id, $user);
+			if ($compositionResult < 0) {
+				if (!empty($this->error)) {
+					$this->errors[] = $this->error;
+				}
+				$this->db->rollback();
+				return -1;
 			}
 		}
 
@@ -316,6 +348,8 @@ class PowerPlant extends CommonObject
 		// $resultupdate = $this->validate($user, $notrigger);
 		// if ($resultupdate < 0) { return $resultupdate; }
 		// }
+
+		$this->db->commit();
 
 		return $result;
 	}

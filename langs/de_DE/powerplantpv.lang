@@ -50,6 +50,7 @@ MyWidgetDescription = Beschreibung des Widgets
 
 PowerPlant = Kraftwerk
 CreatePowerPlant = Kraftwerk erstellen
+CreatePowerPlantDropdown = PV-Kraftwerk
 LinkToPowerPlant = Mit einem Kraftwerk verknuepfen
 PowerPlantCreatedFrom = Kraftwerk erstellt aus %s
 ErrorFailedToLinkToOrigin = Verknuepfung mit dem Ursprungsobjekt fehlgeschlagen
@@ -132,6 +133,11 @@ PhotovoltaicCategoryDictionary = Photovoltaik-Kategorie
 ProductPhotovoltaicCategory = Photovoltaik-Kategorie
 
 PowerPlantMaterialComposition = Materialzusammensetzung
+PowerPlantAutomaticMaterialSummary = Zu erstellende Materialzusammensetzung
+PowerPlantComponentsToCreate = Zu erstellende Elemente
+PowerPlantIgnoredFractionalQty = Ignorierte Dezimalmenge
+PowerPlantFractionalQuantityIgnored = Dezimalmenge fuer %s ignoriert: %s
+PowerPlantNoAutomaticMaterial = Keine Photovoltaik-Materialzeile zu erstellen
 PowerPlantCompStatusActive = Aktiv
 PowerPlantCompStatusInactive = Inaktiv
 PowerPlantCompStatusReplaced = Ersetzt

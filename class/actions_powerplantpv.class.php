@@ -73,18 +73,49 @@ class ActionsPowerplantpv
 			return 0;
 		}
 
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+
+		$summary = powerplantpvGetAutomaticMaterialSummary($origin, (int) $object->id, 1);
+		if (empty($summary['total_components'])) {
+			return 0;
+		}
+
 		$langs->load('powerplantpv@powerplantpv');
 
 		$url = dol_buildpath('/powerplantpv/powerplant_card.php', 1);
 		$url .= '?action=create';
 		$url .= '&origin='.urlencode($origin);
 		$url .= '&originid='.urlencode((string) $object->id);
+		$url .= '&create_material_from_origin=1';
 		if (!empty($_SERVER['REQUEST_URI'])) {
 			$url .= '&backtopage='.urlencode($_SERVER['REQUEST_URI']);
 			$url .= '&backtopageforcancel='.urlencode($_SERVER['REQUEST_URI']);
 		}
 
-		print dolGetButtonAction($langs->trans('CreatePowerPlant'), '', 'default', $url, '', true);
+		$buttonid = 'powerplantpv-create-powerplant-'.$origin.'-'.((int) $object->id);
+		print '<span id="'.dol_escape_htmltag($buttonid.'-holder').'" class="powerplantpv-create-powerplant-holder">';
+		print dolGetButtonAction($langs->trans('CreatePowerPlant'), $langs->trans('CreatePowerPlantDropdown'), 'default', $url, $buttonid, true);
+		print '</span>';
+		print '<script nonce="'.getNonce().'">';
+		print 'jQuery(function(){';
+		print 'var holder=jQuery("#'.dol_escape_js($buttonid.'-holder').'");';
+		print 'var link=holder.find("a").first();';
+		print 'var createLabel="'.dol_escape_js($langs->transnoentitiesnoconv('Create')).'";';
+		print 'var dropdownLabel="'.dol_escape_js($langs->transnoentitiesnoconv('CreatePowerPlantDropdown')).'";';
+		print 'var target=jQuery();';
+		print 'jQuery(".tabsAction .dropdown-holder").each(function(){';
+		print 'var current=jQuery(this);';
+		print 'var text=jQuery.trim(current.children(".dropdown-toggle").first().text());';
+		print 'if(text===createLabel){target=current.children(".dropdown-content").first();return false;}';
+		print '});';
+		print 'if(target.length){';
+		print 'link.removeClass("butAction butActionDelete butActionRefused classfortooltip").addClass("dropdown-item").attr("title","").attr("aria-label","'.dol_escape_js($langs->transnoentitiesnoconv('CreatePowerPlant')).'");';
+		print 'link.text(dropdownLabel);';
+		print 'target.append(link);';
+		print 'holder.remove();';
+		print '}';
+		print '});';
+		print '</script>';
 
 		return 0;
 	}
@@ -181,14 +212,18 @@ class ActionsPowerplantpv
 	 */
 	private function getContexts($parameters, $hookmanager)
 	{
+		$contexts = array();
+		if (!empty($parameters['context'])) {
+			$contexts = array_merge($contexts, explode(':', (string) $parameters['context']));
+		}
 		if (!empty($parameters['currentcontext'])) {
-			return explode(':', (string) $parameters['currentcontext']);
+			$contexts = array_merge($contexts, explode(':', (string) $parameters['currentcontext']));
 		}
 		if (!empty($hookmanager->contextarray) && is_array($hookmanager->contextarray)) {
-			return $hookmanager->contextarray;
+			$contexts = array_merge($contexts, $hookmanager->contextarray);
 		}
 
-		return array();
+		return array_values(array_unique(array_filter($contexts)));
 	}
 
 	/**
