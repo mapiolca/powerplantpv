@@ -50,7 +50,7 @@ MyWidgetDescription = Beschreibung des Widgets
 
 PowerPlant = Kraftwerk
 CreatePowerPlant = Kraftwerk erstellen
-CreatePowerPlantDropdown = PV-Kraftwerk
+CreatePowerPlantDropdown = PV-Kraftwerk erstellen
 LinkToPowerPlant = Mit einem Kraftwerk verknuepfen
 PowerPlantCreatedFrom = Kraftwerk erstellt aus %s
 ErrorFailedToLinkToOrigin = Verknuepfung mit dem Ursprungsobjekt fehlgeschlagen

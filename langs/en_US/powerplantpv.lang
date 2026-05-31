@@ -50,7 +50,7 @@ MyWidgetDescription = My widget description
 
 PowerPlant = Power plant
 CreatePowerPlant = Create a power plant
-CreatePowerPlantDropdown = PV plant
+CreatePowerPlantDropdown = Create PV plant
 LinkToPowerPlant = Link to a power plant
 PowerPlantCreatedFrom = Power plant created from %s
 ErrorFailedToLinkToOrigin = Failed to link to origin object

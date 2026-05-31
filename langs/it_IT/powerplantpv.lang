@@ -50,7 +50,7 @@ MyWidgetDescription = Descrizione del widget
 
 PowerPlant = Impianto
 CreatePowerPlant = Creare impianto
-CreatePowerPlantDropdown = Impianto FV
+CreatePowerPlantDropdown = Creare impianto FV
 LinkToPowerPlant = Collegare a un impianto
 PowerPlantCreatedFrom = Impianto creato da %s
 ErrorFailedToLinkToOrigin = Errore nel collegamento all'oggetto di origine
