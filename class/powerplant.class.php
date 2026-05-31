@@ -892,7 +892,7 @@ class PowerPlant extends CommonObject
 
 			if (!$error && !$notrigger) {
 				// Call trigger
-				$result = $this->call_trigger('MYOBJECT_VALIDATE', $user);
+				$result = $this->call_trigger($this->TRIGGER_PREFIX.'_VALIDATE', $user);
 				if ($result < 0) {
 					$error++;
 				}
@@ -1531,7 +1531,7 @@ class PowerPlant extends CommonObject
 			if (!empty($this->model_pdf)) {
 				$modele = $this->model_pdf;
 			} else {
-				$modele = getDolGlobalString('MYOBJECT_ADDON_PDF', 'standard_powerplant');
+				$modele = getDolGlobalString('POWERPLANTPV_POWERPLANT_ADDON_PDF', 'standard_powerplant');
 			}
 		}
 

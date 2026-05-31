@@ -120,6 +120,7 @@ if (!$permissiontoread) {
  * Add a new contact
  */
 
+powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
 powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
 
 if ($action == 'addcontact' && $permissiontoadd) {

@@ -136,7 +136,7 @@ include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php'; // Must be 'inclu
 
 $upload_dir = null;
 if ($id > 0 || !empty($ref)) {
-	$upload_dir = $conf->powerplantpv->multidir_output[$object->entity ? $object->entity : $conf->entity]."/powerplant/".get_exdir(0, 0, 0, 1, $object);
+	$upload_dir = powerplantGetDocumentUploadDir($object);
 }
 
 // Permissions
@@ -173,6 +173,7 @@ if (empty($object->id) || $upload_dir === null) {
  * Actions
  */
 
+powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
 powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
 include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 
@@ -228,10 +229,10 @@ print '</div>';
 
 print dol_get_fiche_end();
 
-$modulepart = 'powerplantpv';
+$modulepart = powerplantGetDocumentModulePart();
 $param = '&id='.$object->id;
 //$relativepathwithnofile='powerplant/' . dol_sanitizeFileName($object->id).'/';
-$relativepathwithnofile = 'powerplant/'.dol_sanitizeFileName($object->ref).'/';
+$relativepathwithnofile = powerplantGetDocumentRelativePath($object).'/';
 
 include DOL_DOCUMENT_ROOT.'/core/tpl/document_actions_post_headers.tpl.php';
 

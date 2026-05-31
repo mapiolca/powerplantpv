@@ -233,6 +233,40 @@ class ActionsPowerplantpv
 	}
 
 	/**
+	 * Declare PowerPlantPV trigger codes supported by Dolibarr notifications.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	stdClass			$object			Unused object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function notifsupported($parameters, &$object, &$action, $hookmanager)
+	{
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$this->results = array(
+			'arrayofnotifsupported' => array(
+				'POWERPLANTPV_MYOBJECT_CREATE',
+				'POWERPLANTPV_MYOBJECT_MODIFY',
+				'POWERPLANTPV_MYOBJECT_DELETE',
+				'POWERPLANTPV_MYOBJECT_VALIDATE',
+				'POWERPLANTPV_MYOBJECT_UNVALIDATE',
+				'POWERPLANTPV_MYOBJECT_CANCEL',
+				'POWERPLANTPV_MYOBJECT_REOPEN',
+				'POWERPLANTPV_MYOBJECT_SENTBYMAIL',
+				'POWERPLANTPV_POWERPLANT_INSERVICE',
+				'POWERPLANTPV_POWERPLANT_OUTOFSERVICE',
+			),
+		);
+		$hookmanager->resArray = $this->results;
+
+		return 0;
+	}
+
+	/**
 	 * Return hook contexts from parameters or manager.
 	 *
 	 * @param	array<string,mixed>	$parameters		Hook parameters

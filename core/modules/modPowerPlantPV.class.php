@@ -129,6 +129,7 @@ class modPowerPlantPV extends DolibarrModules
 					'ticketcard',
 					'category',
 					'elementproperties',
+					'notification',
 				),
 			),
 			/* END MODULEBUILDER HOOKSCONTEXTS */
@@ -677,10 +678,10 @@ class modPowerPlantPV extends DolibarrModules
 		// Document templates
 		$moduledir = dol_sanitizeFileName('powerplantpv');
 		$myTmpObjects = array();
-		$myTmpObjects['PowerPlant'] = array('includerefgeneration' => 0, 'includedocgeneration' => 0);
+		$myTmpObjects['PowerPlant'] = array('includerefgeneration' => 0, 'includedocgeneration' => 1);
 
 		foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
-			if ($myTmpObjectArray['includerefgeneration']) {
+			if ($myTmpObjectArray['includedocgeneration']) {
 				$src = DOL_DOCUMENT_ROOT.'/install/doctemplates/'.$moduledir.'/template_powerplants.odt';
 				$dirodt = DOL_DATA_ROOT.($conf->entity > 1 ? '/'.$conf->entity : '').'/doctemplates/'.$moduledir;
 				$dest = $dirodt.'/template_powerplants.odt';
@@ -705,7 +706,55 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		// Migrate legacy agenda links to the canonical Dolibarr element type used by this module.
+		$sqlmigrateagenda = "UPDATE ".$this->db->prefix()."actioncomm";
+		$sqlmigrateagenda .= " SET elementtype = 'powerplant'";
+		$sqlmigrateagenda .= " WHERE elementtype IN ('powerplant@powerplantpv', 'powerplantpv_powerplant')";
+		$sqlmigrateagenda .= " AND fk_element IN (SELECT p.rowid FROM ".$this->db->prefix()."powerplantpv_powerplant as p)";
+		$sql[] = $sqlmigrateagenda;
+
+		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
+
 		return $this->_init($sql, $options);
+	}
+
+	/**
+	 * Return SQL statements that register PowerPlantPV business triggers.
+	 *
+	 * @return	string[]	SQL statements
+	 */
+	private function getPowerPlantActionTriggerSql()
+	{
+		global $langs;
+
+		$langs->load('powerplantpv@powerplantpv');
+
+		$sql = array();
+		$table = $this->db->prefix().'c_action_trigger';
+		$triggers = array(
+			array('code' => 'POWERPLANTPV_MYOBJECT_CREATE', 'label' => 'PowerPlantTriggerCreate', 'description' => 'PowerPlantTriggerCreateDesc', 'rang' => 450004),
+			array('code' => 'POWERPLANTPV_MYOBJECT_MODIFY', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 450005),
+			array('code' => 'POWERPLANTPV_MYOBJECT_DELETE', 'label' => 'PowerPlantTriggerDelete', 'description' => 'PowerPlantTriggerDeleteDesc', 'rang' => 450006),
+			array('code' => 'POWERPLANTPV_MYOBJECT_VALIDATE', 'label' => 'PowerPlantTriggerValidate', 'description' => 'PowerPlantTriggerValidateDesc', 'rang' => 450007),
+			array('code' => 'POWERPLANTPV_MYOBJECT_UNVALIDATE', 'label' => 'PowerPlantTriggerUnvalidate', 'description' => 'PowerPlantTriggerUnvalidateDesc', 'rang' => 450008),
+			array('code' => 'POWERPLANTPV_MYOBJECT_CANCEL', 'label' => 'PowerPlantTriggerCancel', 'description' => 'PowerPlantTriggerCancelDesc', 'rang' => 450009),
+			array('code' => 'POWERPLANTPV_MYOBJECT_REOPEN', 'label' => 'PowerPlantTriggerReopen', 'description' => 'PowerPlantTriggerReopenDesc', 'rang' => 450010),
+			array('code' => 'POWERPLANTPV_MYOBJECT_SENTBYMAIL', 'label' => 'PowerPlantTriggerSentByMail', 'description' => 'PowerPlantTriggerSentByMailDesc', 'rang' => 450011),
+			array('code' => 'POWERPLANTPV_POWERPLANT_INSERVICE', 'label' => 'PowerPlantTriggerInService', 'description' => 'PowerPlantTriggerInServiceDesc', 'rang' => 450012),
+			array('code' => 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE', 'label' => 'PowerPlantTriggerOutOfService', 'description' => 'PowerPlantTriggerOutOfServiceDesc', 'rang' => 450013),
+		);
+
+		foreach ($triggers as $trigger) {
+			$code = $this->db->escape($trigger['code']);
+			$label = $this->db->escape($langs->transnoentitiesnoconv($trigger['label']));
+			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));
+			$rang = (int) $trigger['rang'];
+
+			$sql[] = "UPDATE ".$table." SET label = '".$label."', description = '".$description."', elementtype = 'powerplant', rang = ".$rang." WHERE code = '".$code."'";
+			$sql[] = "INSERT INTO ".$table." (code, label, description, elementtype, rang) SELECT '".$code."', '".$label."', '".$description."', 'powerplant', ".$rang." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE code = '".$code."')";
+		}
+
+		return $sql;
 	}
 
 	/**

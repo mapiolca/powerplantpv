@@ -99,7 +99,7 @@ dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 // Load translation files required by the page
-$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other"));
+$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other", "agenda"));
 
 // Get parameters
 $id = GETPOSTINT('id');
@@ -173,7 +173,17 @@ if ($enablepermissioncheck) {
 	$permissiondellink = 1;
 }
 
-$upload_dir = $conf->powerplantpv->multidir_output[isset($object->entity) ? $object->entity : 1].'/powerplant';
+$upload_dir = null;
+if (!empty($object->id)) {
+	$upload_dir = powerplantGetDocumentUploadDir($object);
+} else {
+	$diroutput = $conf->powerplantpv->dir_output;
+	if (!empty($conf->powerplantpv->multidir_output[$conf->entity])) {
+		$diroutput = $conf->powerplantpv->multidir_output[$conf->entity];
+	}
+	$upload_dir = $diroutput.'/powerplant';
+}
+$modulepart = powerplantGetDocumentModulePart();
 
 // Security check (enable at least one, the most restrictive one)
 if ($user->socid > 0) {
@@ -246,6 +256,8 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 }
 
 	$triggermodname = $object->TRIGGER_PREFIX.'_MODIFY'; // Name of trigger action code to execute when we modify record. Used in actions_addupdatedelete.inc.php
+
+	powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
 
 	// Inline update of a single field (row-level edition)
 	if ($action == 'updatefield' && $permissiontoadd) {
@@ -330,6 +342,9 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 
 	// Actions when linking object each other
 	include DOL_DOCUMENT_ROOT.'/core/actions_dellink.inc.php';
+
+	// Actions to upload, rename or delete files linked to the object.
+	include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 
 	// Actions when printing a doc from card
 	include DOL_DOCUMENT_ROOT.'/core/actions_printing.inc.php';
@@ -800,6 +815,20 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// Confirmation to delete line
 	if ($action == 'deleteline') {
 		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id.'&lineid='.$lineid, $langs->trans('DeleteLine'), $langs->trans('ConfirmDeleteLine'), 'confirm_deleteline', '', 0, 1);
+	}
+	// Confirmation to delete a linked file or external link.
+	if ($action == 'deletefile' || $action == 'deletelink') {
+		$langs->load('companies');
+		$urlfile = GETPOST('urlfile', 'alpha', 0, null, null, 1);
+		$formconfirm = $form->formconfirm(
+			$_SERVER["PHP_SELF"].'?id='.$object->id.'&urlfile='.urlencode($urlfile).'&linkid='.GETPOSTINT('linkid'),
+			$langs->trans('DeleteFile'),
+			$langs->trans('ConfirmDeleteFile'),
+			'confirm_deletefile',
+			'',
+			'',
+			1
+		);
 	}
 
 	// Clone confirmation
@@ -1369,13 +1398,12 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		// Documents
 		if ($includedocgeneration) {
-			$objref = dol_sanitizeFileName($object->ref);
-			$relativepath = $objref.'/'.$objref.'.pdf';
-			$filedir = $conf->powerplantpv->dir_output.'/'.$object->element.'/'.$objref;
+			$filedir = powerplantGetDocumentUploadDir($object);
+			$relativepathwithnofile = powerplantGetDocumentRelativePath($object);
 			$urlsource = $_SERVER["PHP_SELF"]."?id=".$object->id;
 			$genallowed = $permissiontoread; // If you can read, you can build the PDF to read content
 			$delallowed = $permissiontoadd; // If you can create/edit, you can remove a file on card
-			print $formfile->showdocuments('powerplantpv:PowerPlant', $object->element.'/'.$objref, $filedir, $urlsource, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang);
+			print $formfile->showdocuments($modulepart.':PowerPlant', $relativepathwithnofile, $filedir, $urlsource, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
 		}
 
 		// Show links to link elements
@@ -1397,17 +1425,18 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		print '</div><div class="fichehalfright">';
 
-		$MAXEVENT = 10;
+		$MAXEVENT = getDolGlobalInt('MAIN_SIZE_SHORTLIST_LIMIT', 10);
 
 		$morehtmlcenter = dolGetButtonTitle($langs->trans('SeeAll'), '', 'fa fa-bars imgforviewmode', dol_buildpath('/powerplantpv/powerplant_agenda.php', 1).'?id='.$object->id);
 
-		$includeeventlist = 0;
+		$includeeventlist = (isModEnabled('agenda') && ($user->hasRight('agenda', 'myactions', 'read') || $user->hasRight('agenda', 'allactions', 'read')));
 
 		// List of actions on element
 		if ($includeeventlist) {
 			include_once DOL_DOCUMENT_ROOT.'/core/class/html.formactions.class.php';
 			$formactions = new FormActions($db);
-			$somethingshown = $formactions->showactions($object, $object->element.'@'.$object->module, (is_object($object->thirdparty) ? $object->thirdparty->id : 0), 1, '', $MAXEVENT, '', $morehtmlcenter);
+			$actionssocid = (!empty($object->fk_soc) ? (int) $object->fk_soc : (is_object($object->thirdparty) ? (int) $object->thirdparty->id : 0));
+			$somethingshown = $formactions->showactions($object, powerplantGetAgendaElementType(), $actionssocid, 1, '', $MAXEVENT, '', $morehtmlcenter);
 		}
 
 		print '</div></div>';

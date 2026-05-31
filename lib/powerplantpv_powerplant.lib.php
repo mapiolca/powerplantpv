@@ -145,18 +145,74 @@ function powerplantCountAttachedFilesAndLinks($object)
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 	require_once DOL_DOCUMENT_ROOT.'/core/class/link.class.php';
 
-	$diroutput = '';
-	if (!empty($conf->powerplantpv->multidir_output[$object->entity])) {
-		$diroutput = $conf->powerplantpv->multidir_output[$object->entity];
-	} elseif (!empty($conf->powerplantpv->dir_output)) {
-		$diroutput = $conf->powerplantpv->dir_output;
-	}
-
-	$upload_dir = $diroutput.'/powerplant/'.dol_sanitizeFileName($object->ref);
+	$upload_dir = powerplantGetDocumentUploadDir($object);
 	$nbFiles = count(dol_dir_list($upload_dir, 'files', 0, '', '(\.meta|_preview.*\.png)$'));
 	$nbLinks = Link::count($db, $object->element, $object->id);
 
 	return $nbFiles + $nbLinks;
+}
+
+/**
+ * Return the native document modulepart for power plant files.
+ *
+ * @return	string	Document modulepart
+ */
+function powerplantGetDocumentModulePart()
+{
+	return 'powerplantpv';
+}
+
+/**
+ * Return the relative document path for a power plant.
+ *
+ * @param	PowerPlant	$object	PowerPlant
+ * @return	string				Relative path without trailing slash
+ */
+function powerplantGetDocumentRelativePath($object)
+{
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+
+	return 'powerplant/'.dol_sanitizeFileName($object->ref);
+}
+
+/**
+ * Return the upload directory for power plant documents.
+ *
+ * @param	PowerPlant	$object	PowerPlant
+ * @return	string				Absolute directory
+ */
+function powerplantGetDocumentUploadDir($object)
+{
+	global $conf;
+
+	$entity = (!empty($object->entity) ? $object->entity : $conf->entity);
+	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
+		$diroutput = $conf->powerplantpv->multidir_output[$entity];
+	} else {
+		$diroutput = $conf->powerplantpv->dir_output;
+	}
+
+	return $diroutput.'/'.powerplantGetDocumentRelativePath($object);
+}
+
+/**
+ * Return the canonical agenda element type for a power plant.
+ *
+ * @return	string	Agenda element type
+ */
+function powerplantGetAgendaElementType()
+{
+	return 'powerplant';
+}
+
+/**
+ * Return agenda element types that may have been used by older module versions.
+ *
+ * @return	string[]	Element types
+ */
+function powerplantGetCompatibleAgendaElementTypes()
+{
+	return array('powerplant', 'powerplant@powerplantpv', 'powerplantpv_powerplant');
 }
 
 /**
@@ -173,7 +229,7 @@ function powerplantCountAgendaEvents($object)
 		return 0;
 	}
 
-	$elementtypes = array('powerplant', 'powerplant@powerplantpv');
+	$elementtypes = powerplantGetCompatibleAgendaElementTypes();
 	$escapedelementtypes = array();
 	foreach ($elementtypes as $elementtype) {
 		$escapedelementtypes[] = "'".$db->escape($elementtype)."'";
@@ -226,9 +282,9 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 
 	$morehtmlref = '<div class="refidno">';
 
-	if (!empty($object->label)) {
-		$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("Label").'</span>: '.dol_escape_htmltag($object->label);
-	}
+	$morehtmlref .= '<br>';
+	$morehtmlref .= $form->editfieldkey('Label', 'label', $object->label, $object, $permissiontoadd, 'string', '', 0, 1);
+	$morehtmlref .= $form->editfieldval('Label', 'label', $object->label, $object, $permissiontoadd, 'string', dol_escape_htmltag($object->label), null, null, 'id='.$object->id, 1);
 
 	if (isModEnabled('societe')) {
 		if (!empty($object->fk_soc) || !empty($object->socid)) {
@@ -258,6 +314,46 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 	$morehtmlref .= '</div>';
 
 	return $morehtmlref;
+}
+
+/**
+ * Handle the native label edition action from banner.
+ *
+ * @param	PowerPlant	$object				PowerPlant
+ * @param	string		$action				Current action
+ * @param	int<0,1>	$permissiontoadd	User can edit
+ * @param	User		$user				User
+ * @return	int								0 if no action, <0 if KO
+ */
+function powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user)
+{
+	global $langs;
+
+	if ($action != 'setlabel') {
+		return 0;
+	}
+	if (GETPOST('cancel', 'alpha')) {
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.$object->id);
+		exit;
+	}
+	if (empty($permissiontoadd)) {
+		accessforbidden();
+	}
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden();
+	}
+
+	$label = GETPOST('label', 'restricthtml');
+	$triggermodname = $object->TRIGGER_PREFIX.'_MODIFY';
+	$result = $object->setValueFrom('label', $label, '', $object->id, 'text', '', $user, $triggermodname);
+	if ($result > 0) {
+		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.$object->id);
+		exit;
+	}
+
+	setEventMessages($object->error, $object->errors, 'errors');
+	return -1;
 }
 
 /**

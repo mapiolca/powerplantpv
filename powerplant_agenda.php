@@ -92,7 +92,7 @@ dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 // Load translation files required by the page
-$langs->loadLangs(array("powerplantpv@powerplantpv", "other"));
+$langs->loadLangs(array("powerplantpv@powerplantpv", "other", "agenda"));
 
 // Get parameters
 $id = GETPOSTINT('id');
@@ -142,7 +142,7 @@ $extrafields->fetch_name_optionals_label($object->table_element);
 // Load object
 include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php'; // Must be 'include', not 'include_once'. Include fetch and fetch_thirdparty but not fetch_optionals
 if ($id > 0 || !empty($ref)) {
-	$upload_dir = $conf->powerplantpv->multidir_output[!empty($object->entity) ? $object->entity : $conf->entity]."/".$object->id;
+	$upload_dir = powerplantGetDocumentUploadDir($object);
 }
 
 // There is several ways to check permission.
@@ -181,6 +181,7 @@ if ($reshook < 0) {
 }
 
 if (empty($reshook)) {
+	powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
 	powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
 
 	// Cancel
@@ -240,9 +241,12 @@ if ($object->id > 0) {
 	$objthirdparty = $object;
 	$objcon = new stdClass();
 
-	$out = '&origin='.urlencode($object->element).'&originid='.urlencode((string) $object->id);
+	$out = '&origin='.urlencode(powerplantGetAgendaElementType()).'&originid='.urlencode((string) $object->id);
 	$urlbacktopage = $_SERVER['PHP_SELF'].'?id='.$object->id;
 	$out .= '&backtopage='.urlencode($urlbacktopage);
+	if (!empty($object->fk_soc)) {
+		$out .= '&socid='.urlencode((string) $object->fk_soc);
+	}
 	$permok = $user->hasRight('agenda', 'myactions', 'create');
 	if ((!empty($objthirdparty->id) || !empty($objcon->id)) && $permok) {
 		//$out.='<a href="'.DOL_URL_ROOT.'/comm/action/card.php?action=create';
@@ -301,7 +305,7 @@ if ($object->id > 0) {
 		];
 
 		// TODO Replace this with same code than into list.php
-		show_actions_done($conf, $langs, $db, $object, null, 0, $actioncode, '', $filters, $sortfield, $sortorder, !empty($object->module) ? $object->module : '');
+		show_actions_done($conf, $langs, $db, $object, null, 0, $actioncode, '', $filters, $sortfield, $sortorder);
 	}
 }
 

@@ -61,6 +61,9 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 		if ($action == 'TICKET_CREATE') {
 			return $this->linkTicketToPowerPlant($object, $user);
 		}
+		if ($action == 'ACTION_CREATE' || $action == 'ACTION_MODIFY') {
+			$this->normalizeAgendaPowerPlantLink($object);
+		}
 
 		return 0;
 	}
@@ -118,6 +121,58 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 			return -1;
 		}
 
+		return 0;
+	}
+
+	/**
+	 * Normalize Agenda event links to the canonical PowerPlant element type.
+	 *
+	 * @param	CommonObject	$actioncomm	Agenda action object
+	 * @return	int						0 on success or when no normalization is needed
+	 */
+	private function normalizeAgendaPowerPlantLink($actioncomm)
+	{
+		if (empty($actioncomm->id)) {
+			return 0;
+		}
+
+		$fkElement = 0;
+		if (!empty($actioncomm->fk_element)) {
+			$fkElement = (int) $actioncomm->fk_element;
+		} elseif (!empty($actioncomm->elementid)) {
+			$fkElement = (int) $actioncomm->elementid;
+		}
+		if ($fkElement <= 0 || empty($actioncomm->elementtype)) {
+			return 0;
+		}
+
+		$compatibleTypes = array('powerplant', 'powerplant@powerplantpv', 'powerplantpv_powerplant');
+		if (!in_array($actioncomm->elementtype, $compatibleTypes)) {
+			return 0;
+		}
+		if ($actioncomm->elementtype == 'powerplant') {
+			return 0;
+		}
+
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		$powerplant = new PowerPlant($this->db);
+		if ($powerplant->fetch($fkElement) <= 0) {
+			return 0;
+		}
+
+		$sql = "UPDATE ".$this->db->prefix()."actioncomm";
+		$sql .= " SET elementtype = 'powerplant'";
+		$sql .= " WHERE id = ".((int) $actioncomm->id);
+		$sql .= " AND fk_element = ".((int) $fkElement);
+		$sql .= " AND elementtype = '".$this->db->escape($actioncomm->elementtype)."'";
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' failed to normalize actioncomm id='.$actioncomm->id.': '.$this->db->lasterror(), LOG_WARNING);
+			return 0;
+		}
+
+		$actioncomm->elementtype = 'powerplant';
 		return 0;
 	}
 }

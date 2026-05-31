@@ -156,6 +156,9 @@ if (!isModEnabled($object->module) || !$permissiontoread) {
 
 include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php';
 
+powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
+powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
+
 $categories = array();
 $sqlcategories = "SELECT rowid, label FROM ".$db->prefix()."c_powerplantpv_categorypv WHERE active = 1 ORDER BY label ASC";
 $rescategories = $db->query($sqlcategories);
@@ -522,8 +525,9 @@ if ($id > 0 || !empty($ref)) {
 	$head = powerplantPrepareHead($object);
 	print dol_get_fiche_head($head, 'composition', $langs->trans('PowerPlant'), -1, $object->picto);
 
-	$linkback = '<a href="'.dol_buildpath('/powerplantpv/powerplant_list.php', 1).'?restore_lastsearch_values=1">'.$langs->trans('BackToList').'</a>';
-	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref');
+	$linkback = powerplantGetBackToListLink($object);
+	$morehtmlref = powerplantBuildBannerMoreHtml($object, $permissiontoadd, $action);
+	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
