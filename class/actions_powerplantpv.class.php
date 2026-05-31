@@ -93,15 +93,14 @@ class ActionsPowerplantpv
 		}
 
 		$buttonid = 'powerplantpv-create-powerplant-'.$origin.'-'.((int) $object->id);
+		$dropdownhtml = dolGetButtonAction('', $langs->trans('CreatePowerPlantDropdown'), 'default', $url, $buttonid.'-dropdown', true, array('isDropDown' => true));
 		print '<span id="'.dol_escape_htmltag($buttonid.'-holder').'" class="powerplantpv-create-powerplant-holder">';
 		print dolGetButtonAction($langs->trans('CreatePowerPlant'), $langs->trans('CreatePowerPlantDropdown'), 'default', $url, $buttonid, true);
 		print '</span>';
 		print '<script nonce="'.getNonce().'">';
 		print 'jQuery(function(){';
 		print 'var holder=jQuery("#'.dol_escape_js($buttonid.'-holder').'");';
-		print 'var link=holder.find("a").first();';
 		print 'var createLabel="'.dol_escape_js($langs->transnoentitiesnoconv('Create')).'";';
-		print 'var dropdownLabel="'.dol_escape_js($langs->transnoentitiesnoconv('CreatePowerPlantDropdown')).'";';
 		print 'var target=jQuery();';
 		print 'jQuery(".tabsAction .dropdown-holder").each(function(){';
 		print 'var current=jQuery(this);';
@@ -109,9 +108,7 @@ class ActionsPowerplantpv
 		print 'if(text===createLabel){target=current.children(".dropdown-content").first();return false;}';
 		print '});';
 		print 'if(target.length){';
-		print 'link.removeClass("butAction butActionDelete butActionRefused classfortooltip").addClass("dropdown-item").attr("title","").attr("aria-label","'.dol_escape_js($langs->transnoentitiesnoconv('CreatePowerPlant')).'");';
-		print 'link.text(dropdownLabel);';
-		print 'target.append(link);';
+		print 'target.append("'.dol_escape_js($dropdownhtml).'");';
 		print 'holder.remove();';
 		print '}';
 		print '});';
@@ -133,6 +130,8 @@ class ActionsPowerplantpv
 	{
 		global $db, $langs, $user;
 
+		$this->results = array();
+
 		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
 			return 0;
 		}
@@ -152,11 +151,7 @@ class ActionsPowerplantpv
 		$sql .= " AND t.entity IN (".getEntity('powerplant').")";
 		$sql .= " ORDER BY t.ref ASC";
 
-		if (empty($hookmanager->resArray) || !is_array($hookmanager->resArray)) {
-			$hookmanager->resArray = array();
-		}
-
-		$hookmanager->resArray['powerplantpv_powerplant'] = array(
+		$this->results['powerplantpv_powerplant'] = array(
 			'enabled' => isModEnabled('powerplantpv'),
 			'perms' => $user->hasRight('powerplantpv', 'powerplant', 'read'),
 			'label' => 'LinkToPowerPlant',

@@ -313,17 +313,17 @@ class modPowerPlantPV extends DolibarrModules
 		// Add here entries to declare new permissions
 		/* BEGIN MODULEBUILDER PERMISSIONS */
 		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 0 + 1);
-		$this->rights[$r][1] = 'Read PowerPlant object of PowerPlantPV';
+		$this->rights[$r][1] = 'PowerPlantPermissionRead';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'read';
 		$r++;
 		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 1 + 1);
-		$this->rights[$r][1] = 'Create/Update PowerPlant object of PowerPlantPV';
+		$this->rights[$r][1] = 'PowerPlantPermissionWrite';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'write';
 		$r++;
 		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 2 + 1);
-		$this->rights[$r][1] = 'Delete PowerPlant object of PowerPlantPV';
+		$this->rights[$r][1] = 'PowerPlantPermissionDelete';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'delete';
 		$r++;

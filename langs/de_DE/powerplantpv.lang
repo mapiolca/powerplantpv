@@ -54,6 +54,9 @@ CreatePowerPlantDropdown = PV-Kraftwerk
 LinkToPowerPlant = Mit einem Kraftwerk verknuepfen
 PowerPlantCreatedFrom = Kraftwerk erstellt aus %s
 ErrorFailedToLinkToOrigin = Verknuepfung mit dem Ursprungsobjekt fehlgeschlagen
+PowerPlantPermissionRead = PV-Kraftwerke lesen
+PowerPlantPermissionWrite = PV-Kraftwerke erstellen oder bearbeiten
+PowerPlantPermissionDelete = PV-Kraftwerke loeschen
 # PowerPlant fields
 PowerPlantCommissioningDate = Inbetriebnahmedatum
 PowerPlantPrmPdlNumber = PRM/PDL-Nummer

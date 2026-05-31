@@ -54,6 +54,9 @@ CreatePowerPlantDropdown = Impianto FV
 LinkToPowerPlant = Collegare a un impianto
 PowerPlantCreatedFrom = Impianto creato da %s
 ErrorFailedToLinkToOrigin = Errore nel collegamento all'oggetto di origine
+PowerPlantPermissionRead = Leggere impianti FV
+PowerPlantPermissionWrite = Creare o modificare impianti FV
+PowerPlantPermissionDelete = Eliminare impianti FV
 # PowerPlant fields
 PowerPlantCommissioningDate = Data di messa in servizio
 PowerPlantPrmPdlNumber = Numero PRM/PDL

@@ -54,6 +54,9 @@ CreatePowerPlantDropdown = PV plant
 LinkToPowerPlant = Link to a power plant
 PowerPlantCreatedFrom = Power plant created from %s
 ErrorFailedToLinkToOrigin = Failed to link to origin object
+PowerPlantPermissionRead = Read PV plants
+PowerPlantPermissionWrite = Create or update PV plants
+PowerPlantPermissionDelete = Delete PV plants
 # PowerPlant fields
 PowerPlantCommissioningDate = Commissioning date
 PowerPlantPrmPdlNumber = PRM/PDL number

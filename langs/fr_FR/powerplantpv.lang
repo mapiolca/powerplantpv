@@ -54,6 +54,9 @@ CreatePowerPlantDropdown = Centrale PV
 LinkToPowerPlant = Lier à une centrale
 PowerPlantCreatedFrom = Centrale créée depuis %s
 ErrorFailedToLinkToOrigin = Échec de la liaison avec l'objet d'origine
+PowerPlantPermissionRead = Lire les centrales PV
+PowerPlantPermissionWrite = Créer ou modifier les centrales PV
+PowerPlantPermissionDelete = Supprimer les centrales PV
 # PowerPlant fields
 PowerPlantCommissioningDate = Date de mise en service
 PowerPlantPrmPdlNumber = N° de PRM/PDL
