@@ -94,7 +94,7 @@ print '<div class="fichehalfright">';
 print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><th colspan="2">'.$langs->trans('PowerPlantPVAboutResources').'</th></tr>';
-print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVAboutDocumentation').'</td><td><a href="'.dol_buildpath('/PowerPlantPV/README.md', 1).'" target="_blank" rel="noopener">'.$langs->trans('PowerPlantPVAboutDocumentationLink').'</a></td></tr>';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVAboutDocumentation').'</td><td><a href="'.dol_buildpath('/custom/powerplantpv/README.md', 1).'" target="_blank" rel="noopener">'.$langs->trans('PowerPlantPVAboutDocumentationLink').'</a></td></tr>';
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVAboutSupport').'</td><td>'.dol_escape_htmltag($langs->trans('PowerPlantPVAboutSupportValue')).'</td></tr>';
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVAboutContact').'</td><td><a href="https://'.dol_escape_htmltag($moduleDescriptor->editor_url).'" target="_blank" rel="noopener">'.dol_escape_htmltag($moduleDescriptor->editor_url).'</a></td></tr>';
 print '</table>';
