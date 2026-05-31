@@ -2,6 +2,7 @@
 /* Copyright (C) 2017       Laurent Destailleur      <eldy@users.sourceforge.net>
  * Copyright (C) 2023-2025  Frédéric France          <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -192,6 +193,11 @@ class PowerPlant extends CommonObject
 	public $import_key;
 	public $model_pdf;
 	public $status;
+
+	/**
+	 * @var int<0,1> Create material composition from the origin object after creation.
+	 */
+	public $create_material_from_origin = 0;
 	// END MODULEBUILDER PROPERTIES
 
 
@@ -292,14 +298,47 @@ class PowerPlant extends CommonObject
 			$this->status = self::STATUS_DRAFT;
 		}
 
+		$this->db->begin();
+
 		$result = $this->createCommon($user, $notrigger);
+		if ($result < 0) {
+			$this->db->rollback();
+			return $result;
+		}
 
 		if ($result > 0 && !empty($this->ref) && $this->ref === '(PROV)') {
 			// EN: Assign final reference using selected numbering module
 			// FR: Attribuer la référence finale via le module de numérotation sélectionné
 			$refResult = $this->assignFinalReference($user);
 			if ($refResult < 0) {
+				if (!empty($this->error)) {
+					$this->errors[] = $this->error;
+				}
+				$this->db->rollback();
 				return $refResult;
+			}
+		}
+
+		if ($result > 0 && !empty($this->origin) && !empty($this->origin_id)) {
+			$linkResult = $this->linkOriginObject($user, $notrigger);
+			if ($linkResult < 0) {
+				if (!empty($this->error)) {
+					$this->errors[] = $this->error;
+				}
+				$this->db->rollback();
+				return $linkResult;
+			}
+		}
+
+		if ($result > 0 && !empty($this->create_material_from_origin) && !empty($this->origin) && !empty($this->origin_id)) {
+			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+			$compositionResult = powerplantpvCreateComponentsFromOrigin($this, $this->origin, (int) $this->origin_id, $user);
+			if ($compositionResult < 0) {
+				if (!empty($this->error)) {
+					$this->errors[] = $this->error;
+				}
+				$this->db->rollback();
+				return -1;
 			}
 		}
 
@@ -310,7 +349,61 @@ class PowerPlant extends CommonObject
 		// if ($resultupdate < 0) { return $resultupdate; }
 		// }
 
+		$this->db->commit();
+
 		return $result;
+	}
+
+	/**
+	 * Link this power plant to the creation origin.
+	 *
+	 * @param	User		$user		User that creates the link
+	 * @param	int<0,1>	$notrigger	1=disable triggers
+	 * @return	int<-1,1>				Return integer <0 if KO, >0 if OK
+	 */
+	protected function linkOriginObject(User $user, $notrigger = 0)
+	{
+		$origin = (string) $this->origin;
+		$originid = (int) $this->origin_id;
+		if ($origin == 'order') {
+			$origin = 'commande';
+		}
+		if ($origin == 'contract') {
+			$origin = 'contrat';
+		}
+		if ($origin === '' || $originid <= 0 || empty($this->id)) {
+			return 1;
+		}
+
+		$targettype = $this->getElementType();
+		$sql = "SELECT ee.rowid";
+		$sql .= " FROM ".$this->db->prefix()."element_element as ee";
+		$sql .= " WHERE ee.fk_source = ".$originid;
+		$sql .= " AND ee.sourcetype = '".$this->db->escape($origin)."'";
+		$sql .= " AND ee.fk_target = ".((int) $this->id);
+		$sql .= " AND ee.targettype = '".$this->db->escape($targettype)."'";
+
+		$resql = $this->db->query($sql);
+		if ($resql) {
+			if ($this->db->num_rows($resql) > 0) {
+				$this->db->free($resql);
+				return 1;
+			}
+			$this->db->free($resql);
+		} else {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$result = $this->add_object_linked($origin, $originid, $user, $notrigger);
+		if ($result <= 0) {
+			if (empty($this->error)) {
+				$this->error = 'ErrorFailedToLinkToOrigin';
+			}
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**

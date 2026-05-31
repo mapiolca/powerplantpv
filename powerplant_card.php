@@ -2,6 +2,7 @@
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -95,23 +96,30 @@ include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
 dol_include_once('/product/class/html.formproduct.class.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 // Load translation files required by the page
-$langs->loadLangs(array("powerplantpv@powerplantpv", "other"));
+$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other"));
 
 // Get parameters
 $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
 $lineid   = GETPOSTINT('lineid');
 //$socid = GETPOSTINT('socid');
+$origin = GETPOST('origin', 'alphanohtml');
+$originid = GETPOSTINT('originid') ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
+$create_material_from_origin = GETPOSTINT('create_material_from_origin');
+$fk_soc = GETPOSTINT('fk_soc');
+$fk_project = GETPOSTINT('fk_project');
+$origin = powerplantpvNormalizeOriginType($origin);
 
 $action = GETPOST('action', 'aZ09');
 $confirm = GETPOST('confirm', 'alpha');
 $cancel = GETPOST('cancel');
 $contextpage = GETPOST('contextpage', 'aZ') ? GETPOST('contextpage', 'aZ') : getDolDefaultContextPage(__FILE__); // To manage different context of search
-$backtopage = GETPOST('backtopage', 'alpha');					// if not set, a default page will be used
-$backtopageforcancel = GETPOST('backtopageforcancel', 'alpha');	// if not set, $backtopage will be used
+$backtopage = GETPOST('backtopage', 'restricthtml');					// if not set, a default page will be used
+$backtopageforcancel = GETPOST('backtopageforcancel', 'restricthtml');	// if not set, $backtopage will be used
 $optioncss = GETPOST('optioncss', 'aZ'); // Option for the css output (always '' except when 'print')
 $dol_openinpopup = GETPOST('dol_openinpopup', 'aZ09');
 
@@ -123,6 +131,10 @@ $formproduct = new FormProduct($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($object->element.'card', 'globalcard')); // Note that conf->hooks_modules contains array
 $soc = null;
+if (!empty($origin) && $originid > 0) {
+	$object->origin = $origin;
+	$object->origin_id = $originid;
+}
 
 // Fetch optionals attributes and labels
 $extrafields->fetch_name_optionals_label($object->table_element);
@@ -178,6 +190,13 @@ if (!$permissiontoread) {
 }
 
 $error = 0;
+if ($action == 'add' && !empty($origin) && $originid > 0) {
+	$object->origin = $origin;
+	$object->origin_id = $originid;
+	if (!empty($create_material_from_origin)) {
+		$object->create_material_from_origin = 1;
+	}
+}
 
 
 /*
@@ -334,8 +353,6 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 	include DOL_DOCUMENT_ROOT.'/core/actions_sendmails.inc.php';
 }
 
-
-
 /*
  * View
  */
@@ -373,20 +390,41 @@ if ($action == 'create') {
 	if (empty($permissiontoadd)) {
 		accessforbidden('NotEnoughPermissions', 0, 1);
 	}
+	if (!empty($origin) && $originid > 0) {
+		powerplantpvApplyOriginDefaults($object, $origin, $originid);
+	}
+	if ($fk_soc > 0) {
+		$object->fk_soc = $fk_soc;
+	}
+	if ($fk_project > 0) {
+		$object->fk_project = $fk_project;
+	}
+
+	$automaticmaterialsummary = array();
+	if (!empty($create_material_from_origin) && !empty($origin) && $originid > 0) {
+		$automaticmaterialsummary = powerplantpvGetAutomaticMaterialSummary($origin, $originid, 1);
+	}
 
 	print load_fiche_titre($title, '', $object->picto);
 
 	print '<form method="POST" action="'.dolBuildUrl($_SERVER["PHP_SELF"]).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="add">';
+	if (!empty($origin) && $originid > 0) {
+		print '<input type="hidden" name="origin" value="'.dol_escape_htmltag($origin).'">';
+		print '<input type="hidden" name="originid" value="'.((int) $originid).'">';
+	}
+	if (!empty($create_material_from_origin)) {
+		print '<input type="hidden" name="create_material_from_origin" value="1">';
+	}
 	if ($backtopage) {
-		print '<input type="hidden" name="backtopage" value="'.$backtopage.'">';
+		print '<input type="hidden" name="backtopage" value="'.dol_escape_htmltag($backtopage).'">';
 	}
 	if ($backtopageforcancel) {
-		print '<input type="hidden" name="backtopageforcancel" value="'.$backtopageforcancel.'">';
+		print '<input type="hidden" name="backtopageforcancel" value="'.dol_escape_htmltag($backtopageforcancel).'">';
 	}
 	if ($dol_openinpopup) {
-		print '<input type="hidden" name="dol_openinpopup" value="'.$dol_openinpopup.'">';
+		print '<input type="hidden" name="dol_openinpopup" value="'.dol_escape_htmltag($dol_openinpopup).'">';
 	}
 
 	print dol_get_fiche_head(array(), '');
@@ -411,6 +449,86 @@ if ($action == 'create') {
 	print '</table>'."\n";
 
 	print dol_get_fiche_end();
+
+	if (!empty($create_material_from_origin) && !empty($automaticmaterialsummary)) {
+		print '<div class="fichecenter">';
+		print load_fiche_titre($langs->trans('PowerPlantAutomaticMaterialSummary'), '', '');
+
+		if (!empty($automaticmaterialsummary['source_object']) && is_object($automaticmaterialsummary['source_object'])) {
+			$sourceobject = $automaticmaterialsummary['source_object'];
+			$sourcehtml = (!empty($sourceobject->ref) ? dol_escape_htmltag($sourceobject->ref) : '');
+			if (method_exists($sourceobject, 'getNomUrl')) {
+				$sourcehtml = $sourceobject->getNomUrl(1);
+			}
+			print '<div class="underbanner clearboth"></div>';
+			print '<table class="border centpercent tableforfield">';
+			print '<tr>';
+			print '<td class="titlefield">'.$langs->trans('Source').'</td>';
+			print '<td>'.$sourcehtml.'</td>';
+			print '</tr>';
+			print '</table>';
+		}
+
+		print '<table class="border centpercent tableforfield">';
+		print '<tr class="liste_titre">';
+		print '<td>'.$langs->trans('Category').'</td>';
+		print '<td class="right">'.$langs->trans('PVQuantity').'</td>';
+		print '<td class="right">'.$langs->trans('PowerPlantComponentsToCreate').'</td>';
+		print '<td class="right">'.$langs->trans('PowerPlantIgnoredFractionalQty').'</td>';
+		print '</tr>';
+		if (empty($automaticmaterialsummary['categories'])) {
+			print '<tr class="oddeven"><td colspan="4" class="opacitymedium">'.$langs->trans('PVSummaryNone').'</td></tr>';
+		} else {
+			foreach ($automaticmaterialsummary['categories'] as $categoryline) {
+				print '<tr class="oddeven">';
+				print '<td>'.dol_escape_htmltag($categoryline['category_label']).'</td>';
+				print '<td class="right">'.price($categoryline['total_qty']).'</td>';
+				print '<td class="right">'.((int) $categoryline['total_components']).'</td>';
+				print '<td class="right">'.($categoryline['total_ignored_qty'] > 0 ? price($categoryline['total_ignored_qty']) : '').'</td>';
+				print '</tr>';
+			}
+		}
+		print '</table>';
+
+		print '<br>';
+		print '<div class="div-table-responsive-no-min">';
+		print '<table class="noborder centpercent">';
+		print '<tr class="liste_titre">';
+		print '<td>'.$langs->trans('Product').'</td>';
+		print '<td>'.$langs->trans('Category').'</td>';
+		print '<td class="right">'.$langs->trans('PVQuantity').'</td>';
+		print '<td class="right">'.$langs->trans('PowerPlantComponentsToCreate').'</td>';
+		print '<td class="right">'.$langs->trans('PowerPlantIgnoredFractionalQty').'</td>';
+		print '</tr>';
+		if (empty($automaticmaterialsummary['lines'])) {
+			print '<tr class="oddeven"><td colspan="5" class="opacitymedium">'.$langs->trans('PowerPlantNoAutomaticMaterial').'</td></tr>';
+		} else {
+			foreach ($automaticmaterialsummary['lines'] as $summaryline) {
+				print '<tr class="oddeven">';
+				print '<td>';
+				print dol_escape_htmltag($summaryline['product_ref']);
+				if (!empty($summaryline['product_label'])) {
+					print ' - '.dol_escape_htmltag($summaryline['product_label']);
+				}
+				print '</td>';
+				print '<td>'.dol_escape_htmltag($summaryline['category_label']).'</td>';
+				print '<td class="right">'.price($summaryline['source_qty']).'</td>';
+				print '<td class="right">'.((int) $summaryline['components_to_create']).'</td>';
+				print '<td class="right">'.($summaryline['ignored_qty'] > 0 ? price($summaryline['ignored_qty']) : '').'</td>';
+				print '</tr>';
+			}
+		}
+		print '</table>';
+		print '</div>';
+
+		if (!empty($automaticmaterialsummary['warnings'])) {
+			foreach ($automaticmaterialsummary['warnings'] as $warning) {
+				print '<div class="warning">'.dol_escape_htmltag($warning).'</div>';
+			}
+		}
+
+		print '</div>';
+	}
 
 	print $form->buttonsSaveCancel("Create");
 
@@ -1215,7 +1333,12 @@ $k_purchase_tariff = 'buyback_tariff';
 		}
 
 		// Show links to link elements
-		$tmparray = $form->showLinkToObjectBlock($object, array(), array('powerplant'), 1);
+		$tmparray = $form->showLinkToObjectBlock(
+			$object,
+			array(),
+			array('powerplant', 'powerplantpv_powerplant', 'powerplant@powerplantpv'),
+			1
+		);
 		if (is_array($tmparray)) {
 			$linktoelem = $tmparray['linktoelem'];
 			$htmltoenteralink = $tmparray['htmltoenteralink'];

@@ -97,11 +97,11 @@ class modPowerPlantPV extends DolibarrModules
 			// Set this to 1 if module has its own login method file (core/login)
 			'login' => 0,
 			// Set this to 1 if module has its own substitution function file (core/substitutions)
-			'substitutions' => 0,
+			'substitutions' => 1,
 			// Set this to 1 if module has its own menus handler directory (core/menus)
 			'menus' => 0,
 			// Set this to 1 if module overwrite template dir (core/tpl)
-			'tpl' => 0,
+			'tpl' => 1,
 			// Set this to 1 if module has its own barcode directory (core/modules/barcode)
 			'barcode' => 0,
 			// Set this to 1 if module has its own models directory (core/modules/xxx)
@@ -120,7 +120,15 @@ class modPowerPlantPV extends DolibarrModules
 			),
 			// Set here all hooks context managed by module. To find available hook context, make a "grep -r '>initHooks(' *" on source code. You can also set hook context to 'all'
 			/* BEGIN MODULEBUILDER HOOKSCONTEXTS */
-			'hooks' => array(),
+			'hooks' => array(
+				'data' => array(
+					'commonobject',
+					'ordercard',
+					'propalcard',
+					'contractcard',
+					'elementproperties',
+				),
+			),
 			/* END MODULEBUILDER HOOKSCONTEXTS */
 			// Set this to 1 if features of module are opened to external users
 			'moduleforexternal' => 0,
@@ -305,17 +313,17 @@ class modPowerPlantPV extends DolibarrModules
 		// Add here entries to declare new permissions
 		/* BEGIN MODULEBUILDER PERMISSIONS */
 		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 0 + 1);
-		$this->rights[$r][1] = 'Read PowerPlant object of PowerPlantPV';
+		$this->rights[$r][1] = 'PowerPlantPermissionRead';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'read';
 		$r++;
 		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 1 + 1);
-		$this->rights[$r][1] = 'Create/Update PowerPlant object of PowerPlantPV';
+		$this->rights[$r][1] = 'PowerPlantPermissionWrite';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'write';
 		$r++;
 		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 2 + 1);
-		$this->rights[$r][1] = 'Delete PowerPlant object of PowerPlantPV';
+		$this->rights[$r][1] = 'PowerPlantPermissionDelete';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'delete';
 		$r++;

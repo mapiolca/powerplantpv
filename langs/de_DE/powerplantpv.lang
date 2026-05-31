@@ -49,6 +49,14 @@ MyWidget = Mein Widget
 MyWidgetDescription = Beschreibung des Widgets
 
 PowerPlant = Kraftwerk
+CreatePowerPlant = Kraftwerk erstellen
+CreatePowerPlantDropdown = PV-Kraftwerk erstellen
+LinkToPowerPlant = Mit einem Kraftwerk verknuepfen
+PowerPlantCreatedFrom = Kraftwerk erstellt aus %s
+ErrorFailedToLinkToOrigin = Verknuepfung mit dem Ursprungsobjekt fehlgeschlagen
+PowerPlantPermissionRead = PV-Kraftwerke lesen
+PowerPlantPermissionWrite = PV-Kraftwerke erstellen oder bearbeiten
+PowerPlantPermissionDelete = PV-Kraftwerke loeschen
 # PowerPlant fields
 PowerPlantCommissioningDate = Inbetriebnahmedatum
 PowerPlantPrmPdlNumber = PRM/PDL-Nummer
@@ -128,6 +136,11 @@ PhotovoltaicCategoryDictionary = Photovoltaik-Kategorie
 ProductPhotovoltaicCategory = Photovoltaik-Kategorie
 
 PowerPlantMaterialComposition = Materialzusammensetzung
+PowerPlantAutomaticMaterialSummary = Zu erstellende Materialzusammensetzung
+PowerPlantComponentsToCreate = Zu erstellende Elemente
+PowerPlantIgnoredFractionalQty = Ignorierte Dezimalmenge
+PowerPlantFractionalQuantityIgnored = Dezimalmenge fuer %s ignoriert: %s
+PowerPlantNoAutomaticMaterial = Keine Photovoltaik-Materialzeile zu erstellen
 PowerPlantCompStatusActive = Aktiv
 PowerPlantCompStatusInactive = Inaktiv
 PowerPlantCompStatusReplaced = Ersetzt
