@@ -363,7 +363,7 @@ class modPowerPlantPV extends DolibarrModules
 			'prefix' => img_picto('', $this->picto, 'class="paddingright pictofixedwidth valignmiddle"'),
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplant',
-			'url' => '/powerplantpv/powerplant_list.php',
+			'url' => '/powerplantpv/powerplantpvindex.php',
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
