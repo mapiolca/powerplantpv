@@ -403,8 +403,8 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 	}
 
 	// Actions to send emails
-	$triggersendname = 'POWERPLANTPV_MYOBJECT_SENTBYMAIL';
-	$autocopy = 'MAIN_MAIL_AUTOCOPY_MYOBJECT_TO';
+	$triggersendname = 'POWERPLANTPV_POWERPLANT_SENTBYMAIL';
+	$autocopy = 'MAIN_MAIL_AUTOCOPY_POWERPLANT_TO';
 	$trackid = 'powerplant'.$object->id;
 	include DOL_DOCUMENT_ROOT.'/core/actions_sendmails.inc.php';
 }
@@ -845,7 +845,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// 		require_once DOL_DOCUMENT_ROOT . '/core/class/notify.class.php';
 	// 		$notify = new Notify($db);
 	// 		$text .= '<br>';
-	// 		$text .= $notify->confirmMessage('MYOBJECT_CLOSE', $object->socid, $object);
+	// 		$text .= $notify->confirmMessage('POWERPLANT_CLOSE', $object->socid, $object);
 	// 	}
 
 	// 	$formquestion = array();
