@@ -48,7 +48,7 @@ class PowerPlant extends CommonObject
 	 * @var string		Prefix to check for any trigger code of any business class to prevent bad value for trigger code.
 	 * @see CommonTrigger::call_trigger()
 	 */
-	public $TRIGGER_PREFIX = 'POWERPLANTPV_MYOBJECT';	// Will be used to build trgiger keys 'POWERPLANTPV_MYOBJECT_MODIFY', ...
+	public $TRIGGER_PREFIX = 'POWERPLANTPV_POWERPLANT';	// Will be used to build trgiger keys 'POWERPLANTPV_POWERPLANT_MODIFY', ...
 
 	/**
 	 * @var string 		Name of table without prefix where object is stored. This is also the key used for extrafields management (so extrafields know the link to the parent table).
@@ -982,7 +982,7 @@ class PowerPlant extends CommonObject
 		 return -1;
 		 }*/
 
-		return $this->setStatusCommon($user, self::STATUS_DRAFT, $notrigger, 'POWERPLANTPV_MYOBJECT_UNVALIDATE');
+		return $this->setStatusCommon($user, self::STATUS_DRAFT, $notrigger, 'POWERPLANTPV_POWERPLANT_UNVALIDATE');
 	}
 
 	/**
@@ -1006,7 +1006,7 @@ class PowerPlant extends CommonObject
 		 return -1;
 		 }*/
 
-		return $this->setStatusCommon($user, self::STATUS_CANCELED, $notrigger, 'POWERPLANTPV_MYOBJECT_CANCEL');
+		return $this->setStatusCommon($user, self::STATUS_CANCELED, $notrigger, 'POWERPLANTPV_POWERPLANT_CANCEL');
 	}
 
 	/**
@@ -1030,7 +1030,7 @@ class PowerPlant extends CommonObject
 		 return -1;
 		 }*/
 
-		return $this->setStatusCommon($user, self::STATUS_VALIDATED, $notrigger, 'POWERPLANTPV_MYOBJECT_REOPEN');
+		return $this->setStatusCommon($user, self::STATUS_VALIDATED, $notrigger, 'POWERPLANTPV_POWERPLANT_REOPEN');
 	}
 
 	/**
@@ -1461,15 +1461,15 @@ class PowerPlant extends CommonObject
 		global $langs, $conf;
 		$langs->load("powerplantpv@powerplantpv");
 
-		if (!getDolGlobalString('POWERPLANTPV_MYOBJECT_ADDON')) {
-			$conf->global->POWERPLANTPV_MYOBJECT_ADDON = 'mod_powerplant_standard';
+		if (!getDolGlobalString('POWERPLANTPV_POWERPLANT_ADDON')) {
+			$conf->global->POWERPLANTPV_POWERPLANT_ADDON = 'mod_powerplant_standard';
 		}
 
-		if (getDolGlobalString('POWERPLANTPV_MYOBJECT_ADDON')) {
+		if (getDolGlobalString('POWERPLANTPV_POWERPLANT_ADDON')) {
 			$mybool = false;
 
-			$file = getDolGlobalString('POWERPLANTPV_MYOBJECT_ADDON').".php";
-			$classname = getDolGlobalString('POWERPLANTPV_MYOBJECT_ADDON');
+			$file = getDolGlobalString('POWERPLANTPV_POWERPLANT_ADDON').".php";
+			$classname = getDolGlobalString('POWERPLANTPV_POWERPLANT_ADDON');
 
 			// Include file with class
 			$dirmodels = array_merge(array('/'), (array) $conf->modules_parts['models']);
