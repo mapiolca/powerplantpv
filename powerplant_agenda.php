@@ -2,6 +2,7 @@
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -98,6 +99,7 @@ $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
 $cancel = GETPOST('cancel');
+$socid = GETPOSTINT('socid');
 $contextpage = GETPOST('contextpage', 'aZ') ? GETPOST('contextpage', 'aZ') : getDolDefaultContextPage(__FILE__); // To manage different context of search
 $backtopage = GETPOST('backtopage', 'alpha');
 
@@ -155,10 +157,11 @@ if ($enablepermissioncheck) {
 }
 
 // Security check (enable the most restrictive one)
-//if ($user->socid > 0) accessforbidden();
-//if ($user->socid > 0) $socid = $user->socid;
-//$isdraft = (($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-//restrictedArea($user, $object->module, $object->id, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+if ($user->socid > 0) {
+	$socid = $user->socid;
+}
+$isdraft = (($object->status == $object::STATUS_DRAFT) ? 1 : 0);
+restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
 if (!isModEnabled("powerplantpv")) {
 	accessforbidden();
 }
@@ -178,6 +181,8 @@ if ($reshook < 0) {
 }
 
 if (empty($reshook)) {
+	powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
+
 	// Cancel
 	if (GETPOST('cancel', 'alpha') && !empty($backtopage)) {
 		header("Location: ".$backtopage);
@@ -216,56 +221,14 @@ if ($object->id > 0) {
 
 	// Object card
 	// ------------------------------------------------------------
-	$linkback = '<a href="'.dol_buildpath('/powerplantpv/powerplant_list.php', 1).'?restore_lastsearch_values=1'.(!empty($socid) ? '&socid='.$socid : '').'">'.$langs->trans("BackToList").'</a>';
-
-	$morehtmlref = '<div class="refidno">';
-	/*
-	// Ref customer
-	$morehtmlref.=$form->editfieldkey("RefCustomer", 'ref_client', $object->ref_client, $object, 0, 'string', '', 0, 1);
-	$morehtmlref.=$form->editfieldval("RefCustomer", 'ref_client', $object->ref_client, $object, 0, 'string', '', null, null, '', 1);
-	// Thirdparty
-	$morehtmlref.='<br>'.$langs->trans('ThirdParty') . ' : ' . (is_object($object->thirdparty) ? $object->thirdparty->getNomUrl(1) : '');
-	// Project
-	if (isModEnabled('project')) {
-		$langs->load("projects");
-		$morehtmlref.='<br>'.$langs->trans('Project') . ' ';
-		if ($permissiontoadd) {
-			if ($action != 'classify') {
-				//$morehtmlref.='<a class="editfielda" href="' . dolBuildUrl($_SERVER['PHP_SELF'], ['action' => 'classify', 'id' => $object->id], true) . '">' . img_edit($langs->transnoentitiesnoconv('SetProject')) . '</a> : ';
-			}
-			$morehtmlref.=' : ';
-			if ($action == 'classify') {
-				//$morehtmlref.=$form->form_project($_SERVER['PHP_SELF'] . '?id=' . $object->id, $object->socid, $object->fk_project, 'projectid', 0, 0, 1, 1);
-				$morehtmlref.='<form method="post" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
-				$morehtmlref.='<input type="hidden" name="action" value="classin">';
-				$morehtmlref.='<input type="hidden" name="token" value="'.newToken().'">';
-				$morehtmlref.=$formproject->select_projects($object->socid, $object->fk_project, 'projectid', $maxlength, 0, 1, 0, 1, 0, 0, '', 1);
-				$morehtmlref.='<input type="submit" class="button valignmiddle" value="'.$langs->trans("Modify").'">';
-				$morehtmlref.='</form>';
-			} else {
-				$morehtmlref.=$form->form_project($_SERVER['PHP_SELF'] . '?id=' . $object->id, $object->socid, $object->fk_project, 'none', 0, 0, 0, 1);
-			}
-		} else {
-			if (!empty($object->fk_project)) {
-				$proj = new Project($db);
-				$proj->fetch($object->fk_project);
-				$morehtmlref .= ': '.$proj->getNomUrl();
-			} else {
-				$morehtmlref .= '';
-			}
-		}
-	}*/
-	$morehtmlref .= '</div>';
+	$linkback = powerplantGetBackToListLink($object, $socid);
+	$morehtmlref = powerplantBuildBannerMoreHtml($object, $permissiontoadd, $action);
 
 
 	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
-
-	$object->info($object->id);
-	dol_print_object_info($object, 1);
-
 	print '</div>';
 
 	print dol_get_fiche_end();
@@ -277,7 +240,7 @@ if ($object->id > 0) {
 	$objthirdparty = $object;
 	$objcon = new stdClass();
 
-	$out = '&origin='.urlencode($object->element.(!empty($object->module) ? '@'.$object->module : '')).'&originid='.urlencode((string) $object->id);
+	$out = '&origin='.urlencode($object->element).'&originid='.urlencode((string) $object->id);
 	$urlbacktopage = $_SERVER['PHP_SELF'].'?id='.$object->id;
 	$out .= '&backtopage='.urlencode($urlbacktopage);
 	$permok = $user->hasRight('agenda', 'myactions', 'create');
@@ -320,7 +283,7 @@ if ($object->id > 0) {
 		}
 
 		// Try to know count of actioncomm from cache
-		$nbEvent = 0;
+		$nbEvent = powerplantCountAgendaEvents($object);
 		//require_once DOL_DOCUMENT_ROOT.'/core/lib/memory.lib.php';
 		//$cachekey = 'count_events_powerplant_'.$object->id;
 		//$nbEvent = dol_getcache($cachekey);

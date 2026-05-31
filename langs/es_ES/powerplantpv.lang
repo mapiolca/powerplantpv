@@ -54,6 +54,7 @@ CreatePowerPlantDropdown = Crear planta FV
 LinkToPowerPlant = Vincular a una planta de energia
 PowerPlantCreatedFrom = Planta de energia creada desde %s
 ErrorFailedToLinkToOrigin = Error al vincular con el objeto de origen
+ErrorFailedToLinkToProject = Error al vincular con el proyecto
 PowerPlantPermissionRead = Leer plantas FV
 PowerPlantPermissionWrite = Crear o modificar plantas FV
 PowerPlantPermissionDelete = Eliminar plantas FV
@@ -72,6 +73,18 @@ PowerPlantConnectionRequestNumber = Número de solicitud de conexión
 PowerPlantT0ObtentionDate = Fecha de obtención del T0
 PowerPlantBuybackContractNumber = Número de contrato de compra
 PowerPlantBuybackTariff = Tarifa de compra
+PowerPlantInService = En servicio
+PowerPlantInServiceShort = En servicio
+PowerPlantOutOfService = Fuera de servicio
+PowerPlantOutOfServiceShort = Fuera de servicio
+PowerPlantSetInService = Poner en servicio
+PowerPlantSetOutOfService = Poner fuera de servicio
+PowerPlantSetInServiceDone = Planta puesta en servicio
+PowerPlantSetOutOfServiceDone = Planta puesta fuera de servicio
+PowerPlantStatsByStatus = Estadisticas - Estado de las plantas
+PowerPlantStatsByCategories = Estadisticas - Categorias de las plantas
+PowerPlantLatestCreated = Las ultimas %s plantas creadas
+PowerPlantLatestModified = Las ultimas %s plantas modificadas
 
 # PV Panel
 PVPanelNominalPower = Potencia nominal (Pmax) (W)

@@ -5,6 +5,7 @@
  * Copyright (C) 2015       Jean-François Ferry     <jfefe@aternatik.fr>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,15 +69,15 @@ if (!$res) {
  * @var Translate $langs
  * @var User $user
  */
-include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
+include_once DOL_DOCUMENT_ROOT.'/core/class/dolgraph.class.php';
+dol_include_once('/powerplantpv/class/powerplant.class.php');
 
 // Load translation files required by the page
 $langs->loadLangs(array("powerplantpv@powerplantpv"));
 
 $action = GETPOST('action', 'aZ09');
 
-$now = dol_now();
-$max = getDolGlobalInt('MAIN_SIZE_SHORTLIST_LIMIT', 5);
+$max = 3;
 
 // Security check - Protection if external user
 $socid = GETPOSTINT('socid');
@@ -85,19 +86,22 @@ if (!empty($user->socid) && $user->socid > 0) {
 	$socid = $user->socid;
 }
 
-// Initialize a technical object to manage hooks. Note that conf->hooks_modules contains array
-//$hookmanager->initHooks(array($object->element.'index'));
+$powerplantstatic = new PowerPlant($db);
+$hookmanager->initHooks(array($powerplantstatic->element.'index', 'globalindex'));
 
 // Security check (enable the most restrictive one)
-//if ($user->socid > 0) accessforbidden();
-//if ($user->socid > 0) $socid = $user->socid;
-//if (!isModEnabled('powerplantpv')) {
-//	accessforbidden('Module not enabled');
-//}
-//if (! $user->hasRight('powerplantpv', 'myobject', 'read')) {
-//	accessforbidden();
-//}
-//restrictedArea($user, 'powerplantpv', 0, 'powerplantpv_myobject', 'myobject', '', 'rowid');
+if (!isModEnabled('powerplantpv')) {
+	accessforbidden('Module not enabled');
+}
+if ($user->socid > 0) {
+	$socid = $user->socid;
+}
+$enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK');
+$permissiontoread = ($enablepermissioncheck ? $user->hasRight('powerplantpv', 'powerplant', 'read') : 1);
+if (!$permissiontoread) {
+	accessforbidden();
+}
+restrictedArea($user, 'powerplantpv', 0, 'powerplantpv_powerplant', 'powerplant', 'fk_soc', 'rowid');
 //if (empty($user->admin)) {
 //	accessforbidden('Must be admin');
 //}
@@ -110,12 +114,198 @@ if (!empty($user->socid) && $user->socid > 0) {
 // None
 
 
+/**
+ * Build status statistics graph.
+ *
+ * @param	DoliDB		$db					Database handler
+ * @param	Translate	$langs				Language handler
+ * @param	PowerPlant	$powerplantstatic	Power plant static object
+ * @param	int			$socid				Third party filter
+ * @return	string							HTML graph block
+ */
+function powerplantpvIndexStatusGraph($db, $langs, $powerplantstatic, $socid = 0)
+{
+	$sql = "SELECT p.status, COUNT(p.rowid) as nb";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplant as p";
+	$sql .= " WHERE p.entity IN (".getEntity($powerplantstatic->element).")";
+	if ($socid > 0) {
+		$sql .= " AND p.fk_soc = ".((int) $socid);
+	}
+	$sql .= " GROUP BY p.status";
+	$sql .= " ORDER BY p.status ASC";
+
+	$labels = array(
+		PowerPlant::STATUS_DRAFT => 'Draft',
+		PowerPlant::STATUS_VALIDATED => 'Validated',
+		PowerPlant::STATUS_IN_SERVICE => 'PowerPlantInService',
+		PowerPlant::STATUS_OUT_OF_SERVICE => 'PowerPlantOutOfService',
+		PowerPlant::STATUS_CANCELED => 'Canceled',
+	);
+	$dataseries = array();
+	$total = 0;
+
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$status = (int) $obj->status;
+			$label = !empty($labels[$status]) ? $langs->transnoentitiesnoconv($labels[$status]) : $langs->transnoentitiesnoconv('Status').' '.$status;
+			$dataseries[] = array($label, (int) $obj->nb);
+			$total += (int) $obj->nb;
+		}
+		$db->free($resql);
+	} else {
+		dol_print_error($db);
+	}
+
+	$dolgraph = new DolGraph();
+	$dolgraph->SetData($dataseries);
+	$dolgraph->setShowLegend(2);
+	$dolgraph->setShowPercent(1);
+	$dolgraph->SetType(array('pie'));
+	$dolgraph->setHeight('220');
+	$dolgraph->draw('idgraphpowerplantstatus');
+
+	$out = '<div class="div-table-responsive-no-min">';
+	$out .= '<table class="noborder centpercent">';
+	$out .= '<tr class="liste_titre"><th>'.$langs->trans('PowerPlantStatsByStatus').'</th></tr>';
+	$out .= '<tr><td class="center nopaddingleftimp nopaddingrightimp">'.$dolgraph->show($total ? 0 : 1).'</td></tr>';
+	$out .= '</table>';
+	$out .= '</div><br>';
+
+	return $out;
+}
+
+/**
+ * Build category statistics graph.
+ *
+ * @param	DoliDB		$db		Database handler
+ * @param	Translate	$langs	Language handler
+ * @param	int			$socid	Third party filter
+ * @return	string				HTML graph block
+ */
+function powerplantpvIndexCategoryGraph($db, $langs, $socid = 0)
+{
+	global $user;
+
+	if (!isModEnabled('category') || !$user->hasRight('categorie', 'read')) {
+		return '';
+	}
+
+	$sql = "SELECT c.label, COUNT(cp.fk_powerplant) as nb";
+	$sql .= " FROM ".$db->prefix()."categorie_powerplant as cp";
+	$sql .= " INNER JOIN ".$db->prefix()."categorie as c ON cp.fk_categorie = c.rowid";
+	$sql .= " INNER JOIN ".$db->prefix()."powerplantpv_powerplant as p ON cp.fk_powerplant = p.rowid";
+	$sql .= " WHERE c.type = 450004";
+	$sql .= " AND c.entity IN (".getEntity('category').")";
+	$sql .= " AND p.entity IN (".getEntity('powerplant').")";
+	if ($socid > 0) {
+		$sql .= " AND p.fk_soc = ".((int) $socid);
+	}
+	$sql .= " GROUP BY c.label";
+	$sql .= " ORDER BY nb DESC, c.label ASC";
+
+	$dataseries = array();
+	$total = 0;
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$dataseries[] = array($obj->label, (int) $obj->nb);
+			$total += (int) $obj->nb;
+		}
+		$db->free($resql);
+	} else {
+		dol_print_error($db);
+	}
+
+	$dolgraph = new DolGraph();
+	$dolgraph->SetData($dataseries);
+	$dolgraph->setShowLegend(2);
+	$dolgraph->setShowPercent(1);
+	$dolgraph->SetType(array('pie'));
+	$dolgraph->setHeight('220');
+	$dolgraph->draw('idgraphpowerplantcategories');
+
+	$out = '<div class="div-table-responsive-no-min">';
+	$out .= '<table class="noborder centpercent">';
+	$out .= '<tr class="liste_titre"><th colspan="2">'.$langs->trans('PowerPlantStatsByCategories').'</th></tr>';
+	$out .= '<tr><td class="center nopaddingleftimp nopaddingrightimp" colspan="2">'.$dolgraph->show($total ? 0 : 1).'</td></tr>';
+	$out .= '<tr class="liste_total"><td>'.$langs->trans('Total').'</td><td class="right">'.$total.'</td></tr>';
+	$out .= '</table>';
+	$out .= '</div><br>';
+
+	return $out;
+}
+
+/**
+ * Build latest power plant table.
+ *
+ * @param	DoliDB		$db					Database handler
+ * @param	Translate	$langs				Language handler
+ * @param	PowerPlant	$powerplantstatic	Power plant static object
+ * @param	string		$field				Date field
+ * @param	string		$titlekey			Title translation key
+ * @param	int			$max				Max rows
+ * @param	int			$socid				Third party filter
+ * @return	string							HTML table
+ */
+function powerplantpvIndexLatestTable($db, $langs, $powerplantstatic, $field, $titlekey, $max, $socid = 0)
+{
+	$field = ($field == 'date_creation' ? 'date_creation' : 'tms');
+
+	$sql = "SELECT p.rowid, p.ref, p.label, p.status, p.".$field." as datevalue";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplant as p";
+	$sql .= " WHERE p.entity IN (".getEntity($powerplantstatic->element).")";
+	if ($socid > 0) {
+		$sql .= " AND p.fk_soc = ".((int) $socid);
+	}
+	$sql .= $db->order("p.".$field, "DESC");
+	$sql .= $db->plimit($max, 0);
+
+	$out = '<div class="div-table-responsive-no-min">';
+	$out .= '<table class="noborder centpercent">';
+	$out .= '<tr class="liste_titre">';
+	$out .= '<th colspan="4">'.$langs->trans($titlekey, $max);
+	$out .= '<a href="'.dol_buildpath('/powerplantpv/powerplant_list.php', 1).'?sortfield=t.'.$field.'&sortorder=DESC" title="'.$langs->trans('FullList').'">';
+	$out .= '<span class="badge marginleftonlyshort">...</span>';
+	$out .= '</a>';
+	$out .= '</th>';
+	$out .= '</tr>';
+
+	$resql = $db->query($sql);
+	if ($resql) {
+		$num = $db->num_rows($resql);
+		if ($num > 0) {
+			while ($obj = $db->fetch_object($resql)) {
+				$powerplantstatic->id = $obj->rowid;
+				$powerplantstatic->ref = $obj->ref;
+				$powerplantstatic->label = $obj->label;
+				$powerplantstatic->status = $obj->status;
+
+				$out .= '<tr class="oddeven">';
+				$out .= '<td class="nowraponall">'.$powerplantstatic->getNomUrl(1).'</td>';
+				$out .= '<td class="tdoverflowmax200" title="'.dol_escape_htmltag($obj->label).'">'.dol_escape_htmltag($obj->label).'</td>';
+				$out .= '<td class="nowraponall">'.dol_print_date($db->jdate($obj->datevalue), 'day', 'tzuserrel').'</td>';
+				$out .= '<td class="right nowraponall">'.$powerplantstatic->getLibStatut(5).'</td>';
+				$out .= '</tr>';
+			}
+		} else {
+			$out .= '<tr class="oddeven"><td colspan="4" class="opacitymedium">'.$langs->trans('None').'</td></tr>';
+		}
+		$db->free($resql);
+	} else {
+		dol_print_error($db);
+	}
+
+	$out .= '</table>';
+	$out .= '</div><br>';
+
+	return $out;
+}
+
+
 /*
  * View
  */
-
-$form = new Form($db);
-$formfile = new FormFile($db);
 
 llxHeader("", $langs->trans("PowerPlantPVArea"), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-index');
 
@@ -123,133 +313,13 @@ print load_fiche_titre($langs->trans("PowerPlantPVArea"), '', 'fa-sun');
 
 print '<div class="fichecenter"><div class="fichethirdleft">';
 
-
-/* BEGIN MODULEBUILDER DRAFT MYOBJECT
-// Draft MyObject
-if (isModEnabled('powerplantpv') && $user->hasRight('powerplantpv', 'read')) {
-	$langs->load("orders");
-
-	$sql = "SELECT c.rowid, c.ref, c.ref_client, c.total_ht, c.tva as total_tva, c.total_ttc, s.rowid as socid, s.nom as name, s.client, s.canvas";
-	$sql.= ", s.code_client";
-	$sql.= " FROM ".$db->prefix()."commande as c";
-	$sql.= ", ".$db->prefix()."societe as s";
-	$sql.= " WHERE c.fk_soc = s.rowid";
-	$sql.= " AND c.fk_statut = 0";
-	$sql.= " AND c.entity IN (".getEntity('commande').")";
-	if ($socid)	$sql.= " AND c.fk_soc = ".((int) $socid);
-
-	$resql = $db->query($sql);
-	if ($resql)
-	{
-		$total = 0;
-		$num = $db->num_rows($resql);
-
-		print '<table class="noborder centpercent">';
-		print '<tr class="liste_titre">';
-		print '<th colspan="3">'.$langs->trans("DraftMyObjects").($num?'<span class="badge marginleftonlyshort">'.$num.'</span>':'').'</th></tr>';
-
-		$var = true;
-		if ($num > 0)
-		{
-			$i = 0;
-			while ($i < $num)
-			{
-
-				$obj = $db->fetch_object($resql);
-				print '<tr class="oddeven"><td class="nowrap">';
-
-				$myobjectstatic->id=$obj->rowid;
-				$myobjectstatic->ref=$obj->ref;
-				$myobjectstatic->ref_client=$obj->ref_client;
-				$myobjectstatic->total_ht = $obj->total_ht;
-				$myobjectstatic->total_tva = $obj->total_tva;
-				$myobjectstatic->total_ttc = $obj->total_ttc;
-
-				print $myobjectstatic->getNomUrl(1);
-				print '</td>';
-				print '<td class="nowrap">';
-				print '</td>';
-				print '<td class="right" class="nowrap">'.price($obj->total_ttc).'</td></tr>';
-				$i++;
-				$total += $obj->total_ttc;
-			}
-			if ($total>0)
-			{
-
-				print '<tr class="liste_total"><td>'.$langs->trans("Total").'</td><td colspan="2" class="right">'.price($total)."</td></tr>";
-			}
-		}
-		else
-		{
-
-			print '<tr class="oddeven"><td colspan="3" class="opacitymedium">'.$langs->trans("NoOrder").'</td></tr>';
-		}
-		print "</table><br>";
-
-		$db->free($resql);
-	}
-	else
-	{
-		dol_print_error($db);
-	}
-}
-END MODULEBUILDER DRAFT MYOBJECT */
-
+print powerplantpvIndexStatusGraph($db, $langs, $powerplantstatic, $socid);
+print powerplantpvIndexCategoryGraph($db, $langs, $socid);
 
 print '</div><div class="fichetwothirdright">';
 
-
-/* BEGIN MODULEBUILDER LASTMODIFIED MYOBJECT
-// Last modified myobject
-if (isModEnabled('powerplantpv') && $user->hasRight('powerplantpv', 'read')) {
-	$sql = "SELECT s.rowid, s.ref, s.label, s.date_creation, s.tms";
-	$sql.= " FROM ".$db->prefix()."powerplantpv_myobject as s";
-	$sql.= " WHERE s.entity IN (".getEntity($myobjectstatic->element).")";
-	//if ($socid)	$sql.= " AND s.rowid = $socid";
-	$sql .= " ORDER BY s.tms DESC";
-	$sql .= $db->plimit($max, 0);
-
-	$resql = $db->query($sql);
-	if ($resql)
-	{
-		$num = $db->num_rows($resql);
-		$i = 0;
-
-		print '<table class="noborder centpercent">';
-		print '<tr class="liste_titre">';
-		print '<th colspan="2">';
-		print $langs->trans("BoxTitleLatestModifiedMyObjects", $max);
-		print '</th>';
-		print '<th class="right">'.$langs->trans("DateModificationShort").'</th>';
-		print '</tr>';
-		if ($num)
-		{
-			while ($i < $num)
-			{
-				$objp = $db->fetch_object($resql);
-
-				$myobjectstatic->id=$objp->rowid;
-				$myobjectstatic->ref=$objp->ref;
-				$myobjectstatic->label=$objp->label;
-				$myobjectstatic->status = $objp->status;
-
-				print '<tr class="oddeven">';
-				print '<td class="nowrap">'.$myobjectstatic->getNomUrl(1).'</td>';
-				print '<td class="right nowrap">';
-				print "</td>";
-				print '<td class="right nowrap">'.dol_print_date($db->jdate($objp->tms), 'day')."</td>";
-				print '</tr>';
-				$i++;
-			}
-
-			$db->free($resql);
-		} else {
-			print '<tr class="oddeven"><td colspan="3" class="opacitymedium">'.$langs->trans("None").'</td></tr>';
-		}
-		print "</table><br>";
-	}
-}
-*/
+print powerplantpvIndexLatestTable($db, $langs, $powerplantstatic, 'date_creation', 'PowerPlantLatestCreated', $max, $socid);
+print powerplantpvIndexLatestTable($db, $langs, $powerplantstatic, 'tms', 'PowerPlantLatestModified', $max, $socid);
 
 print '</div></div>';
 

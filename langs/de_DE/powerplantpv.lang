@@ -54,6 +54,7 @@ CreatePowerPlantDropdown = PV-Kraftwerk erstellen
 LinkToPowerPlant = Mit einem Kraftwerk verknuepfen
 PowerPlantCreatedFrom = Kraftwerk erstellt aus %s
 ErrorFailedToLinkToOrigin = Verknuepfung mit dem Ursprungsobjekt fehlgeschlagen
+ErrorFailedToLinkToProject = Verknuepfung mit dem Projekt fehlgeschlagen
 PowerPlantPermissionRead = PV-Kraftwerke lesen
 PowerPlantPermissionWrite = PV-Kraftwerke erstellen oder bearbeiten
 PowerPlantPermissionDelete = PV-Kraftwerke loeschen
@@ -72,6 +73,18 @@ PowerPlantConnectionRequestNumber = Anschlussantragsnummer
 PowerPlantT0ObtentionDate = T0-Erhaltungsdatum
 PowerPlantBuybackContractNumber = Rückkaufvertragsnummer
 PowerPlantBuybackTariff = Rückkauftarif
+PowerPlantInService = In Betrieb
+PowerPlantInServiceShort = In Betrieb
+PowerPlantOutOfService = Ausser Betrieb
+PowerPlantOutOfServiceShort = Ausser Betrieb
+PowerPlantSetInService = In Betrieb setzen
+PowerPlantSetOutOfService = Ausser Betrieb setzen
+PowerPlantSetInServiceDone = Kraftwerk in Betrieb gesetzt
+PowerPlantSetOutOfServiceDone = Kraftwerk ausser Betrieb gesetzt
+PowerPlantStatsByStatus = Statistiken - Kraftwerksstatus
+PowerPlantStatsByCategories = Statistiken - Kraftwerkskategorien
+PowerPlantLatestCreated = Die letzten %s erstellten Kraftwerke
+PowerPlantLatestModified = Die letzten %s geaenderten Kraftwerke
 
 # PV Panel
 PVPanelNominalPower = Nennleistung (Pmax) (W)

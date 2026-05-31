@@ -93,7 +93,7 @@ class modPowerPlantPV extends DolibarrModules
 		// Define some features supported by module (triggers, login, substitutions, menus, css, etc...)
 		$this->module_parts = array(
 			// Set this to 1 if module has its own trigger directory (core/triggers)
-			'triggers' => 0,
+			'triggers' => 1,
 			// Set this to 1 if module has its own login method file (core/login)
 			'login' => 0,
 			// Set this to 1 if module has its own substitution function file (core/substitutions)
@@ -126,6 +126,8 @@ class modPowerPlantPV extends DolibarrModules
 					'ordercard',
 					'propalcard',
 					'contractcard',
+					'ticketcard',
+					'category',
 					'elementproperties',
 				),
 			),
@@ -574,6 +576,38 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		// Create ticket extrafield used to select a power plant at ticket creation.
+		$extrafields->fetch_name_optionals_label('ticket');
+		if (empty($extrafields->attributes['ticket']['label']['powerplantpv_powerplant'])) {
+			$powerplantSellist = array(
+				'options' => array('powerplantpv_powerplant:ref:rowid::(entity:IN:__SHARED_ENTITIES__)' => null)
+			);
+			$result = $extrafields->addExtraField(
+				'powerplantpv_powerplant',
+				'PowerPlant',
+				'sellist',
+				200,
+				'',
+				'ticket',
+				0,
+				0,
+				'',
+				$powerplantSellist,
+				1,
+				'',
+				-1,
+				'',
+				'',
+				'',
+				'powerplantpv@powerplantpv',
+				'isModEnabled("powerplantpv")'
+			);
+			if ($result < 0) {
+				$this->errors[] = $extrafields->error;
+				return -1;
+			}
+		}
+
 		// Seed photovoltaic category dictionary.
 		$categoryRows = array(
 			'MODULE' => 'Module photovoltaïque',
@@ -609,6 +643,20 @@ class modPowerPlantPV extends DolibarrModules
 		$this->remove($options);
 
 		$sql = array();
+
+		// Migrate legacy single project links to native linked objects.
+		$sqlmigrateproject = "INSERT INTO ".$this->db->prefix()."element_element (fk_source, sourcetype, fk_target, targettype)";
+		$sqlmigrateproject .= " SELECT p.fk_project, 'project', p.rowid, 'powerplant@powerplantpv'";
+		$sqlmigrateproject .= " FROM ".$this->db->prefix()."powerplantpv_powerplant as p";
+		$sqlmigrateproject .= " WHERE p.fk_project IS NOT NULL AND p.fk_project > 0";
+		$sqlmigrateproject .= " AND NOT EXISTS (";
+		$sqlmigrateproject .= " SELECT 1 FROM ".$this->db->prefix()."element_element as ee";
+		$sqlmigrateproject .= " WHERE ee.fk_source = p.fk_project";
+		$sqlmigrateproject .= " AND ee.sourcetype = 'project'";
+		$sqlmigrateproject .= " AND ee.fk_target = p.rowid";
+		$sqlmigrateproject .= " AND ee.targettype = 'powerplant@powerplantpv'";
+		$sqlmigrateproject .= ")";
+		$sql[] = $sqlmigrateproject;
 
 		// Ensure PV product natures are present in dictionary
 		$natureTable = $this->db->prefix()."c_product_nature";

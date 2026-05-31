@@ -2,6 +2,7 @@
 /* Copyright (C) 2007-2017  Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -113,6 +114,7 @@ $groupby = GETPOST('groupby', 'aZ09');	// Example: $groupby = 'p.fk_opp_status' 
 
 $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
+$socid = GETPOSTINT('socid');
 
 // Load variable for pagination
 $limit = GETPOSTINT('limit') ? GETPOSTINT('limit') : $conf->liste_limit;
@@ -219,12 +221,10 @@ if ($enablepermissioncheck) {
 
 // Security check (enable the most restrictive one)
 if ($user->socid > 0) {
-	accessforbidden();
+	$socid = $user->socid;
 }
-//if ($user->socid > 0) accessforbidden();
-//$socid = 0; if ($user->socid > 0) $socid = $user->socid;
 //$isdraft = (($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-//restrictedArea($user, $object->module, 0, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+restrictedArea($user, $object->module, 0, $object->table_element, $object->element, 'fk_soc', 'rowid');
 if (!isModEnabled("powerplantpv")) {
 	accessforbidden('Module powerplantpv not enabled');
 }
@@ -401,11 +401,10 @@ if ($search_sale && $search_sale != '-1') {
 		$sql .= " AND EXISTS (SELECT sc.fk_soc FROM ".$db->prefix()."societe_commerciaux as sc WHERE sc.fk_soc = t.fk_soc AND sc.fk_user = ".((int) $search_sale).")";
 	}
 }
-// Search on socid
+*/
 if ($socid) {
 	$sql .= " AND t.fk_soc = ".((int) $socid);
 }
-*/
 //$sql.= dolSqlDateFilter("t.field", $search_xxxday, $search_xxxmonth, $search_xxxyear);
 // Add where from extra fields
 include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_search_sql.tpl.php';

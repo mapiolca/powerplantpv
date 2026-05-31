@@ -79,6 +79,8 @@ class PowerPlant extends CommonObject
 
 	const STATUS_DRAFT = 0;
 	const STATUS_VALIDATED = 1;
+	const STATUS_IN_SERVICE = 2;
+	const STATUS_OUT_OF_SERVICE = 3;
 	const STATUS_CANCELED = 9;
 
 	/**
@@ -149,7 +151,7 @@ class PowerPlant extends CommonObject
 		"buyback_contract_number" => array("type" => "varchar(128)", "label" => "PowerPlantBuybackContractNumber", "enabled" => "1", 'position' => 47, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
 		"buyback_tariff" => array("type" => "price", "label" => "PowerPlantBuybackTariff", "enabled" => "1", 'position' => 48, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"fk_soc" => array("type" => "integer:Societe:societe/class/societe.class.php:1:((status:=:1) AND (entity:IN:__SHARED_ENTITIES__))", "label" => "ThirdParty", "picto" => "company", "enabled" => "isModEnabled('societe')", 'position' => 50, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "help" => "OrganizationEventLinkToThirdParty", "validate" => "1",),
-		"fk_project" => array("type" => "integer:Project:projet/class/project.class.php:1", "label" => "Project", "picto" => "project", "enabled" => "isModEnabled('project')", 'position' => 52, 'notnull' => -1, "visible" => "-1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "validate" => "1",),
+		"fk_project" => array("type" => "integer:Project:projet/class/project.class.php:1", "label" => "Project", "picto" => "project", "enabled" => "1", 'position' => 52, 'notnull' => -1, "visible" => "0", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "validate" => "1",),
 		"description" => array("type" => "text", "label" => "Description", "enabled" => "1", 'position' => 60, 'notnull' => 0, "visible" => "3", "validate" => "1",),
 		"note_public" => array("type" => "html", "label" => "NotePublic", "enabled" => "1", 'position' => 61, 'notnull' => 0, "visible" => "0", "cssview" => "wordbreak", "validate" => "1",),
 		"note_private" => array("type" => "html", "label" => "NotePrivate", "enabled" => "1", 'position' => 62, 'notnull' => 0, "visible" => "0", "cssview" => "wordbreak", "validate" => "1",),
@@ -160,7 +162,7 @@ class PowerPlant extends CommonObject
 		"last_main_doc" => array("type" => "varchar(255)", "label" => "LastMainDoc", "enabled" => "1", 'position' => 600, 'notnull' => 0, "visible" => "0",),
 		"import_key" => array("type" => "varchar(14)", "label" => "ImportId", "enabled" => "1", 'position' => 1000, 'notnull' => -1, "visible" => "-2",),
 		"model_pdf" => array("type" => "varchar(255)", "label" => "Model pdf", "enabled" => "1", 'position' => 1010, 'notnull' => -1, "visible" => "0",),
-		"status" => array("type" => "integer", "label" => "Status", "enabled" => "1", 'position' => 2000, 'notnull' => 1, "visible" => "4", "index" => "1", "default" => self::STATUS_DRAFT, "arrayofkeyval" => array("0" => "Brouillon", "1" => "Validée", "2" => "Activée", "3" => "Désactivée"), "validate" => "1",),
+		"status" => array("type" => "integer", "label" => "Status", "enabled" => "1", 'position' => 2000, 'notnull' => 1, "visible" => "4", "index" => "1", "default" => self::STATUS_DRAFT, "arrayofkeyval" => array(self::STATUS_DRAFT => "Draft", self::STATUS_VALIDATED => "Validated", self::STATUS_IN_SERVICE => "PowerPlantInService", self::STATUS_OUT_OF_SERVICE => "PowerPlantOutOfService", self::STATUS_CANCELED => "Canceled"), "validate" => "1",),
 	);
 	public $rowid;
 	public $ref;
@@ -181,6 +183,7 @@ class PowerPlant extends CommonObject
 	public $buyback_contract_number;
 	public $buyback_tariff;
 	public $fk_soc;
+	public $socid;
 	public $fk_project;
 	public $description;
 	public $note_public;
@@ -290,6 +293,13 @@ class PowerPlant extends CommonObject
 	 */
 	public function create(User $user, $notrigger = 0)
 	{
+		if (empty($this->fk_soc) && !empty($this->socid)) {
+			$this->fk_soc = (int) $this->socid;
+		}
+		if (!empty($this->fk_soc)) {
+			$this->socid = (int) $this->fk_soc;
+		}
+
 		// Ensure provisional reference and draft status before creation
 		if (empty($this->ref)) {
 			$this->ref = '(PROV)';
@@ -321,6 +331,17 @@ class PowerPlant extends CommonObject
 
 		if ($result > 0 && !empty($this->origin) && !empty($this->origin_id)) {
 			$linkResult = $this->linkOriginObject($user, $notrigger);
+			if ($linkResult < 0) {
+				if (!empty($this->error)) {
+					$this->errors[] = $this->error;
+				}
+				$this->db->rollback();
+				return $linkResult;
+			}
+		}
+
+		if ($result > 0 && !empty($this->context['powerplantpv_origin_fk_project'])) {
+			$linkResult = $this->linkProjectObject((int) $this->context['powerplantpv_origin_fk_project'], $user, $notrigger);
 			if ($linkResult < 0) {
 				if (!empty($this->error)) {
 					$this->errors[] = $this->error;
@@ -407,6 +428,52 @@ class PowerPlant extends CommonObject
 	}
 
 	/**
+	 * Link this power plant to a project with the native object link table.
+	 *
+	 * @param	int			$projectid	Project id
+	 * @param	User		$user		User that creates the link
+	 * @param	int<0,1>	$notrigger	1=disable triggers
+	 * @return	int<-1,1>				Return integer <0 if KO, >0 if OK
+	 */
+	protected function linkProjectObject($projectid, User $user, $notrigger = 0)
+	{
+		$projectid = (int) $projectid;
+		if ($projectid <= 0 || empty($this->id)) {
+			return 1;
+		}
+
+		$targettype = $this->getElementType();
+		$sql = "SELECT ee.rowid";
+		$sql .= " FROM ".$this->db->prefix()."element_element as ee";
+		$sql .= " WHERE ee.fk_source = ".$projectid;
+		$sql .= " AND ee.sourcetype = 'project'";
+		$sql .= " AND ee.fk_target = ".((int) $this->id);
+		$sql .= " AND ee.targettype = '".$this->db->escape($targettype)."'";
+
+		$resql = $this->db->query($sql);
+		if ($resql) {
+			if ($this->db->num_rows($resql) > 0) {
+				$this->db->free($resql);
+				return 1;
+			}
+			$this->db->free($resql);
+		} else {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$result = $this->add_object_linked('project', $projectid, $user, $notrigger);
+		if ($result <= 0) {
+			if (empty($this->error)) {
+				$this->error = 'ErrorFailedToLinkToProject';
+			}
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
 	 * Clone an object into another one
 	 *
 	 * @param	User 	$user		User that creates
@@ -448,6 +515,9 @@ class PowerPlant extends CommonObject
 		}
 		if (property_exists($object, 'status')) {
 			$object->status = self::STATUS_DRAFT;
+		}
+		if (property_exists($object, 'fk_project')) {
+			$object->fk_project = null;
 		}
 		if (property_exists($object, 'date_creation')) {
 			$object->date_creation = dol_now();
@@ -517,6 +587,9 @@ class PowerPlant extends CommonObject
 	public function fetch($id, $ref = null, $noextrafields = 0, $nolines = 0)
 	{
 		$result = $this->fetchCommon($id, $ref, '', $noextrafields);
+		if ($result > 0 && !empty($this->fk_soc)) {
+			$this->socid = (int) $this->fk_soc;
+		}
 		if ($result > 0 && !empty($this->table_element_line) && empty($nolines)) {
 			$this->fetchLines($noextrafields);
 		}
@@ -710,6 +783,13 @@ class PowerPlant extends CommonObject
 	 */
 	public function update(User $user, $notrigger = 0)
 	{
+		if (empty($this->fk_soc) && !empty($this->socid)) {
+			$this->fk_soc = (int) $this->socid;
+		}
+		if (!empty($this->fk_soc)) {
+			$this->socid = (int) $this->fk_soc;
+		}
+
 		return $this->updateCommon($user, $notrigger);
 	}
 
@@ -954,6 +1034,38 @@ class PowerPlant extends CommonObject
 	}
 
 	/**
+	 * Set power plant in service.
+	 *
+	 * @param	User		$user		Object user that modifies
+	 * @param	int<0,1>	$notrigger	1=Does not execute triggers, 0=Execute triggers
+	 * @return	int<-1,1>				Return integer <0 if KO, 0=Nothing done, >0 if OK
+	 */
+	public function setInService($user, $notrigger = 0)
+	{
+		if ($this->status == self::STATUS_IN_SERVICE) {
+			return 0;
+		}
+
+		return $this->setStatusCommon($user, self::STATUS_IN_SERVICE, $notrigger, 'POWERPLANTPV_POWERPLANT_INSERVICE');
+	}
+
+	/**
+	 * Set power plant out of service.
+	 *
+	 * @param	User		$user		Object user that modifies
+	 * @param	int<0,1>	$notrigger	1=Does not execute triggers, 0=Execute triggers
+	 * @return	int<-1,1>				Return integer <0 if KO, 0=Nothing done, >0 if OK
+	 */
+	public function setOutOfService($user, $notrigger = 0)
+	{
+		if ($this->status == self::STATUS_OUT_OF_SERVICE) {
+			return 0;
+		}
+
+		return $this->setStatusCommon($user, self::STATUS_OUT_OF_SERVICE, $notrigger, 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE');
+	}
+
+	/**
 	 * getTooltipContentArray
 	 *
 	 * @param	array<string,string> 	$params 	Params to construct tooltip data
@@ -1150,6 +1262,27 @@ class PowerPlant extends CommonObject
 	}
 
 	/**
+	 * Return linked native categories.
+	 *
+	 * @return	int[]|int	Array of category IDs or <0 if KO
+	 */
+	public function getCategories()
+	{
+		return $this->getCategoriesCommon('powerplant');
+	}
+
+	/**
+	 * Set linked native categories.
+	 *
+	 * @param	int[]|int	$categories	Category ID or list of category IDs
+	 * @return	int						Return integer <0 if KO, >0 if OK
+	 */
+	public function setCategories($categories)
+	{
+		return $this->setCategoriesCommon($categories, 'powerplant');
+	}
+
+	/**
 	 *  Return the label of the status
 	 *
 	 *  @param	int<0,6>	$mode          0=long label, 1=short label, 2=Picto + short label, 3=Picto, 4=Picto + long label, 5=Short label + Picto, 6=Long label + Picto
@@ -1196,15 +1329,24 @@ class PowerPlant extends CommonObject
 			global $langs;
 			//$langs->load("powerplantpv@powerplantpv");
 			$this->labelStatus[self::STATUS_DRAFT] = $langs->transnoentitiesnoconv('Draft');
-			$this->labelStatus[self::STATUS_VALIDATED] = $langs->transnoentitiesnoconv('Enabled');
-			$this->labelStatus[self::STATUS_CANCELED] = $langs->transnoentitiesnoconv('Disabled');
+			$this->labelStatus[self::STATUS_VALIDATED] = $langs->transnoentitiesnoconv('Validated');
+			$this->labelStatus[self::STATUS_IN_SERVICE] = $langs->transnoentitiesnoconv('PowerPlantInService');
+			$this->labelStatus[self::STATUS_OUT_OF_SERVICE] = $langs->transnoentitiesnoconv('PowerPlantOutOfService');
+			$this->labelStatus[self::STATUS_CANCELED] = $langs->transnoentitiesnoconv('Canceled');
 			$this->labelStatusShort[self::STATUS_DRAFT] = $langs->transnoentitiesnoconv('Draft');
-			$this->labelStatusShort[self::STATUS_VALIDATED] = $langs->transnoentitiesnoconv('Enabled');
-			$this->labelStatusShort[self::STATUS_CANCELED] = $langs->transnoentitiesnoconv('Disabled');
+			$this->labelStatusShort[self::STATUS_VALIDATED] = $langs->transnoentitiesnoconv('Validated');
+			$this->labelStatusShort[self::STATUS_IN_SERVICE] = $langs->transnoentitiesnoconv('PowerPlantInServiceShort');
+			$this->labelStatusShort[self::STATUS_OUT_OF_SERVICE] = $langs->transnoentitiesnoconv('PowerPlantOutOfServiceShort');
+			$this->labelStatusShort[self::STATUS_CANCELED] = $langs->transnoentitiesnoconv('Canceled');
 		}
 
 		$statusType = 'status'.$status;
-		//if ($status == self::STATUS_VALIDATED) $statusType = 'status1';
+		if ($status == self::STATUS_IN_SERVICE) {
+			$statusType = 'status4';
+		}
+		if ($status == self::STATUS_OUT_OF_SERVICE) {
+			$statusType = 'status8';
+		}
 		if ($status == self::STATUS_CANCELED) {
 			$statusType = 'status6';
 		}

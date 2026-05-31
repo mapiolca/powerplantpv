@@ -54,6 +54,7 @@ CreatePowerPlantDropdown = Create PV plant
 LinkToPowerPlant = Link to a power plant
 PowerPlantCreatedFrom = Power plant created from %s
 ErrorFailedToLinkToOrigin = Failed to link to origin object
+ErrorFailedToLinkToProject = Failed to link to project
 PowerPlantPermissionRead = Read PV plants
 PowerPlantPermissionWrite = Create or update PV plants
 PowerPlantPermissionDelete = Delete PV plants
@@ -72,6 +73,18 @@ PowerPlantConnectionRequestNumber = Connection request number
 PowerPlantT0ObtentionDate = T0 approval date
 PowerPlantBuybackContractNumber = Buyback contract number
 PowerPlantBuybackTariff = Buyback tariff
+PowerPlantInService = In service
+PowerPlantInServiceShort = In service
+PowerPlantOutOfService = Out of service
+PowerPlantOutOfServiceShort = Out of service
+PowerPlantSetInService = Set in service
+PowerPlantSetOutOfService = Set out of service
+PowerPlantSetInServiceDone = Power plant set in service
+PowerPlantSetOutOfServiceDone = Power plant set out of service
+PowerPlantStatsByStatus = Statistics - Power plant status
+PowerPlantStatsByCategories = Statistics - Power plant categories
+PowerPlantLatestCreated = Latest %s created power plants
+PowerPlantLatestModified = Latest %s modified power plants
 
 # PV Panel
 PVPanelNominalPower = Nominal power (Pmax) (W)

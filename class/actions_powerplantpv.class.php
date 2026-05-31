@@ -188,7 +188,7 @@ class ActionsPowerplantpv
 			'element' => 'powerplant',
 			'table_element' => 'powerplantpv_powerplant',
 			'subelement' => 'powerplant',
-			'classpath' => 'powerplantpv/class',
+			'classpath' => 'custom/powerplantpv/class',
 			'classfile' => 'powerplant',
 			'classname' => 'PowerPlant',
 			'dir_output' => $diroutput,
@@ -196,6 +196,40 @@ class ActionsPowerplantpv
 		$hookmanager->resArray = $this->results;
 
 		return 1;
+	}
+
+	/**
+	 * Add the native category type used by power plants.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	Categorie			$object			Category object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function constructCategory($parameters, &$object, &$action, $hookmanager)
+	{
+		global $langs;
+
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+		$langs->load('powerplantpv@powerplantpv');
+
+		$this->results = array(
+			array(
+				'id' => 450004,
+				'code' => 'powerplant',
+				'cat_fk' => 'powerplant',
+				'cat_table' => 'powerplant',
+				'obj_class' => 'PowerPlant',
+				'obj_table' => 'powerplantpv_powerplant',
+				'label' => 'PowerPlant',
+			),
+		);
+		$hookmanager->resArray = $this->results;
+
+		return 0;
 	}
 
 	/**
