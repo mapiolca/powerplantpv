@@ -181,14 +181,7 @@ class modPowerPlantPV extends DolibarrModules
 		// );
 		$this->const = array();
 		foreach ($this->getPowerPlantActionTriggers() as $trigger) {
-			$this->const[] = array(
-				'MAIN_AGENDA_ACTIONAUTO_'.$trigger['code'],
-				'chaine',
-				'1',
-				$trigger['description'],
-				0,
-				'current'
-			);
+			$this->const[] = array('MAIN_AGENDA_ACTIONAUTO_'.$trigger['code'], 'chaine', '1', $trigger['description'], 0, 'current');
 		}
 
 		// Some keys to add into the overwriting translation tables
