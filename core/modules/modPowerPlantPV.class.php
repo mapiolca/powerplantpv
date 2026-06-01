@@ -180,6 +180,16 @@ class modPowerPlantPV extends DolibarrModules
 		//                             2 => array('POWERPLANTPV_MYNEWCONST2', 'chaine', 'myvalue', 'This is another constant to add', 0, 'current', 1)
 		// );
 		$this->const = array();
+		foreach ($this->getPowerPlantActionTriggers() as $trigger) {
+			$this->const[] = array(
+				'MAIN_AGENDA_ACTIONAUTO_'.$trigger['code'],
+				'chaine',
+				'1',
+				$trigger['description'],
+				0,
+				'current'
+			);
+		}
 
 		// Some keys to add into the overwriting translation tables
 		/*$this->overwrite_translation = array(
@@ -719,6 +729,27 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
+	 * Return PowerPlantPV business triggers handled by Agenda auto events.
+	 *
+	 * @return	array<int,array<string,int|string>>	Trigger definitions
+	 */
+	private function getPowerPlantActionTriggers()
+	{
+		return array(
+			array('code' => 'POWERPLANTPV_POWERPLANT_CREATE', 'label' => 'PowerPlantTriggerCreate', 'description' => 'PowerPlantTriggerCreateDesc', 'rang' => 45000400),
+			array('code' => 'POWERPLANTPV_POWERPLANT_MODIFY', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 45000401),
+			array('code' => 'POWERPLANTPV_POWERPLANT_DELETE', 'label' => 'PowerPlantTriggerDelete', 'description' => 'PowerPlantTriggerDeleteDesc', 'rang' => 45000402),
+			array('code' => 'POWERPLANTPV_POWERPLANT_VALIDATE', 'label' => 'PowerPlantTriggerValidate', 'description' => 'PowerPlantTriggerValidateDesc', 'rang' => 45000403),
+			array('code' => 'POWERPLANTPV_POWERPLANT_UNVALIDATE', 'label' => 'PowerPlantTriggerUnvalidate', 'description' => 'PowerPlantTriggerUnvalidateDesc', 'rang' => 45000404),
+			array('code' => 'POWERPLANTPV_POWERPLANT_CANCEL', 'label' => 'PowerPlantTriggerCancel', 'description' => 'PowerPlantTriggerCancelDesc', 'rang' => 45000405),
+			array('code' => 'POWERPLANTPV_POWERPLANT_REOPEN', 'label' => 'PowerPlantTriggerReopen', 'description' => 'PowerPlantTriggerReopenDesc', 'rang' => 45000406),
+			array('code' => 'POWERPLANTPV_POWERPLANT_SENTBYMAIL', 'label' => 'PowerPlantTriggerSentByMail', 'description' => 'PowerPlantTriggerSentByMailDesc', 'rang' => 45000407),
+			array('code' => 'POWERPLANTPV_POWERPLANT_INSERVICE', 'label' => 'PowerPlantTriggerInService', 'description' => 'PowerPlantTriggerInServiceDesc', 'rang' => 45000408),
+			array('code' => 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE', 'label' => 'PowerPlantTriggerOutOfService', 'description' => 'PowerPlantTriggerOutOfServiceDesc', 'rang' => 45000409),
+		);
+	}
+
+	/**
 	 * Return SQL statements that register PowerPlantPV business triggers.
 	 *
 	 * @return	string[]	SQL statements
@@ -732,20 +763,8 @@ class modPowerPlantPV extends DolibarrModules
 		$sql = array();
 		$table = $this->db->prefix().'c_action_trigger';
 		$elementtype = $this->db->escape('powerplant@powerplantpv');
-		$triggers = array(
-			array('code' => 'POWERPLANTPV_POWERPLANT_CREATE', 'label' => 'PowerPlantTriggerCreate', 'description' => 'PowerPlantTriggerCreateDesc', 'rang' => 45000400),
-			array('code' => 'POWERPLANTPV_POWERPLANT_MODIFY', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 45000401),
-			array('code' => 'POWERPLANTPV_POWERPLANT_DELETE', 'label' => 'PowerPlantTriggerDelete', 'description' => 'PowerPlantTriggerDeleteDesc', 'rang' => 45000402),
-			array('code' => 'POWERPLANTPV_POWERPLANT_VALIDATE', 'label' => 'PowerPlantTriggerValidate', 'description' => 'PowerPlantTriggerValidateDesc', 'rang' => 45000403),
-			array('code' => 'POWERPLANTPV_POWERPLANT_UNVALIDATE', 'label' => 'PowerPlantTriggerUnvalidate', 'description' => 'PowerPlantTriggerUnvalidateDesc', 'rang' => 45000404),
-			array('code' => 'POWERPLANTPV_POWERPLANT_CANCEL', 'label' => 'PowerPlantTriggerCancel', 'description' => 'PowerPlantTriggerCancelDesc', 'rang' => 45000405),
-			array('code' => 'POWERPLANTPV_POWERPLANT_REOPEN', 'label' => 'PowerPlantTriggerReopen', 'description' => 'PowerPlantTriggerReopenDesc', 'rang' => 45000406),
-			array('code' => 'POWERPLANTPV_POWERPLANT_SENTBYMAIL', 'label' => 'PowerPlantTriggerSentByMail', 'description' => 'PowerPlantTriggerSentByMailDesc', 'rang' => 45000407),
-			array('code' => 'POWERPLANTPV_POWERPLANT_INSERVICE', 'label' => 'PowerPlantTriggerInService', 'description' => 'PowerPlantTriggerInServiceDesc', 'rang' => 45000408),
-			array('code' => 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE', 'label' => 'PowerPlantTriggerOutOfService', 'description' => 'PowerPlantTriggerOutOfServiceDesc', 'rang' => 45000409),
-		);
 
-		foreach ($triggers as $trigger) {
+		foreach ($this->getPowerPlantActionTriggers() as $trigger) {
 			$code = $this->db->escape($trigger['code']);
 			$label = $this->db->escape($langs->transnoentitiesnoconv($trigger['label']));
 			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));
