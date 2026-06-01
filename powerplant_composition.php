@@ -78,6 +78,106 @@ if (!function_exists('powerplantpv_check_token')) {
 	}
 }
 
+if (!function_exists('powerplantCompositionFetchLine')) {
+	/**
+	 * Fetch a composition line with product display data.
+	 *
+	 * @param	int	$powerplantid	Power plant id
+	 * @param	int	$lineid			Composition line id
+	 * @return	stdClass|null		Line object or null
+	 */
+	function powerplantCompositionFetchLine($powerplantid, $lineid)
+	{
+		global $db, $conf;
+
+		if ($powerplantid <= 0 || $lineid <= 0) {
+			return null;
+		}
+
+		$sql = "SELECT c.rowid, c.fk_product, c.fk_status, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label";
+		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+		$sql .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
+		$sql .= " WHERE c.rowid = ".((int) $lineid);
+		$sql .= " AND c.fk_powerplant = ".((int) $powerplantid);
+		$sql .= " AND c.entity = ".((int) $conf->entity);
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			return null;
+		}
+
+		$obj = $db->fetch_object($resql);
+		return ($obj ?: null);
+	}
+}
+
+if (!function_exists('powerplantCompositionLineLabel')) {
+	/**
+	 * Return a readable composition line label.
+	 *
+	 * @param	stdClass	$line	Composition line
+	 * @return	string			Label
+	 */
+	function powerplantCompositionLineLabel($line)
+	{
+		$label = '';
+		if (!empty($line->product_ref)) {
+			$label = $line->product_ref;
+		}
+		if (!empty($line->product_label)) {
+			$label .= ($label !== '' ? ' - ' : '').$line->product_label;
+		}
+		if (!empty($line->serial_number)) {
+			$label .= ($label !== '' ? ' / ' : '').$line->serial_number;
+		}
+
+		return ($label !== '' ? $label : '#'.((int) $line->rowid));
+	}
+}
+
+if (!function_exists('powerplantCompositionDateToSqlDate')) {
+	/**
+	 * Normalize a composition date for comparisons.
+	 *
+	 * @param	string|null	$date	Date value
+	 * @return	string			YYYY-MM-DD or empty string
+	 */
+	function powerplantCompositionDateToSqlDate($date)
+	{
+		if (empty($date)) {
+			return '';
+		}
+		if (preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $date, $matches)) {
+			return $matches[1];
+		}
+
+		return '';
+	}
+}
+
+if (!function_exists('powerplantCompositionTriggerForStatus')) {
+	/**
+	 * Return the composition trigger code matching a status change.
+	 *
+	 * @param	int	$status	Status
+	 * @return	string		Trigger code
+	 */
+	function powerplantCompositionTriggerForStatus($status)
+	{
+		if ((int) $status === 4) {
+			return 'POWERPLANTPV_POWERPLANT_COMP_INSERVICE';
+		}
+		if ((int) $status === 8) {
+			return 'POWERPLANTPV_POWERPLANT_COMP_OUTOFSERVICE';
+		}
+		if ((int) $status === 6) {
+			return 'POWERPLANTPV_POWERPLANT_COMP_REPLACE';
+		}
+
+		return 'POWERPLANTPV_POWERPLANT_COMP_MODIFY';
+	}
+}
+
 $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
 $action = GETPOST('action', 'aZ09');
@@ -185,6 +285,16 @@ $componentstatus = array(
 );
 
 $canedit = ($permissiontoadd && (int) $object->status === (int) $object::STATUS_DRAFT);
+$canmanagecomposition = ($permissiontoadd && (int) $object->status !== (int) $object::STATUS_CANCELED);
+$availablemassactions = array();
+if ($canmanagecomposition) {
+	$availablemassactions[] = 'massreplace';
+	$availablemassactions[] = 'massupdatecommissioning';
+	$availablemassactions[] = 'massupdatestatus';
+}
+if ($canedit) {
+	$availablemassactions[] = 'massdelete';
+}
 $showaddform = ($canedit && $action === 'addcomposition');
 $openaddmodal = 0;
 if ($showaddform) {
@@ -249,11 +359,12 @@ if ($action === 'delcomposition' && $canedit && $lineid > 0) {
 	$db->query($sql);
 }
 
-if ($action === 'updateline' && $canedit && $lineid > 0) {
+if ($action === 'updateline' && $canmanagecomposition && $lineid > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
 
+	$oldline = powerplantCompositionFetchLine($object->id, $lineid);
 	$serial_number = GETPOST('serial_number', 'alphanohtml');
 	$fk_status = GETPOST('fk_status_edit', 'alphanohtml');
 	$fk_status = ($fk_status === '' ? 4 : (int) $fk_status);
@@ -268,15 +379,47 @@ if ($action === 'updateline' && $canedit && $lineid > 0) {
 	$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 	$sql .= " SET serial_number = '".$db->escape($serial_number)."', fk_status = ".((int) $fk_status).", commissioning_date = ".$commissioning_date_sql;
 	$sql .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
-	$db->query($sql);
+	$resupdate = $db->query($sql);
+	if (!$resupdate) {
+		setEventMessages($db->lasterror(), null, 'errors');
+	} else {
+		$newline = powerplantCompositionFetchLine($object->id, $lineid);
+		if ($oldline && $newline) {
+			$changes = array();
+			$triggercode = 'POWERPLANTPV_POWERPLANT_COMP_MODIFY';
+			if ((string) $oldline->serial_number !== (string) $newline->serial_number) {
+				$changes[] = $langs->transnoentities('PowerPlantCompositionSerialChanged', (string) $oldline->serial_number, (string) $newline->serial_number);
+				$triggercode = 'POWERPLANTPV_POWERPLANT_COMP_SERIAL';
+			}
+			if ((int) $oldline->fk_status !== (int) $newline->fk_status) {
+				$oldstatus = isset($componentstatus[(int) $oldline->fk_status]) ? $componentstatus[(int) $oldline->fk_status] : (string) $oldline->fk_status;
+				$newstatus = isset($componentstatus[(int) $newline->fk_status]) ? $componentstatus[(int) $newline->fk_status] : (string) $newline->fk_status;
+				$changes[] = $langs->transnoentities('PowerPlantCompositionStatusChanged', $oldstatus, $newstatus);
+				$triggercode = powerplantCompositionTriggerForStatus((int) $newline->fk_status);
+			}
+			$olddate = powerplantCompositionDateToSqlDate($oldline->commissioning_date);
+			$newdate = powerplantCompositionDateToSqlDate($newline->commissioning_date);
+			if ($olddate !== $newdate) {
+				$changes[] = $langs->transnoentities('PowerPlantCompositionCommissioningChanged', $olddate, $newdate);
+				if ($triggercode === 'POWERPLANTPV_POWERPLANT_COMP_MODIFY') {
+					$triggercode = 'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING';
+				}
+			}
+			if (!empty($changes)) {
+				$label = $langs->transnoentities('PowerPlantCompositionLineModified', powerplantCompositionLineLabel($newline));
+				$message = $langs->transnoentities('PowerPlantCompositionLineModifiedDesc', powerplantCompositionLineLabel($newline))."\n".implode("\n", $changes);
+				powerplantTriggerAgendaEvent($object, $user, $triggercode, $label, $message);
+			}
+		}
+	}
 	$action = 'view';
 }
 
-if (($action === '' || $action === 'view' || $action === 'list') && $massaction !== '' && $canedit && is_array($toselect) && count($toselect) > 0) {
+if (($action === '' || $action === 'view' || $action === 'list') && $massaction !== '' && is_array($toselect) && count($toselect) > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
-	if (in_array($massaction, array('massreplace', 'massdelete', 'massupdatecommissioning', 'massupdatestatus'), true)) {
+	if (in_array($massaction, $availablemassactions, true)) {
 		$action = $massaction;
 	}
 }
@@ -287,6 +430,7 @@ $massselectedids = array_filter($massselectedids, function ($v) {
 });
 $massselectedids = array_values($massselectedids);
 $masslines = array();
+$masslinesbyid = array();
 
 // Load selected lines outside modal rendering to keep data available after list reload.
 if (!empty($massselectedids)) {
@@ -299,6 +443,7 @@ if (!empty($massselectedids)) {
 	if ($resmasslines) {
 		while ($objmassline = $db->fetch_object($resmasslines)) {
 			$masslines[] = $objmassline;
+			$masslinesbyid[(int) $objmassline->rowid] = $objmassline;
 		}
 	}
 }
@@ -321,7 +466,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatecommissioning' && $canedit) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatecommissioning' && $canmanagecomposition) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -339,16 +484,29 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 		if (!$apply_to_all_date) {
 			$idslist = array((int) $idstoupdate[0]);
 		}
+		$nbchanged = 0;
+		foreach ($idslist as $idlineupdate) {
+			if (!empty($masslinesbyid[(int) $idlineupdate]) && powerplantCompositionDateToSqlDate($masslinesbyid[(int) $idlineupdate]->commissioning_date) !== $commissioning_date_mass) {
+				$nbchanged++;
+			}
+		}
 		$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 		$sql .= " SET commissioning_date = '".$db->escape($commissioning_date_mass)."'";
 		$sql .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
 		$sql .= " AND rowid IN (".implode(',', $idslist).")";
-		$db->query($sql);
+		$resupdate = $db->query($sql);
+		if (!$resupdate) {
+			setEventMessages($db->lasterror(), null, 'errors');
+		} elseif ($nbchanged > 0) {
+			$label = $langs->transnoentities('PowerPlantCompositionCommissioningMassChanged', $object->ref);
+			$message = $langs->transnoentities('PowerPlantCompositionCommissioningMassChangedDesc', $nbchanged, dol_print_date($db->jdate($commissioning_date_mass.' 00:00:00'), 'day'));
+			powerplantTriggerAgendaEvent($object, $user, 'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING', $label, $message);
+		}
 	}
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatestatus' && $canedit && !GETPOST('cancel', 'alpha')) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massupdatestatus' && $canmanagecomposition && !GETPOST('cancel', 'alpha')) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -363,6 +521,8 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 	$lineids = array_map('intval', $lineids);
 	if (!empty($lineids)) {
 		$error = 0;
+		$nbchanged = 0;
+		$statuschanges = array();
 		$db->begin();
 		foreach ($lineids as $idx => $lineidmass) {
 			$lineidmass = (int) $lineidmass;
@@ -371,6 +531,9 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 			}
 			$statusline = (int) $statuses[$idx];
 			if (!array_key_exists($statusline, $componentstatus)) {
+				continue;
+			}
+			if (!empty($masslinesbyid[$lineidmass]) && (int) $masslinesbyid[$lineidmass]->fk_status === $statusline) {
 				continue;
 			}
 			$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
@@ -382,17 +545,37 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 				setEventMessages($db->lasterror(), null, 'errors');
 				break;
 			}
+			$nbchanged++;
+			if (empty($statuschanges[$statusline])) {
+				$statuschanges[$statusline] = 0;
+			}
+			$statuschanges[$statusline]++;
 		}
 		if ($error) {
 			$db->rollback();
 		} else {
 			$db->commit();
+			if ($nbchanged > 0) {
+				$triggercode = 'POWERPLANTPV_POWERPLANT_COMP_MODIFY';
+				if (count($statuschanges) === 1) {
+					$statuskeys = array_keys($statuschanges);
+					$triggercode = powerplantCompositionTriggerForStatus((int) $statuskeys[0]);
+				}
+				$details = array();
+				foreach ($statuschanges as $statuskey => $nbstatus) {
+					$statuslabel = isset($componentstatus[(int) $statuskey]) ? $componentstatus[(int) $statuskey] : (string) $statuskey;
+					$details[] = $langs->transnoentities('PowerPlantCompositionStatusMassChangedLine', $nbstatus, $statuslabel);
+				}
+				$label = $langs->transnoentities('PowerPlantCompositionStatusMassChanged', $object->ref);
+				$message = $langs->transnoentities('PowerPlantCompositionStatusMassChangedDesc', $nbchanged)."\n".implode("\n", $details);
+				powerplantTriggerAgendaEvent($object, $user, $triggercode, $label, $message);
+			}
 		}
 	}
 	$action = 'view';
 }
 
-if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massreplace' && $canedit && !GETPOST('cancel', 'alpha')) {
+if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $massaction === 'massreplace' && $canmanagecomposition && !GETPOST('cancel', 'alpha')) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -402,6 +585,8 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 	$dates = GETPOST('commissioning_date_mass_replace', 'array');
 	$statuses = GETPOST('fk_status_mass_replace', 'array');
 	if (!empty($lineids)) {
+		$nbreplaced = 0;
+		$error = 0;
 		$db->begin();
 		foreach ($lineids as $idx => $lineidmass) {
 			$lineidmass = (int) $lineidmass;
@@ -421,18 +606,33 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 			$sqlold = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sqlold .= " SET fk_status = 6";
 			$sqlold .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
-			$db->query($sqlold);
+			$resold = $db->query($sqlold);
 
 			$sqlnew = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
 			$sqlnew .= " VALUES (".((int) $object->id).", ".((int) $productid).", ".((int) $statusval).", 1, '".$serial."', '".$db->escape($dateval)."', ".((int) $conf->entity).")";
-			$db->query($sqlnew);
+			$resnew = $db->query($sqlnew);
+			if (!$resold || !$resnew) {
+				$error++;
+				setEventMessages($db->lasterror(), null, 'errors');
+				break;
+			}
+			$nbreplaced++;
 		}
-		$db->commit();
+		if ($error) {
+			$db->rollback();
+		} else {
+			$db->commit();
+			if ($nbreplaced > 0) {
+				$label = $langs->transnoentities('PowerPlantCompositionMassReplaced', $object->ref);
+				$message = $langs->transnoentities('PowerPlantCompositionMassReplacedDesc', $nbreplaced);
+				powerplantTriggerAgendaEvent($object, $user, 'POWERPLANTPV_POWERPLANT_COMP_REPLACE', $label, $message);
+			}
+		}
 	}
 	$action = 'view';
 }
 
-if ($action === 'confirmreplacecomposition' && $canedit && $lineid > 0) {
+if ($action === 'confirmreplacecomposition' && $canmanagecomposition && $lineid > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
 	}
@@ -453,6 +653,7 @@ if ($action === 'confirmreplacecomposition' && $canedit && $lineid > 0) {
 	$sqlcheckline .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
 	$rescheckline = $db->query($sqlcheckline);
 	if ($rescheckline && $db->num_rows($rescheckline) > 0 && $fk_product_replace > 0) {
+		$oldline = powerplantCompositionFetchLine($object->id, $lineid);
 		$db->begin();
 
 		$sqlreplaceold = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
@@ -465,7 +666,14 @@ if ($action === 'confirmreplacecomposition' && $canedit && $lineid > 0) {
 		$resaddnew = $db->query($sqladdnew);
 
 		if ($resreplaceold && $resaddnew) {
+			$newlineid = $db->last_insert_id($db->prefix()."powerplantpv_powerplantcomp", "rowid");
 			$db->commit();
+			$newline = powerplantCompositionFetchLine($object->id, (int) $newlineid);
+			$oldlabel = ($oldline ? powerplantCompositionLineLabel($oldline) : '#'.((int) $lineid));
+			$newlabel = ($newline ? powerplantCompositionLineLabel($newline) : '#'.((int) $newlineid));
+			$label = $langs->transnoentities('PowerPlantCompositionLineReplaced', $oldlabel);
+			$message = $langs->transnoentities('PowerPlantCompositionLineReplacedDesc', $oldlabel, $newlabel);
+			powerplantTriggerAgendaEvent($object, $user, 'POWERPLANTPV_POWERPLANT_COMP_REPLACE', $label, $message);
 		} else {
 			$db->rollback();
 		}
@@ -552,36 +760,40 @@ if ($id > 0 || !empty($ref)) {
 		$param .= '&search_commissioning='.urlencode($search_commissioning);
 	}
 
-		$massactionbutton = '';
-		$newcardbutton = '';
-		if ($canedit) {
-			$arrayofmassactions = array(
-				'massreplace' => img_picto('', 'refresh', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassReplaceSelected'),
-				'massupdatecommissioning' => img_picto('', 'calendar', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateCommissioningDate'),
-				'massupdatestatus' => img_picto('', 'status', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateStatus'),
-				'massdelete' => img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete')
-			);
-			$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
-			$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition&token='.newToken());
-		}
+	$massactionbutton = '';
+	$newcardbutton = '';
+	$arrayofmassactions = array();
+	if ($canmanagecomposition) {
+		$arrayofmassactions['massreplace'] = img_picto('', 'refresh', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassReplaceSelected');
+		$arrayofmassactions['massupdatecommissioning'] = img_picto('', 'calendar', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateCommissioningDate');
+		$arrayofmassactions['massupdatestatus'] = img_picto('', 'status', 'class="pictofixedwidth"').$langs->trans('PowerPlantMassUpdateStatus');
+	}
+	if ($canedit) {
+		$arrayofmassactions['massdelete'] = img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete');
+		$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition&token='.newToken());
+	}
+	if (!empty($arrayofmassactions)) {
+		$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
+	}
+	$showmassactions = !empty($arrayofmassactions);
 
-			$productsforcomposition = array();
-		$sqlproducts = "SELECT p.rowid, p.ref, p.label";
-		$sqlproducts .= " FROM ".$db->prefix()."product as p";
-		$sqlproducts .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = p.rowid";
-		$sqlproducts .= " WHERE pe.categorie_photovoltaique IS NOT NULL AND pe.categorie_photovoltaique <> ''";
-		$sqlproducts .= " AND p.entity IN (".getEntity('product').")";
-		$sqlproducts .= " ORDER BY p.ref ASC";
-		$resproducts = $db->query($sqlproducts);
-		if ($resproducts) {
-			while ($objproduct = $db->fetch_object($resproducts)) {
-				$productlabel = $objproduct->ref;
-				if (!empty($objproduct->label)) {
-					$productlabel .= ' - '.$objproduct->label;
-				}
-				$productsforcomposition[(int) $objproduct->rowid] = $productlabel;
+	$productsforcomposition = array();
+	$sqlproducts = "SELECT p.rowid, p.ref, p.label";
+	$sqlproducts .= " FROM ".$db->prefix()."product as p";
+	$sqlproducts .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = p.rowid";
+	$sqlproducts .= " WHERE pe.categorie_photovoltaique IS NOT NULL AND pe.categorie_photovoltaique <> ''";
+	$sqlproducts .= " AND p.entity IN (".getEntity('product').")";
+	$sqlproducts .= " ORDER BY p.ref ASC";
+	$resproducts = $db->query($sqlproducts);
+	if ($resproducts) {
+		while ($objproduct = $db->fetch_object($resproducts)) {
+			$productlabel = $objproduct->ref;
+			if (!empty($objproduct->label)) {
+				$productlabel .= ' - '.$objproduct->label;
 			}
+			$productsforcomposition[(int) $objproduct->rowid] = $productlabel;
 		}
+	}
 
 		print '<div id="dialog-addcomposition" class="hideobject">';
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
@@ -656,7 +868,7 @@ if ($id > 0 || !empty($ref)) {
 		print '});';
 		print '</script>';
 
-		if ($canedit && $action === 'editline' && $lineid > 0) {
+		if ($canmanagecomposition && $action === 'editline' && $lineid > 0) {
 			$sqledit = "SELECT rowid, fk_status, serial_number, commissioning_date FROM ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sqledit .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
 			$resedit = $db->query($sqledit);
@@ -703,7 +915,7 @@ if ($id > 0 || !empty($ref)) {
 			}
 		}
 
-		if ($canedit && $action === 'replaceline' && $lineid > 0) {
+		if ($canmanagecomposition && $action === 'replaceline' && $lineid > 0) {
 			$sqlreplace = "SELECT rowid, fk_product, serial_number FROM ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sqlreplace .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
 			$resreplace = $db->query($sqlreplace);
@@ -783,7 +995,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdeletecomposition").dialog({autoOpen:true,modal:true,width:550,title:"'.dol_escape_js($langs->transnoentitiesnoconv('Delete')).'"});});</script>';
 		}
 
-		if ($canedit && $action === 'massupdatecommissioning' && !empty($massselectedids)) {
+		if ($canmanagecomposition && $action === 'massupdatecommissioning' && !empty($massselectedids)) {
 			print '<div id="dialog-massdatecomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -807,7 +1019,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#dialog-massdatecomposition").dialog({autoOpen:true,modal:true,width:650,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateCommissioningDate')).'"});});</script>';
 		}
 
-		if ($canedit && $action === 'massupdatestatus' && !empty($massselectedids)) {
+		if ($canmanagecomposition && $action === 'massupdatestatus' && !empty($massselectedids)) {
 			print '<div id="dialog-massstatuscomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -861,7 +1073,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</script>';
 		}
 
-		if ($canedit && $action === 'massreplace' && !empty($massselectedids)) {
+		if ($canmanagecomposition && $action === 'massreplace' && !empty($massselectedids)) {
 			print '<div id="dialog-massreplacecomposition" class="hideobject">';
 			print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -872,25 +1084,25 @@ if ($id > 0 || !empty($ref)) {
 			foreach ($massselectedids as $selectedid) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
-				print '<table class="noborder centpercent">';
-				print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
-					if (!empty($masslines)) {
-						foreach ($masslines as $idx => $massline) {
-							print '<tr>';
-							print '<td><input type="hidden" name="lineid_mass_replace['.$idx.']" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace['.$idx.']', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
-							print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace['.$idx.']" value=""></td>';
-							print '<td><input type="date" class="flat width125" name="commissioning_date_mass_replace['.$idx.']" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
-							print '<td>'.$form->selectarray('fk_status_mass_replace['.$idx.']', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
-							print '</tr>';
-						}
-					} else {
-					print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+			print '<table class="noborder centpercent">';
+			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
+			if (!empty($masslines)) {
+				foreach ($masslines as $idx => $massline) {
+					print '<tr>';
+					print '<td><input type="hidden" name="lineid_mass_replace['.$idx.']" value="'.((int) $massline->rowid).'">'.$form->selectarray('fk_product_mass_replace['.$idx.']', $productsforcomposition, (int) $massline->fk_product, 0, 0, '', 0, 0, 0, '', 'flat minwidth100imp maxwidth200 massreplace-product-select').'</td>';
+					print '<td><input type="text" class="flat minwidth100" name="serial_number_mass_replace['.$idx.']" value=""></td>';
+					print '<td><input type="date" class="flat width125" name="commissioning_date_mass_replace['.$idx.']" value="'.dol_print_date(dol_now(), '%Y-%m-%d').'"></td>';
+					print '<td>'.$form->selectarray('fk_status_mass_replace['.$idx.']', $componentstatus, 4, 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massreplace-status-select').'</td>';
+					print '</tr>';
 				}
+			} else {
+				print '<tr><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+			}
 			print '</table>';
-				print '<div class="center">';
-				print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
-				print ' <input type="button" class="button button-cancel" id="massreplace-cancel-btn" value="'.$langs->trans('Cancel').'">';
-				print '</div>';
+			print '<div class="center">';
+			print '<input type="submit" class="button button-edit" value="'.$langs->trans('PowerPlantReplace').'">';
+			print ' <input type="button" class="button button-cancel" id="massreplace-cancel-btn" value="'.$langs->trans('Cancel').'">';
+			print '</div>';
 			print '</form>';
 			print '</div>';
 			print '<script nonce="'.getNonce().'">';
@@ -949,7 +1161,7 @@ if ($id > 0 || !empty($ref)) {
 			print '</tr>';
 
 		print '<tr class="liste_titre">';
-		print_liste_field_titre($form->showCheckAddButtons('checkforselect', 1), $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
+		print_liste_field_titre(($showmassactions ? $form->showCheckAddButtons('checkforselect', 1) : ''), $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'cpv.label', '', $param, '', $sortfield, $sortorder);
@@ -964,34 +1176,38 @@ if ($id > 0 || !empty($ref)) {
 		$i = 0;
 		while ($i < $num) {
 			$objline = $db->fetch_object($resql);
-				print '<tr class="oddeven">';
-				print '<td class="center">';
+			print '<tr class="oddeven">';
+			print '<td class="center">';
+			if ($showmassactions) {
 				print '<input class="flat checkforselect" type="checkbox" name="toselect[]" value="'.((int) $objline->rowid).'">';
-				print '</td>';
-				$productstatic = new Product($db);
-				$productstatic->id = (int) $objline->fk_product;
-				$productstatic->ref = $objline->product_ref;
-				$productstatic->label = $objline->product_label;
-				print '<td>'.$productstatic->getNomUrl(1).'</td>';
-				print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
-				print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
-				print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
-				print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
-				print '<td>';
-				if ($objline->fk_status !== null && $objline->fk_status !== '') {
-					$statuskey = (int) $objline->fk_status;
-					$statuslabel = isset($componentstatus[$statuskey]) ? $componentstatus[$statuskey] : $statuskey;
-					print '<span class="badge badge-status'.$statuskey.'">'.dol_escape_htmltag($statuslabel).'</span>';
-				}
-				print '</td>';
-					print '<td class="center">';
-						if ($canedit) {
-							print '<a class="editfielda reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&token='.newToken().'&lineid='.(int) $objline->rowid.'">'.img_edit().'</a>';
-							print '<a class="reposition marginleftonly marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=replaceline&lineid='.(int) $objline->rowid.'&token='.newToken().'" title="'.$langs->trans('PowerPlantReplace').'"><span class="fas fa-exchange-alt"></span></a>';
-							print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
-						}
-				print '</td>';
-				print '</tr>';
+			}
+			print '</td>';
+			$productstatic = new Product($db);
+			$productstatic->id = (int) $objline->fk_product;
+			$productstatic->ref = $objline->product_ref;
+			$productstatic->label = $objline->product_label;
+			print '<td>'.$productstatic->getNomUrl(1).'</td>';
+			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
+			print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
+			print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
+			print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
+			print '<td>';
+			if ($objline->fk_status !== null && $objline->fk_status !== '') {
+				$statuskey = (int) $objline->fk_status;
+				$statuslabel = isset($componentstatus[$statuskey]) ? $componentstatus[$statuskey] : $statuskey;
+				print '<span class="badge badge-status'.$statuskey.'">'.dol_escape_htmltag($statuslabel).'</span>';
+			}
+			print '</td>';
+			print '<td class="center">';
+			if ($canmanagecomposition) {
+				print '<a class="editfielda reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&token='.newToken().'&lineid='.(int) $objline->rowid.'">'.img_edit().'</a>';
+				print '<a class="reposition marginleftonly marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=replaceline&lineid='.(int) $objline->rowid.'&token='.newToken().'" title="'.$langs->trans('PowerPlantReplace').'"><span class="fas fa-exchange-alt"></span></a>';
+			}
+			if ($canedit) {
+				print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
+			}
+			print '</td>';
+			print '</tr>';
 			$i++;
 		}
 	} else {

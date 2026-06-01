@@ -739,6 +739,12 @@ class modPowerPlantPV extends DolibarrModules
 			array('code' => 'POWERPLANTPV_POWERPLANT_SENTBYMAIL', 'label' => 'PowerPlantTriggerSentByMail', 'description' => 'PowerPlantTriggerSentByMailDesc', 'rang' => 45000407),
 			array('code' => 'POWERPLANTPV_POWERPLANT_INSERVICE', 'label' => 'PowerPlantTriggerInService', 'description' => 'PowerPlantTriggerInServiceDesc', 'rang' => 45000408),
 			array('code' => 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE', 'label' => 'PowerPlantTriggerOutOfService', 'description' => 'PowerPlantTriggerOutOfServiceDesc', 'rang' => 45000409),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_MODIFY', 'label' => 'PowerPlantCompTriggerModify', 'description' => 'PowerPlantCompTriggerModifyDesc', 'rang' => 45000410),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_REPLACE', 'label' => 'PowerPlantCompTriggerReplace', 'description' => 'PowerPlantCompTriggerReplaceDesc', 'rang' => 45000411),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_INSERVICE', 'label' => 'PowerPlantCompTriggerInService', 'description' => 'PowerPlantCompTriggerInServiceDesc', 'rang' => 45000412),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_OUTOFSERVICE', 'label' => 'PowerPlantCompTriggerOutOfService', 'description' => 'PowerPlantCompTriggerOutOfServiceDesc', 'rang' => 45000413),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_SERIAL', 'label' => 'PowerPlantCompTriggerSerial', 'description' => 'PowerPlantCompTriggerSerialDesc', 'rang' => 45000414),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING', 'label' => 'PowerPlantCompTriggerCommissioning', 'description' => 'PowerPlantCompTriggerCommissioningDesc', 'rang' => 45000415),
 		);
 	}
 

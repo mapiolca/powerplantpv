@@ -204,6 +204,9 @@ if (!$permissiontoread) {
 }
 
 $error = 0;
+$openSetInServiceCompositionDateDialog = 0;
+$setInServiceCompositionDate = '';
+$setInServiceCompositionDateConflicts = 0;
 if ($action == 'add' && !empty($origin) && $originid > 0) {
 	$object->origin = $origin;
 	$object->origin_id = $originid;
@@ -379,13 +382,34 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 		if (function_exists('checkToken') && !checkToken()) {
 			accessforbidden();
 		}
-		$result = $object->setInService($user);
-		if ($result >= 0) {
-			setEventMessages($langs->trans('PowerPlantSetInServiceDone'), null, 'mesgs');
-			header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
-			exit;
+		$compositiondatemode = GETPOST('composition_date_mode', 'alpha');
+		if (GETPOSTISSET('composition_date_mode_overwrite')) {
+			$compositiondatemode = 'overwrite';
+		} elseif (GETPOSTISSET('composition_date_mode_keep')) {
+			$compositiondatemode = 'keep';
+		}
+		if (!in_array($compositiondatemode, array('overwrite', 'keep'), true)) {
+			$compositiondatemode = '';
+		}
+		$setInServiceCompositionDateConflicts = powerplantCountCompositionCommissioningDateConflicts($object);
+		if ($compositiondatemode === '' && $setInServiceCompositionDateConflicts > 0) {
+			$openSetInServiceCompositionDateDialog = 1;
+			$setInServiceCompositionDate = powerplantGetCompositionCommissioningDate($object);
+			$action = 'confirm_setinservice_composition_dates';
 		} else {
-			setEventMessages($object->error, $object->errors, 'errors');
+			$result = $object->setInService($user);
+			if ($result >= 0) {
+				$resultcomposition = powerplantApplyCompositionCommissioningDate($object, $user, ($compositiondatemode === 'overwrite' ? 1 : 0));
+				if ($resultcomposition < 0) {
+					setEventMessages($object->error, $object->errors, 'errors');
+				} else {
+					setEventMessages($langs->trans('PowerPlantSetInServiceDone'), null, 'mesgs');
+					header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+					exit;
+				}
+			} else {
+				setEventMessages($object->error, $object->errors, 'errors');
+			}
 		}
 	}
 	if ($action == 'setoutofservice' && $permissiontoadd) {
@@ -872,6 +896,25 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	// Print form confirm
 	print $formconfirm;
+
+	if (!empty($openSetInServiceCompositionDateDialog)) {
+		print '<div id="dialog-setinservice-composition-dates" class="hideobject">';
+		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="action" value="setinservice">';
+		print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+		print '<p>'.$langs->trans('PowerPlantCompositionCommissioningDateConflictQuestion', $setInServiceCompositionDateConflicts, dol_print_date($db->jdate($setInServiceCompositionDate.' 00:00:00'), 'day')).'</p>';
+		print '<div class="center">';
+		print '<input type="submit" class="button button-edit" name="composition_date_mode_overwrite" value="'.dol_escape_htmltag($langs->trans('PowerPlantCompositionOverwriteExistingDates')).'">';
+		print ' <input type="submit" class="button" name="composition_date_mode_keep" value="'.dol_escape_htmltag($langs->trans('PowerPlantCompositionKeepExistingDates')).'">';
+		print ' <a class="button button-cancel" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">'.$langs->trans('Cancel').'</a>';
+		print '</div>';
+		print '</form>';
+		print '</div>';
+		print '<script nonce="'.getNonce().'">';
+		print 'jQuery(function(){jQuery("#dialog-setinservice-composition-dates").dialog({autoOpen:true,modal:true,width:720,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantSetInService')).'"});});';
+		print '</script>';
+	}
 
 
 	// Object card

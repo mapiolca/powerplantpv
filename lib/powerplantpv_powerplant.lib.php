@@ -428,3 +428,195 @@ function powerplantSelectCategories($form, $categtype, $htmlname, $object)
 
 	return $out;
 }
+
+/**
+ * Trigger a PowerPlantPV automatic Agenda event with explicit label and note.
+ *
+ * @param	PowerPlant	$object		Power plant
+ * @param	User		$user		User
+ * @param	string		$triggercode	Business trigger code
+ * @param	string		$label		Event label
+ * @param	string		$message		Event private note
+ * @return	int					0 on success, <0 on error
+ */
+function powerplantTriggerAgendaEvent($object, $user, $triggercode, $label, $message)
+{
+	if (empty($object->id) || empty($triggercode)) {
+		return 0;
+	}
+
+	if (!isset($object->context) || !is_array($object->context)) {
+		$object->context = array();
+	}
+
+	$oldContext = $object->context;
+	$objectvars = get_object_vars($object);
+	$hadActionMsg = array_key_exists('actionmsg', $objectvars);
+	$hadActionMsg2 = array_key_exists('actionmsg2', $objectvars);
+	$hadActionTypeCode = array_key_exists('actiontypecode', $objectvars);
+	$oldActionMsg = ($hadActionMsg ? $object->actionmsg : null);
+	$oldActionMsg2 = ($hadActionMsg2 ? $object->actionmsg2 : null);
+	$oldActionTypeCode = ($hadActionTypeCode ? $object->actiontypecode : null);
+
+	$object->context['actionmsg'] = $message;
+	$object->context['actionmsg2'] = $label;
+	$object->actionmsg = $message;
+	$object->actionmsg2 = $label;
+	$result = $object->call_trigger($triggercode, $user);
+
+	$object->context = $oldContext;
+	if ($hadActionMsg) {
+		$object->actionmsg = $oldActionMsg;
+	} else {
+		unset($object->actionmsg);
+	}
+	if ($hadActionMsg2) {
+		$object->actionmsg2 = $oldActionMsg2;
+	} else {
+		unset($object->actionmsg2);
+	}
+	if ($hadActionTypeCode) {
+		$object->actiontypecode = $oldActionTypeCode;
+	} else {
+		unset($object->actiontypecode);
+	}
+
+	return ($result < 0 ? -1 : 0);
+}
+
+/**
+ * Return a SQL date from a Dolibarr date value.
+ *
+ * @param	int|string|null	$date	Date value
+ * @return	string				YYYY-MM-DD or empty string
+ */
+function powerplantDateToSqlDate($date)
+{
+	if (empty($date)) {
+		return '';
+	}
+	if (is_numeric($date)) {
+		return dol_print_date((int) $date, '%Y-%m-%d');
+	}
+	if (preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $date, $matches)) {
+		return $matches[1];
+	}
+
+	return '';
+}
+
+/**
+ * Return the commissioning date to apply to composition lines.
+ *
+ * @param	PowerPlant	$object	Power plant
+ * @return	string				YYYY-MM-DD
+ */
+function powerplantGetCompositionCommissioningDate($object)
+{
+	$date = powerplantDateToSqlDate($object->commissioning_date);
+	if ($date === '') {
+		$date = dol_print_date(dol_now(), '%Y-%m-%d');
+	}
+
+	return $date;
+}
+
+/**
+ * Count active composition lines that already have a commissioning date.
+ *
+ * @param	PowerPlant	$object	Power plant
+ * @return	int				Number of lines
+ */
+function powerplantCountCompositionCommissioningDateConflicts($object)
+{
+	global $db, $conf;
+
+	$sql = "SELECT COUNT(c.rowid) as nb";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+	$sql .= " WHERE c.fk_powerplant = ".((int) $object->id);
+	$sql .= " AND c.entity = ".((int) $conf->entity);
+	$sql .= " AND (c.fk_status IS NULL OR c.fk_status NOT IN (6, 8))";
+	$sql .= " AND c.commissioning_date IS NOT NULL";
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return 0;
+	}
+	$obj = $db->fetch_object($resql);
+
+	return ($obj ? (int) $obj->nb : 0);
+}
+
+/**
+ * Apply the power plant commissioning date to active composition lines.
+ *
+ * @param	PowerPlant	$object					Power plant
+ * @param	User		$user					User
+ * @param	int<0,1>	$overwriteExistingDates	1=replace existing line dates
+ * @return	int									Updated line count, <0 on error
+ */
+function powerplantApplyCompositionCommissioningDate($object, $user, $overwriteExistingDates = 0)
+{
+	global $db, $conf, $langs;
+
+	$date = powerplantGetCompositionCommissioningDate($object);
+	$where = " WHERE fk_powerplant = ".((int) $object->id);
+	$where .= " AND entity = ".((int) $conf->entity);
+	$where .= " AND (fk_status IS NULL OR fk_status NOT IN (6, 8))";
+
+	$sqlcount = "SELECT COUNT(rowid) as nb FROM ".$db->prefix()."powerplantpv_powerplantcomp".$where;
+	if (empty($overwriteExistingDates)) {
+		$sqlcount .= " AND commissioning_date IS NULL";
+	}
+	$rescount = $db->query($sqlcount);
+	if (!$rescount) {
+		$object->error = $db->lasterror();
+		return -1;
+	}
+	$objcount = $db->fetch_object($rescount);
+	$nbtoupdate = ($objcount ? (int) $objcount->nb : 0);
+
+	$db->begin();
+
+	if (powerplantDateToSqlDate($object->commissioning_date) === '') {
+		$sqlpowerplant = "UPDATE ".$db->prefix().$object->table_element;
+		$sqlpowerplant .= " SET commissioning_date = '".$db->escape($date)."'";
+		$sqlpowerplant .= " WHERE rowid = ".((int) $object->id);
+		$respowerplant = $db->query($sqlpowerplant);
+		if (!$respowerplant) {
+			$object->error = $db->lasterror();
+			$db->rollback();
+			return -1;
+		}
+		$object->commissioning_date = $db->jdate($date.' 00:00:00');
+	}
+
+	if ($nbtoupdate > 0) {
+		$sqlupdate = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+		$sqlupdate .= " SET commissioning_date = '".$db->escape($date)."'";
+		$sqlupdate .= $where;
+		if (empty($overwriteExistingDates)) {
+			$sqlupdate .= " AND commissioning_date IS NULL";
+		}
+		$resupdate = $db->query($sqlupdate);
+		if (!$resupdate) {
+			$object->error = $db->lasterror();
+			$db->rollback();
+			return -1;
+		}
+	}
+
+	$db->commit();
+
+	if ($nbtoupdate > 0) {
+		$label = $langs->transnoentities('PowerPlantCompositionCommissioningDateUpdated', $object->ref);
+		$message = $langs->transnoentities('PowerPlantCompositionCommissioningDateUpdatedDesc', $nbtoupdate, dol_print_date($db->jdate($date.' 00:00:00'), 'day'));
+		$message .= "\n".$langs->transnoentities(empty($overwriteExistingDates) ? 'PowerPlantCompositionExistingDatesKept' : 'PowerPlantCompositionExistingDatesOverwritten');
+		$result = powerplantTriggerAgendaEvent($object, $user, 'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING', $label, $message);
+		if ($result < 0) {
+			return -1;
+		}
+	}
+
+	return $nbtoupdate;
+}
