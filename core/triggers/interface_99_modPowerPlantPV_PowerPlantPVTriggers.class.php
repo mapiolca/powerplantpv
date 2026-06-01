@@ -52,7 +52,7 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 	 * @param	Conf		$conf		Configuration object
 	 * @return	int						0 on success, <0 on error
 	 */
-	public function runTrigger($action, &$object, User $user, Translate $langs, Conf $conf)
+	public function runTrigger($action, $object, User $user, Translate $langs, Conf $conf)
 	{
 		if (!isModEnabled('powerplantpv')) {
 			return 0;
