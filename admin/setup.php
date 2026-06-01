@@ -2,6 +2,7 @@
 /* Copyright (C) 2004-2017  Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -154,6 +155,17 @@ if ($action == 'updateMask') {
 	} else {
 		setEventMessages($langs->trans("Error"), null, 'errors');
 	}
+} elseif ($action == 'recalculate_commercial_peak_power') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$result = powerplantpvRecalculateAllCommercialDocumentPeakPower();
+	if ($result['result'] > 0) {
+		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationDone', $result['updated']), null, 'mesgs');
+	} else {
+		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationFailed'), array($result['error']), 'errors');
+	}
 } elseif ($action == 'specimen' && $tmpobjectkey) {
 	$modele = GETPOST('module', 'alpha');
 
@@ -276,6 +288,19 @@ if (!empty($formSetup->items)) {
 	print $formSetup->generateOutput(true);
 	print '<br>';
 }
+
+print load_fiche_titre($langs->trans('PowerPlantPVPeakPowerRecalculation'), '', '');
+print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVPeakPowerRecalculationHelp').'</span>';
+print '<div class="tabsAction">';
+print dolGetButtonAction(
+	$langs->trans('PowerPlantPVRecalculatePeakPower'),
+	'',
+	'default',
+	$_SERVER['PHP_SELF'].'?action=recalculate_commercial_peak_power&token='.newToken(),
+	'',
+	true
+);
+print '</div>';
 
 
 foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
