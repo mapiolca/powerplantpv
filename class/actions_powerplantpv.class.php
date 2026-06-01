@@ -42,6 +42,68 @@ class ActionsPowerplantpv
 	public $errors = array();
 
 	/**
+	 * Add price per watt-peak to the native margin table.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function displayMarginInfos($parameters, &$object, &$action, $hookmanager)
+	{
+		global $langs;
+
+		$this->resprints = '';
+
+		if (!isModEnabled('powerplantpv') || empty($object->id) || empty($parameters['marginInfo']) || !is_array($parameters['marginInfo'])) {
+			return 0;
+		}
+
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+
+		$config = array();
+		foreach (powerplantpvGetObjectElementTypes($object) as $elementtype) {
+			$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+			if (!empty($config)) {
+				break;
+			}
+		}
+		if (empty($config)) {
+			return 0;
+		}
+
+		$peakpowerwc = powerplantpvGetObjectPeakPowerKwc($object) * 1000;
+		if ($peakpowerwc <= 0) {
+			return 0;
+		}
+
+		$marginInfo = $parameters['marginInfo'];
+		$langs->load('powerplantpv@powerplantpv');
+
+		$pvtotal = isset($marginInfo['pv_total']) ? (float) $marginInfo['pv_total'] : 0.0;
+		$patotal = isset($marginInfo['pa_total']) ? (float) $marginInfo['pa_total'] : 0.0;
+		$totalmargin = isset($marginInfo['total_margin']) ? (float) $marginInfo['total_margin'] : 0.0;
+
+		$html = '<tr class="oddeven powerplantpv-price-per-wattpeak">';
+		$html .= '<td>'.dol_escape_htmltag($langs->trans('PowerPlantPVPricePerWattPeak')).'</td>';
+		$html .= '<td class="right">'.$this->formatPricePerWattPeak($pvtotal / $peakpowerwc).'</td>';
+		$html .= '<td class="right">'.$this->formatPricePerWattPeak($patotal / $peakpowerwc).'</td>';
+		$html .= '<td class="right">'.$this->formatPricePerWattPeak($totalmargin / $peakpowerwc).'</td>';
+		if (getDolGlobalString('DISPLAY_MARGIN_RATES')) {
+			$html .= '<td class="right"></td>';
+		}
+		if (getDolGlobalString('DISPLAY_MARK_RATES')) {
+			$html .= '<td class="right"></td>';
+		}
+		$html .= '</tr>';
+
+		$this->resprints = $html;
+
+		return 0;
+	}
+
+	/**
 	 * Add action buttons on native object cards.
 	 *
 	 * @param	array<string,mixed>	$parameters		Hook parameters
@@ -293,6 +355,19 @@ class ActionsPowerplantpv
 		}
 
 		return array_values(array_unique(array_filter($contexts)));
+	}
+
+	/**
+	 * Format a price per watt-peak with unit-price precision.
+	 *
+	 * @param	float	$amount	Amount per Wc
+	 * @return	string			Formatted price
+	 */
+	private function formatPricePerWattPeak($amount)
+	{
+		global $langs;
+
+		return price((float) $amount, 0, $langs, 1, -1, 4);
 	}
 
 	/**

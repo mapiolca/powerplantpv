@@ -58,11 +58,132 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 			return 0;
 		}
 
+		$result = $this->recalculateCommercialDocumentPeakPower($action, $object);
+		if ($result < 0) {
+			return -1;
+		}
+
 		if ($action == 'TICKET_CREATE') {
 			return $this->linkTicketToPowerPlant($object, $user);
 		}
 		if ($action == 'ACTION_CREATE' || $action == 'ACTION_MODIFY') {
 			$this->normalizeAgendaPowerPlantLink($object);
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Recalculate stored peak power for supported commercial documents.
+	 *
+	 * @param	string			$action	Event action code
+	 * @param	CommonObject	$object	Object
+	 * @return	int						0 on success or ignored action, <0 on error
+	 */
+	private function recalculateCommercialDocumentPeakPower($action, $object)
+	{
+		$lineactions = array(
+			'LINEPROPAL_INSERT' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEPROPAL_MODIFY' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEPROPAL_DELETE' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEORDER_INSERT' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEORDER_MODIFY' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEORDER_DELETE' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEBILL_INSERT' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+			'LINEBILL_MODIFY' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+			'LINEBILL_DELETE' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+		);
+
+		$documentactions = array(
+			'PROPAL_CREATE' => 'propal',
+			'PROPAL_MODIFY' => 'propal',
+			'PROPAL_VALIDATE' => 'propal',
+			'PROPAL_REOPEN' => 'propal',
+			'PROPAL_CLOSE_REFUSED' => 'propal',
+			'PROPAL_CLOSE_SIGNED' => 'propal',
+			'PROPAL_CLASSIFY_BILLED' => 'propal',
+			'PROPAL_CANCEL' => 'propal',
+			'ORDER_CREATE' => 'commande',
+			'ORDER_MODIFY' => 'commande',
+			'ORDER_VALIDATE' => 'commande',
+			'ORDER_UNVALIDATE' => 'commande',
+			'ORDER_REOPEN' => 'commande',
+			'ORDER_CLOSE' => 'commande',
+			'ORDER_CANCEL' => 'commande',
+			'ORDER_CLASSIFY_BILLED' => 'commande',
+			'ORDER_CLASSIFY_UNBILLED' => 'commande',
+			'BILL_CREATE' => 'facture',
+			'BILL_MODIFY' => 'facture',
+			'BILL_PAYED' => 'facture',
+			'BILL_UNPAYED' => 'facture',
+			'BILL_CANCEL' => 'facture',
+			'BILL_VALIDATE' => 'facture',
+			'BILL_UNVALIDATE' => 'facture',
+		);
+
+		$elementtype = '';
+		$documentid = 0;
+		$excludelineid = 0;
+
+		if (!empty($lineactions[$action])) {
+			$elementtype = $lineactions[$action]['elementtype'];
+			$documentid = $this->getObjectIntProperty($object, $lineactions[$action]['parentfield']);
+			if (substr($action, -7) == '_DELETE') {
+				dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+				$excludelineid = powerplantpvGetLineId($object);
+			}
+		} elseif (!empty($documentactions[$action])) {
+			$elementtype = $documentactions[$action];
+			$documentid = $this->getObjectId($object);
+		}
+
+		if (empty($elementtype) || $documentid <= 0) {
+			return 0;
+		}
+
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+		$result = powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $documentid, $excludelineid);
+		if ($result < 0) {
+			$this->errors[] = 'ErrorFailedToRecalculatePeakPower';
+			dol_syslog(__METHOD__.' failed for action='.$action.' elementtype='.$elementtype.' id='.$documentid, LOG_ERR);
+			return -1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Return an integer object property.
+	 *
+	 * @param	object	$object		Object
+	 * @param	string	$property	Property name
+	 * @return	int					Property value
+	 */
+	private function getObjectIntProperty($object, $property)
+	{
+		if (is_object($object) && isset($object->$property)) {
+			return (int) $object->$property;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Return the object id from native Dolibarr properties.
+	 *
+	 * @param	object	$object	Object
+	 * @return	int				Object id
+	 */
+	private function getObjectId($object)
+	{
+		if (!is_object($object)) {
+			return 0;
+		}
+		if (!empty($object->id)) {
+			return (int) $object->id;
+		}
+		if (!empty($object->rowid)) {
+			return (int) $object->rowid;
 		}
 
 		return 0;

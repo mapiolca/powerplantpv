@@ -125,6 +125,7 @@ class modPowerPlantPV extends DolibarrModules
 					'commonobject',
 					'ordercard',
 					'propalcard',
+					'invoicecard',
 					'contractcard',
 					'ticketcard',
 					'category',
@@ -622,6 +623,14 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		// Create commercial document extrafields storing the calculated total peak power.
+		foreach (array('propal', 'commande', 'facture') as $commercialElementType) {
+			$result = $this->ensureCommercialPeakPowerExtrafield($extrafields, $commercialElementType);
+			if ($result < 0) {
+				return -1;
+			}
+		}
+
 		// Seed photovoltaic category dictionary.
 		$categoryRows = array(
 			'MODULE' => 'Module photovoltaïque',
@@ -729,6 +738,59 @@ class modPowerPlantPV extends DolibarrModules
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
 
 		return $this->_init($sql, $options);
+	}
+
+	/**
+	 * Create or update the stored peak-power extrafield for commercial documents.
+	 *
+	 * @param	ExtraFields	$extrafields	Extrafields manager
+	 * @param	string		$elementtype	Element type
+	 * @return	int							1 if OK, <0 if KO
+	 */
+	private function ensureCommercialPeakPowerExtrafield($extrafields, $elementtype)
+	{
+		$extrafields->fetch_name_optionals_label($elementtype);
+
+		$moreparams = array(
+			'css' => 'maxwidth100 right',
+			'csslist' => 'right',
+			'cssview' => 'right',
+		);
+
+		$method = 'addExtraField';
+		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_peak_power'])) {
+			$method = 'updateExtraField';
+		}
+
+		$result = $extrafields->$method(
+			'powerplantpv_peak_power',
+			'PowerPlantPVPeakPower',
+			'double',
+			200,
+			'24,8',
+			$elementtype,
+			0,
+			0,
+			'',
+			'',
+			0,
+			'',
+			5,
+			'PowerPlantPVPeakPowerHelp',
+			'',
+			'',
+			'powerplantpv@powerplantpv',
+			'isModEnabled("powerplantpv")',
+			1,
+			1,
+			$moreparams
+		);
+		if ($result < 0) {
+			$this->errors[] = $extrafields->error;
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**
