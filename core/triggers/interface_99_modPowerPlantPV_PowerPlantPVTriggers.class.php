@@ -16,7 +16,7 @@
  */
 
 /**
- * \file        core/triggers/interface_modPowerPlantPV_PowerPlantPVTriggers.class.php
+ * \file        core/triggers/interface_99_modPowerPlantPV_PowerPlantPVTriggers.class.php
  * \ingroup     powerplantpv
  * \brief       Triggers for PowerPlantPV.
  */
@@ -26,7 +26,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/triggers/dolibarrtriggers.class.php';
 /**
  * Triggers for PowerPlantPV.
  */
-class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
+class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 {
 	/**
 	 * Constructor.
@@ -63,6 +63,11 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 			return -1;
 		}
 
+		$result = $this->recalculateCommercialDocumentPeakPowerForProduct($action, $object);
+		if ($result < 0) {
+			return -1;
+		}
+
 		if ($action == 'TICKET_CREATE') {
 			return $this->linkTicketToPowerPlant($object, $user);
 		}
@@ -85,12 +90,15 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 		$lineactions = array(
 			'LINEPROPAL_INSERT' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
 			'LINEPROPAL_MODIFY' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEPROPAL_UPDATE' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
 			'LINEPROPAL_DELETE' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
 			'LINEORDER_INSERT' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
 			'LINEORDER_MODIFY' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEORDER_UPDATE' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
 			'LINEORDER_DELETE' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
 			'LINEBILL_INSERT' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
 			'LINEBILL_MODIFY' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+			'LINEBILL_UPDATE' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
 			'LINEBILL_DELETE' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
 		);
 
@@ -128,6 +136,10 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 		if (!empty($lineactions[$action])) {
 			$elementtype = $lineactions[$action]['elementtype'];
 			$documentid = $this->getObjectIntProperty($object, $lineactions[$action]['parentfield']);
+			if ($documentid <= 0) {
+				dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+				$documentid = $this->getDocumentIdFromLine($elementtype, $object, $lineactions[$action]['parentfield']);
+			}
 			if (substr($action, -7) == '_DELETE') {
 				dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 				$excludelineid = powerplantpvGetLineId($object);
@@ -150,6 +162,79 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Recalculate stored peak power for documents using a modified product.
+	 *
+	 * @param	string		$action	Event action code
+	 * @param	CommonObject	$object	Object
+	 * @return	int					0 on success or ignored action, <0 on error
+	 */
+	private function recalculateCommercialDocumentPeakPowerForProduct($action, $object)
+	{
+		if ($action != 'PRODUCT_MODIFY') {
+			return 0;
+		}
+
+		$productid = $this->getObjectId($object);
+		if ($productid <= 0) {
+			return 0;
+		}
+
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+		$result = powerplantpvRecalculateCommercialDocumentPeakPowerForProduct($productid);
+		if ($result < 0) {
+			$this->errors[] = 'ErrorFailedToRecalculatePeakPower';
+			dol_syslog(__METHOD__.' failed for product id='.$productid, LOG_ERR);
+			return -1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Return the commercial document id for a line object.
+	 *
+	 * @param	string	$elementtype	Element type
+	 * @param	object	$object		Line object
+	 * @param	string	$parentfield	Line parent field
+	 * @return	int					Document id
+	 */
+	private function getDocumentIdFromLine($elementtype, $object, $parentfield)
+	{
+		if (!is_object($object) || !function_exists('powerplantpvGetCommercialDocumentPeakPowerConfig')) {
+			return 0;
+		}
+
+		$lineid = powerplantpvGetLineId($object);
+		if ($lineid <= 0) {
+			return 0;
+		}
+
+		$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+		if (empty($config)) {
+			return 0;
+		}
+
+		$sql = "SELECT l.".$parentfield." as fk_parent";
+		$sql .= " FROM ".$this->db->prefix().$config['line_table']." as l";
+		$sql .= " INNER JOIN ".$this->db->prefix().$config['parent_table']." as d ON d.".$config['parent_pk']." = l.".$parentfield;
+		$sql .= " WHERE l.rowid = ".$lineid;
+		$sql .= " AND d.entity IN (".getEntity($config['elementtype']).")";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' failed to read parent line id='.$lineid.' : '.$this->db->lasterror(), LOG_WARNING);
+			return 0;
+		}
+
+		$documentid = 0;
+		if ($obj = $this->db->fetch_object($resql)) {
+			$documentid = (int) $obj->fk_parent;
+		}
+		$this->db->free($resql);
+
+		return $documentid;
 	}
 
 	/**

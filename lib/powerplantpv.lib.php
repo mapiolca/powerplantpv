@@ -402,6 +402,8 @@ function powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype)
 	if ($elementtype == 'propal') {
 		return array(
 			'elementtype' => 'propal',
+			'parent_table' => 'propal',
+			'parent_pk' => 'rowid',
 			'line_table' => 'propaldet',
 			'line_fk' => 'fk_propal',
 			'extra_table' => 'propal_extrafields',
@@ -410,6 +412,8 @@ function powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype)
 	if ($elementtype == 'commande') {
 		return array(
 			'elementtype' => 'commande',
+			'parent_table' => 'commande',
+			'parent_pk' => 'rowid',
 			'line_table' => 'commandedet',
 			'line_fk' => 'fk_commande',
 			'extra_table' => 'commande_extrafields',
@@ -418,6 +422,8 @@ function powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype)
 	if ($elementtype == 'facture') {
 		return array(
 			'elementtype' => 'facture',
+			'parent_table' => 'facture',
+			'parent_pk' => 'rowid',
 			'line_table' => 'facturedet',
 			'line_fk' => 'fk_facture',
 			'extra_table' => 'facture_extrafields',
@@ -497,8 +503,10 @@ function powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtype, $obje
 
 	$sql = "SELECT l.rowid, l.fk_product, l.qty";
 	$sql .= " FROM ".$db->prefix().$config['line_table']." as l";
+	$sql .= " INNER JOIN ".$db->prefix().$config['parent_table']." as d ON d.".$config['parent_pk']." = l.".$config['line_fk'];
 	$sql .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = l.fk_product";
 	$sql .= " WHERE l.".$config['line_fk']." = ".$objectid;
+	$sql .= " AND d.entity IN (".getEntity($config['elementtype']).")";
 	$sql .= " AND l.fk_product IS NOT NULL AND l.fk_product > 0";
 	$sql .= " AND pe.categorie_photovoltaique IN (".implode(',', $escapedcategoryids).")";
 	if ($excludelineid > 0) {
@@ -582,6 +590,21 @@ function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid,
 		return 0;
 	}
 
+	$sql = "SELECT d.".$config['parent_pk']." as rowid";
+	$sql .= " FROM ".$db->prefix().$config['parent_table']." as d";
+	$sql .= " WHERE d.".$config['parent_pk']." = ".$objectid;
+	$sql .= " AND d.entity IN (".getEntity($config['elementtype']).")";
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__FUNCTION__.' failed to read parent document: '.$db->lasterror(), LOG_ERR);
+		return -1;
+	}
+	if ($db->num_rows($resql) <= 0) {
+		$db->free($resql);
+		return 0;
+	}
+	$db->free($resql);
+
 	$value = sprintf('%.8F', round((float) $peakpowerkwc, 8));
 
 	$sql = "SELECT ef.rowid";
@@ -643,6 +666,121 @@ function powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $objec
 	}
 
 	return 1;
+}
+
+/**
+ * Recalculate peak power for all commercial documents using a product.
+ *
+ * @param	int	$productid	Product id
+ * @return	int				Number of recalculated documents, <0 on error
+ */
+function powerplantpvRecalculateCommercialDocumentPeakPowerForProduct($productid)
+{
+	global $db;
+
+	$productid = (int) $productid;
+	if ($productid <= 0) {
+		return 0;
+	}
+
+	$updated = 0;
+	foreach (array('propal', 'commande', 'facture') as $elementtype) {
+		$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+		if (empty($config)) {
+			continue;
+		}
+
+		$sql = "SELECT DISTINCT l.".$config['line_fk']." as fk_object";
+		$sql .= " FROM ".$db->prefix().$config['line_table']." as l";
+		$sql .= " INNER JOIN ".$db->prefix().$config['parent_table']." as d ON d.".$config['parent_pk']." = l.".$config['line_fk'];
+		$sql .= " WHERE l.fk_product = ".$productid;
+		$sql .= " AND d.entity IN (".getEntity($config['elementtype']).")";
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			dol_syslog(__FUNCTION__.' failed to list '.$elementtype.' documents for product '.$productid.': '.$db->lasterror(), LOG_ERR);
+			return -1;
+		}
+
+		$objectids = array();
+		while ($obj = $db->fetch_object($resql)) {
+			if ((int) $obj->fk_object > 0) {
+				$objectids[] = (int) $obj->fk_object;
+			}
+		}
+		$db->free($resql);
+
+		foreach (array_values(array_unique($objectids)) as $objectid) {
+			$result = powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $objectid);
+			if ($result < 0) {
+				return -1;
+			}
+			if ($result > 0) {
+				$updated++;
+			}
+		}
+	}
+
+	return $updated;
+}
+
+/**
+ * Recalculate peak power for all supported commercial documents.
+ *
+ * @return	array{result:int,updated:int,error:string}	Result data
+ */
+function powerplantpvRecalculateAllCommercialDocumentPeakPower()
+{
+	global $db;
+
+	$updated = 0;
+	$error = '';
+
+	$db->begin();
+
+	foreach (array('propal', 'commande', 'facture') as $elementtype) {
+		$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+		if (empty($config)) {
+			continue;
+		}
+
+		$sql = "SELECT DISTINCT l.".$config['line_fk']." as fk_object";
+		$sql .= " FROM ".$db->prefix().$config['line_table']." as l";
+		$sql .= " INNER JOIN ".$db->prefix().$config['parent_table']." as d ON d.".$config['parent_pk']." = l.".$config['line_fk'];
+		$sql .= " WHERE d.entity IN (".getEntity($config['elementtype']).")";
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			$error = $db->lasterror();
+			$db->rollback();
+			dol_syslog(__FUNCTION__.' failed to list '.$elementtype.' documents: '.$error, LOG_ERR);
+			return array('result' => -1, 'updated' => $updated, 'error' => $error);
+		}
+
+		$objectids = array();
+		while ($obj = $db->fetch_object($resql)) {
+			if ((int) $obj->fk_object > 0) {
+				$objectids[] = (int) $obj->fk_object;
+			}
+		}
+		$db->free($resql);
+
+		foreach (array_values(array_unique($objectids)) as $objectid) {
+			$result = powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $objectid);
+			if ($result < 0) {
+				$error = 'ErrorFailedToRecalculatePeakPower';
+				$db->rollback();
+				return array('result' => -1, 'updated' => $updated, 'error' => $error);
+			}
+			if ($result > 0) {
+				$updated++;
+			}
+		}
+	}
+
+	$db->commit();
+
+	return array('result' => 1, 'updated' => $updated, 'error' => $error);
 }
 
 /**

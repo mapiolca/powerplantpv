@@ -63,9 +63,11 @@ class ActionsPowerplantpv
 		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 
 		$config = array();
+		$elementtypeforcalculation = '';
 		foreach (powerplantpvGetObjectElementTypes($object) as $elementtype) {
 			$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
 			if (!empty($config)) {
+				$elementtypeforcalculation = $config['elementtype'];
 				break;
 			}
 		}
@@ -73,7 +75,25 @@ class ActionsPowerplantpv
 			return 0;
 		}
 
-		$peakpowerwc = powerplantpvGetObjectPeakPowerKwc($object) * 1000;
+		$peakpowerkwc = powerplantpvGetObjectPeakPowerKwc($object);
+		if ($peakpowerkwc <= 0) {
+			$objectid = 0;
+			if (!empty($object->id)) {
+				$objectid = (int) $object->id;
+			} elseif (!empty($object->rowid)) {
+				$objectid = (int) $object->rowid;
+			}
+			if ($objectid > 0 && $elementtypeforcalculation !== '') {
+				$calculation = powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtypeforcalculation, $objectid);
+				if ($calculation['result'] < 0) {
+					dol_syslog(__METHOD__.' failed to calculate peak power for margin display: '.$calculation['error'], LOG_WARNING);
+					return 0;
+				}
+				$peakpowerkwc = (float) $calculation['peak_power_kwc'];
+			}
+		}
+
+		$peakpowerwc = $peakpowerkwc * 1000;
 		if ($peakpowerwc <= 0) {
 			return 0;
 		}
@@ -85,7 +105,7 @@ class ActionsPowerplantpv
 		$patotal = isset($marginInfo['pa_total']) ? (float) $marginInfo['pa_total'] : 0.0;
 		$totalmargin = isset($marginInfo['total_margin']) ? (float) $marginInfo['total_margin'] : 0.0;
 
-		$html = '<tr class="oddeven powerplantpv-price-per-wattpeak">';
+		$html = '<tr class="oddeven margininfo powerplantpv-price-per-wattpeak">';
 		$html .= '<td>'.dol_escape_htmltag($langs->trans('PowerPlantPVPricePerWattPeak')).'</td>';
 		$html .= '<td class="right">'.$this->formatPricePerWattPeak($pvtotal / $peakpowerwc).'</td>';
 		$html .= '<td class="right">'.$this->formatPricePerWattPeak($patotal / $peakpowerwc).'</td>';

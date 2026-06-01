@@ -14,6 +14,11 @@ ModulePowerPlantPVDesc = Photovoltaic power plant management
 #
 PowerPlantPVSetup = PV plants setup
 PowerPlantPVSetupPage = PV plants setup page
+PowerPlantPVPeakPowerRecalculation = Commercial peak-power recalculation
+PowerPlantPVPeakPowerRecalculationHelp = Recalculate stored peak power on proposals, customer orders and invoices from photovoltaic module lines.
+PowerPlantPVRecalculatePeakPower = Recalculate peak power
+PowerPlantPVPeakPowerRecalculationDone = Peak power recalculated for %s document(s).
+PowerPlantPVPeakPowerRecalculationFailed = Failed to recalculate commercial peak power.
 NewSection=New section
 POWERPLANTPV_MYPARAM1 = Parameter 1
 POWERPLANTPV_MYPARAM1Tooltip = Parameter 1 help

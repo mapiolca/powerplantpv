@@ -14,6 +14,11 @@ ModulePowerPlantPVDesc = Gestion des centrales photovoltaïques
 #
 PowerPlantPVSetup = Configuration Centrale PV
 PowerPlantPVSetupPage = Page de configuration Centrale PV
+PowerPlantPVPeakPowerRecalculation = Recalcul de la puissance-crête commerciale
+PowerPlantPVPeakPowerRecalculationHelp = Recalcule la puissance-crête stockée sur les devis, commandes et factures à partir des lignes de modules photovoltaïques.
+PowerPlantPVRecalculatePeakPower = Recalculer les puissances-crêtes
+PowerPlantPVPeakPowerRecalculationDone = Puissance-crête recalculée pour %s document(s).
+PowerPlantPVPeakPowerRecalculationFailed = Échec du recalcul de la puissance-crête commerciale.
 NewSection=Nouvelle section
 POWERPLANTPV_MYPARAM1 = Paramètre 1
 POWERPLANTPV_MYPARAM1Tooltip = Aide du paramètre 1
