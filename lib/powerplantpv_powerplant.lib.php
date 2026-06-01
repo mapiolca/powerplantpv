@@ -202,7 +202,7 @@ function powerplantGetDocumentUploadDir($object)
  */
 function powerplantGetAgendaElementType()
 {
-	return 'powerplant';
+	return 'powerplant@powerplantpv';
 }
 
 /**
@@ -212,7 +212,7 @@ function powerplantGetAgendaElementType()
  */
 function powerplantGetCompatibleAgendaElementTypes()
 {
-	return array('powerplant', 'powerplant@powerplantpv', 'powerplantpv_powerplant');
+	return array(powerplantGetAgendaElementType(), 'powerplant', 'powerplantpv_powerplant');
 }
 
 /**

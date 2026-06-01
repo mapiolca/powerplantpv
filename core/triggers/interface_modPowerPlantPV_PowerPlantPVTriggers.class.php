@@ -146,11 +146,12 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 			return 0;
 		}
 
-		$compatibleTypes = array('powerplant', 'powerplant@powerplantpv', 'powerplantpv_powerplant');
+		$canonicalType = 'powerplant@powerplantpv';
+		$compatibleTypes = array('powerplant', $canonicalType, 'powerplantpv_powerplant');
 		if (!in_array($actioncomm->elementtype, $compatibleTypes)) {
 			return 0;
 		}
-		if ($actioncomm->elementtype == 'powerplant') {
+		if ($actioncomm->elementtype == $canonicalType) {
 			return 0;
 		}
 
@@ -161,7 +162,7 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		$sql = "UPDATE ".$this->db->prefix()."actioncomm";
-		$sql .= " SET elementtype = 'powerplant'";
+		$sql .= " SET elementtype = '".$this->db->escape($canonicalType)."'";
 		$sql .= " WHERE id = ".((int) $actioncomm->id);
 		$sql .= " AND fk_element = ".((int) $fkElement);
 		$sql .= " AND elementtype = '".$this->db->escape($actioncomm->elementtype)."'";
@@ -172,7 +173,7 @@ class InterfaceModPowerPlantPVPowerPlantPVTriggers extends DolibarrTriggers
 			return 0;
 		}
 
-		$actioncomm->elementtype = 'powerplant';
+		$actioncomm->elementtype = $canonicalType;
 		return 0;
 	}
 }

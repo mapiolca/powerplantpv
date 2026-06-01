@@ -708,8 +708,8 @@ class modPowerPlantPV extends DolibarrModules
 
 		// Migrate legacy agenda links to the canonical Dolibarr element type used by this module.
 		$sqlmigrateagenda = "UPDATE ".$this->db->prefix()."actioncomm";
-		$sqlmigrateagenda .= " SET elementtype = 'powerplant'";
-		$sqlmigrateagenda .= " WHERE elementtype IN ('powerplant@powerplantpv', 'powerplantpv_powerplant')";
+		$sqlmigrateagenda .= " SET elementtype = 'powerplant@powerplantpv'";
+		$sqlmigrateagenda .= " WHERE elementtype IN ('powerplant', 'powerplantpv_powerplant')";
 		$sqlmigrateagenda .= " AND fk_element IN (SELECT p.rowid FROM ".$this->db->prefix()."powerplantpv_powerplant as p)";
 		$sql[] = $sqlmigrateagenda;
 
@@ -731,17 +731,18 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array();
 		$table = $this->db->prefix().'c_action_trigger';
+		$elementtype = $this->db->escape('powerplant@powerplantpv');
 		$triggers = array(
-			array('code' => 'POWERPLANTPV_MYOBJECT_CREATE', 'label' => 'PowerPlantTriggerCreate', 'description' => 'PowerPlantTriggerCreateDesc', 'rang' => 450004),
-			array('code' => 'POWERPLANTPV_MYOBJECT_MODIFY', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 450005),
-			array('code' => 'POWERPLANTPV_MYOBJECT_DELETE', 'label' => 'PowerPlantTriggerDelete', 'description' => 'PowerPlantTriggerDeleteDesc', 'rang' => 450006),
-			array('code' => 'POWERPLANTPV_MYOBJECT_VALIDATE', 'label' => 'PowerPlantTriggerValidate', 'description' => 'PowerPlantTriggerValidateDesc', 'rang' => 450007),
-			array('code' => 'POWERPLANTPV_MYOBJECT_UNVALIDATE', 'label' => 'PowerPlantTriggerUnvalidate', 'description' => 'PowerPlantTriggerUnvalidateDesc', 'rang' => 450008),
-			array('code' => 'POWERPLANTPV_MYOBJECT_CANCEL', 'label' => 'PowerPlantTriggerCancel', 'description' => 'PowerPlantTriggerCancelDesc', 'rang' => 450009),
-			array('code' => 'POWERPLANTPV_MYOBJECT_REOPEN', 'label' => 'PowerPlantTriggerReopen', 'description' => 'PowerPlantTriggerReopenDesc', 'rang' => 450010),
-			array('code' => 'POWERPLANTPV_MYOBJECT_SENTBYMAIL', 'label' => 'PowerPlantTriggerSentByMail', 'description' => 'PowerPlantTriggerSentByMailDesc', 'rang' => 450011),
-			array('code' => 'POWERPLANTPV_POWERPLANT_INSERVICE', 'label' => 'PowerPlantTriggerInService', 'description' => 'PowerPlantTriggerInServiceDesc', 'rang' => 450012),
-			array('code' => 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE', 'label' => 'PowerPlantTriggerOutOfService', 'description' => 'PowerPlantTriggerOutOfServiceDesc', 'rang' => 450013),
+			array('code' => 'POWERPLANTPV_POWERPLANT_CREATE', 'label' => 'PowerPlantTriggerCreate', 'description' => 'PowerPlantTriggerCreateDesc', 'rang' => 45000400),
+			array('code' => 'POWERPLANTPV_POWERPLANT_MODIFY', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 45000401),
+			array('code' => 'POWERPLANTPV_POWERPLANT_DELETE', 'label' => 'PowerPlantTriggerDelete', 'description' => 'PowerPlantTriggerDeleteDesc', 'rang' => 45000402),
+			array('code' => 'POWERPLANTPV_POWERPLANT_VALIDATE', 'label' => 'PowerPlantTriggerValidate', 'description' => 'PowerPlantTriggerValidateDesc', 'rang' => 45000403),
+			array('code' => 'POWERPLANTPV_POWERPLANT_UNVALIDATE', 'label' => 'PowerPlantTriggerUnvalidate', 'description' => 'PowerPlantTriggerUnvalidateDesc', 'rang' => 45000404),
+			array('code' => 'POWERPLANTPV_POWERPLANT_CANCEL', 'label' => 'PowerPlantTriggerCancel', 'description' => 'PowerPlantTriggerCancelDesc', 'rang' => 45000405),
+			array('code' => 'POWERPLANTPV_POWERPLANT_REOPEN', 'label' => 'PowerPlantTriggerReopen', 'description' => 'PowerPlantTriggerReopenDesc', 'rang' => 45000406),
+			array('code' => 'POWERPLANTPV_POWERPLANT_SENTBYMAIL', 'label' => 'PowerPlantTriggerSentByMail', 'description' => 'PowerPlantTriggerSentByMailDesc', 'rang' => 45000407),
+			array('code' => 'POWERPLANTPV_POWERPLANT_INSERVICE', 'label' => 'PowerPlantTriggerInService', 'description' => 'PowerPlantTriggerInServiceDesc', 'rang' => 45000408),
+			array('code' => 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE', 'label' => 'PowerPlantTriggerOutOfService', 'description' => 'PowerPlantTriggerOutOfServiceDesc', 'rang' => 45000409),
 		);
 
 		foreach ($triggers as $trigger) {
@@ -750,8 +751,8 @@ class modPowerPlantPV extends DolibarrModules
 			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));
 			$rang = (int) $trigger['rang'];
 
-			$sql[] = "UPDATE ".$table." SET label = '".$label."', description = '".$description."', elementtype = 'powerplant', rang = ".$rang." WHERE code = '".$code."'";
-			$sql[] = "INSERT INTO ".$table." (code, label, description, elementtype, rang) SELECT '".$code."', '".$label."', '".$description."', 'powerplant', ".$rang." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE code = '".$code."')";
+			$sql[] = "UPDATE ".$table." SET label = '".$label."', description = '".$description."', elementtype = '".$elementtype."', rang = ".$rang." WHERE code = '".$code."'";
+			$sql[] = "INSERT INTO ".$table." (code, label, description, elementtype, rang) SELECT '".$code."', '".$label."', '".$description."', '".$elementtype."', ".$rang." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE code = '".$code."')";
 		}
 
 		return $sql;
