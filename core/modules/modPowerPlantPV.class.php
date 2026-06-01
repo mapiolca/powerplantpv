@@ -333,6 +333,16 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'delete';
 		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 3 + 1);
+		$this->rights[$r][1] = 'PowerPlantPermissionInService';
+		$this->rights[$r][4] = 'powerplant';
+		$this->rights[$r][5] = 'inservice';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 4 + 1);
+		$this->rights[$r][1] = 'PowerPlantPermissionOutOfService';
+		$this->rights[$r][4] = 'powerplant';
+		$this->rights[$r][5] = 'outofservice';
+		$r++;
 
 		/* END MODULEBUILDER PERMISSIONS */
 

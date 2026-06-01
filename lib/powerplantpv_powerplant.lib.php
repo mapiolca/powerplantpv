@@ -291,11 +291,10 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 			$object->fetch_thirdparty();
 		}
 
-		$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("ThirdParty").'</span>';
+		$morehtmlref .= '<br>';
 		if ($permissiontoadd && $action != 'editcustomer') {
 			$morehtmlref .= ' <a class="editfielda" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'&action=editcustomer">'.img_edit($langs->transnoentitiesnoconv('SetThirdParty'), 0).'</a>';
 		}
-		$morehtmlref .= ': ';
 
 		if ($permissiontoadd && $action == 'editcustomer') {
 			$morehtmlref .= '<form method="post" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
@@ -307,6 +306,7 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		} elseif (!empty($object->thirdparty) && !empty($object->thirdparty->id)) {
 			$morehtmlref .= $object->thirdparty->getNomUrl(1, 'customer');
 		} else {
+			$morehtmlref .= img_picto($langs->trans("ThirdParty"), 'company', 'class="pictofixedwidth"');
 			$morehtmlref .= '<span class="opacitymedium">'.$langs->trans("None").'</span>';
 		}
 	}
@@ -522,7 +522,7 @@ function powerplantGetCompositionCommissioningDate($object)
 }
 
 /**
- * Count active composition lines that already have a commissioning date.
+ * Count non-replaced composition lines that already have a commissioning date.
  *
  * @param	PowerPlant	$object	Power plant
  * @return	int				Number of lines
@@ -531,11 +531,12 @@ function powerplantCountCompositionCommissioningDateConflicts($object)
 {
 	global $db, $conf;
 
+	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 	$sql = "SELECT COUNT(c.rowid) as nb";
 	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
 	$sql .= " WHERE c.fk_powerplant = ".((int) $object->id);
-	$sql .= " AND c.entity = ".((int) $conf->entity);
-	$sql .= " AND (c.fk_status IS NULL OR c.fk_status NOT IN (6, 8))";
+	$sql .= " AND c.entity = ".$entity;
+	$sql .= " AND (c.fk_status IS NULL OR c.fk_status <> 6)";
 	$sql .= " AND c.commissioning_date IS NOT NULL";
 
 	$resql = $db->query($sql);
@@ -559,9 +560,10 @@ function powerplantApplyCompositionCommissioningDate($object, $user, $overwriteE
 {
 	global $db, $conf, $langs;
 
+	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 	$date = powerplantGetCompositionCommissioningDate($object);
 	$where = " WHERE fk_powerplant = ".((int) $object->id);
-	$where .= " AND entity = ".((int) $conf->entity);
+	$where .= " AND entity = ".$entity;
 	$where .= " AND (fk_status IS NULL OR fk_status NOT IN (6, 8))";
 
 	$sqlcount = "SELECT COUNT(rowid) as nb FROM ".$db->prefix()."powerplantpv_powerplantcomp".$where;
@@ -619,4 +621,213 @@ function powerplantApplyCompositionCommissioningDate($object, $user, $overwriteE
 	}
 
 	return $nbtoupdate;
+}
+
+/**
+ * Return a translated composition status label.
+ *
+ * @param	int	$status	Status code
+ * @return	string			Translated label
+ */
+function powerplantCompositionStatusLabel($status)
+{
+	global $langs;
+
+	$labels = array(
+		0 => 'PowerPlantCompStatusInactive',
+		4 => 'PowerPlantCompStatusActive',
+		6 => 'PowerPlantCompStatusReplaced',
+		8 => 'PowerPlantCompStatusOutOfService',
+	);
+
+	return $langs->trans(isset($labels[(int) $status]) ? $labels[(int) $status] : (string) $status);
+}
+
+/**
+ * Set all non-replaced composition lines to a service status.
+ *
+ * @param	PowerPlant	$object	Power plant
+ * @param	User		$user	User
+ * @param	int			$status	Target composition status
+ * @return	int					Changed line count, <0 on error
+ */
+function powerplantSetCompositionServiceStatus($object, $user, $status)
+{
+	global $db, $conf, $langs;
+
+	$status = (int) $status;
+	if (empty($object->id) || !in_array($status, array(4, 8), true)) {
+		return 0;
+	}
+	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+
+	$where = " WHERE fk_powerplant = ".((int) $object->id);
+	$where .= " AND entity = ".$entity;
+	$where .= " AND (fk_status IS NULL OR fk_status <> 6)";
+	$where .= " AND (fk_status IS NULL OR fk_status <> ".$status.")";
+
+	$sqlcount = "SELECT COUNT(rowid) as nb FROM ".$db->prefix()."powerplantpv_powerplantcomp".$where;
+	$rescount = $db->query($sqlcount);
+	if (!$rescount) {
+		$object->error = $db->lasterror();
+		return -1;
+	}
+	$objcount = $db->fetch_object($rescount);
+	$nbchanged = ($objcount ? (int) $objcount->nb : 0);
+	if ($nbchanged <= 0) {
+		return 0;
+	}
+
+	$sqlupdate = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+	$sqlupdate .= " SET fk_status = ".$status;
+	$sqlupdate .= $where;
+	$resupdate = $db->query($sqlupdate);
+	if (!$resupdate) {
+		$object->error = $db->lasterror();
+		return -1;
+	}
+
+	$statuslabel = powerplantCompositionStatusLabel($status);
+	$label = $langs->transnoentities('PowerPlantCompositionStatusMassChanged', $object->ref);
+	$message = $langs->transnoentities('PowerPlantCompositionStatusMassChangedDesc', $nbchanged);
+	$message .= "\n".$langs->transnoentities('PowerPlantCompositionStatusMassChangedLine', $nbchanged, $statuslabel);
+	$triggercode = ($status === 8 ? 'POWERPLANTPV_POWERPLANT_COMP_OUTOFSERVICE' : 'POWERPLANTPV_POWERPLANT_COMP_INSERVICE');
+	powerplantTriggerAgendaEvent($object, $user, $triggercode, $label, $message);
+
+	return $nbchanged;
+}
+
+/**
+ * Recalculate installed power from active and out-of-service PV module lines.
+ *
+ * @param	PowerPlant|int	$object	Power plant object or id
+ * @param	int				$entity	Power plant entity, when object id is passed
+ * @return	int						1 on success, <0 on error
+ */
+function powerplantRecalculateInstalledPower($object, $entity = 0)
+{
+	global $db, $conf;
+
+	$powerplantid = is_object($object) ? (int) $object->id : (int) $object;
+	if ($powerplantid <= 0) {
+		return 0;
+	}
+	$powerplantentity = (!empty($entity) ? (int) $entity : 0);
+	if (is_object($object) && !empty($object->entity)) {
+		$powerplantentity = (int) $object->entity;
+	}
+	if ($powerplantentity <= 0) {
+		$sqlentity = "SELECT entity FROM ".$db->prefix()."powerplantpv_powerplant WHERE rowid = ".$powerplantid;
+		$resentity = $db->query($sqlentity);
+		if ($resentity) {
+			$objentity = $db->fetch_object($resentity);
+			if ($objentity) {
+				$powerplantentity = (int) $objentity->entity;
+			}
+		} elseif (is_object($object)) {
+			$object->error = $db->lasterror();
+			return -1;
+		}
+	}
+	if ($powerplantentity <= 0) {
+		$powerplantentity = (int) $conf->entity;
+	}
+
+	$sql = "SELECT c.fk_product, c.qty";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+	$sql .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = c.fk_product";
+	$sql .= " INNER JOIN ".$db->prefix()."c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique";
+	$sql .= " WHERE c.fk_powerplant = ".$powerplantid;
+	$sql .= " AND c.entity = ".$powerplantentity;
+	$sql .= " AND cpv.code = 'MODULE'";
+	$sql .= " AND (c.fk_status IS NULL OR c.fk_status IN (4, 8))";
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		if (is_object($object)) {
+			$object->error = $db->lasterror();
+		}
+		return -1;
+	}
+
+	$pmaxbyproduct = array();
+	$totalwattpeak = 0;
+	while ($line = $db->fetch_object($resql)) {
+		$productid = (int) $line->fk_product;
+		if ($productid <= 0) {
+			continue;
+		}
+		if (!array_key_exists($productid, $pmaxbyproduct)) {
+			$sqlpanel = "SELECT pmax";
+			$sqlpanel .= " FROM ".$db->prefix()."powerplantpv_product_pvpanel";
+			$sqlpanel .= " WHERE fk_product = ".$productid;
+			$sqlpanel .= " AND entity IN (".getEntity('product').")";
+			$sqlpanel .= " ORDER BY entity DESC";
+			$respanel = $db->query($sqlpanel);
+			if (!$respanel) {
+				if (is_object($object)) {
+					$object->error = $db->lasterror();
+				}
+				return -1;
+			}
+			$objpanel = $db->fetch_object($respanel);
+			$pmaxbyproduct[$productid] = ($objpanel && $objpanel->pmax !== null && $objpanel->pmax !== '' ? (float) $objpanel->pmax : 0);
+		}
+		$totalwattpeak += ((float) $line->qty * (float) $pmaxbyproduct[$productid]);
+	}
+
+	$installedpower = $totalwattpeak / 1000;
+	$sqlupdate = "UPDATE ".$db->prefix()."powerplantpv_powerplant";
+	$sqlupdate .= " SET installed_power = ".sprintf('%.8F', $installedpower);
+	$sqlupdate .= " WHERE rowid = ".$powerplantid;
+	$resupdate = $db->query($sqlupdate);
+	if (!$resupdate) {
+		if (is_object($object)) {
+			$object->error = $db->lasterror();
+		}
+		return -1;
+	}
+
+	if (is_object($object)) {
+		$object->installed_power = $installedpower;
+	}
+
+	return 1;
+}
+
+/**
+ * Recalculate installed power for all power plants using a product.
+ *
+ * @param	int	$productid	Product id
+ * @return	int				Number of recalculated power plants, <0 on error
+ */
+function powerplantRecalculateInstalledPowerForProduct($productid)
+{
+	global $db;
+
+	$productid = (int) $productid;
+	if ($productid <= 0) {
+		return 0;
+	}
+
+	$sql = "SELECT DISTINCT c.fk_powerplant, p.entity as powerplant_entity";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+	$sql .= " INNER JOIN ".$db->prefix()."powerplantpv_powerplant as p ON p.rowid = c.fk_powerplant";
+	$sql .= " WHERE c.fk_product = ".$productid;
+	$sql .= " AND p.entity IN (".getEntity('powerplant').")";
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return -1;
+	}
+
+	$nb = 0;
+	while ($obj = $db->fetch_object($resql)) {
+		$result = powerplantRecalculateInstalledPower((int) $obj->fk_powerplant, (int) $obj->powerplant_entity);
+		if ($result < 0) {
+			return -1;
+		}
+		$nb++;
+	}
+
+	return $nb;
 }

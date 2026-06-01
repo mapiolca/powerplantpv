@@ -41,6 +41,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/product.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/productinverter.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 $langs->loadLangs(array('products', 'powerplantpv@powerplantpv', 'other'));
 
@@ -463,8 +464,15 @@ if ($isInverter) {
 if ($isPVPanel && ($action === 'save' || $action === 'save_panel')) {
 	$result = powerplantpv_save_pvpanel($db, $object, $panel);
 	if ($result > 0) {
-		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
-		powerplantpv_redirect_product($object->id);
+		$resultrecalculate = powerplantRecalculateInstalledPowerForProduct($object->id);
+		if ($resultrecalculate < 0) {
+			$panel = powerplantpv_fetch_pvpanel($db, $object->id);
+			setEventMessages($langs->trans('PowerPlantInstalledPowerRecalculationError'), null, 'errors');
+			$action = 'edit_panel';
+		} else {
+			setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+			powerplantpv_redirect_product($object->id);
+		}
 	}
 	$action = 'edit_panel';
 }

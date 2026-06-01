@@ -300,6 +300,7 @@ $openaddmodal = 0;
 if ($showaddform) {
 	$openaddmodal = 1;
 }
+$recalculateinstalledpower = 0;
 
 if ($action === 'createcomposition' && $canedit) {
 	if (!powerplantpv_check_token()) {
@@ -335,11 +336,19 @@ if ($action === 'createcomposition' && $canedit) {
 
 	if ($fk_product > 0 && $isallowedproduct) {
 		$i = 0;
+		$nbcreated = 0;
 		while ($i < $qty) {
 			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
 			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', '.((int) $fk_status).', 1, \'\', '.$commissioning_date_sql.', '.((int) $conf->entity).')';
-			$db->query($sql);
+			if ($db->query($sql)) {
+				$nbcreated++;
+			} else {
+				setEventMessages($db->lasterror(), null, 'errors');
+			}
 			$i++;
+		}
+		if ($nbcreated > 0) {
+			$recalculateinstalledpower = 1;
 		}
 	}
 
@@ -356,7 +365,11 @@ if ($action === 'delcomposition' && $canedit && $lineid > 0) {
 	$sql .= ' WHERE rowid = '.((int) $lineid);
 	$sql .= ' AND fk_powerplant = '.((int) $object->id);
 	$sql .= ' AND entity = '.((int) $conf->entity);
-	$db->query($sql);
+	if ($db->query($sql)) {
+		$recalculateinstalledpower = 1;
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
 }
 
 if ($action === 'updateline' && $canmanagecomposition && $lineid > 0) {
@@ -383,6 +396,7 @@ if ($action === 'updateline' && $canmanagecomposition && $lineid > 0) {
 	if (!$resupdate) {
 		setEventMessages($db->lasterror(), null, 'errors');
 	} else {
+		$recalculateinstalledpower = 1;
 		$newline = powerplantCompositionFetchLine($object->id, $lineid);
 		if ($oldline && $newline) {
 			$changes = array();
@@ -461,7 +475,11 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 		$sql .= ' WHERE fk_powerplant = '.((int) $object->id);
 		$sql .= ' AND entity = '.((int) $conf->entity);
 		$sql .= ' AND rowid IN ('.implode(',', $idstodelete).')';
-		$db->query($sql);
+		if ($db->query($sql)) {
+			$recalculateinstalledpower = 1;
+		} else {
+			setEventMessages($db->lasterror(), null, 'errors');
+		}
 	}
 	$action = 'view';
 }
@@ -556,6 +574,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 		} else {
 			$db->commit();
 			if ($nbchanged > 0) {
+				$recalculateinstalledpower = 1;
 				$triggercode = 'POWERPLANTPV_POWERPLANT_COMP_MODIFY';
 				if (count($statuschanges) === 1) {
 					$statuskeys = array_keys($statuschanges);
@@ -623,6 +642,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 		} else {
 			$db->commit();
 			if ($nbreplaced > 0) {
+				$recalculateinstalledpower = 1;
 				$label = $langs->transnoentities('PowerPlantCompositionMassReplaced', $object->ref);
 				$message = $langs->transnoentities('PowerPlantCompositionMassReplacedDesc', $nbreplaced);
 				powerplantTriggerAgendaEvent($object, $user, 'POWERPLANTPV_POWERPLANT_COMP_REPLACE', $label, $message);
@@ -668,6 +688,7 @@ if ($action === 'confirmreplacecomposition' && $canmanagecomposition && $lineid 
 		if ($resreplaceold && $resaddnew) {
 			$newlineid = $db->last_insert_id($db->prefix()."powerplantpv_powerplantcomp", "rowid");
 			$db->commit();
+			$recalculateinstalledpower = 1;
 			$newline = powerplantCompositionFetchLine($object->id, (int) $newlineid);
 			$oldlabel = ($oldline ? powerplantCompositionLineLabel($oldline) : '#'.((int) $lineid));
 			$newlabel = ($newline ? powerplantCompositionLineLabel($newline) : '#'.((int) $newlineid));
@@ -680,6 +701,13 @@ if ($action === 'confirmreplacecomposition' && $canmanagecomposition && $lineid 
 	}
 
 	$action = 'view';
+}
+
+if (!empty($recalculateinstalledpower)) {
+	$resultrecalculate = powerplantRecalculateInstalledPower($object);
+	if ($resultrecalculate < 0) {
+		setEventMessages(!empty($object->error) ? $object->error : $langs->trans('PowerPlantInstalledPowerRecalculationError'), $object->errors, 'errors');
+	}
 }
 
 $sqlwhere = ' WHERE c.fk_powerplant = '.((int) $object->id).' AND c.entity = '.((int) $conf->entity);

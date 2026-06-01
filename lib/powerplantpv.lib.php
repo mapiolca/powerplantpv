@@ -550,6 +550,12 @@ function powerplantpvCreateComponentsFromOrigin($powerplant, $origin, $originid,
 
 	$summary['created_components'] = $created;
 	$powerplant->context['powerplantpv_material_summary'] = $summary;
+	if ($created > 0 && function_exists('powerplantRecalculateInstalledPower')) {
+		$resultrecalculate = powerplantRecalculateInstalledPower($powerplant);
+		if ($resultrecalculate < 0) {
+			return -1;
+		}
+	}
 
 	return $created;
 }

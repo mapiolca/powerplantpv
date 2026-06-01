@@ -163,12 +163,16 @@ if ($enablepermissioncheck) {
 	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
 	$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_addupdatedelete.inc.php and actions_lineupdown.inc.php
 	$permissiontodelete = $user->hasRight('powerplantpv', 'powerplant', 'delete') || ($permissiontoadd && isset($object->status) && $object->status == $object::STATUS_DRAFT);
+	$permissiontosetinservice = $user->hasRight('powerplantpv', 'powerplant', 'inservice');
+	$permissiontosetoutofservice = $user->hasRight('powerplantpv', 'powerplant', 'outofservice');
 	$permissionnote = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_setnotes.inc.php
 	$permissiondellink = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_dellink.inc.php
 } else {
 	$permissiontoread = 1;
 	$permissiontoadd = 1; // Used by the include of actions_addupdatedelete.inc.php and actions_lineupdown.inc.php
 	$permissiontodelete = 1;
+	$permissiontosetinservice = 1;
+	$permissiontosetoutofservice = 1;
 	$permissionnote = 1;
 	$permissiondellink = 1;
 }
@@ -204,9 +208,6 @@ if (!$permissiontoread) {
 }
 
 $error = 0;
-$openSetInServiceCompositionDateDialog = 0;
-$setInServiceCompositionDate = '';
-$setInServiceCompositionDateConflicts = 0;
 if ($action == 'add' && !empty($origin) && $originid > 0) {
 	$object->origin = $origin;
 	$object->origin_id = $originid;
@@ -247,14 +248,18 @@ if ($action == 'addcomposition' && $permissiontoadd) {
 	if ($fk_product > 0 && $qty > 0) {
 		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, entity)";
 		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".((int) $conf->entity).")";
-		$db->query($sql);
+		if ($db->query($sql)) {
+			powerplantRecalculateInstalledPower($object);
+		}
 	}
 }
 if ($action == 'delcomposition' && $permissiontoadd) {
 	$lineid = GETPOSTINT('lineid');
 	if ($lineid > 0) {
 		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id);
-		$db->query($sql);
+		if ($db->query($sql)) {
+			powerplantRecalculateInstalledPower($object);
+		}
 	}
 }
 
@@ -286,6 +291,8 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 		// Security: allow only known fields from $object->fields (or our synthetic field zip_town)
 		if (empty($field) || ($field != 'zip_town' && empty($object->fields[$field]))) {
 			setEventMessages($langs->trans("ErrorBadParameter"), null, 'errors');
+		} elseif ($field == 'installed_power') {
+			setEventMessages($langs->trans("ErrorForbidden"), null, 'errors');
 		} else {
 			$res = 0;
 
@@ -378,49 +385,57 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 			setEventMessages($object->error, $object->errors, 'errors');
 		}
 	}
-	if ($action == 'setinservice' && $permissiontoadd) {
+	if ($action == 'setinservice' && empty($permissiontosetinservice)) {
+		accessforbidden();
+	}
+	if ($action == 'setoutofservice' && empty($permissiontosetoutofservice)) {
+		accessforbidden();
+	}
+	if ($action == 'confirm_setinservice' && $confirm == 'yes') {
+		if (empty($permissiontosetinservice)) {
+			accessforbidden();
+		}
 		if (function_exists('checkToken') && !checkToken()) {
 			accessforbidden();
 		}
 		$compositiondatemode = GETPOST('composition_date_mode', 'alpha');
-		if (GETPOSTISSET('composition_date_mode_overwrite')) {
-			$compositiondatemode = 'overwrite';
-		} elseif (GETPOSTISSET('composition_date_mode_keep')) {
+		if (!in_array($compositiondatemode, array('overwrite', 'keep'), true)) {
 			$compositiondatemode = 'keep';
 		}
-		if (!in_array($compositiondatemode, array('overwrite', 'keep'), true)) {
-			$compositiondatemode = '';
-		}
-		$setInServiceCompositionDateConflicts = powerplantCountCompositionCommissioningDateConflicts($object);
-		if ($compositiondatemode === '' && $setInServiceCompositionDateConflicts > 0) {
-			$openSetInServiceCompositionDateDialog = 1;
-			$setInServiceCompositionDate = powerplantGetCompositionCommissioningDate($object);
-			$action = 'confirm_setinservice_composition_dates';
-		} else {
-			$result = $object->setInService($user);
-			if ($result >= 0) {
-				$resultcomposition = powerplantApplyCompositionCommissioningDate($object, $user, ($compositiondatemode === 'overwrite' ? 1 : 0));
-				if ($resultcomposition < 0) {
-					setEventMessages($object->error, $object->errors, 'errors');
-				} else {
-					setEventMessages($langs->trans('PowerPlantSetInServiceDone'), null, 'mesgs');
-					header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
-					exit;
-				}
-			} else {
+		$result = $object->setInService($user);
+		if ($result >= 0) {
+			$resultcompositionstatus = powerplantSetCompositionServiceStatus($object, $user, 4);
+			$resultcompositiondate = ($resultcompositionstatus >= 0 ? powerplantApplyCompositionCommissioningDate($object, $user, ($compositiondatemode === 'overwrite' ? 1 : 0)) : -1);
+			$resultinstalledpower = ($resultcompositiondate >= 0 ? powerplantRecalculateInstalledPower($object) : -1);
+			if ($resultcompositionstatus < 0 || $resultcompositiondate < 0 || $resultinstalledpower < 0) {
 				setEventMessages($object->error, $object->errors, 'errors');
+			} else {
+				setEventMessages($langs->trans('PowerPlantSetInServiceDone'), null, 'mesgs');
+				header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+				exit;
 			}
+		} else {
+			setEventMessages($object->error, $object->errors, 'errors');
 		}
 	}
-	if ($action == 'setoutofservice' && $permissiontoadd) {
+	if ($action == 'confirm_setoutofservice' && $confirm == 'yes') {
+		if (empty($permissiontosetoutofservice)) {
+			accessforbidden();
+		}
 		if (function_exists('checkToken') && !checkToken()) {
 			accessforbidden();
 		}
 		$result = $object->setOutOfService($user);
 		if ($result >= 0) {
-			setEventMessages($langs->trans('PowerPlantSetOutOfServiceDone'), null, 'mesgs');
-			header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
-			exit;
+			$resultcompositionstatus = powerplantSetCompositionServiceStatus($object, $user, 8);
+			$resultinstalledpower = ($resultcompositionstatus >= 0 ? powerplantRecalculateInstalledPower($object) : -1);
+			if ($resultcompositionstatus < 0 || $resultinstalledpower < 0) {
+				setEventMessages($object->error, $object->errors, 'errors');
+			} else {
+				setEventMessages($langs->trans('PowerPlantSetOutOfServiceDone'), null, 'mesgs');
+				header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+				exit;
+			}
 		} else {
 			setEventMessages($object->error, $object->errors, 'errors');
 		}
@@ -518,6 +533,9 @@ if ($action == 'create') {
 	$object->fields['ref']['noteditable'] = 1;
 	$object->fields['ref']['default'] = $object->ref;
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
+	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['installed_power']['noteditable'] = 1;
+	$object->fields['installed_power']['visible'] = 0;
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_add.tpl.php';
 
 	// Other attributes
@@ -642,6 +660,7 @@ if (($id || $ref) && $action == 'edit') {
 	unset($object->fields['status']);
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
 
 	$allfields = $object->fields;
@@ -742,7 +761,6 @@ $k_purchase_tariff = 'buyback_tariff';
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_t0_date);
-		$printRowEdit($k_installed_power);
 		$printRowEdit($k_purchase_contract_no);
 		$printRowEdit($k_purchase_tariff);
 		print '</table>';
@@ -862,6 +880,43 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, $langs->trans('ToClone'), $langs->trans('ConfirmCloneAsk', $object->ref), 'confirm_clone', $formquestion, 'yes', 1);
 	}
 
+	// Confirmation for service status changes.
+	if ($action == 'setinservice') {
+		if (empty($permissiontosetinservice)) {
+			accessforbidden();
+		}
+		$formquestion = array();
+		$compositiondateconflicts = powerplantCountCompositionCommissioningDateConflicts($object);
+		if ($compositiondateconflicts > 0) {
+			$compositiondate = powerplantGetCompositionCommissioningDate($object);
+			$formquestion[] = array(
+				'type' => 'onecolumn',
+				'value' => $langs->trans(
+					'PowerPlantCompositionCommissioningDateConflictQuestion',
+					$compositiondateconflicts,
+					dol_print_date($db->jdate($compositiondate.' 00:00:00'), 'day')
+				),
+			);
+			$formquestion[] = array(
+				'type' => 'radio',
+				'name' => 'composition_date_mode',
+				'label' => $langs->trans('PowerPlantCompositionDateMode'),
+				'values' => array(
+					'keep' => $langs->trans('PowerPlantCompositionKeepExistingDates'),
+					'overwrite' => $langs->trans('PowerPlantCompositionOverwriteExistingDates'),
+				),
+				'default' => 'keep',
+			);
+		}
+		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, $langs->trans('PowerPlantSetInService'), $langs->trans('PowerPlantConfirmSetInService', $object->ref), 'confirm_setinservice', $formquestion, 0, 1);
+	}
+	if ($action == 'setoutofservice') {
+		if (empty($permissiontosetoutofservice)) {
+			accessforbidden();
+		}
+		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, $langs->trans('PowerPlantSetOutOfService'), $langs->trans('PowerPlantConfirmSetOutOfService', $object->ref), 'confirm_setoutofservice', '', 0, 1);
+	}
+
 	// Confirmation of action xxxx (You can use it for xxx = 'close', xxx = 'reopen', ...)
 	// if ($action == 'xxx') {
 	// 	$text = $langs->trans('ConfirmActionXxx', $object->ref);
@@ -897,25 +952,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// Print form confirm
 	print $formconfirm;
 
-	if (!empty($openSetInServiceCompositionDateDialog)) {
-		print '<div id="dialog-setinservice-composition-dates" class="hideobject">';
-		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
-		print '<input type="hidden" name="token" value="'.newToken().'">';
-		print '<input type="hidden" name="action" value="setinservice">';
-		print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
-		print '<p>'.$langs->trans('PowerPlantCompositionCommissioningDateConflictQuestion', $setInServiceCompositionDateConflicts, dol_print_date($db->jdate($setInServiceCompositionDate.' 00:00:00'), 'day')).'</p>';
-		print '<div class="center">';
-		print '<input type="submit" class="button button-edit" name="composition_date_mode_overwrite" value="'.dol_escape_htmltag($langs->trans('PowerPlantCompositionOverwriteExistingDates')).'">';
-		print ' <input type="submit" class="button" name="composition_date_mode_keep" value="'.dol_escape_htmltag($langs->trans('PowerPlantCompositionKeepExistingDates')).'">';
-		print ' <a class="button button-cancel" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">'.$langs->trans('Cancel').'</a>';
-		print '</div>';
-		print '</form>';
-		print '</div>';
-		print '<script nonce="'.getNonce().'">';
-		print 'jQuery(function(){jQuery("#dialog-setinservice-composition-dates").dialog({autoOpen:true,modal:true,width:720,title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantSetInService')).'"});});';
-		print '</script>';
-	}
-
 
 	// Object card
 	// ------------------------------------------------------------
@@ -934,6 +970,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// Prepare field types
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
 
 	$allfields = $object->fields;
@@ -1385,10 +1422,10 @@ $k_purchase_tariff = 'buyback_tariff';
 			}
 
 			if (in_array($object->status, array($object::STATUS_VALIDATED, $object::STATUS_OUT_OF_SERVICE))) {
-				print dolGetButtonAction('', $langs->trans('PowerPlantSetInService'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=setinservice&token='.newToken(), '', $permissiontoadd);
+				print dolGetButtonAction('', $langs->trans('PowerPlantSetInService'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=setinservice&token='.newToken(), '', $permissiontosetinservice);
 			}
 			if (in_array($object->status, array($object::STATUS_VALIDATED, $object::STATUS_IN_SERVICE))) {
-				print dolGetButtonAction('', $langs->trans('PowerPlantSetOutOfService'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=setoutofservice&token='.newToken(), '', $permissiontoadd);
+				print dolGetButtonAction('', $langs->trans('PowerPlantSetOutOfService'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=setoutofservice&token='.newToken(), '', $permissiontosetoutofservice);
 			}
 
 			// Clone
