@@ -2,6 +2,7 @@
 /* Copyright (C) 2007-2017  Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2025		Pierre Ardoin				<erp@lesmetiersdubatiment.fr>
+ * Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -99,7 +100,8 @@ $langs->loadLangs(array("powerplantpv@powerplantpv", "companies", "other", "mail
 // Get parameters
 $action  = GETPOST('action', 'aZ09');
 $confirm = GETPOST('confirm');
-$id  = (GETPOSTINT('socid') ? GETPOSTINT('socid') : GETPOSTINT('id'));
+$id = GETPOSTINT('id');
+$socid = GETPOSTINT('socid');
 $ref = GETPOST('ref', 'alpha');
 
 $limit = GETPOSTINT('limit') ? GETPOSTINT('limit') : $conf->liste_limit;
@@ -134,7 +136,7 @@ include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php'; // Must be 'inclu
 
 $upload_dir = null;
 if ($id > 0 || !empty($ref)) {
-	$upload_dir = $conf->powerplantpv->multidir_output[$object->entity ? $object->entity : $conf->entity]."/powerplant/".get_exdir(0, 0, 0, 1, $object);
+	$upload_dir = powerplantGetDocumentUploadDir($object);
 }
 
 // Permissions
@@ -150,10 +152,11 @@ if ($enablepermissioncheck) {
 }
 
 // Security check (enable the most restrictive one)
-//if ($user->socid > 0) accessforbidden();
-//if ($user->socid > 0) $socid = $user->socid;
-//$isdraft = (($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-//restrictedArea($user, $object->module, $object->id, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+if ($user->socid > 0) {
+	$socid = $user->socid;
+}
+$isdraft = (($object->status == $object::STATUS_DRAFT) ? 1 : 0);
+restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
 if (!isModEnabled("powerplantpv")) {
 	accessforbidden();
 }
@@ -170,6 +173,8 @@ if (empty($object->id) || $upload_dir === null) {
  * Actions
  */
 
+powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
+powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
 include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 
 
@@ -202,32 +207,8 @@ foreach ($filearray as $key => $file) {
 
 // Object card
 // ------------------------------------------------------------
-$linkback = '<a href="'.dol_buildpath('/powerplantpv/powerplant_list.php', 1).'?restore_lastsearch_values=1'.(!empty($socid) ? '&socid='.$socid : '').'">'.$langs->trans("BackToList").'</a>';
-
-$morehtmlref = '<div class="refidno">';
-/*
-// Ref customer
-$morehtmlref.=$form->editfieldkey("RefCustomer", 'ref_client', $object->ref_client, $object, 0, 'string', '', 0, 1);
-$morehtmlref.=$form->editfieldval("RefCustomer", 'ref_client', $object->ref_client, $object, 0, 'string', '', null, null, '', 1);
-// Thirdparty
-$morehtmlref.='<br>'.$langs->trans('ThirdParty') . ' : ' . (is_object($object->thirdparty) ? $object->thirdparty->getNomUrl(1) : '');
-// Project
-if (isModEnabled('project')) {
-		// Project
-		if (isModEnabled('project')) {
-			$langs->load("projects");
-			if (!empty($object->fk_project)) {
-				$proj = new Project($db);
-				$proj->fetch($object->fk_project);
-				$morehtmlref .= $proj->getNomUrl(1);
-				if ($proj->title) {
-					$morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($proj->title).'</span>';
-				}
-			}
-		}
-	}
-*/
-$morehtmlref .= '</div>';
+$linkback = powerplantGetBackToListLink($object, $socid);
+$morehtmlref = powerplantBuildBannerMoreHtml($object, $permissiontoadd, $action);
 
 dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 
@@ -248,10 +229,10 @@ print '</div>';
 
 print dol_get_fiche_end();
 
-$modulepart = 'powerplantpv';
+$modulepart = powerplantGetDocumentModulePart();
 $param = '&id='.$object->id;
 //$relativepathwithnofile='powerplant/' . dol_sanitizeFileName($object->id).'/';
-$relativepathwithnofile = 'powerplant/'.dol_sanitizeFileName($object->ref).'/';
+$relativepathwithnofile = powerplantGetDocumentRelativePath($object).'/';
 
 include DOL_DOCUMENT_ROOT.'/core/tpl/document_actions_post_headers.tpl.php';
 

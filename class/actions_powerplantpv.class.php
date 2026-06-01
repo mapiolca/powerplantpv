@@ -188,7 +188,7 @@ class ActionsPowerplantpv
 			'element' => 'powerplant',
 			'table_element' => 'powerplantpv_powerplant',
 			'subelement' => 'powerplant',
-			'classpath' => 'powerplantpv/class',
+			'classpath' => 'custom/powerplantpv/class',
 			'classfile' => 'powerplant',
 			'classname' => 'PowerPlant',
 			'dir_output' => $diroutput,
@@ -196,6 +196,80 @@ class ActionsPowerplantpv
 		$hookmanager->resArray = $this->results;
 
 		return 1;
+	}
+
+	/**
+	 * Add the native category type used by power plants.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	Categorie			$object			Category object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function constructCategory($parameters, &$object, &$action, $hookmanager)
+	{
+		global $langs;
+
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+		$langs->load('powerplantpv@powerplantpv');
+
+		$this->results = array(
+			array(
+				'id' => 450004,
+				'code' => 'powerplant',
+				'cat_fk' => 'powerplant',
+				'cat_table' => 'powerplant',
+				'obj_class' => 'PowerPlant',
+				'obj_table' => 'powerplantpv_powerplant',
+				'label' => 'PowerPlant',
+			),
+		);
+		$hookmanager->resArray = $this->results;
+
+		return 0;
+	}
+
+	/**
+	 * Declare PowerPlantPV trigger codes supported by Dolibarr notifications.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	stdClass			$object			Unused object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function notifsupported($parameters, &$object, &$action, $hookmanager)
+	{
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$this->results = array(
+			'arrayofnotifsupported' => array(
+				'POWERPLANTPV_POWERPLANT_CREATE',
+				'POWERPLANTPV_POWERPLANT_MODIFY',
+				'POWERPLANTPV_POWERPLANT_DELETE',
+				'POWERPLANTPV_POWERPLANT_VALIDATE',
+				'POWERPLANTPV_POWERPLANT_UNVALIDATE',
+				'POWERPLANTPV_POWERPLANT_CANCEL',
+				'POWERPLANTPV_POWERPLANT_REOPEN',
+				'POWERPLANTPV_POWERPLANT_SENTBYMAIL',
+				'POWERPLANTPV_POWERPLANT_INSERVICE',
+				'POWERPLANTPV_POWERPLANT_OUTOFSERVICE',
+				'POWERPLANTPV_POWERPLANT_COMP_MODIFY',
+				'POWERPLANTPV_POWERPLANT_COMP_REPLACE',
+				'POWERPLANTPV_POWERPLANT_COMP_INSERVICE',
+				'POWERPLANTPV_POWERPLANT_COMP_OUTOFSERVICE',
+				'POWERPLANTPV_POWERPLANT_COMP_SERIAL',
+				'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING',
+			),
+		);
+		$hookmanager->resArray = $this->results;
+
+		return 0;
 	}
 
 	/**

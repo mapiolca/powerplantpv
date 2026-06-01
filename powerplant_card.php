@@ -93,25 +93,23 @@ if (!$res) {
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formcompany.class.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
-include_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
 dol_include_once('/product/class/html.formproduct.class.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 // Load translation files required by the page
-$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other"));
+$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other", "agenda"));
 
 // Get parameters
 $id = GETPOSTINT('id');
 $ref = GETPOST('ref', 'alpha');
 $lineid   = GETPOSTINT('lineid');
-//$socid = GETPOSTINT('socid');
+$socid = GETPOSTINT('socid');
 $origin = GETPOST('origin', 'alphanohtml');
 $originid = GETPOSTINT('originid') ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
 $create_material_from_origin = GETPOSTINT('create_material_from_origin');
 $fk_soc = GETPOSTINT('fk_soc');
-$fk_project = GETPOSTINT('fk_project');
 $origin = powerplantpvNormalizeOriginType($origin);
 
 $action = GETPOST('action', 'aZ09');
@@ -165,23 +163,43 @@ if ($enablepermissioncheck) {
 	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
 	$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_addupdatedelete.inc.php and actions_lineupdown.inc.php
 	$permissiontodelete = $user->hasRight('powerplantpv', 'powerplant', 'delete') || ($permissiontoadd && isset($object->status) && $object->status == $object::STATUS_DRAFT);
+	$permissiontosetinservice = $user->hasRight('powerplantpv', 'powerplant', 'inservice');
+	$permissiontosetoutofservice = $user->hasRight('powerplantpv', 'powerplant', 'outofservice');
 	$permissionnote = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_setnotes.inc.php
 	$permissiondellink = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_dellink.inc.php
 } else {
 	$permissiontoread = 1;
 	$permissiontoadd = 1; // Used by the include of actions_addupdatedelete.inc.php and actions_lineupdown.inc.php
 	$permissiontodelete = 1;
+	$permissiontosetinservice = 1;
+	$permissiontosetoutofservice = 1;
 	$permissionnote = 1;
 	$permissiondellink = 1;
 }
 
-$upload_dir = $conf->powerplantpv->multidir_output[isset($object->entity) ? $object->entity : 1].'/powerplant';
+$upload_dir = null;
+if (!empty($object->id)) {
+	$upload_dir = powerplantGetDocumentUploadDir($object);
+} else {
+	$diroutput = $conf->powerplantpv->dir_output;
+	if (!empty($conf->powerplantpv->multidir_output[$conf->entity])) {
+		$diroutput = $conf->powerplantpv->multidir_output[$conf->entity];
+	}
+	$upload_dir = $diroutput.'/powerplant';
+}
+$modulepart = powerplantGetDocumentModulePart();
 
 // Security check (enable at least one, the most restrictive one)
-//if ($user->socid > 0) accessforbidden();
-//if ($user->socid > 0) $socid = $user->socid;
-//$isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-//restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+if ($user->socid > 0) {
+	$socid = $user->socid;
+	$fk_soc = $user->socid;
+	if (empty($object->fk_soc)) {
+		$object->fk_soc = $user->socid;
+		$object->socid = $user->socid;
+	}
+}
+$isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
+restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
 if (!isModEnabled($object->module)) {
 	accessforbidden("Module ".$object->module." not enabled");
 }
@@ -230,18 +248,24 @@ if ($action == 'addcomposition' && $permissiontoadd) {
 	if ($fk_product > 0 && $qty > 0) {
 		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, entity)";
 		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".((int) $conf->entity).")";
-		$db->query($sql);
+		if ($db->query($sql)) {
+			powerplantRecalculateInstalledPower($object);
+		}
 	}
 }
 if ($action == 'delcomposition' && $permissiontoadd) {
 	$lineid = GETPOSTINT('lineid');
 	if ($lineid > 0) {
 		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id);
-		$db->query($sql);
+		if ($db->query($sql)) {
+			powerplantRecalculateInstalledPower($object);
+		}
 	}
 }
 
 	$triggermodname = $object->TRIGGER_PREFIX.'_MODIFY'; // Name of trigger action code to execute when we modify record. Used in actions_addupdatedelete.inc.php
+
+	powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
 
 	// Inline update of a single field (row-level edition)
 	if ($action == 'updatefield' && $permissiontoadd) {
@@ -267,6 +291,8 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 		// Security: allow only known fields from $object->fields (or our synthetic field zip_town)
 		if (empty($field) || ($field != 'zip_town' && empty($object->fields[$field]))) {
 			setEventMessages($langs->trans("ErrorBadParameter"), null, 'errors');
+		} elseif ($field == 'installed_power') {
+			setEventMessages($langs->trans("ErrorForbidden"), null, 'errors');
 		} else {
 			$res = 0;
 
@@ -327,6 +353,9 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 	// Actions when linking object each other
 	include DOL_DOCUMENT_ROOT.'/core/actions_dellink.inc.php';
 
+	// Actions to upload, rename or delete files linked to the object.
+	include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
+
 	// Actions when printing a doc from card
 	include DOL_DOCUMENT_ROOT.'/core/actions_printing.inc.php';
 
@@ -336,19 +365,85 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 	// Action to build doc
 	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
 
-	// Other special actions
-	/*
-	if ($action == 'set_thirdparty' && $permissiontoadd) {
-		$object->setValueFrom('fk_soc', GETPOSTINT('fk_soc'), '', null, 'date', '', $user, $triggermodname);
+	if ($action == 'set_thirdparty') {
+		powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
 	}
-	if ($action == 'classin' && $permissiontoadd) {
-		$object->setProject(GETPOSTINT('projectid'));
+	if ($action == 'setcategories' && $permissiontoadd) {
+		if (function_exists('checkToken') && !checkToken()) {
+			accessforbidden();
+		}
+		$categories = GETPOST('categories', 'array:int');
+		if (!is_array($categories)) {
+			$categories = array();
+		}
+		$result = $object->setCategories($categories);
+		if ($result > 0) {
+			setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+			header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+			exit;
+		} else {
+			setEventMessages($object->error, $object->errors, 'errors');
+		}
 	}
-	*/
+	if ($action == 'setinservice' && empty($permissiontosetinservice)) {
+		accessforbidden();
+	}
+	if ($action == 'setoutofservice' && empty($permissiontosetoutofservice)) {
+		accessforbidden();
+	}
+	if ($action == 'confirm_setinservice' && $confirm == 'yes') {
+		if (empty($permissiontosetinservice)) {
+			accessforbidden();
+		}
+		if (function_exists('checkToken') && !checkToken()) {
+			accessforbidden();
+		}
+		$compositiondatemode = GETPOST('composition_date_mode', 'alpha');
+		if (!in_array($compositiondatemode, array('overwrite', 'keep'), true)) {
+			$compositiondatemode = 'keep';
+		}
+		$result = $object->setInService($user);
+		if ($result >= 0) {
+			$resultcompositionstatus = powerplantSetCompositionServiceStatus($object, $user, 4);
+			$resultcompositiondate = ($resultcompositionstatus >= 0 ? powerplantApplyCompositionCommissioningDate($object, $user, ($compositiondatemode === 'overwrite' ? 1 : 0)) : -1);
+			$resultinstalledpower = ($resultcompositiondate >= 0 ? powerplantRecalculateInstalledPower($object) : -1);
+			if ($resultcompositionstatus < 0 || $resultcompositiondate < 0 || $resultinstalledpower < 0) {
+				setEventMessages($object->error, $object->errors, 'errors');
+			} else {
+				setEventMessages($langs->trans('PowerPlantSetInServiceDone'), null, 'mesgs');
+				header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+				exit;
+			}
+		} else {
+			setEventMessages($object->error, $object->errors, 'errors');
+		}
+	}
+	if ($action == 'confirm_setoutofservice' && $confirm == 'yes') {
+		if (empty($permissiontosetoutofservice)) {
+			accessforbidden();
+		}
+		if (function_exists('checkToken') && !checkToken()) {
+			accessforbidden();
+		}
+		$result = $object->setOutOfService($user);
+		if ($result >= 0) {
+			$resultcompositionstatus = powerplantSetCompositionServiceStatus($object, $user, 8);
+			$resultinstalledpower = ($resultcompositionstatus >= 0 ? powerplantRecalculateInstalledPower($object) : -1);
+			if ($resultcompositionstatus < 0 || $resultinstalledpower < 0) {
+				setEventMessages($object->error, $object->errors, 'errors');
+			} else {
+				setEventMessages($langs->trans('PowerPlantSetOutOfServiceDone'), null, 'mesgs');
+				header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
+				exit;
+			}
+		} else {
+			setEventMessages($object->error, $object->errors, 'errors');
+		}
+	}
 
 	// Actions to send emails
-	$triggersendname = 'POWERPLANTPV_MYOBJECT_SENTBYMAIL';
-	$autocopy = 'MAIN_MAIL_AUTOCOPY_MYOBJECT_TO';
+	$triggersendname = 'POWERPLANTPV_POWERPLANT_SENTBYMAIL';
+	$autocopy = 'MAIN_MAIL_AUTOCOPY_POWERPLANT_TO';
 	$trackid = 'powerplant'.$object->id;
 	include DOL_DOCUMENT_ROOT.'/core/actions_sendmails.inc.php';
 }
@@ -396,9 +491,6 @@ if ($action == 'create') {
 	if ($fk_soc > 0) {
 		$object->fk_soc = $fk_soc;
 	}
-	if ($fk_project > 0) {
-		$object->fk_project = $fk_project;
-	}
 
 	$automaticmaterialsummary = array();
 	if (!empty($create_material_from_origin) && !empty($origin) && $originid > 0) {
@@ -441,6 +533,9 @@ if ($action == 'create') {
 	$object->fields['ref']['noteditable'] = 1;
 	$object->fields['ref']['default'] = $object->ref;
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
+	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['installed_power']['noteditable'] = 1;
+	$object->fields['installed_power']['visible'] = 0;
 	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_add.tpl.php';
 
 	// Other attributes
@@ -565,6 +660,7 @@ if (($id || $ref) && $action == 'edit') {
 	unset($object->fields['status']);
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
 
 	$allfields = $object->fields;
@@ -665,7 +761,6 @@ $k_purchase_tariff = 'buyback_tariff';
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_t0_date);
-		$printRowEdit($k_installed_power);
 		$printRowEdit($k_purchase_contract_no);
 		$printRowEdit($k_purchase_tariff);
 		print '</table>';
@@ -763,12 +858,63 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	if ($action == 'deleteline') {
 		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id.'&lineid='.$lineid, $langs->trans('DeleteLine'), $langs->trans('ConfirmDeleteLine'), 'confirm_deleteline', '', 0, 1);
 	}
+	// Confirmation to delete a linked file or external link.
+	if ($action == 'deletefile' || $action == 'deletelink') {
+		$langs->load('companies');
+		$urlfile = GETPOST('urlfile', 'alpha', 0, null, null, 1);
+		$formconfirm = $form->formconfirm(
+			$_SERVER["PHP_SELF"].'?id='.$object->id.'&urlfile='.urlencode($urlfile).'&linkid='.GETPOSTINT('linkid'),
+			$langs->trans('DeleteFile'),
+			$langs->trans('ConfirmDeleteFile'),
+			'confirm_deletefile',
+			'',
+			'',
+			1
+		);
+	}
 
 	// Clone confirmation
 	if ($action == 'clone') {
 		// Create an array for form
 		$formquestion = array();
 		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, $langs->trans('ToClone'), $langs->trans('ConfirmCloneAsk', $object->ref), 'confirm_clone', $formquestion, 'yes', 1);
+	}
+
+	// Confirmation for service status changes.
+	if ($action == 'setinservice') {
+		if (empty($permissiontosetinservice)) {
+			accessforbidden();
+		}
+		$formquestion = array();
+		$compositiondateconflicts = powerplantCountCompositionCommissioningDateConflicts($object);
+		if ($compositiondateconflicts > 0) {
+			$compositiondate = powerplantGetCompositionCommissioningDate($object);
+			$formquestion[] = array(
+				'type' => 'onecolumn',
+				'value' => $langs->trans(
+					'PowerPlantCompositionCommissioningDateConflictQuestion',
+					$compositiondateconflicts,
+					dol_print_date($db->jdate($compositiondate.' 00:00:00'), 'day')
+				),
+			);
+			$formquestion[] = array(
+				'type' => 'radio',
+				'name' => 'composition_date_mode',
+				'label' => $langs->trans('PowerPlantCompositionDateMode'),
+				'values' => array(
+					'keep' => $langs->trans('PowerPlantCompositionKeepExistingDates'),
+					'overwrite' => $langs->trans('PowerPlantCompositionOverwriteExistingDates'),
+				),
+				'default' => 'keep',
+			);
+		}
+		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, $langs->trans('PowerPlantSetInService'), $langs->trans('PowerPlantConfirmSetInService', $object->ref), 'confirm_setinservice', $formquestion, 0, 1);
+	}
+	if ($action == 'setoutofservice') {
+		if (empty($permissiontosetoutofservice)) {
+			accessforbidden();
+		}
+		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, $langs->trans('PowerPlantSetOutOfService'), $langs->trans('PowerPlantConfirmSetOutOfService', $object->ref), 'confirm_setoutofservice', '', 0, 1);
 	}
 
 	// Confirmation of action xxxx (You can use it for xxx = 'close', xxx = 'reopen', ...)
@@ -778,7 +924,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// 		require_once DOL_DOCUMENT_ROOT . '/core/class/notify.class.php';
 	// 		$notify = new Notify($db);
 	// 		$text .= '<br>';
-	// 		$text .= $notify->confirmMessage('MYOBJECT_CLOSE', $object->socid, $object);
+	// 		$text .= $notify->confirmMessage('POWERPLANT_CLOSE', $object->socid, $object);
 	// 	}
 
 	// 	$formquestion = array();
@@ -809,41 +955,8 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	// Object card
 	// ------------------------------------------------------------
-	$linkback = '<a href="'.dol_buildpath('/powerplantpv/powerplant_list.php', 1).'?restore_lastsearch_values=1'.(!empty($socid) ? '&socid='.$socid : '').'">'.$langs->trans("BackToList").'</a>';
-
-	$morehtmlref = '<div class="refidno">';
-	/*
-		// Ref customer
-		$morehtmlref .= $form->editfieldkey("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string', '', 0, 1);
-		$morehtmlref .= $form->editfieldval("RefCustomer", 'ref_client', $object->ref_client, $object, $usercancreate, 'string', '', null, null, '', 1);
-	*/
-	// Label (under reference)
-	if (!empty($object->label)) {
-		$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("Label").'</span>: '.dol_escape_htmltag($object->label);
-	}
-
-	// Thirdparty (under reference)
-	if (!empty($object->socid)) {
-		$object->fetch_thirdparty();
-		if (!empty($object->thirdparty) && !empty($object->thirdparty->id)) {
-			$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("ThirdParty").'</span>: '.$object->thirdparty->getNomUrl(1, 'customer');
-		}
-	}
-
-	// Project (under reference)
-	if (isModEnabled('project') && !empty($object->fk_project)) {
-		require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
-		$langs->load("projects");
-		$proj = new Project($db);
-		if ($proj->fetch($object->fk_project) > 0) {
-			$morehtmlref .= '<br><span class="opacitymedium">'.$langs->trans("Project").'</span>: '.$proj->getNomUrl(1);
-			if (!empty($proj->title)) {
-				$morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($proj->title).'</span>';
-			}
-		}
-	}
-
-	$morehtmlref .= '</div>';
+	$linkback = powerplantGetBackToListLink($object, $socid);
+	$morehtmlref = powerplantBuildBannerMoreHtml($object, $permissiontoadd, $action);
 
 
 	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
@@ -857,6 +970,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// Prepare field types
 	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
+	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
 
 	$allfields = $object->fields;
@@ -1096,6 +1210,41 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print '</div>';
 
+	if (isModEnabled('category')) {
+		print '<div class="clearboth"></div>';
+		print '<div class="fichecenter">';
+		print load_fiche_titre($langs->trans('Categories'), '', '');
+		print '<table class="border centpercent tableforfield">';
+		print '<tr>';
+		print '<td class="titlefield">'.$langs->trans('Categories').'</td>';
+		if ($action == 'editcategories' && $permissiontoadd) {
+			print '<td>';
+			print '<form method="POST" action="'.dolBuildUrl($_SERVER["PHP_SELF"]).'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="setcategories">';
+			print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+			print powerplantSelectCategories($form, 'powerplant', 'categories', $object);
+			print ' <input type="submit" class="button valignmiddle" value="'.$langs->trans('Save').'">';
+			print ' <a class="button button-cancel" href="'.dolBuildUrl($_SERVER["PHP_SELF"], array('id' => $object->id)).'">'.$langs->trans('Cancel').'</a>';
+			print '</form>';
+			print '</td>';
+			print '<td class="right nowraponall">&nbsp;</td>';
+		} else {
+			$categorieshtml = $form->showCategories($object->id, 'powerplant', 1);
+			print '<td>'.($categorieshtml !== '' ? $categorieshtml : '<span class="opacitymedium">'.$langs->trans('None').'</span>').'</td>';
+			print '<td class="right nowraponall">';
+			if ($permissiontoadd) {
+				print '<a class="editfielda reposition" href="'.dolBuildUrl($_SERVER["PHP_SELF"], array('id' => $object->id, 'action' => 'editcategories')).'">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a>';
+			} else {
+				print '&nbsp;';
+			}
+			print '</td>';
+		}
+		print '</tr>';
+		print '</table>';
+		print '</div>';
+	}
+
 	$compositionstatuslist = array(
 		4 => 'PowerPlantCompStatusActivePlural',
 		0 => 'PowerPlantCompStatusInactivePlural',
@@ -1258,12 +1407,11 @@ $k_purchase_tariff = 'buyback_tariff';
 			}
 
 			// Back to draft
-			if ($object->status == $object::STATUS_VALIDATED) {
+			if ($object->status > $object::STATUS_DRAFT && $object->status != $object::STATUS_CANCELED) {
 				print dolGetButtonAction('', $langs->trans('SetToDraft'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=confirm_setdraft&confirm=yes&token='.newToken(), '', $permissiontoadd);
 			}
 
-			// Modify
-						// Validate
+			// Validate
 			if ($object->status == $object::STATUS_DRAFT) {
 				if (empty($object->table_element_line) || (is_array($object->lines) && count($object->lines) > 0)) {
 					print dolGetButtonAction('', $langs->trans('Validate'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=confirm_validate&confirm=yes&token='.newToken(), '', $permissiontoadd);
@@ -1271,6 +1419,13 @@ $k_purchase_tariff = 'buyback_tariff';
 					$langs->load("errors");
 					print dolGetButtonAction($langs->trans("ErrorAddAtLeastOneLineFirst"), $langs->trans("Validate"), 'default', '#', '', 0);
 				}
+			}
+
+			if (in_array($object->status, array($object::STATUS_VALIDATED, $object::STATUS_OUT_OF_SERVICE))) {
+				print dolGetButtonAction('', $langs->trans('PowerPlantSetInService'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=setinservice&token='.newToken(), '', $permissiontosetinservice);
+			}
+			if (in_array($object->status, array($object::STATUS_VALIDATED, $object::STATUS_IN_SERVICE))) {
+				print dolGetButtonAction('', $langs->trans('PowerPlantSetOutOfService'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=setoutofservice&token='.newToken(), '', $permissiontosetoutofservice);
 			}
 
 			// Clone
@@ -1323,13 +1478,12 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		// Documents
 		if ($includedocgeneration) {
-			$objref = dol_sanitizeFileName($object->ref);
-			$relativepath = $objref.'/'.$objref.'.pdf';
-			$filedir = $conf->powerplantpv->dir_output.'/'.$object->element.'/'.$objref;
+			$filedir = powerplantGetDocumentUploadDir($object);
+			$relativepathwithnofile = powerplantGetDocumentRelativePath($object);
 			$urlsource = $_SERVER["PHP_SELF"]."?id=".$object->id;
 			$genallowed = $permissiontoread; // If you can read, you can build the PDF to read content
 			$delallowed = $permissiontoadd; // If you can create/edit, you can remove a file on card
-			print $formfile->showdocuments('powerplantpv:PowerPlant', $object->element.'/'.$objref, $filedir, $urlsource, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang);
+			print $formfile->showdocuments($modulepart.':PowerPlant', $relativepathwithnofile, $filedir, $urlsource, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
 		}
 
 		// Show links to link elements
@@ -1351,17 +1505,18 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		print '</div><div class="fichehalfright">';
 
-		$MAXEVENT = 10;
+		$MAXEVENT = getDolGlobalInt('MAIN_SIZE_SHORTLIST_LIMIT', 10);
 
 		$morehtmlcenter = dolGetButtonTitle($langs->trans('SeeAll'), '', 'fa fa-bars imgforviewmode', dol_buildpath('/powerplantpv/powerplant_agenda.php', 1).'?id='.$object->id);
 
-		$includeeventlist = 0;
+		$includeeventlist = (isModEnabled('agenda') && ($user->hasRight('agenda', 'myactions', 'read') || $user->hasRight('agenda', 'allactions', 'read')));
 
 		// List of actions on element
 		if ($includeeventlist) {
 			include_once DOL_DOCUMENT_ROOT.'/core/class/html.formactions.class.php';
 			$formactions = new FormActions($db);
-			$somethingshown = $formactions->showactions($object, $object->element.'@'.$object->module, (is_object($object->thirdparty) ? $object->thirdparty->id : 0), 1, '', $MAXEVENT, '', $morehtmlcenter);
+			$actionssocid = (!empty($object->fk_soc) ? (int) $object->fk_soc : (is_object($object->thirdparty) ? (int) $object->thirdparty->id : 0));
+			$somethingshown = $formactions->showactions($object, powerplantGetAgendaElementType(), $actionssocid, 1, '', $MAXEVENT, '', $morehtmlcenter);
 		}
 
 		print '</div></div>';

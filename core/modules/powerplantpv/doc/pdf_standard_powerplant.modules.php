@@ -187,8 +187,8 @@ class pdf_standard_powerplant extends ModelePDFPowerPlant
 		$outputlangs->loadLangs($langfiles);
 
 		// Show Draft Watermark
-		if (getDolGlobalString('MYOBJECT_DRAFT_WATERMARK') && $object->status == $object::STATUS_DRAFT) {
-			$this->watermark = getDolGlobalString('MYOBJECT_DRAFT_WATERMARK');
+		if (getDolGlobalString('POWERPLANT_DRAFT_WATERMARK') && $object->status == $object::STATUS_DRAFT) {
+			$this->watermark = getDolGlobalString('POWERPLANT_DRAFT_WATERMARK');
 		}
 
 		global $outputlangsbis;
@@ -210,7 +210,7 @@ class pdf_standard_powerplant extends ModelePDFPowerPlant
 		$realpatharray = array();
 		$this->atleastonephoto = false;
 		/*
-		if (getDolGlobalInt('MAIN_GENERATE_MYOBJECT_WITH_PICTURE'))) {
+		if (getDolGlobalInt('MAIN_GENERATE_POWERPLANT_WITH_PICTURE'))) {
 			$objphoto = new Product($this->db);
 
 			for ($i = 0; $i < $nblines; $i++) {
@@ -353,7 +353,7 @@ class pdf_standard_powerplant extends ModelePDFPowerPlant
 					$info = array(
 						'Name' => $this->emetteur->name,
 						'Location' => getCountry($this->emetteur->country_code, ''),
-						'Reason' => 'MYOBJECT',
+						'Reason' => 'POWERPLANT',
 						'ContactInfo' => $this->emetteur->email
 					);
 					$pdf->setSignature($cert, $cert, $this->emetteur->name, '', 2, $info);

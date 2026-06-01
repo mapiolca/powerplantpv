@@ -93,7 +93,7 @@ class modPowerPlantPV extends DolibarrModules
 		// Define some features supported by module (triggers, login, substitutions, menus, css, etc...)
 		$this->module_parts = array(
 			// Set this to 1 if module has its own trigger directory (core/triggers)
-			'triggers' => 0,
+			'triggers' => 1,
 			// Set this to 1 if module has its own login method file (core/login)
 			'login' => 0,
 			// Set this to 1 if module has its own substitution function file (core/substitutions)
@@ -126,7 +126,10 @@ class modPowerPlantPV extends DolibarrModules
 					'ordercard',
 					'propalcard',
 					'contractcard',
+					'ticketcard',
+					'category',
 					'elementproperties',
+					'notification',
 				),
 			),
 			/* END MODULEBUILDER HOOKSCONTEXTS */
@@ -177,6 +180,9 @@ class modPowerPlantPV extends DolibarrModules
 		//                             2 => array('POWERPLANTPV_MYNEWCONST2', 'chaine', 'myvalue', 'This is another constant to add', 0, 'current', 1)
 		// );
 		$this->const = array();
+		foreach ($this->getPowerPlantActionTriggers() as $trigger) {
+			$this->const[] = array('MAIN_AGENDA_ACTIONAUTO_'.$trigger['code'], 'chaine', '1', $trigger['description'], 0, 'current');
+		}
 
 		// Some keys to add into the overwriting translation tables
 		/*$this->overwrite_translation = array(
@@ -327,6 +333,16 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'delete';
 		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 3 + 1);
+		$this->rights[$r][1] = 'PowerPlantPermissionInService';
+		$this->rights[$r][4] = 'powerplant';
+		$this->rights[$r][5] = 'inservice';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 4 + 1);
+		$this->rights[$r][1] = 'PowerPlantPermissionOutOfService';
+		$this->rights[$r][4] = 'powerplant';
+		$this->rights[$r][5] = 'outofservice';
+		$r++;
 
 		/* END MODULEBUILDER PERMISSIONS */
 
@@ -361,7 +377,7 @@ class modPowerPlantPV extends DolibarrModules
 			'prefix' => img_picto('', $this->picto, 'class="paddingright pictofixedwidth valignmiddle"'),
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplant',
-			'url' => '/powerplantpv/powerplant_list.php',
+			'url' => '/powerplantpv/powerplantpvindex.php',
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
@@ -574,6 +590,38 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		// Create ticket extrafield used to select a power plant at ticket creation.
+		$extrafields->fetch_name_optionals_label('ticket');
+		if (empty($extrafields->attributes['ticket']['label']['powerplantpv_powerplant'])) {
+			$powerplantSellist = array(
+				'options' => array('powerplantpv_powerplant:ref:rowid::(entity:IN:__SHARED_ENTITIES__)' => null)
+			);
+			$result = $extrafields->addExtraField(
+				'powerplantpv_powerplant',
+				'PowerPlant',
+				'sellist',
+				200,
+				'',
+				'ticket',
+				0,
+				0,
+				'',
+				$powerplantSellist,
+				1,
+				'',
+				-1,
+				'',
+				'',
+				'',
+				'powerplantpv@powerplantpv',
+				'isModEnabled("powerplantpv")'
+			);
+			if ($result < 0) {
+				$this->errors[] = $extrafields->error;
+				return -1;
+			}
+		}
+
 		// Seed photovoltaic category dictionary.
 		$categoryRows = array(
 			'MODULE' => 'Module photovoltaïque',
@@ -610,6 +658,20 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array();
 
+		// Migrate legacy single project links to native linked objects.
+		$sqlmigrateproject = "INSERT INTO ".$this->db->prefix()."element_element (fk_source, sourcetype, fk_target, targettype)";
+		$sqlmigrateproject .= " SELECT p.fk_project, 'project', p.rowid, 'powerplant@powerplantpv'";
+		$sqlmigrateproject .= " FROM ".$this->db->prefix()."powerplantpv_powerplant as p";
+		$sqlmigrateproject .= " WHERE p.fk_project IS NOT NULL AND p.fk_project > 0";
+		$sqlmigrateproject .= " AND NOT EXISTS (";
+		$sqlmigrateproject .= " SELECT 1 FROM ".$this->db->prefix()."element_element as ee";
+		$sqlmigrateproject .= " WHERE ee.fk_source = p.fk_project";
+		$sqlmigrateproject .= " AND ee.sourcetype = 'project'";
+		$sqlmigrateproject .= " AND ee.fk_target = p.rowid";
+		$sqlmigrateproject .= " AND ee.targettype = 'powerplant@powerplantpv'";
+		$sqlmigrateproject .= ")";
+		$sql[] = $sqlmigrateproject;
+
 		// Ensure PV product natures are present in dictionary
 		$natureTable = $this->db->prefix()."c_product_nature";
 		$pvNatures = array(
@@ -629,10 +691,10 @@ class modPowerPlantPV extends DolibarrModules
 		// Document templates
 		$moduledir = dol_sanitizeFileName('powerplantpv');
 		$myTmpObjects = array();
-		$myTmpObjects['PowerPlant'] = array('includerefgeneration' => 0, 'includedocgeneration' => 0);
+		$myTmpObjects['PowerPlant'] = array('includerefgeneration' => 0, 'includedocgeneration' => 1);
 
 		foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
-			if ($myTmpObjectArray['includerefgeneration']) {
+			if ($myTmpObjectArray['includedocgeneration']) {
 				$src = DOL_DOCUMENT_ROOT.'/install/doctemplates/'.$moduledir.'/template_powerplants.odt';
 				$dirodt = DOL_DATA_ROOT.($conf->entity > 1 ? '/'.$conf->entity : '').'/doctemplates/'.$moduledir;
 				$dest = $dirodt.'/template_powerplants.odt';
@@ -657,7 +719,71 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		// Migrate legacy agenda links to the canonical Dolibarr element type used by this module.
+		$sqlmigrateagenda = "UPDATE ".$this->db->prefix()."actioncomm";
+		$sqlmigrateagenda .= " SET elementtype = 'powerplant@powerplantpv'";
+		$sqlmigrateagenda .= " WHERE elementtype IN ('powerplant', 'powerplantpv_powerplant')";
+		$sqlmigrateagenda .= " AND fk_element IN (SELECT p.rowid FROM ".$this->db->prefix()."powerplantpv_powerplant as p)";
+		$sql[] = $sqlmigrateagenda;
+
+		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
+
 		return $this->_init($sql, $options);
+	}
+
+	/**
+	 * Return PowerPlantPV business triggers handled by Agenda auto events.
+	 *
+	 * @return	array<int,array<string,int|string>>	Trigger definitions
+	 */
+	private function getPowerPlantActionTriggers()
+	{
+		return array(
+			array('code' => 'POWERPLANTPV_POWERPLANT_CREATE', 'label' => 'PowerPlantTriggerCreate', 'description' => 'PowerPlantTriggerCreateDesc', 'rang' => 45000400),
+			array('code' => 'POWERPLANTPV_POWERPLANT_MODIFY', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 45000401),
+			array('code' => 'POWERPLANTPV_POWERPLANT_DELETE', 'label' => 'PowerPlantTriggerDelete', 'description' => 'PowerPlantTriggerDeleteDesc', 'rang' => 45000402),
+			array('code' => 'POWERPLANTPV_POWERPLANT_VALIDATE', 'label' => 'PowerPlantTriggerValidate', 'description' => 'PowerPlantTriggerValidateDesc', 'rang' => 45000403),
+			array('code' => 'POWERPLANTPV_POWERPLANT_UNVALIDATE', 'label' => 'PowerPlantTriggerUnvalidate', 'description' => 'PowerPlantTriggerUnvalidateDesc', 'rang' => 45000404),
+			array('code' => 'POWERPLANTPV_POWERPLANT_CANCEL', 'label' => 'PowerPlantTriggerCancel', 'description' => 'PowerPlantTriggerCancelDesc', 'rang' => 45000405),
+			array('code' => 'POWERPLANTPV_POWERPLANT_REOPEN', 'label' => 'PowerPlantTriggerReopen', 'description' => 'PowerPlantTriggerReopenDesc', 'rang' => 45000406),
+			array('code' => 'POWERPLANTPV_POWERPLANT_SENTBYMAIL', 'label' => 'PowerPlantTriggerSentByMail', 'description' => 'PowerPlantTriggerSentByMailDesc', 'rang' => 45000407),
+			array('code' => 'POWERPLANTPV_POWERPLANT_INSERVICE', 'label' => 'PowerPlantTriggerInService', 'description' => 'PowerPlantTriggerInServiceDesc', 'rang' => 45000408),
+			array('code' => 'POWERPLANTPV_POWERPLANT_OUTOFSERVICE', 'label' => 'PowerPlantTriggerOutOfService', 'description' => 'PowerPlantTriggerOutOfServiceDesc', 'rang' => 45000409),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_MODIFY', 'label' => 'PowerPlantCompTriggerModify', 'description' => 'PowerPlantCompTriggerModifyDesc', 'rang' => 45000410),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_REPLACE', 'label' => 'PowerPlantCompTriggerReplace', 'description' => 'PowerPlantCompTriggerReplaceDesc', 'rang' => 45000411),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_INSERVICE', 'label' => 'PowerPlantCompTriggerInService', 'description' => 'PowerPlantCompTriggerInServiceDesc', 'rang' => 45000412),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_OUTOFSERVICE', 'label' => 'PowerPlantCompTriggerOutOfService', 'description' => 'PowerPlantCompTriggerOutOfServiceDesc', 'rang' => 45000413),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_SERIAL', 'label' => 'PowerPlantCompTriggerSerial', 'description' => 'PowerPlantCompTriggerSerialDesc', 'rang' => 45000414),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING', 'label' => 'PowerPlantCompTriggerCommissioning', 'description' => 'PowerPlantCompTriggerCommissioningDesc', 'rang' => 45000415),
+		);
+	}
+
+	/**
+	 * Return SQL statements that register PowerPlantPV business triggers.
+	 *
+	 * @return	string[]	SQL statements
+	 */
+	private function getPowerPlantActionTriggerSql()
+	{
+		global $langs;
+
+		$langs->load('powerplantpv@powerplantpv');
+
+		$sql = array();
+		$table = $this->db->prefix().'c_action_trigger';
+		$elementtype = $this->db->escape('powerplant@powerplantpv');
+
+		foreach ($this->getPowerPlantActionTriggers() as $trigger) {
+			$code = $this->db->escape($trigger['code']);
+			$label = $this->db->escape($langs->transnoentitiesnoconv($trigger['label']));
+			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));
+			$rang = (int) $trigger['rang'];
+
+			$sql[] = "UPDATE ".$table." SET label = '".$label."', description = '".$description."', elementtype = '".$elementtype."', rang = ".$rang." WHERE code = '".$code."'";
+			$sql[] = "INSERT INTO ".$table." (code, label, description, elementtype, rang) SELECT '".$code."', '".$label."', '".$description."', '".$elementtype."', ".$rang." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE code = '".$code."')";
+		}
+
+		return $sql;
 	}
 
 	/**

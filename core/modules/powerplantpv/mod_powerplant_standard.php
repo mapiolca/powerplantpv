@@ -41,7 +41,7 @@ class mod_powerplant_standard extends ModeleNumRefPowerPlant
 	/**
 	 * @var string
 	 */
-	public $prefix = 'MYOBJECT';
+	public $prefix = 'PP';
 
 	/**
 	 * @var string Error code (or message)

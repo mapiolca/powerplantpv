@@ -170,7 +170,7 @@ function powerplantpvFetchOriginObject($origin, $originid)
 }
 
 /**
- * Apply default third party/project values from a source object to a power plant.
+ * Apply default third party values from a source object to a power plant.
  *
  * @param	PowerPlant	$powerplant	Power plant object to initialize
  * @param	string		$origin		Origin type
@@ -198,8 +198,8 @@ function powerplantpvApplyOriginDefaults(&$powerplant, $origin, $originid)
 			$powerplant->socid = $originsocid;
 		}
 	}
-	if (empty($powerplant->fk_project) && !empty($sourceobject->fk_project)) {
-		$powerplant->fk_project = (int) $sourceobject->fk_project;
+	if (!empty($sourceobject->fk_project)) {
+		$powerplant->context['powerplantpv_origin_fk_project'] = (int) $sourceobject->fk_project;
 	}
 	if (empty($powerplant->label) && !empty($sourceobject->ref)) {
 		$powerplant->label = (is_object($langs) ? $langs->trans('PowerPlantCreatedFrom', $sourceobject->ref) : $sourceobject->ref);
@@ -550,6 +550,12 @@ function powerplantpvCreateComponentsFromOrigin($powerplant, $origin, $originid,
 
 	$summary['created_components'] = $created;
 	$powerplant->context['powerplantpv_material_summary'] = $summary;
+	if ($created > 0 && function_exists('powerplantRecalculateInstalledPower')) {
+		$resultrecalculate = powerplantRecalculateInstalledPower($powerplant);
+		if ($resultrecalculate < 0) {
+			return -1;
+		}
+	}
 
 	return $created;
 }
