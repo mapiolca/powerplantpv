@@ -670,6 +670,8 @@ class modPowerPlantPV extends DolibarrModules
 			$sql[] = "INSERT INTO ".$natureTable." (code, label, active) SELECT '".$this->db->escape($nature['code'])."', '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', 1 WHERE NOT EXISTS (SELECT 1 FROM ".$natureTable." WHERE code = '".$this->db->escape($nature['code'])."')";
 		}
 
+		$sql = array_merge($sql, $this->getPowerPlantContactTypeSql());
+
 		// Document templates
 		$moduledir = dol_sanitizeFileName('powerplantpv');
 		$myTmpObjects = array();
@@ -894,6 +896,71 @@ class modPowerPlantPV extends DolibarrModules
 
 			$sql[] = "UPDATE ".$table." SET label = '".$label."', description = '".$description."', elementtype = '".$elementtype."', rang = ".$rang." WHERE code = '".$code."'";
 			$sql[] = "INSERT INTO ".$table." (code, label, description, elementtype, rang) SELECT '".$code."', '".$label."', '".$description."', '".$elementtype."', ".$rang." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE code = '".$code."')";
+		}
+
+		return $sql;
+	}
+
+	/**
+	 * Return SQL statements that register PowerPlant contact types.
+	 *
+	 * @return	string[]	SQL statements
+	 */
+	private function getPowerPlantContactTypeSql()
+	{
+		$sql = array();
+		$table = $this->db->prefix().'c_type_contact';
+		$element = $this->db->escape('powerplant');
+		$module = $this->db->escape('powerplantpv');
+		$contacttypes = array(
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_SALES', 'label' => 'Responsable commercial', 'position' => 10),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ENGINEER', 'label' => 'Chargé d’étude', 'position' => 20),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ADMIN', 'label' => 'Responsable administratif', 'position' => 30),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_WORKS_MANAGER', 'label' => 'Conducteur de travaux', 'position' => 40),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_PURCHASING', 'label' => 'Responsable achats', 'position' => 50),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_COMMISSIONING', 'label' => 'Responsable mise en service', 'position' => 60),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_MAINTENANCE', 'label' => 'Responsable maintenance', 'position' => 70),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_QUALITY', 'label' => 'Référent qualité', 'position' => 80),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_INSTALL_TECH', 'label' => 'Technicien d’installation', 'position' => 90),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ELECTRICAL_TECH', 'label' => 'Technicien électricien', 'position' => 100),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_COMMISSION_TECH', 'label' => 'Technicien mise en service', 'position' => 110),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_MAINTENANCE_TECH', 'label' => 'Technicien maintenance', 'position' => 120),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ROOFER', 'label' => 'Technicien toiture', 'position' => 130),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CLIENT_OWNER', 'label' => 'Maître d’ouvrage', 'position' => 10),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CLIENT_TECH', 'label' => 'Contact technique client', 'position' => 20),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CLIENT_ADMIN', 'label' => 'Contact administratif client', 'position' => 30),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_BUILDING_OWNER', 'label' => 'Propriétaire du bâtiment', 'position' => 40),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_SITE_OPERATOR', 'label' => 'Exploitant du site', 'position' => 50),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INSTALLER', 'label' => 'Installateur', 'position' => 60),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ELECTRICIAN', 'label' => 'Électricien', 'position' => 70),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CONTROL_OFFICE', 'label' => 'Bureau de contrôle', 'position' => 80),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_SPS', 'label' => 'Coordinateur SPS', 'position' => 90),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_GRID_OPERATOR', 'label' => 'Gestionnaire de réseau', 'position' => 100),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ENERGY_BUYER', 'label' => 'Acheteur d’énergie', 'position' => 110),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MODULE_SUPPLIER', 'label' => 'Fournisseur modules', 'position' => 120),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INV_SUPPLIER', 'label' => 'Fournisseur onduleurs', 'position' => 130),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MOUNT_SUPPLIER', 'label' => 'Fournisseur structure', 'position' => 140),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MONITORING', 'label' => 'Supervision / monitoring', 'position' => 150),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INSURANCE', 'label' => 'Assureur', 'position' => 160),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ARCHITECT', 'label' => 'Architecte / maître d’œuvre', 'position' => 170),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_URBANISM', 'label' => 'Service urbanisme', 'position' => 180),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_FIRE_SAFETY', 'label' => 'Sécurité incendie / SDIS', 'position' => 190),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MAINTAINER', 'label' => 'Mainteneur externe', 'position' => 200),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INSTALL_TECH', 'label' => 'Technicien d’installation externe', 'position' => 210),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ELECTRICAL_TECH', 'label' => 'Technicien électricien externe', 'position' => 220),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_COMMISSION_TECH', 'label' => 'Technicien mise en service externe', 'position' => 230),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MAINTENANCE_TECH', 'label' => 'Technicien maintenance externe', 'position' => 240),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ROOFER', 'label' => 'Technicien toiture externe', 'position' => 250),
+		);
+
+		foreach ($contacttypes as $contacttype) {
+			$source = $this->db->escape($contacttype['source']);
+			$code = $this->db->escape($contacttype['code']);
+			$label = $this->db->escape($contacttype['label']);
+			$position = (int) $contacttype['position'];
+
+			$sql[] = "UPDATE ".$table." SET libelle = '".$label."', active = 1, module = '".$module."', position = ".$position." WHERE element = '".$element."' AND source = '".$source."' AND code = '".$code."'";
+			$sql[] = "INSERT INTO ".$table." (element, source, code, libelle, active, module, position) SELECT '".$element."', '".$source."', '".$code."', '".$label."', 1, '".$module."', ".$position." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE element = '".$element."' AND source = '".$source."' AND code = '".$code."')";
 		}
 
 		return $sql;
