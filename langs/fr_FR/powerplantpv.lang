@@ -55,6 +55,17 @@ POWERPLANTPV_MYPARAM12=Valeur forcée
 #
 PowerPlantPVAbout = À propos de Centrale PV
 PowerPlantPVAboutPage = Page À propos de Centrale PV
+PowerPlantPVAboutGeneral = Général
+PowerPlantPVAboutVersion = Version
+PowerPlantPVAboutFamily = Famille
+PowerPlantPVAboutDescription = Description
+PowerPlantPVAboutMaintainer = Mainteneur
+PowerPlantPVAboutResources = Ressources
+PowerPlantPVAboutDocumentation = Documentation
+PowerPlantPVAboutDocumentationLink = Lire la documentation
+PowerPlantPVAboutSupport = Support
+PowerPlantPVAboutSupportValue = Support assuré par l'intégrateur Dolibarr
+PowerPlantPVAboutContact = Contact
 
 #
 # Sample page
@@ -69,6 +80,8 @@ MyWidget = My widget
 MyWidgetDescription = My widget description
 
 PowerPlant = Centrale
+New_PowerPlant = Nouvelle centrale
+List_PowerPlant = Liste des centrales
 CreatePowerPlant = Créer une centrale
 CreatePowerPlantDropdown = Créer centrale PV
 LinkToPowerPlant = Lier à une centrale

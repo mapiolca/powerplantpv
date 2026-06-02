@@ -55,6 +55,17 @@ POWERPLANTPV_MYPARAM12=Valor forzado
 #
 PowerPlantPVAbout = Acerca de Plantas FV
 PowerPlantPVAboutPage = Página acerca de Plantas FV
+PowerPlantPVAboutGeneral = General
+PowerPlantPVAboutVersion = Versión
+PowerPlantPVAboutFamily = Familia
+PowerPlantPVAboutDescription = Descripción
+PowerPlantPVAboutMaintainer = Mantenedor
+PowerPlantPVAboutResources = Recursos
+PowerPlantPVAboutDocumentation = Documentación
+PowerPlantPVAboutDocumentationLink = Leer la documentación
+PowerPlantPVAboutSupport = Soporte
+PowerPlantPVAboutSupportValue = Soporte proporcionado por el integrador Dolibarr
+PowerPlantPVAboutContact = Contacto
 
 #
 # Sample page
@@ -69,6 +80,8 @@ MyWidget = Mi widget
 MyWidgetDescription = Descripción del widget
 
 PowerPlant = Planta de energía
+New_PowerPlant = Nueva planta
+List_PowerPlant = Lista de plantas
 CreatePowerPlant = Crear planta de energia
 CreatePowerPlantDropdown = Crear planta FV
 LinkToPowerPlant = Vincular a una planta de energia

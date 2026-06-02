@@ -55,6 +55,17 @@ POWERPLANTPV_MYPARAM12=Forced value
 #
 PowerPlantPVAbout = About PV plants
 PowerPlantPVAboutPage = PV plants about page
+PowerPlantPVAboutGeneral = General
+PowerPlantPVAboutVersion = Version
+PowerPlantPVAboutFamily = Family
+PowerPlantPVAboutDescription = Description
+PowerPlantPVAboutMaintainer = Maintainer
+PowerPlantPVAboutResources = Resources
+PowerPlantPVAboutDocumentation = Documentation
+PowerPlantPVAboutDocumentationLink = Read documentation
+PowerPlantPVAboutSupport = Support
+PowerPlantPVAboutSupportValue = Support provided by the Dolibarr integrator
+PowerPlantPVAboutContact = Contact
 
 #
 # Sample page
@@ -69,6 +80,8 @@ MyWidget = My widget
 MyWidgetDescription = My widget description
 
 PowerPlant = Power plant
+New_PowerPlant = New power plant
+List_PowerPlant = List of power plants
 CreatePowerPlant = Create a power plant
 CreatePowerPlantDropdown = Create PV plant
 LinkToPowerPlant = Link to a power plant

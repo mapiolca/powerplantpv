@@ -55,6 +55,17 @@ POWERPLANTPV_MYPARAM12=Erzwungener Wert
 #
 PowerPlantPVAbout = Über PV-Anlagen
 PowerPlantPVAboutPage = Infoseite PV-Anlagen
+PowerPlantPVAboutGeneral = Allgemein
+PowerPlantPVAboutVersion = Version
+PowerPlantPVAboutFamily = Familie
+PowerPlantPVAboutDescription = Beschreibung
+PowerPlantPVAboutMaintainer = Betreuer
+PowerPlantPVAboutResources = Ressourcen
+PowerPlantPVAboutDocumentation = Dokumentation
+PowerPlantPVAboutDocumentationLink = Dokumentation lesen
+PowerPlantPVAboutSupport = Support
+PowerPlantPVAboutSupportValue = Support durch den Dolibarr-Integrator
+PowerPlantPVAboutContact = Kontakt
 
 #
 # Sample page
@@ -69,6 +80,8 @@ MyWidget = Mein Widget
 MyWidgetDescription = Beschreibung des Widgets
 
 PowerPlant = Kraftwerk
+New_PowerPlant = Neues PV-Kraftwerk
+List_PowerPlant = Liste der PV-Kraftwerke
 CreatePowerPlant = Kraftwerk erstellen
 CreatePowerPlantDropdown = PV-Kraftwerk erstellen
 LinkToPowerPlant = Mit einem Kraftwerk verknuepfen

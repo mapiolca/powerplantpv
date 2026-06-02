@@ -390,22 +390,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
 			'type' => 'left',
-			'titre' => 'List',
-			'mainmenu' => 'powerplantpv',
-			'leftmenu' => 'powerplantpv_powerplant_list',
-			'url' => '/powerplantpv/powerplant_list.php',
-			'langs' => 'powerplantpv@powerplantpv',
-			'position' => 1000 + $r,
-			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
-			'target' => '',
-			'user' => 2,
-			'object' => 'PowerPlant'
-		);
-		$this->menu[$r++] = array(
-			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
-			'type' => 'left',
-			'titre' => 'New',
+			'titre' => 'New_PowerPlant',
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplantpv_powerplant_new',
 			'url' => '/powerplantpv/powerplant_card.php?action=create',
@@ -413,6 +398,21 @@ class modPowerPlantPV extends DolibarrModules
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
 			'perms' => '$user->hasRight("powerplantpv", "powerplant", "write")',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlant'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
+			'type' => 'left',
+			'titre' => 'List_PowerPlant',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_powerplant_list',
+			'url' => '/powerplantpv/powerplant_list.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv")',
+			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
