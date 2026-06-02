@@ -474,7 +474,7 @@ if ($isPVPanel && ($action === 'save' || $action === 'save_panel')) {
 				$errors[] = $langs->trans('PowerPlantInstalledPowerRecalculationError');
 			}
 			if ($resultcommercialrecalculate < 0) {
-				$errors[] = $langs->trans('ErrorFailedToRecalculatePeakPower');
+				$errors[] = powerplantpvBuildPeakPowerRecalculationErrorMessage(!empty($user->admin));
 			}
 			setEventMessages('', $errors, 'errors');
 			$action = 'edit_panel';

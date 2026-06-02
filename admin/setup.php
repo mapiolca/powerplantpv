@@ -164,7 +164,9 @@ if ($action == 'updateMask') {
 	if ($result['result'] > 0) {
 		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationDone', $result['updated']), null, 'mesgs');
 	} else {
-		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationFailed'), array($result['error']), 'errors');
+		$errorinfo = (!empty($result['errorinfo']) && is_array($result['errorinfo']) ? $result['errorinfo'] : null);
+		$errormessage = powerplantpvBuildPeakPowerRecalculationErrorMessage(!empty($user->admin), $errorinfo);
+		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationFailed'), array($errormessage), 'errors');
 	}
 } elseif ($action == 'specimen' && $tmpobjectkey) {
 	$modele = GETPOST('module', 'alpha');
