@@ -591,36 +591,9 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
-		// Create ticket extrafield used to select a power plant at ticket creation.
-		$extrafields->fetch_name_optionals_label('ticket');
-		if (empty($extrafields->attributes['ticket']['label']['powerplantpv_powerplant'])) {
-			$powerplantSellist = array(
-				'options' => array('powerplantpv_powerplant:ref:rowid::(entity:IN:__SHARED_ENTITIES__)' => null)
-			);
-			$result = $extrafields->addExtraField(
-				'powerplantpv_powerplant',
-				'PowerPlant',
-				'sellist',
-				200,
-				'',
-				'ticket',
-				0,
-				0,
-				'',
-				$powerplantSellist,
-				1,
-				'',
-				-1,
-				'',
-				'',
-				'',
-				'powerplantpv@powerplantpv',
-				'isModEnabled("powerplantpv")'
-			);
-			if ($result < 0) {
-				$this->errors[] = $extrafields->error;
-				return -1;
-			}
+		$result = $this->ensureTicketPowerPlantExtrafield($extrafields);
+		if ($result < 0) {
+			return -1;
 		}
 
 		// Create commercial document extrafields storing the calculated total peak power.
@@ -738,6 +711,84 @@ class modPowerPlantPV extends DolibarrModules
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
 
 		return $this->_init($sql, $options);
+	}
+
+	/**
+	 * Create or update the ticket extrafield used to link a ticket to a power plant.
+	 *
+	 * @param	ExtraFields	$extrafields	Extrafields manager
+	 * @return	int							1 if OK, <0 if KO
+	 */
+	private function ensureTicketPowerPlantExtrafield($extrafields)
+	{
+		$elementtype = 'ticket';
+		$attrname = 'powerplantpv_powerplant';
+
+		$extrafields->fetch_name_optionals_label($elementtype);
+
+		$powerplantLink = array(
+			'options' => array('PowerPlant:powerplantpv/class/powerplant.class.php:0:((entity:IN:__SHARED_ENTITIES__)):ref' => null)
+		);
+
+		$method = 'addExtraField';
+		if (!empty($extrafields->attributes[$elementtype]['label'][$attrname])) {
+			$method = 'updateExtraField';
+
+			if (!empty($extrafields->attributes[$elementtype]['type'][$attrname]) && $extrafields->attributes[$elementtype]['type'][$attrname] != 'link') {
+				$result = $this->cleanTicketPowerPlantExtrafieldBeforeTypeChange($attrname);
+				if ($result < 0) {
+					return -1;
+				}
+			}
+		}
+
+		$result = $extrafields->$method(
+			$attrname,
+			'PowerPlant',
+			'link',
+			200,
+			'',
+			$elementtype,
+			0,
+			0,
+			'',
+			$powerplantLink,
+			1,
+			'',
+			-1,
+			'',
+			'',
+			'',
+			'powerplantpv@powerplantpv',
+			'isModEnabled("powerplantpv")'
+		);
+		if ($result < 0) {
+			$this->errors[] = $extrafields->error;
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Normalize empty values before changing the ticket power plant extrafield from varchar to int.
+	 *
+	 * @param	string	$attrname	Extrafield attribute name
+	 * @return	int					1 if OK, <0 if KO
+	 */
+	private function cleanTicketPowerPlantExtrafieldBeforeTypeChange($attrname)
+	{
+		$sql = "UPDATE ".$this->db->prefix()."ticket_extrafields";
+		$sql .= " SET ".$this->db->sanitize($attrname)." = NULL";
+		$sql .= " WHERE ".$this->db->sanitize($attrname)." = ''";
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**
