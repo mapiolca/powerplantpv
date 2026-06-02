@@ -37,12 +37,22 @@ class ActionsPowerplantpv
 	public $resprints = '';
 
 	/**
+	 * @var string Hook error
+	 */
+	public $error = '';
+
+	/**
 	 * @var string[] Hook errors
 	 */
 	public $errors = array();
 
 	/**
-	 * Add native icon before the ticket power plant extrafield selector.
+	 * @var string[] Hook warnings
+	 */
+	public $warnings = array();
+
+	/**
+	 * Add native icon before the ticket power plant extrafield selector on ticket creation.
 	 *
 	 * @param	array<string,mixed>	$parameters		Hook parameters
 	 * @param	CommonObject		$object			Current object
@@ -63,24 +73,15 @@ class ActionsPowerplantpv
 			return 0;
 		}
 
-		if (empty($object->element) || $object->element != 'ticket') {
-			return 0;
-		}
-		if (!in_array($action, array('create', 'edit', 'edit_extras'))) {
+		if (GETPOST('action', 'aZ09') != 'create') {
 			return 0;
 		}
 
-		$picto = img_picto('', 'fa-sun', 'class="pictofixedwidth valignmiddle powerplantpv-ticket-powerplant-picto"');
-		$this->resprints = '<script nonce="'.getNonce().'">';
-		$this->resprints .= 'jQuery(function(){';
-		$this->resprints .= 'var picto="'.dol_escape_js($picto).'";';
-		$this->resprints .= 'jQuery(".ticket_extras_powerplantpv_powerplant").each(function(){';
-		$this->resprints .= 'var cell=jQuery(this);';
-		$this->resprints .= 'if(cell.children(".powerplantpv-ticket-powerplant-picto").length){return;}';
-		$this->resprints .= 'cell.prepend(picto);';
-		$this->resprints .= '});';
-		$this->resprints .= '});';
-		$this->resprints .= '</script>';
+		if (empty($object->element) || $object->element != 'ticket') {
+			return 0;
+		}
+
+		print $this->getTicketPowerPlantPictoScript();
 
 		return 0;
 	}
@@ -419,6 +420,31 @@ class ActionsPowerplantpv
 		}
 
 		return array_values(array_unique(array_filter($contexts)));
+	}
+
+	/**
+	 * Return the script that inserts the PowerPlant icon before the ticket extrafield selector.
+	 *
+	 * @return	string	HTML script
+	 */
+	private function getTicketPowerPlantPictoScript()
+	{
+		$picto = img_picto('', 'fa-sun', 'class="pictofixedwidth valignmiddle powerplantpv-ticket-powerplant-picto"');
+
+		$html = '<script nonce="'.getNonce().'">';
+		$html .= 'jQuery(function(){';
+		$html .= 'var picto="'.dol_escape_js($picto).'";';
+		$html .= 'jQuery("td.valuefieldcreate.ticket_extras_powerplantpv_powerplant").each(function(){';
+		$html .= 'var cell=jQuery(this);';
+		$html .= 'if(cell.children(".powerplantpv-ticket-powerplant-picto").length){return;}';
+		$html .= 'var target=cell.children(".select2-container").first();';
+		$html .= 'if(!target.length){target=cell.children("select[name=\'options_powerplantpv_powerplant\'],input[name=\'options_powerplantpv_powerplant\']").first();}';
+		$html .= 'if(target.length){target.before(picto);}else{cell.prepend(picto);}';
+		$html .= '});';
+		$html .= '});';
+		$html .= '</script>';
+
+		return $html;
 	}
 
 	/**
