@@ -42,6 +42,50 @@ class ActionsPowerplantpv
 	public $errors = array();
 
 	/**
+	 * Add native icon before the ticket power plant extrafield selector.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function formObjectOptions($parameters, &$object, &$action, $hookmanager)
+	{
+		$this->resprints = '';
+
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$contexts = $this->getContexts($parameters, $hookmanager);
+		if (!in_array('ticketcard', $contexts)) {
+			return 0;
+		}
+
+		if (empty($object->element) || $object->element != 'ticket') {
+			return 0;
+		}
+		if (!in_array($action, array('create', 'edit', 'edit_extras'))) {
+			return 0;
+		}
+
+		$picto = img_picto('', 'fa-sun', 'class="pictofixedwidth valignmiddle powerplantpv-ticket-powerplant-picto"');
+		$this->resprints = '<script nonce="'.getNonce().'">';
+		$this->resprints .= 'jQuery(function(){';
+		$this->resprints .= 'var picto="'.dol_escape_js($picto).'";';
+		$this->resprints .= 'jQuery(".ticket_extras_powerplantpv_powerplant").each(function(){';
+		$this->resprints .= 'var cell=jQuery(this);';
+		$this->resprints .= 'if(cell.children(".powerplantpv-ticket-powerplant-picto").length){return;}';
+		$this->resprints .= 'cell.prepend(picto);';
+		$this->resprints .= '});';
+		$this->resprints .= '});';
+		$this->resprints .= '</script>';
+
+		return 0;
+	}
+
+	/**
 	 * Add price per watt-peak to the native margin table.
 	 *
 	 * @param	array<string,mixed>	$parameters		Hook parameters
