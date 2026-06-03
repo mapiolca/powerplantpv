@@ -58,17 +58,18 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 			return 0;
 		}
 
-		$result = $this->recalculateCommercialDocumentPeakPower($action, $object);
+		$result = $this->recalculateCommercialDocumentPeakPower($action, $object, $user);
 		if ($result < 0) {
 			return -1;
 		}
 
-		$result = $this->recalculateCommercialDocumentPeakPowerForProduct($action, $object);
+		$result = $this->recalculateCommercialDocumentPeakPowerForProduct($action, $object, $user);
 		if ($result < 0) {
 			return -1;
 		}
 
 		if ($action == 'TICKET_CREATE') {
+			$this->cleanEmptyTicketPowerPlantOption($object);
 			return $this->linkTicketToPowerPlant($object, $user);
 		}
 		if ($action == 'ACTION_CREATE' || $action == 'ACTION_MODIFY') {
@@ -83,9 +84,10 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 	 *
 	 * @param	string			$action	Event action code
 	 * @param	CommonObject	$object	Object
+	 * @param	User			$user	User
 	 * @return	int						0 on success or ignored action, <0 on error
 	 */
-	private function recalculateCommercialDocumentPeakPower($action, $object)
+	private function recalculateCommercialDocumentPeakPower($action, $object, $user)
 	{
 		$lineactions = array(
 			'LINEPROPAL_INSERT' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
@@ -156,8 +158,9 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 		$result = powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $documentid, $excludelineid);
 		if ($result < 0) {
-			$this->errors[] = 'ErrorFailedToRecalculatePeakPower';
-			dol_syslog(__METHOD__.' failed for action='.$action.' elementtype='.$elementtype.' id='.$documentid, LOG_ERR);
+			$this->error = powerplantpvBuildPeakPowerRecalculationErrorMessage(!empty($user->admin));
+			$this->errors[] = $this->error;
+			dol_syslog(__METHOD__.' failed for action='.$action.' elementtype='.$elementtype.' id='.$documentid.' '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 			return -1;
 		}
 
@@ -169,9 +172,10 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 	 *
 	 * @param	string		$action	Event action code
 	 * @param	CommonObject	$object	Object
+	 * @param	User			$user	User
 	 * @return	int					0 on success or ignored action, <0 on error
 	 */
-	private function recalculateCommercialDocumentPeakPowerForProduct($action, $object)
+	private function recalculateCommercialDocumentPeakPowerForProduct($action, $object, $user)
 	{
 		if ($action != 'PRODUCT_MODIFY') {
 			return 0;
@@ -185,8 +189,9 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 		$result = powerplantpvRecalculateCommercialDocumentPeakPowerForProduct($productid);
 		if ($result < 0) {
-			$this->errors[] = 'ErrorFailedToRecalculatePeakPower';
-			dol_syslog(__METHOD__.' failed for product id='.$productid, LOG_ERR);
+			$this->error = powerplantpvBuildPeakPowerRecalculationErrorMessage(!empty($user->admin));
+			$this->errors[] = $this->error;
+			dol_syslog(__METHOD__.' failed for product id='.$productid.' '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 			return -1;
 		}
 
@@ -272,6 +277,32 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Remove the ticket power plant extrafield from the in-memory object when it is empty.
+	 *
+	 * Dolibarr public ticket emails iterate over array_options after TICKET_CREATE. Keeping
+	 * an empty link value there would print an empty generic extrafield line.
+	 *
+	 * @param	CommonObject	$ticket	Ticket object
+	 * @return	void
+	 */
+	private function cleanEmptyTicketPowerPlantOption($ticket)
+	{
+		if (!is_object($ticket) || empty($ticket->array_options) || !is_array($ticket->array_options)) {
+			return;
+		}
+
+		$key = 'options_powerplantpv_powerplant';
+		if (!array_key_exists($key, $ticket->array_options)) {
+			return;
+		}
+
+		$value = trim((string) $ticket->array_options[$key]);
+		if ($value === '' || $value === '0' || $value === '-1') {
+			unset($ticket->array_options[$key]);
+		}
 	}
 
 	/**

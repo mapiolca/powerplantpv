@@ -6,6 +6,14 @@ Copyright (C) 2026  Pierre Ardoin <developpeur@lesmetiersdubatiment.fr>
 
 Dolibarr v20.0.
 
+## Multicompany
+
+- Les Centrales utilisent la colonne `entity` et suivent le perimetre natif `getEntity('powerplant')`.
+- La reference d'une Centrale est unique dans le perimetre d'entites partagees par Multicompany, mais peut etre reutilisee dans deux entites non partagees.
+- La numerotation des Centrales expose le partage Multicompany `powerplantnumber`; le controle de sequence utilise l'union de `getEntity('powerplant')` et `getEntity('powerplantnumber')`.
+- Les lignes de composition materielle sont rattachees a l'entite proprietaire de la Centrale.
+- Le dictionnaire photovoltaique `c_powerplantpv_categorypv` reste declare comme dictionnaire Multicompany personnalisable par entite.
+
 ## Fonctionnalites avec compatibilite limitee
 
 | Fonctionnalite | Version requise | Raison | Impact si version inferieure |

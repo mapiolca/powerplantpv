@@ -111,6 +111,160 @@ function powerplantpvNormalizeElementType($elementtype)
 }
 
 /**
+ * Reset the last commercial peak-power recalculation error.
+ *
+ * @return	void
+ */
+function powerplantpvResetPeakPowerRecalculationError()
+{
+	global $powerplantpv_last_peak_power_recalculation_error;
+
+	$powerplantpv_last_peak_power_recalculation_error = array();
+}
+
+/**
+ * Store the last commercial peak-power recalculation error.
+ *
+ * @param	string	$messagekey		Translation key for the business cause
+ * @param	string	$elementtype	Document element type, or product for product-triggered recalculation
+ * @param	int		$objectid		Document or product id
+ * @param	string	$technicalerror	Technical error, usually SQL error
+ * @param	string	$step			Technical step
+ * @param	int		$productid		Product id when the failed operation was product-driven
+ * @return	array<string,mixed>		Stored error
+ */
+function powerplantpvSetPeakPowerRecalculationError($messagekey, $elementtype = '', $objectid = 0, $technicalerror = '', $step = '', $productid = 0)
+{
+	global $powerplantpv_last_peak_power_recalculation_error;
+
+	$error = array(
+		'messagekey' => (string) $messagekey,
+		'elementtype' => powerplantpvNormalizeElementType((string) $elementtype),
+		'objectid' => (int) $objectid,
+		'technicalerror' => trim(str_replace(array("\r", "\n"), ' ', (string) $technicalerror)),
+		'step' => (string) $step,
+		'productid' => (int) $productid,
+	);
+
+	$powerplantpv_last_peak_power_recalculation_error = $error;
+
+	return $error;
+}
+
+/**
+ * Return the last commercial peak-power recalculation error.
+ *
+ * @return	array<string,mixed>	Last error, empty if none
+ */
+function powerplantpvGetLastPeakPowerRecalculationError()
+{
+	global $powerplantpv_last_peak_power_recalculation_error;
+
+	return (is_array($powerplantpv_last_peak_power_recalculation_error) ? $powerplantpv_last_peak_power_recalculation_error : array());
+}
+
+/**
+ * Return a translated object label for peak-power recalculation errors.
+ *
+ * @param	string	$elementtype	Element type
+ * @return	string					Translated object label
+ */
+function powerplantpvGetPeakPowerRecalculationObjectLabel($elementtype)
+{
+	global $langs;
+
+	$elementtype = powerplantpvNormalizeElementType($elementtype);
+	$key = '';
+	if ($elementtype == 'propal') {
+		$key = 'PowerPlantPVPeakPowerObjectPropal';
+	} elseif ($elementtype == 'commande') {
+		$key = 'PowerPlantPVPeakPowerObjectCommande';
+	} elseif ($elementtype == 'facture') {
+		$key = 'PowerPlantPVPeakPowerObjectFacture';
+	} elseif ($elementtype == 'product') {
+		$key = 'PowerPlantPVPeakPowerObjectProduct';
+	}
+
+	if ($key !== '') {
+		$translated = $langs->trans($key);
+		if ($translated != $key) {
+			return $translated;
+		}
+	}
+
+	return ($elementtype !== '' ? $elementtype : $langs->trans('PowerPlantPVPeakPowerObjectUnknown'));
+}
+
+/**
+ * Build a user-facing message for the last commercial peak-power recalculation error.
+ *
+ * @param	bool				$admin		Show technical detail
+ * @param	array<string,mixed>	$error		Error data, defaults to the last error
+ * @return	string							Translated message
+ */
+function powerplantpvBuildPeakPowerRecalculationErrorMessage($admin = false, $error = null)
+{
+	global $langs;
+
+	$langs->load('powerplantpv@powerplantpv');
+
+	if (!is_array($error)) {
+		$error = powerplantpvGetLastPeakPowerRecalculationError();
+	}
+	if (empty($error)) {
+		return $langs->trans('ErrorFailedToRecalculatePeakPower');
+	}
+
+	$messagekey = !empty($error['messagekey']) ? (string) $error['messagekey'] : 'PowerPlantPVPeakPowerErrorUnknown';
+	$cause = $langs->trans($messagekey);
+	if ($cause == $messagekey) {
+		$cause = $langs->trans('ErrorFailedToRecalculatePeakPower');
+	}
+
+	$objectlabel = powerplantpvGetPeakPowerRecalculationObjectLabel(!empty($error['elementtype']) ? (string) $error['elementtype'] : '');
+	$objectref = ((int) (!empty($error['objectid']) ? $error['objectid'] : 0) > 0 ? '#'.((int) $error['objectid']) : $langs->trans('PowerPlantPVPeakPowerObjectAll'));
+	$technicalerror = !empty($error['technicalerror']) ? (string) $error['technicalerror'] : '';
+	$step = !empty($error['step']) ? (string) $error['step'] : '-';
+
+	if ($admin && $technicalerror !== '') {
+		return $langs->trans('PowerPlantPVPeakPowerErrorAdminDetail', $objectlabel, $objectref, $cause, $step, $technicalerror);
+	}
+
+	return $langs->trans('PowerPlantPVPeakPowerErrorUserDetail', $objectlabel, $objectref, $cause);
+}
+
+/**
+ * Build a complete log message for the last commercial peak-power recalculation error.
+ *
+ * @param	array<string,mixed>	$error	Error data, defaults to the last error
+ * @return	string						Log message
+ */
+function powerplantpvBuildPeakPowerRecalculationErrorLog($error = null)
+{
+	if (!is_array($error)) {
+		$error = powerplantpvGetLastPeakPowerRecalculationError();
+	}
+	if (empty($error)) {
+		return 'no detailed error available';
+	}
+
+	$parts = array(
+		'messagekey='.(string) $error['messagekey'],
+		'elementtype='.(string) $error['elementtype'],
+		'objectid='.((int) $error['objectid']),
+		'step='.(string) $error['step'],
+	);
+	if (!empty($error['productid'])) {
+		$parts[] = 'productid='.((int) $error['productid']);
+	}
+	if (!empty($error['technicalerror'])) {
+		$parts[] = 'technicalerror='.(string) $error['technicalerror'];
+	}
+
+	return implode(' ', $parts);
+}
+
+/**
  * Normalize a Dolibarr origin type to the value stored in llx_element_element.
  *
  * @param	string	$origin		Origin type
@@ -490,6 +644,7 @@ function powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtype, $obje
 
 	$modulecategories = powerplantpvGetPhotovoltaicModuleCategoryIds();
 	if ($modulecategories['result'] < 0) {
+		powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorReadCategories', $elementtype, $objectid, $modulecategories['error'], 'read_categories');
 		return array('result' => -1, 'peak_power_kwc' => 0.0, 'peak_power_wc' => 0.0, 'error' => $modulecategories['error']);
 	}
 	if (empty($modulecategories['ids'])) {
@@ -516,7 +671,9 @@ function powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtype, $obje
 	$quantitiesbyproduct = array();
 	$resql = $db->query($sql);
 	if (!$resql) {
-		return array('result' => -1, 'peak_power_kwc' => 0.0, 'peak_power_wc' => 0.0, 'error' => $db->lasterror());
+		$error = $db->lasterror();
+		powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorReadLines', $elementtype, $objectid, $error, 'read_lines');
+		return array('result' => -1, 'peak_power_kwc' => 0.0, 'peak_power_wc' => 0.0, 'error' => $error);
 	}
 
 	while ($obj = $db->fetch_object($resql)) {
@@ -545,7 +702,9 @@ function powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtype, $obje
 	$pmaxbyproduct = array();
 	$resql = $db->query($sql);
 	if (!$resql) {
-		return array('result' => -1, 'peak_power_kwc' => 0.0, 'peak_power_wc' => 0.0, 'error' => $db->lasterror());
+		$error = $db->lasterror();
+		powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorReadProductPower', $elementtype, $objectid, $error, 'read_product_power');
+		return array('result' => -1, 'peak_power_kwc' => 0.0, 'peak_power_wc' => 0.0, 'error' => $error);
 	}
 
 	while ($obj = $db->fetch_object($resql)) {
@@ -578,7 +737,7 @@ function powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtype, $obje
  * @param	string	$elementtype		Element type
  * @param	int		$objectid			Document id
  * @param	float	$peakpowerkwc		Peak power in kWc
- * @return	int							1 if OK, <0 if KO
+ * @return	int							1 if written, 0 if ignored, <0 if KO
  */
 function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid, $peakpowerkwc)
 {
@@ -596,7 +755,9 @@ function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid,
 	$sql .= " AND d.entity IN (".getEntity($config['elementtype']).")";
 	$resql = $db->query($sql);
 	if (!$resql) {
-		dol_syslog(__FUNCTION__.' failed to read parent document: '.$db->lasterror(), LOG_ERR);
+		$error = $db->lasterror();
+		powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorReadDocuments', $elementtype, $objectid, $error, 'read_document');
+		dol_syslog(__FUNCTION__.' failed to read parent document: '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 		return -1;
 	}
 	if ($db->num_rows($resql) <= 0) {
@@ -612,7 +773,9 @@ function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid,
 	$sql .= " WHERE ef.fk_object = ".$objectid;
 	$resql = $db->query($sql);
 	if (!$resql) {
-		dol_syslog(__FUNCTION__.' failed to read extrafield row: '.$db->lasterror(), LOG_ERR);
+		$error = $db->lasterror();
+		powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorReadExtraFields', $elementtype, $objectid, $error, 'read_extrafields');
+		dol_syslog(__FUNCTION__.' failed to read extrafield row: '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 		return -1;
 	}
 
@@ -627,17 +790,113 @@ function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid,
 		$sql .= " SET powerplantpv_peak_power = ".$value;
 		$sql .= " WHERE rowid = ".$extrafieldrowid;
 	} else {
-		$sql = "INSERT INTO ".$db->prefix().$config['extra_table']." (fk_object, powerplantpv_peak_power)";
-		$sql .= " VALUES (".$objectid.", ".$value.")";
+		$insertparts = powerplantpvGetCommercialDocumentPeakPowerExtraFieldsInsertParts($config['elementtype'], 'powerplantpv_peak_power');
+		if ($insertparts['result'] <= 0) {
+			dol_syslog(__FUNCTION__.' skipped peak power insert for '.$config['elementtype'].' id='.$objectid.': '.$insertparts['reason'], LOG_WARNING);
+			return 0;
+		}
+
+		$sql = "INSERT INTO ".$db->prefix().$config['extra_table']." (fk_object, powerplantpv_peak_power".$insertparts['columns'].")";
+		$sql .= " VALUES (".$objectid.", ".$value.$insertparts['values'].")";
 	}
 
 	$resql = $db->query($sql);
 	if (!$resql) {
+		if ($extrafieldrowid <= 0) {
+			dol_syslog(__FUNCTION__.' skipped peak power insert for '.$config['elementtype'].' id='.$objectid.' after SQL error: '.$db->lasterror(), LOG_WARNING);
+			return 0;
+		}
 		dol_syslog(__FUNCTION__.' failed to write peak power: '.$db->lasterror(), LOG_ERR);
 		return -1;
 	}
 
 	return 1;
+}
+
+/**
+ * Build safe extra columns for creating a commercial document extrafields row.
+ *
+ * The commercial document extrafields tables are shared by every module. When another
+ * module owns a mandatory column without default value, PowerPlantPV must not create
+ * a partial row that bypasses Dolibarr's normal extrafield validation.
+ *
+ * @param	string	$elementtype	Element type
+ * @param	string	$managedfield	Field written by PowerPlantPV
+ * @return	array{result:int,columns:string,values:string,reason:string}	Insert parts or reason to skip
+ */
+function powerplantpvGetCommercialDocumentPeakPowerExtraFieldsInsertParts($elementtype, $managedfield)
+{
+	global $db;
+
+	if (!class_exists('ExtraFields')) {
+		require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
+	}
+
+	$extrafields = new ExtraFields($db);
+	$extrafields->fetch_name_optionals_label($elementtype);
+
+	$attributes = isset($extrafields->attributes[$elementtype]) && is_array($extrafields->attributes[$elementtype])
+		? $extrafields->attributes[$elementtype]
+		: array();
+	$labels = isset($attributes['label']) && is_array($attributes['label']) ? $attributes['label'] : array();
+	$columns = array();
+	$values = array();
+	$addedfields = array($managedfield => 1);
+
+	foreach ($labels as $key => $label) {
+		$key = (string) $key;
+		if ($key === $managedfield) {
+			continue;
+		}
+
+		$type = isset($attributes['type'][$key]) ? (string) $attributes['type'][$key] : '';
+		if (in_array($type, array('separate', 'point', 'multipts', 'linestrg', 'polygon'), true)) {
+			if (!empty($attributes['required'][$key])) {
+				return array('result' => 0, 'columns' => '', 'values' => '', 'reason' => 'required unsupported extrafield '.$key);
+			}
+			continue;
+		}
+
+		$required = !empty($attributes['required'][$key]);
+		$hasdefault = isset($attributes['default'])
+			&& array_key_exists($key, $attributes['default'])
+			&& $attributes['default'][$key] !== null
+			&& $attributes['default'][$key] !== '';
+		if ($required && !$hasdefault) {
+			return array('result' => 0, 'columns' => '', 'values' => '', 'reason' => 'required extrafield '.$key.' has no default value');
+		}
+		if (!$hasdefault) {
+			continue;
+		}
+
+		$columns[] = $key;
+		$values[] = "'".$db->escape((string) $attributes['default'][$key])."'";
+		$addedfields[$key] = 1;
+	}
+
+	if (!empty($attributes['mandatoryfieldsofotherentities']) && is_array($attributes['mandatoryfieldsofotherentities'])) {
+		foreach ($attributes['mandatoryfieldsofotherentities'] as $key => $type) {
+			$key = (string) $key;
+			if (isset($addedfields[$key]) || (isset($attributes['type'][$key]) && $attributes['type'][$key] !== '')) {
+				continue;
+			}
+
+			$columns[] = $key;
+			if (in_array($type, array('int', 'double', 'price'), true)) {
+				$values[] = '0';
+			} else {
+				$values[] = "''";
+			}
+			$addedfields[$key] = 1;
+		}
+	}
+
+	return array(
+		'result' => 1,
+		'columns' => empty($columns) ? '' : ', '.implode(', ', $columns),
+		'values' => empty($values) ? '' : ', '.implode(', ', $values),
+		'reason' => '',
+	);
 }
 
 /**
@@ -650,9 +909,11 @@ function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid,
  */
 function powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $objectid, $excludelineid = 0)
 {
+	powerplantpvResetPeakPowerRecalculationError();
+
 	$calculation = powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtype, $objectid, $excludelineid);
 	if ($calculation['result'] < 0) {
-		dol_syslog(__FUNCTION__.' failed to calculate peak power: '.$calculation['error'], LOG_ERR);
+		dol_syslog(__FUNCTION__.' failed to calculate peak power: '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 		return -1;
 	}
 	if ($calculation['result'] == 0) {
@@ -661,8 +922,11 @@ function powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $objec
 
 	$result = powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid, $calculation['peak_power_kwc']);
 	if ($result < 0) {
-		dol_syslog(__FUNCTION__.' failed to save peak power', LOG_ERR);
+		dol_syslog(__FUNCTION__.' failed to save peak power: '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 		return -1;
+	}
+	if ($result == 0) {
+		return 0;
 	}
 
 	return 1;
@@ -679,6 +943,7 @@ function powerplantpvRecalculateCommercialDocumentPeakPowerForProduct($productid
 	global $db;
 
 	$productid = (int) $productid;
+	powerplantpvResetPeakPowerRecalculationError();
 	if ($productid <= 0) {
 		return 0;
 	}
@@ -698,7 +963,9 @@ function powerplantpvRecalculateCommercialDocumentPeakPowerForProduct($productid
 
 		$resql = $db->query($sql);
 		if (!$resql) {
-			dol_syslog(__FUNCTION__.' failed to list '.$elementtype.' documents for product '.$productid.': '.$db->lasterror(), LOG_ERR);
+			$error = $db->lasterror();
+			powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorReadDocuments', 'product', $productid, $error, 'read_documents_'.$elementtype, $productid);
+			dol_syslog(__FUNCTION__.' failed to list '.$elementtype.' documents for product '.$productid.': '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 			return -1;
 		}
 
@@ -727,7 +994,7 @@ function powerplantpvRecalculateCommercialDocumentPeakPowerForProduct($productid
 /**
  * Recalculate peak power for all supported commercial documents.
  *
- * @return	array{result:int,updated:int,error:string}	Result data
+ * @return	array{result:int,updated:int,error:string,errorinfo:array<string,mixed>}	Result data
  */
 function powerplantpvRecalculateAllCommercialDocumentPeakPower()
 {
@@ -735,6 +1002,8 @@ function powerplantpvRecalculateAllCommercialDocumentPeakPower()
 
 	$updated = 0;
 	$error = '';
+	$errorinfo = array();
+	powerplantpvResetPeakPowerRecalculationError();
 
 	$db->begin();
 
@@ -752,9 +1021,10 @@ function powerplantpvRecalculateAllCommercialDocumentPeakPower()
 		$resql = $db->query($sql);
 		if (!$resql) {
 			$error = $db->lasterror();
+			$errorinfo = powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorReadDocuments', $elementtype, 0, $error, 'read_documents');
 			$db->rollback();
-			dol_syslog(__FUNCTION__.' failed to list '.$elementtype.' documents: '.$error, LOG_ERR);
-			return array('result' => -1, 'updated' => $updated, 'error' => $error);
+			dol_syslog(__FUNCTION__.' failed to list '.$elementtype.' documents: '.powerplantpvBuildPeakPowerRecalculationErrorLog($errorinfo), LOG_ERR);
+			return array('result' => -1, 'updated' => $updated, 'error' => $error, 'errorinfo' => $errorinfo);
 		}
 
 		$objectids = array();
@@ -768,9 +1038,10 @@ function powerplantpvRecalculateAllCommercialDocumentPeakPower()
 		foreach (array_values(array_unique($objectids)) as $objectid) {
 			$result = powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $objectid);
 			if ($result < 0) {
-				$error = 'ErrorFailedToRecalculatePeakPower';
+				$errorinfo = powerplantpvGetLastPeakPowerRecalculationError();
+				$error = powerplantpvBuildPeakPowerRecalculationErrorMessage(true, $errorinfo);
 				$db->rollback();
-				return array('result' => -1, 'updated' => $updated, 'error' => $error);
+				return array('result' => -1, 'updated' => $updated, 'error' => $error, 'errorinfo' => $errorinfo);
 			}
 			if ($result > 0) {
 				$updated++;
@@ -780,7 +1051,7 @@ function powerplantpvRecalculateAllCommercialDocumentPeakPower()
 
 	$db->commit();
 
-	return array('result' => 1, 'updated' => $updated, 'error' => $error);
+	return array('result' => 1, 'updated' => $updated, 'error' => $error, 'errorinfo' => $errorinfo);
 }
 
 /**
@@ -991,13 +1262,14 @@ function powerplantpvCreateComponentsFromOrigin($powerplant, $origin, $originid,
 		return 0;
 	}
 
+	$entity = (!empty($powerplant->entity) ? (int) $powerplant->entity : (int) $conf->entity);
 	$created = 0;
 	foreach ($summary['lines'] as $line) {
 		$i = 0;
 		while ($i < (int) $line['components_to_create']) {
 			$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sql .= "(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
-			$sql .= " VALUES (".((int) $powerplant->id).", ".((int) $line['fk_product']).", 4, 1, '', NULL, ".((int) $conf->entity).")";
+			$sql .= " VALUES (".((int) $powerplant->id).", ".((int) $line['fk_product']).", 4, 1, '', NULL, ".$entity.")";
 			$resql = $db->query($sql);
 			if (!$resql) {
 				$powerplant->error = $db->lasterror();

@@ -43,6 +43,10 @@ function powerplantPrepareHead($object)
 	$head[$h][2] = 'card';
 	$h++;
 
+	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_location.php', 1), ['id' => $object->id]);
+	$head[$h][1] = $langs->trans('PowerPlantLocationAccess');
+	$head[$h][2] = 'location';
+	$h++;
 
 	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_composition.php', 1), ['id' => $object->id]);
 	$head[$h][1] = $langs->trans('PowerPlantMaterialComposition');
@@ -176,6 +180,24 @@ function powerplantGetDocumentRelativePath($object)
 }
 
 /**
+ * Return the document root directory for the module and entity.
+ *
+ * @param	int|null	$entity	Entity id
+ * @return	string			Absolute document root directory
+ */
+function powerplantGetDocumentRootDir($entity = null)
+{
+	global $conf;
+
+	$entity = (!empty($entity) ? (int) $entity : (int) $conf->entity);
+	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
+		return $conf->powerplantpv->multidir_output[$entity];
+	}
+
+	return $conf->powerplantpv->dir_output;
+}
+
+/**
  * Return the upload directory for power plant documents.
  *
  * @param	PowerPlant	$object	PowerPlant
@@ -186,11 +208,7 @@ function powerplantGetDocumentUploadDir($object)
 	global $conf;
 
 	$entity = (!empty($object->entity) ? $object->entity : $conf->entity);
-	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
-		$diroutput = $conf->powerplantpv->multidir_output[$entity];
-	} else {
-		$diroutput = $conf->powerplantpv->dir_output;
-	}
+	$diroutput = powerplantGetDocumentRootDir($entity);
 
 	return $diroutput.'/'.powerplantGetDocumentRelativePath($object);
 }
@@ -278,9 +296,29 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 	global $db, $langs;
 
 	require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 	$form = new Form($db);
 
 	$morehtmlref = '<div class="refidno">';
+	$formattedaddress = '';
+
+	if (!empty($object->address) || !empty($object->zip) || !empty($object->town) || !empty($object->fk_country)) {
+		$addressobject = new stdClass();
+		$addressobject->address = (string) $object->address;
+		$addressobject->zip = (string) $object->zip;
+		$addressobject->town = (string) $object->town;
+		$addressobject->country_id = (int) $object->fk_country;
+		$addressobject->country_code = '';
+
+		if (!empty($object->fk_country)) {
+			$country = getCountry((int) $object->fk_country, 'all', null, $langs, 0);
+			if (is_array($country)) {
+				$addressobject->country_code = (string) $country['code'];
+			}
+		}
+
+		$formattedaddress = dol_format_address($addressobject, 1, ', ', $langs);
+	}
 
 	$morehtmlref .= '<br>';
 	$morehtmlref .= $form->editfieldkey('Label', 'label', $object->label, $object, $permissiontoadd, 'string', '', 0, 1);
@@ -292,9 +330,11 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		}
 
 		$morehtmlref .= '<br>';
+		$morehtmlref .= $langs->trans('ThirdParty');
 		if ($permissiontoadd && $action != 'editcustomer') {
 			$morehtmlref .= ' <a class="editfielda" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'&action=editcustomer">'.img_edit($langs->transnoentitiesnoconv('SetThirdParty'), 0).'</a>';
 		}
+		$morehtmlref .= ' : ';
 
 		if ($permissiontoadd && $action == 'editcustomer') {
 			$morehtmlref .= '<form method="post" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
@@ -306,9 +346,14 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		} elseif (!empty($object->thirdparty) && !empty($object->thirdparty->id)) {
 			$morehtmlref .= $object->thirdparty->getNomUrl(1, 'customer');
 		} else {
-			$morehtmlref .= img_picto($langs->trans("ThirdParty"), 'company', 'class="pictofixedwidth"');
 			$morehtmlref .= '<span class="opacitymedium">'.$langs->trans("None").'</span>';
 		}
+	}
+
+	if ($formattedaddress !== '') {
+		$morehtmlref .= '<br>';
+		$morehtmlref .= img_picto('', 'map-marker-alt', 'class="pictofixedwidth"');
+		$morehtmlref .= dol_escape_htmltag($formattedaddress);
 	}
 
 	$morehtmlref .= '</div>';

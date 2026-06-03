@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.0';
+		$this->version = '1.0.1';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -128,10 +128,15 @@ class modPowerPlantPV extends DolibarrModules
 					'invoicecard',
 					'contractcard',
 					'ticketcard',
+					'publicnewticketcard',
 					'category',
 					'elementproperties',
 					'notification',
+					'multicompanyexternalmodulesharing',
+					'multicompanyexternalmodules',
+					'multicompanysharingoptions',
 				),
+				'entity' => '0',
 			),
 			/* END MODULEBUILDER HOOKSCONTEXTS */
 			// Set this to 1 if features of module are opened to external users
@@ -280,12 +285,21 @@ class modPowerPlantPV extends DolibarrModules
 		// Add here list of php file(s) stored in powerplantpv/core/boxes that contains a class to show a widget.
 		/* BEGIN MODULEBUILDER WIDGETS */
 		$this->boxes = array(
-			//  0 => array(
-			//      'file' => 'powerplantpvwidget1.php@powerplantpv',
-			//      'note' => 'Widget provided by PowerPlantPV',
-			//      'enabledbydefaulton' => 'Home',
-			//  ),
-			//  ...
+			array(
+				'file' => 'powerplantpv_graph_installedpower_totalyear.php@powerplantpv',
+				'note' => 'BoxPowerPlantPVInstalledPowerTotal',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'powerplantpv_graph_installedpower_monthly.php@powerplantpv',
+				'note' => 'BoxPowerPlantPVInstalledPowerMonthly',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'powerplantpv_graph_installedpower_weekly.php@powerplantpv',
+				'note' => 'BoxPowerPlantPVInstalledPowerWeekly',
+				'enabledbydefaulton' => 'Home',
+			),
 		);
 		/* END MODULEBUILDER WIDGETS */
 
@@ -390,22 +404,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
 			'type' => 'left',
-			'titre' => 'List',
-			'mainmenu' => 'powerplantpv',
-			'leftmenu' => 'powerplantpv_powerplant_list',
-			'url' => '/powerplantpv/powerplant_list.php',
-			'langs' => 'powerplantpv@powerplantpv',
-			'position' => 1000 + $r,
-			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
-			'target' => '',
-			'user' => 2,
-			'object' => 'PowerPlant'
-		);
-		$this->menu[$r++] = array(
-			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
-			'type' => 'left',
-			'titre' => 'New',
+			'titre' => 'New_PowerPlant',
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplantpv_powerplant_new',
 			'url' => '/powerplantpv/powerplant_card.php?action=create',
@@ -413,6 +412,21 @@ class modPowerPlantPV extends DolibarrModules
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
 			'perms' => '$user->hasRight("powerplantpv", "powerplant", "write")',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlant'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplant',
+			'type' => 'left',
+			'titre' => 'List_PowerPlant',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_powerplant_list',
+			'url' => '/powerplantpv/powerplant_list.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv")',
+			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
@@ -557,6 +571,11 @@ class modPowerPlantPV extends DolibarrModules
 			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
 		}
 
+		$result = $this->ensurePowerPlantSchema();
+		if ($result < 0) {
+			return -1;
+		}
+
 		// Create product extrafield for photovoltaic category.
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafields = new ExtraFields($this->db);
@@ -591,36 +610,9 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
-		// Create ticket extrafield used to select a power plant at ticket creation.
-		$extrafields->fetch_name_optionals_label('ticket');
-		if (empty($extrafields->attributes['ticket']['label']['powerplantpv_powerplant'])) {
-			$powerplantSellist = array(
-				'options' => array('powerplantpv_powerplant:ref:rowid::(entity:IN:__SHARED_ENTITIES__)' => null)
-			);
-			$result = $extrafields->addExtraField(
-				'powerplantpv_powerplant',
-				'PowerPlant',
-				'sellist',
-				200,
-				'',
-				'ticket',
-				0,
-				0,
-				'',
-				$powerplantSellist,
-				1,
-				'',
-				-1,
-				'',
-				'',
-				'',
-				'powerplantpv@powerplantpv',
-				'isModEnabled("powerplantpv")'
-			);
-			if ($result < 0) {
-				$this->errors[] = $extrafields->error;
-				return -1;
-			}
+		$result = $this->ensureTicketPowerPlantExtrafield($extrafields);
+		if ($result < 0) {
+			return -1;
 		}
 
 		// Create commercial document extrafields storing the calculated total peak power.
@@ -697,6 +689,8 @@ class modPowerPlantPV extends DolibarrModules
 			$sql[] = "INSERT INTO ".$natureTable." (code, label, active) SELECT '".$this->db->escape($nature['code'])."', '".$this->db->escape($langs->transnoentitiesnoconv($nature['labelkey']))."', 1 WHERE NOT EXISTS (SELECT 1 FROM ".$natureTable." WHERE code = '".$this->db->escape($nature['code'])."')";
 		}
 
+		$sql = array_merge($sql, $this->getPowerPlantContactTypeSql());
+
 		// Document templates
 		$moduledir = dol_sanitizeFileName('powerplantpv');
 		$myTmpObjects = array();
@@ -722,6 +716,8 @@ class modPowerPlantPV extends DolibarrModules
 				$sql = array_merge($sql, array(
 					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'standard_".strtolower($myTmpObjectKey)."' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
 					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('standard_".strtolower($myTmpObjectKey)."', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")",
+					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'centralepv_".strtolower($myTmpObjectKey)."' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
+					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('centralepv_".strtolower($myTmpObjectKey)."', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")",
 					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'generic_".strtolower($myTmpObjectKey)."_odt' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
 					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('generic_".strtolower($myTmpObjectKey)."_odt', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")"
 				));
@@ -737,7 +733,243 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
 
-		return $this->_init($sql, $options);
+		$result = $this->_init($sql, $options);
+		if ($result <= 0) {
+			return $result;
+		}
+
+		$result = $this->registerMulticompanyExternalSharing();
+		if ($result < 0) {
+			return -1;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Ensure columns added after the initial table creation exist on upgrades.
+	 *
+	 * _load_tables() creates missing tables but does not reliably replay ALTER statements
+	 * on an already installed module. Keep this guard before any object fetch.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensurePowerPlantSchema()
+	{
+		$table = $this->db->prefix().'powerplantpv_powerplant';
+		$field = 'access_instructions';
+
+		$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		$fieldexists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+		if ($fieldexists) {
+			return 1;
+		}
+
+		$fielddesc = array(
+			'type' => 'text',
+			'value' => '',
+			'null' => '',
+		);
+		$result = $this->db->DDLAddField($table, $field, $fielddesc);
+		if ($result < 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Register this module sharing options in Multicompany external module settings.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function registerMulticompanyExternalSharing()
+	{
+		$externalmodule = $this->getCurrentMulticompanyExternalSharing();
+		if (!is_array($externalmodule)) {
+			return -1;
+		}
+
+		$externalmodule = array_merge($externalmodule, $this->getMulticompanyExternalSharingConfig());
+
+		return $this->saveMulticompanyExternalSharing($externalmodule);
+	}
+
+	/**
+	 * Remove this module sharing options from Multicompany external module settings.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function unregisterMulticompanyExternalSharing()
+	{
+		$externalmodule = $this->getCurrentMulticompanyExternalSharing();
+		if (!is_array($externalmodule)) {
+			return -1;
+		}
+
+		if (empty($externalmodule['powerplantpv'])) {
+			return 1;
+		}
+
+		unset($externalmodule['powerplantpv']);
+
+		return $this->saveMulticompanyExternalSharing($externalmodule);
+	}
+
+	/**
+	 * Return current Multicompany external sharing declaration.
+	 *
+	 * @return	array<string,mixed>|null		Current declaration, null on invalid JSON
+	 */
+	private function getCurrentMulticompanyExternalSharing()
+	{
+		global $conf;
+
+		$json = '';
+		if (function_exists('getDolGlobalString')) {
+			$json = getDolGlobalString('MULTICOMPANY_EXTERNAL_MODULES_SHARING');
+		} elseif (!empty($conf->global->MULTICOMPANY_EXTERNAL_MODULES_SHARING)) {
+			$json = (string) $conf->global->MULTICOMPANY_EXTERNAL_MODULES_SHARING;
+		}
+
+		if ($json === '') {
+			return array();
+		}
+
+		$externalmodule = json_decode($json, true);
+		if (!is_array($externalmodule)) {
+			$this->errors[] = 'Invalid MULTICOMPANY_EXTERNAL_MODULES_SHARING JSON value';
+			return null;
+		}
+
+		return $externalmodule;
+	}
+
+	/**
+	 * Save Multicompany external sharing declaration.
+	 *
+	 * @param	array<string,mixed>	$externalmodule		External module sharing declaration
+	 * @return	int										1 if OK, <0 if KO
+	 */
+	private function saveMulticompanyExternalSharing($externalmodule)
+	{
+		global $conf;
+
+		$jsonformat = json_encode($externalmodule, JSON_UNESCAPED_SLASHES);
+		if ($jsonformat === false) {
+			$this->errors[] = 'Unable to encode MULTICOMPANY_EXTERNAL_MODULES_SHARING JSON value';
+			return -1;
+		}
+
+		$result = dolibarr_set_const($this->db, 'MULTICOMPANY_EXTERNAL_MODULES_SHARING', $jsonformat, 'chaine', 0, '', (int) $conf->entity);
+		if ($result <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Return Multicompany sharing options added by this module.
+	 *
+	 * @return	array<string,mixed>		Multicompany external sharing config
+	 */
+	private function getMulticompanyExternalSharingConfig()
+	{
+		dol_include_once('/powerplantpv/class/actions_powerplantpv.class.php');
+
+		if (class_exists('ActionsPowerplantpv') && method_exists('ActionsPowerplantpv', 'getMulticompanySharingDefinition')) {
+			return ActionsPowerplantpv::getMulticompanySharingDefinition();
+		}
+
+		return array();
+	}
+
+	/**
+	 * Create or update the ticket extrafield used to link a ticket to a power plant.
+	 *
+	 * @param	ExtraFields	$extrafields	Extrafields manager
+	 * @return	int							1 if OK, <0 if KO
+	 */
+	private function ensureTicketPowerPlantExtrafield($extrafields)
+	{
+		$elementtype = 'ticket';
+		$attrname = 'powerplantpv_powerplant';
+
+		$extrafields->fetch_name_optionals_label($elementtype);
+
+		$powerplantLink = array(
+			'options' => array('PowerPlant:powerplantpv/class/powerplant.class.php:0:((entity:IN:__SHARED_ENTITIES__)):ref' => null)
+		);
+
+		$method = 'addExtraField';
+		if (!empty($extrafields->attributes[$elementtype]['label'][$attrname])) {
+			$method = 'updateExtraField';
+
+			if (!empty($extrafields->attributes[$elementtype]['type'][$attrname]) && $extrafields->attributes[$elementtype]['type'][$attrname] != 'link') {
+				$result = $this->cleanTicketPowerPlantExtrafieldBeforeTypeChange($attrname);
+				if ($result < 0) {
+					return -1;
+				}
+			}
+		}
+
+		$result = $extrafields->$method(
+			$attrname,
+			'PowerPlant',
+			'link',
+			200,
+			'',
+			$elementtype,
+			0,
+			0,
+			'',
+			$powerplantLink,
+			1,
+			'',
+			-1,
+			'',
+			'',
+			'',
+			'powerplantpv@powerplantpv',
+			'isModEnabled("powerplantpv")'
+		);
+		if ($result < 0) {
+			$this->errors[] = $extrafields->error;
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Normalize empty values before changing the ticket power plant extrafield from varchar to int.
+	 *
+	 * @param	string	$attrname	Extrafield attribute name
+	 * @return	int					1 if OK, <0 if KO
+	 */
+	private function cleanTicketPowerPlantExtrafieldBeforeTypeChange($attrname)
+	{
+		$sql = "UPDATE ".$this->db->prefix()."ticket_extrafields";
+		$sql .= " SET ".$this->db->sanitize($attrname)." = NULL";
+		$sql .= " WHERE ".$this->db->sanitize($attrname)." = ''";
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**
@@ -849,6 +1081,71 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
+	 * Return SQL statements that register PowerPlant contact types.
+	 *
+	 * @return	string[]	SQL statements
+	 */
+	private function getPowerPlantContactTypeSql()
+	{
+		$sql = array();
+		$table = $this->db->prefix().'c_type_contact';
+		$element = $this->db->escape('powerplant');
+		$module = $this->db->escape('powerplantpv');
+		$contacttypes = array(
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_SALES', 'label' => 'Responsable commercial', 'position' => 10),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ENGINEER', 'label' => 'Chargé d’étude', 'position' => 20),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ADMIN', 'label' => 'Responsable administratif', 'position' => 30),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_WORKS_MANAGER', 'label' => 'Conducteur de travaux', 'position' => 40),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_PURCHASING', 'label' => 'Responsable achats', 'position' => 50),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_COMMISSIONING', 'label' => 'Responsable mise en service', 'position' => 60),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_MAINTENANCE', 'label' => 'Responsable maintenance', 'position' => 70),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_QUALITY', 'label' => 'Référent qualité', 'position' => 80),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_INSTALL_TECH', 'label' => 'Technicien d’installation', 'position' => 90),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ELECTRICAL_TECH', 'label' => 'Technicien électricien', 'position' => 100),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_COMMISSION_TECH', 'label' => 'Technicien mise en service', 'position' => 110),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_MAINTENANCE_TECH', 'label' => 'Technicien maintenance', 'position' => 120),
+			array('source' => 'internal', 'code' => 'CENTPV_INTERNAL_ROOFER', 'label' => 'Technicien toiture', 'position' => 130),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CLIENT_OWNER', 'label' => 'Maître d’ouvrage', 'position' => 10),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CLIENT_TECH', 'label' => 'Contact technique client', 'position' => 20),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CLIENT_ADMIN', 'label' => 'Contact administratif client', 'position' => 30),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_BUILDING_OWNER', 'label' => 'Propriétaire du bâtiment', 'position' => 40),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_SITE_OPERATOR', 'label' => 'Exploitant du site', 'position' => 50),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INSTALLER', 'label' => 'Installateur', 'position' => 60),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ELECTRICIAN', 'label' => 'Électricien', 'position' => 70),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_CONTROL_OFFICE', 'label' => 'Bureau de contrôle', 'position' => 80),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_SPS', 'label' => 'Coordinateur SPS', 'position' => 90),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_GRID_OPERATOR', 'label' => 'Gestionnaire de réseau', 'position' => 100),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ENERGY_BUYER', 'label' => 'Acheteur d’énergie', 'position' => 110),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MODULE_SUPPLIER', 'label' => 'Fournisseur modules', 'position' => 120),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INV_SUPPLIER', 'label' => 'Fournisseur onduleurs', 'position' => 130),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MOUNT_SUPPLIER', 'label' => 'Fournisseur structure', 'position' => 140),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MONITORING', 'label' => 'Supervision / monitoring', 'position' => 150),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INSURANCE', 'label' => 'Assureur', 'position' => 160),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ARCHITECT', 'label' => 'Architecte / maître d’œuvre', 'position' => 170),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_URBANISM', 'label' => 'Service urbanisme', 'position' => 180),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_FIRE_SAFETY', 'label' => 'Sécurité incendie / SDIS', 'position' => 190),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MAINTAINER', 'label' => 'Mainteneur externe', 'position' => 200),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_INSTALL_TECH', 'label' => 'Technicien d’installation externe', 'position' => 210),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ELECTRICAL_TECH', 'label' => 'Technicien électricien externe', 'position' => 220),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_COMMISSION_TECH', 'label' => 'Technicien mise en service externe', 'position' => 230),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_MAINTENANCE_TECH', 'label' => 'Technicien maintenance externe', 'position' => 240),
+			array('source' => 'external', 'code' => 'CENTPV_EXTERNAL_ROOFER', 'label' => 'Technicien toiture externe', 'position' => 250),
+		);
+
+		foreach ($contacttypes as $contacttype) {
+			$source = $this->db->escape($contacttype['source']);
+			$code = $this->db->escape($contacttype['code']);
+			$label = $this->db->escape($contacttype['label']);
+			$position = (int) $contacttype['position'];
+
+			$sql[] = "UPDATE ".$table." SET libelle = '".$label."', active = 1, module = '".$module."', position = ".$position." WHERE element = '".$element."' AND source = '".$source."' AND code = '".$code."'";
+			$sql[] = "INSERT INTO ".$table." (element, source, code, libelle, active, module, position) SELECT '".$element."', '".$source."', '".$code."', '".$label."', 1, '".$module."', ".$position." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE element = '".$element."' AND source = '".$source."' AND code = '".$code."')";
+		}
+
+		return $sql;
+	}
+
+	/**
 	 *	Function called when module is disabled.
 	 *	Remove from database constants, boxes and permissions from Dolibarr database.
 	 *	Data directories are not deleted
@@ -859,6 +1156,17 @@ class modPowerPlantPV extends DolibarrModules
 	public function remove($options = '')
 	{
 		$sql = array();
-		return $this->_remove($sql, $options);
+
+		$result = $this->_remove($sql, $options);
+		if ($result <= 0) {
+			return $result;
+		}
+
+		$result = $this->unregisterMulticompanyExternalSharing();
+		if ($result < 0) {
+			return -1;
+		}
+
+		return $result;
 	}
 }

@@ -27,6 +27,11 @@
 class ActionsPowerplantpv
 {
 	/**
+	 * @var string Identifier used by Multicompany external sharing payload
+	 */
+	public const MULTICOMPANY_SHARING_ROOT_KEY = 'powerplantpv';
+
+	/**
 	 * @var array<string,mixed> Hook results
 	 */
 	public $results = array();
@@ -37,9 +42,201 @@ class ActionsPowerplantpv
 	public $resprints = '';
 
 	/**
+	 * @var string Hook error
+	 */
+	public $error = '';
+
+	/**
 	 * @var string[] Hook errors
 	 */
 	public $errors = array();
+
+	/**
+	 * @var string[] Hook warnings
+	 */
+	public $warnings = array();
+
+	/**
+	 * Build the Multicompany sharing payload for the module.
+	 *
+	 * @return	array<string,array<string,mixed>>	Sharing definition
+	 */
+	public static function getMulticompanySharingDefinition()
+	{
+		return array(
+			self::MULTICOMPANY_SHARING_ROOT_KEY => array(
+				'sharingelements' => array(
+					'powerplant' => array(
+						'type' => 'element',
+						'icon' => 'sun',
+						'lang' => 'powerplantpv@powerplantpv',
+						'tooltip' => 'PowerPlantSharingInfo',
+						'enable' => '! empty($conf->powerplantpv->enabled)',
+						'input' => array(
+							'global' => array(
+								'showhide' => true,
+								'hide' => true,
+								'del' => true,
+							),
+						),
+					),
+					'powerplantnumber' => array(
+						'type' => 'objectnumber',
+						'icon' => 'hashtag',
+						'lang' => 'powerplantpv@powerplantpv',
+						'tooltip' => 'PowerPlantNumberSharingInfo',
+						'enable' => '! empty($conf->powerplantpv->enabled)',
+						'input' => array(
+							'global' => array(
+								'showhide' => true,
+								'hide' => true,
+								'del' => true,
+							),
+						),
+					),
+				),
+				'sharingmodulename' => array(
+					'powerplant' => 'powerplantpv',
+					'powerplantnumber' => 'powerplantpv',
+				),
+				'dictionary' => array(
+					'c_powerplantpv_categorypv' => array(
+						'type' => 'dictionary',
+						'icon' => 'tags',
+						'transkey' => 'PhotovoltaicCategoryDictionary',
+						'tooltip' => 'PhotovoltaicCategoryDictionarySharingInfo',
+						'lang' => 'powerplantpv@powerplantpv',
+						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_categorypv.sql',
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Register sharing definition for Multicompany hooks.
+	 *
+	 * @return	void
+	 */
+	private function registerMulticompanySharingDefinition()
+	{
+		global $langs;
+
+		$langs->loadLangs(array('powerplantpv@powerplantpv'));
+		if (!is_array($this->results)) {
+			$this->results = array();
+		}
+
+		$this->results = array_replace_recursive($this->results, self::getMulticompanySharingDefinition());
+	}
+
+	/**
+	 * Provide sharing options through the Multicompany external module hook.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success
+	 */
+	public function multicompanyExternalModulesSharing($parameters, &$object, &$action, $hookmanager)
+	{
+		$this->registerMulticompanySharingDefinition();
+
+		return 0;
+	}
+
+	/**
+	 * Backward-compatible alias for Multicompany sharing hook name.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success
+	 */
+	public function multicompanyExternalModuleSharing($parameters, &$object, &$action, $hookmanager)
+	{
+		$this->registerMulticompanySharingDefinition();
+
+		return 0;
+	}
+
+	/**
+	 * Additional alias for broader Multicompany sharing options requests.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success
+	 */
+	public function multicompanySharingOptions($parameters, &$object, &$action, $hookmanager)
+	{
+		$this->registerMulticompanySharingDefinition();
+
+		return 0;
+	}
+
+	/**
+	 * Load PowerPlantPV translations for ticket contexts.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function doActions($parameters, &$object, &$action, $hookmanager)
+	{
+		global $langs;
+
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$contexts = $this->getContexts($parameters, $hookmanager);
+		if (in_array('ticketcard', $contexts) || in_array('publicnewticketcard', $contexts)) {
+			$langs->load('powerplantpv@powerplantpv');
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Add native icon before the ticket power plant extrafield selector on ticket creation.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function formObjectOptions($parameters, &$object, &$action, $hookmanager)
+	{
+		$this->resprints = '';
+
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$contexts = $this->getContexts($parameters, $hookmanager);
+		if (!in_array('ticketcard', $contexts)) {
+			return 0;
+		}
+
+		if (GETPOST('action', 'aZ09') != 'create') {
+			return 0;
+		}
+
+		if (empty($object->element) || $object->element != 'ticket') {
+			return 0;
+		}
+
+		print $this->getTicketPowerPlantPictoScript();
+
+		return 0;
+	}
 
 	/**
 	 * Add price per watt-peak to the native margin table.
@@ -375,6 +572,31 @@ class ActionsPowerplantpv
 		}
 
 		return array_values(array_unique(array_filter($contexts)));
+	}
+
+	/**
+	 * Return the script that inserts the PowerPlant icon before the ticket extrafield selector.
+	 *
+	 * @return	string	HTML script
+	 */
+	private function getTicketPowerPlantPictoScript()
+	{
+		$picto = img_picto('', 'fa-sun', 'class="pictofixedwidth valignmiddle powerplantpv-ticket-powerplant-picto"');
+
+		$html = '<script nonce="'.getNonce().'">';
+		$html .= 'jQuery(function(){';
+		$html .= 'var picto="'.dol_escape_js($picto).'";';
+		$html .= 'jQuery("td.valuefieldcreate.ticket_extras_powerplantpv_powerplant").each(function(){';
+		$html .= 'var cell=jQuery(this);';
+		$html .= 'if(cell.children(".powerplantpv-ticket-powerplant-picto").length){return;}';
+		$html .= 'var target=cell.children(".select2-container").first();';
+		$html .= 'if(!target.length){target=cell.children("select[name=\'options_powerplantpv_powerplant\'],input[name=\'options_powerplantpv_powerplant\']").first();}';
+		$html .= 'if(target.length){target.before(picto);}else{cell.prepend(picto);}';
+		$html .= '});';
+		$html .= '});';
+		$html .= '</script>';
+
+		return $html;
 	}
 
 	/**

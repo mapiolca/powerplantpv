@@ -181,10 +181,7 @@ $upload_dir = null;
 if (!empty($object->id)) {
 	$upload_dir = powerplantGetDocumentUploadDir($object);
 } else {
-	$diroutput = $conf->powerplantpv->dir_output;
-	if (!empty($conf->powerplantpv->multidir_output[$conf->entity])) {
-		$diroutput = $conf->powerplantpv->multidir_output[$conf->entity];
-	}
+	$diroutput = powerplantGetDocumentRootDir($conf->entity);
 	$upload_dir = $diroutput.'/powerplant';
 }
 $modulepart = powerplantGetDocumentModulePart();
@@ -198,6 +195,7 @@ if ($user->socid > 0) {
 		$object->socid = $user->socid;
 	}
 }
+$powerplantentity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 $isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
 restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
 if (!isModEnabled($object->module)) {
@@ -247,7 +245,7 @@ if ($action == 'addcomposition' && $permissiontoadd) {
 
 	if ($fk_product > 0 && $qty > 0) {
 		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, entity)";
-		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".((int) $conf->entity).")";
+		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".$powerplantentity.")";
 		if ($db->query($sql)) {
 			powerplantRecalculateInstalledPower($object);
 		}
@@ -256,7 +254,7 @@ if ($action == 'addcomposition' && $permissiontoadd) {
 if ($action == 'delcomposition' && $permissiontoadd) {
 	$lineid = GETPOSTINT('lineid');
 	if ($lineid > 0) {
-		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id);
+		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 		if ($db->query($sql)) {
 			powerplantRecalculateInstalledPower($object);
 		}
@@ -288,55 +286,44 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 
 		$field = preg_replace('/[^a-zA-Z0-9_]/', '', GETPOST('field', 'nohtml'));
 
-		// Security: allow only known fields from $object->fields (or our synthetic field zip_town)
-		if (empty($field) || ($field != 'zip_town' && empty($object->fields[$field]))) {
+		// Security: allow only known fields from $object->fields.
+		if (empty($field) || empty($object->fields[$field])) {
 			setEventMessages($langs->trans("ErrorBadParameter"), null, 'errors');
 		} elseif ($field == 'installed_power') {
 			setEventMessages($langs->trans("ErrorForbidden"), null, 'errors');
 		} else {
 			$res = 0;
 
-			// Special case: one line edits both zip + town
-			if ($field == 'zip_town') {
-				$zip = GETPOST('zip', 'restricthtml');
-				$town = GETPOST('town', 'restricthtml');
+			$type = isset($object->fields[$field]['type']) ? $object->fields[$field]['type'] : '';
+			$format = 'text';
+			$newvalue = '';
 
-				$res1 = $object->setValueFrom('zip', $zip, '', $object->id, 'text', '', $user, $triggermodname);
-				$res2 = $object->setValueFrom('town', $town, '', $object->id, 'text', '', $user, $triggermodname);
+			// Date fields are posted as <field>day / <field>month / <field>year (and optionally hour/min)
+			if (strpos($type, 'date') !== false) {
+				$format = 'date';
+				$day = GETPOSTINT($field.'day');
+				$month = GETPOSTINT($field.'month');
+				$year = GETPOSTINT($field.'year');
+				$hour = GETPOSTINT($field.'hour');
+				$min = GETPOSTINT($field.'min');
 
-				$res = ($res1 > 0 && $res2 > 0) ? 1 : -1;
-			} else {
-				$type = isset($object->fields[$field]['type']) ? $object->fields[$field]['type'] : '';
-				$format = 'text';
-				$newvalue = '';
-
-				// Date fields are posted as <field>day / <field>month / <field>year (and optionally hour/min)
-				if (strpos($type, 'date') !== false) {
-					$format = 'date';
-					$day = GETPOSTINT($field.'day');
-					$month = GETPOSTINT($field.'month');
-					$year = GETPOSTINT($field.'year');
-					$hour = GETPOSTINT($field.'hour');
-					$min = GETPOSTINT($field.'min');
-
-					if ($day && $month && $year) {
-						$newvalue = dol_mktime((strpos($type, 'datetime') !== false ? $hour : 0), (strpos($type, 'datetime') !== false ? $min : 0), 0, $month, $day, $year);
-					} else {
-						$newvalue = '';
-					}
-				} elseif (strpos($type, 'sellist:') === 0 || strpos($type, 'link:') === 0 || preg_match('/(^|[: ])(int|integer)/', $type)) {
-					$format = 'int';
-					$newvalue = GETPOSTINT($field);
-				} elseif (preg_match('/double|real|price|amount/', $type)) {
-					$format = 'text';
-					$newvalue = price2num(GETPOST($field, 'alpha'), 'MT');
+				if ($day && $month && $year) {
+					$newvalue = dol_mktime((strpos($type, 'datetime') !== false ? $hour : 0), (strpos($type, 'datetime') !== false ? $min : 0), 0, $month, $day, $year);
 				} else {
-					$format = 'text';
-					$newvalue = GETPOST($field, 'restricthtml');
+					$newvalue = '';
 				}
-
-				$res = $object->setValueFrom($field, $newvalue, '', $object->id, $format, '', $user, $triggermodname);
+			} elseif (strpos($type, 'sellist:') === 0 || strpos($type, 'link:') === 0 || preg_match('/(^|[: ])(int|integer)/', $type)) {
+				$format = 'int';
+				$newvalue = GETPOSTINT($field);
+			} elseif (preg_match('/double|real|price|amount/', $type)) {
+				$format = 'text';
+				$newvalue = price2num(GETPOST($field, 'alpha'), 'MT');
+			} else {
+				$format = 'text';
+				$newvalue = GETPOST($field, 'restricthtml');
 			}
+
+			$res = $object->setValueFrom($field, $newvalue, '', $object->id, $format, '', $user, $triggermodname);
 
 			if ($res > 0) {
 				header('Location: '.$_SERVER["PHP_SELF"].'?id='.$object->id);
@@ -363,6 +350,8 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 	//include DOL_DOCUMENT_ROOT.'/core/actions_lineupdown.inc.php';
 
 	// Action to build doc
+	// actions_builddoc.inc.php expects the module document root for remove_file.
+	$upload_dir = powerplantGetDocumentRootDir(!empty($object->entity) ? $object->entity : $conf->entity);
 	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
 
 	if ($action == 'set_thirdparty') {
@@ -686,6 +675,7 @@ $k_address = 'address';
 $k_zip = 'zip';
 $k_town = 'town';
 $k_country = 'fk_country';
+$k_access_instructions = 'access_instructions';
 
 // Réseau (2 colonnes)
 $k_enedis_commissioning_date = 'enedis_commissioning_date'; // Date de mise en service ENEDIS
@@ -716,34 +706,12 @@ $k_purchase_tariff = 'buyback_tariff';
 			print '</tr>';
 		};
 
-		$printRowZipTownEdit = function($zipKey, $townKey) use ($object, $langs) {
-			if (empty($zipKey) && empty($townKey)) return;
-
-			$zipval = (!empty($zipKey) && isset($object->$zipKey) ? $object->$zipKey : '');
-			$townval = (!empty($townKey) && isset($object->$townKey) ? $object->$townKey : '');
-
-			print '<tr class="field_zip_town">';
-			print '<td class="titlefieldcreate">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
-			print '<td class="valuefieldcreate">';
-			if (!empty($zipKey)) {
-				print '<input class="flat maxwidth100" type="text" name="'.$zipKey.'" value="'.dol_escape_htmltag($zipval).'" />';
-			}
-			if (!empty($townKey)) {
-				print ' <input class="flat maxwidth200" type="text" name="'.$townKey.'" value="'.dol_escape_htmltag($townval).'" />';
-			}
-			print '</td>';
-			print '</tr>';
-		};
-
 		// Left column
 		print '<div class="fichehalfleft">';
 
-		print load_fiche_titre($langs->trans("Localisation"), '', '');
+		print load_fiche_titre($langs->trans("General"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_description);
-		$printRowEdit($k_address);
-		$printRowZipTownEdit($k_zip, $k_town);
-		$printRowEdit($k_country);
 		print '</table>';
 
 		print load_fiche_titre($langs->trans("Réseau"), '', '');
@@ -780,7 +748,7 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		$exclude = array();
 		foreach (array(
-			$k_description, $k_address, $k_zip, $k_town, $k_country,
+			$k_description, $k_address, $k_zip, $k_town, $k_country, $k_access_instructions,
 			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
 			$k_enedis_commissioning_date, $k_connection_request_number, $k_connection_request_no,
 			$k_t0_date, $k_connection_contract_power, $k_installed_power,
@@ -997,6 +965,7 @@ $k_address = 'address';
 $k_zip = 'zip';
 $k_town = 'town';
 $k_country = 'fk_country';
+$k_access_instructions = 'access_instructions';
 
 // Réseau (2 colonnes)
 $k_enedis_commissioning_date = 'enedis_commissioning_date'; // Date de mise en service ENEDIS
@@ -1016,7 +985,7 @@ $k_purchase_tariff = 'buyback_tariff';
 	// Helpers for structured rendering (no commonfields_* tpl includes)
 		$fieldtoedit = ($action == 'editfield' ? GETPOST('field', 'nohtml') : '');
 		$fieldtoedit = preg_replace('/[^a-zA-Z0-9_]/', '', $fieldtoedit);
-		if (!empty($fieldtoedit) && $fieldtoedit !== 'zip_town' && empty($object->fields[$fieldtoedit])) $fieldtoedit = '';
+		if (!empty($fieldtoedit) && empty($object->fields[$fieldtoedit])) $fieldtoedit = '';
 
 		$printRowView = function($key, $labelOverride = '', $valueOverride = null) use ($object, $langs, $permissiontoadd, $fieldtoedit) {
 			if (empty($key) || empty($object->fields[$key])) return;
@@ -1062,64 +1031,12 @@ $k_purchase_tariff = 'buyback_tariff';
 			print '</tr>';
 		};
 
-		$printRowZipTownView = function($zipKey, $townKey) use ($object, $langs, $permissiontoadd, $fieldtoedit) {
-			if (empty($zipKey) && empty($townKey)) return;
-
-			$zipval = (!empty($zipKey) && isset($object->$zipKey) ? $object->$zipKey : '');
-			$townval = (!empty($townKey) && isset($object->$townKey) ? $object->$townKey : '');
-
-			$canedit = (!empty($permissiontoadd));
-			$isedit = ($canedit && $fieldtoedit === 'zip_town');
-
-			$urlcard = $_SERVER["PHP_SELF"].'?id='.$object->id;
-			$urledit = $urlcard.'&action=editfield&field=zip_town&token='.newToken();
-
-			print '<tr class="field_zip_town" id="field_zip_town">';
-			print '<td class="titlefieldmiddle">'.$langs->trans("Zip").' | '.$langs->trans("Town").'</td>';
-
-			if ($isedit) {
-				$formid = 'form_zip_town';
-				print '<td class="valuefield">';
-				print '<form id="'.$formid.'" method="POST" action="'.$urlcard.'">';
-				print '<input type="hidden" name="token" value="'.newToken().'">';
-				print '<input type="hidden" name="action" value="updatefield">';
-				print '<input type="hidden" name="field" value="zip_town">';
-				if (!empty($zipKey)) {
-					print '<input class="flat maxwidth100" type="text" name="'.$zipKey.'" value="'.dol_escape_htmltag($zipval).'" />';
-				}
-				if (!empty($townKey)) {
-					print ' <input class="flat maxwidth200" type="text" name="'.$townKey.'" value="'.dol_escape_htmltag($townval).'" />';
-				}
-				print '</form>';
-				print '</td>';
-				print '<td class="right nowraponall">';
-				print '<button type="submit" form="'.$formid.'" class="reposition">'.img_picto($langs->trans("Save"), 'tick').'</button>';
-				print ' <a class="reposition" href="'.$urlcard.'">'.img_picto($langs->trans("Cancel"), 'cancel').'</a>';
-				print '</td>';
-			} else {
-				print '<td class="valuefield">'.dol_escape_htmltag($zipval).' '.dol_escape_htmltag($townval).'</td>';
-				print '<td class="right nowraponall">';
-				if ($canedit) {
-					print '<a class="editfielda reposition" href="'.$urledit.'">'.img_edit().'</a>';
-				} else {
-					print '&nbsp;';
-				}
-				print '</td>';
-			}
-
-			print '</tr>';
-		};
-
 		// Left column
 		print '<div class="fichehalfleft">';
 
-		// Localisation
-		print load_fiche_titre($langs->trans("Localisation"), '', '');
+		print load_fiche_titre($langs->trans("General"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_description);
-		$printRowView($k_address);
-		$printRowZipTownView($k_zip, $k_town);
-		$printRowView($k_country);
 		print '</table>';
 
 		// Réseau
@@ -1158,7 +1075,7 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		$exclude = array();
 		foreach (array(
-			$k_description, $k_address, $k_zip, $k_town, $k_country,
+			$k_description, $k_address, $k_zip, $k_town, $k_country, $k_access_instructions,
 			$k_prm_pdl, $k_connection_type, $k_commissioning_date,
 			$k_enedis_commissioning_date, $k_connection_request_number, $k_connection_request_no,
 			$k_t0_date, $k_connection_contract_power, $k_installed_power,
@@ -1258,7 +1175,7 @@ $k_purchase_tariff = 'buyback_tariff';
 	$sqlcomp .= " LEFT JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = c.fk_product";
 	$sqlcomp .= " LEFT JOIN ".$db->prefix()."c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique";
 	$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id);
-	$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
+	$sqlcomp .= " AND c.entity = ".$powerplantentity;
 	$sqlcomp .= " GROUP BY cpv.rowid, cpv.label, cpv.code, c.fk_status";
 	$sqlcomp .= " ORDER BY cpv.label ASC, cpv.rowid ASC, c.fk_status ASC";
 	$rescomp = $db->query($sqlcomp);

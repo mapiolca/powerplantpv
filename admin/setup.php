@@ -59,6 +59,7 @@ if (!$res) {
 // Libraries
 require_once DOL_DOCUMENT_ROOT."/core/lib/admin.lib.php";
 require_once '../lib/powerplantpv.lib.php';
+require_once '../lib/powerplantpv_powerplant.lib.php';
 //require_once "../class/myclass.class.php";
 
 /**
@@ -164,7 +165,9 @@ if ($action == 'updateMask') {
 	if ($result['result'] > 0) {
 		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationDone', $result['updated']), null, 'mesgs');
 	} else {
-		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationFailed'), array($result['error']), 'errors');
+		$errorinfo = (!empty($result['errorinfo']) && is_array($result['errorinfo']) ? $result['errorinfo'] : null);
+		$errormessage = powerplantpvBuildPeakPowerRecalculationErrorMessage(!empty($user->admin), $errorinfo);
+		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationFailed'), array($errormessage), 'errors');
 	}
 } elseif ($action == 'specimen' && $tmpobjectkey) {
 	$modele = GETPOST('module', 'alpha');
@@ -195,7 +198,17 @@ if ($action == 'updateMask') {
 		'@phan-var-force ModelePDFMyObject $module';
 
 		if ($module->write_file($tmpobject, $langs) > 0) {
-			header("Location: ".DOL_URL_ROOT."/document.php?modulepart=powerplantpv-".strtolower($tmpobjectkey)."&file=SPECIMEN.pdf");
+			$documentfile = 'SPECIMEN.pdf';
+			if (!empty($module->result['fullpath'])) {
+				$documentroot = str_replace('\\', '/', powerplantGetDocumentRootDir($tmpobject->entity ?? $conf->entity).'/'.strtolower($tmpobjectkey));
+				$generatedfile = str_replace('\\', '/', $module->result['fullpath']);
+				if (strpos($generatedfile, $documentroot.'/') === 0) {
+					$documentfile = substr($generatedfile, dol_strlen($documentroot) + 1);
+				} else {
+					$documentfile = basename($generatedfile);
+				}
+			}
+			header("Location: ".DOL_URL_ROOT."/document.php?modulepart=powerplantpv-".strtolower($tmpobjectkey)."&file=".urlencode($documentfile));
 			return;
 		} else {
 			setEventMessages($module->error, null, 'errors');
@@ -490,6 +503,11 @@ foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
 									}
 
 									if ($modulequalified) {
+										$nameforurl = (string) $name;
+										$scandirforurl = (string) (isset($module->scandir) ? $module->scandir : '');
+										$labelforurl = (string) (isset($module->name) ? $module->name : '');
+										$objectforurl = strtolower((string) $myTmpObjectKey);
+
 										print '<tr class="oddeven"><td width="100">';
 										print(empty($module->name) ? $name : $module->name);
 										print "</td><td>\n";
@@ -503,13 +521,13 @@ foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
 										// Active
 										if (in_array($name, $def)) {
 											print '<td class="center">'."\n";
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=del&token='.newToken().'&value='.urlencode($name).'">';
+											print '<a href="'.$_SERVER["PHP_SELF"].'?action=del&token='.newToken().'&value='.urlencode($nameforurl).'">';
 											print img_picto($langs->trans("Enabled"), 'switch_on');
 											print '</a>';
 											print '</td>';
 										} else {
 											print '<td class="center">'."\n";
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=set&token='.newToken().'&value='.urlencode($name).'&scan_dir='.urlencode($module->scandir).'&label='.urlencode($module->name).'">'.img_picto($langs->trans("Disabled"), 'switch_off').'</a>';
+											print '<a href="'.$_SERVER["PHP_SELF"].'?action=set&token='.newToken().'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'">'.img_picto($langs->trans("Disabled"), 'switch_off').'</a>';
 											print "</td>";
 										}
 
@@ -519,9 +537,9 @@ foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
 										if (getDolGlobalString($constforvar) == $name) {
 											//print img_picto($langs->trans("Default"), 'on');
 											// Even if choice is the default value, we allow to disable it. Replace this with previous line if you need to disable unset
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=unsetdoc&token='.newToken().'&object='.urlencode(strtolower($myTmpObjectKey)).'&value='.urlencode($name).'&scan_dir='.urlencode($module->scandir).'&label='.urlencode($module->name).'&amp;type='.urlencode($type).'" alt="'.$langs->trans("Disable").'">'.img_picto($langs->trans("Enabled"), 'on').'</a>';
+											print '<a href="'.$_SERVER["PHP_SELF"].'?action=unsetdoc&token='.newToken().'&object='.urlencode($objectforurl).'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'&amp;type='.urlencode((string) $type).'" alt="'.$langs->trans("Disable").'">'.img_picto($langs->trans("Enabled"), 'on').'</a>';
 										} else {
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=setdoc&token='.newToken().'&object='.urlencode(strtolower($myTmpObjectKey)).'&value='.urlencode($name).'&scan_dir='.urlencode($module->scandir).'&label='.urlencode($module->name).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
+											print '<a href="'.$_SERVER["PHP_SELF"].'?action=setdoc&token='.newToken().'&object='.urlencode($objectforurl).'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
 										}
 										print '</td>';
 
