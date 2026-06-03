@@ -176,6 +176,24 @@ function powerplantGetDocumentRelativePath($object)
 }
 
 /**
+ * Return the document root directory for the module and entity.
+ *
+ * @param	int|null	$entity	Entity id
+ * @return	string			Absolute document root directory
+ */
+function powerplantGetDocumentRootDir($entity = null)
+{
+	global $conf;
+
+	$entity = (!empty($entity) ? (int) $entity : (int) $conf->entity);
+	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
+		return $conf->powerplantpv->multidir_output[$entity];
+	}
+
+	return $conf->powerplantpv->dir_output;
+}
+
+/**
  * Return the upload directory for power plant documents.
  *
  * @param	PowerPlant	$object	PowerPlant
@@ -186,11 +204,7 @@ function powerplantGetDocumentUploadDir($object)
 	global $conf;
 
 	$entity = (!empty($object->entity) ? $object->entity : $conf->entity);
-	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
-		$diroutput = $conf->powerplantpv->multidir_output[$entity];
-	} else {
-		$diroutput = $conf->powerplantpv->dir_output;
-	}
+	$diroutput = powerplantGetDocumentRootDir($entity);
 
 	return $diroutput.'/'.powerplantGetDocumentRelativePath($object);
 }
