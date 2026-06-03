@@ -737,7 +737,7 @@ function powerplantpvCalculateCommercialDocumentPeakPowerKwc($elementtype, $obje
  * @param	string	$elementtype		Element type
  * @param	int		$objectid			Document id
  * @param	float	$peakpowerkwc		Peak power in kWc
- * @return	int							1 if OK, <0 if KO
+ * @return	int							1 if written, 0 if ignored, <0 if KO
  */
 function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid, $peakpowerkwc)
 {
@@ -790,19 +790,113 @@ function powerplantpvSaveCommercialDocumentPeakPowerKwc($elementtype, $objectid,
 		$sql .= " SET powerplantpv_peak_power = ".$value;
 		$sql .= " WHERE rowid = ".$extrafieldrowid;
 	} else {
-		$sql = "INSERT INTO ".$db->prefix().$config['extra_table']." (fk_object, powerplantpv_peak_power)";
-		$sql .= " VALUES (".$objectid.", ".$value.")";
+		$insertparts = powerplantpvGetCommercialDocumentPeakPowerExtraFieldsInsertParts($config['elementtype'], 'powerplantpv_peak_power');
+		if ($insertparts['result'] <= 0) {
+			dol_syslog(__FUNCTION__.' skipped peak power insert for '.$config['elementtype'].' id='.$objectid.': '.$insertparts['reason'], LOG_WARNING);
+			return 0;
+		}
+
+		$sql = "INSERT INTO ".$db->prefix().$config['extra_table']." (fk_object, powerplantpv_peak_power".$insertparts['columns'].")";
+		$sql .= " VALUES (".$objectid.", ".$value.$insertparts['values'].")";
 	}
 
 	$resql = $db->query($sql);
 	if (!$resql) {
-		$error = $db->lasterror();
-		powerplantpvSetPeakPowerRecalculationError('PowerPlantPVPeakPowerErrorWriteExtraFields', $elementtype, $objectid, $error, 'write_extrafields');
-		dol_syslog(__FUNCTION__.' failed to write peak power: '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
+		if ($extrafieldrowid <= 0) {
+			dol_syslog(__FUNCTION__.' skipped peak power insert for '.$config['elementtype'].' id='.$objectid.' after SQL error: '.$db->lasterror(), LOG_WARNING);
+			return 0;
+		}
+		dol_syslog(__FUNCTION__.' failed to write peak power: '.$db->lasterror(), LOG_ERR);
 		return -1;
 	}
 
 	return 1;
+}
+
+/**
+ * Build safe extra columns for creating a commercial document extrafields row.
+ *
+ * The commercial document extrafields tables are shared by every module. When another
+ * module owns a mandatory column without default value, PowerPlantPV must not create
+ * a partial row that bypasses Dolibarr's normal extrafield validation.
+ *
+ * @param	string	$elementtype	Element type
+ * @param	string	$managedfield	Field written by PowerPlantPV
+ * @return	array{result:int,columns:string,values:string,reason:string}	Insert parts or reason to skip
+ */
+function powerplantpvGetCommercialDocumentPeakPowerExtraFieldsInsertParts($elementtype, $managedfield)
+{
+	global $db;
+
+	if (!class_exists('ExtraFields')) {
+		require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
+	}
+
+	$extrafields = new ExtraFields($db);
+	$extrafields->fetch_name_optionals_label($elementtype);
+
+	$attributes = isset($extrafields->attributes[$elementtype]) && is_array($extrafields->attributes[$elementtype])
+		? $extrafields->attributes[$elementtype]
+		: array();
+	$labels = isset($attributes['label']) && is_array($attributes['label']) ? $attributes['label'] : array();
+	$columns = array();
+	$values = array();
+	$addedfields = array($managedfield => 1);
+
+	foreach ($labels as $key => $label) {
+		$key = (string) $key;
+		if ($key === $managedfield) {
+			continue;
+		}
+
+		$type = isset($attributes['type'][$key]) ? (string) $attributes['type'][$key] : '';
+		if (in_array($type, array('separate', 'point', 'multipts', 'linestrg', 'polygon'), true)) {
+			if (!empty($attributes['required'][$key])) {
+				return array('result' => 0, 'columns' => '', 'values' => '', 'reason' => 'required unsupported extrafield '.$key);
+			}
+			continue;
+		}
+
+		$required = !empty($attributes['required'][$key]);
+		$hasdefault = isset($attributes['default'])
+			&& array_key_exists($key, $attributes['default'])
+			&& $attributes['default'][$key] !== null
+			&& $attributes['default'][$key] !== '';
+		if ($required && !$hasdefault) {
+			return array('result' => 0, 'columns' => '', 'values' => '', 'reason' => 'required extrafield '.$key.' has no default value');
+		}
+		if (!$hasdefault) {
+			continue;
+		}
+
+		$columns[] = $key;
+		$values[] = "'".$db->escape((string) $attributes['default'][$key])."'";
+		$addedfields[$key] = 1;
+	}
+
+	if (!empty($attributes['mandatoryfieldsofotherentities']) && is_array($attributes['mandatoryfieldsofotherentities'])) {
+		foreach ($attributes['mandatoryfieldsofotherentities'] as $key => $type) {
+			$key = (string) $key;
+			if (isset($addedfields[$key]) || (isset($attributes['type'][$key]) && $attributes['type'][$key] !== '')) {
+				continue;
+			}
+
+			$columns[] = $key;
+			if (in_array($type, array('int', 'double', 'price'), true)) {
+				$values[] = '0';
+			} else {
+				$values[] = "''";
+			}
+			$addedfields[$key] = 1;
+		}
+	}
+
+	return array(
+		'result' => 1,
+		'columns' => empty($columns) ? '' : ', '.implode(', ', $columns),
+		'values' => empty($values) ? '' : ', '.implode(', ', $values),
+		'reason' => '',
+	);
 }
 
 /**
@@ -830,6 +924,9 @@ function powerplantpvRecalculateCommercialDocumentPeakPower($elementtype, $objec
 	if ($result < 0) {
 		dol_syslog(__FUNCTION__.' failed to save peak power: '.powerplantpvBuildPeakPowerRecalculationErrorLog(), LOG_ERR);
 		return -1;
+	}
+	if ($result == 0) {
+		return 0;
 	}
 
 	return 1;
