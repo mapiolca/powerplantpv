@@ -293,11 +293,16 @@ class PowerPlant extends CommonObject
 	 */
 	public function create(User $user, $notrigger = 0)
 	{
+		global $conf;
+
 		if (empty($this->fk_soc) && !empty($this->socid)) {
 			$this->fk_soc = (int) $this->socid;
 		}
 		if (!empty($this->fk_soc)) {
 			$this->socid = (int) $this->fk_soc;
+		}
+		if (empty($this->entity)) {
+			$this->entity = (int) $conf->entity;
 		}
 
 		// Ensure provisional reference and draft status before creation
@@ -630,17 +635,70 @@ class PowerPlant extends CommonObject
 			return -1;
 		}
 
-		$nextRef = $module->getNextValue($this);
-		if (empty($nextRef) || preg_match('/^Error/', (string) $nextRef)) {
-			$this->error = $langs->trans('Error') . ' : ' . $module->error;
+		$maxtries = 5;
+		for ($attempt = 0; $attempt < $maxtries; $attempt++) {
+			$nextRef = $module->getNextValue($this);
+			if (empty($nextRef) || preg_match('/^Error/', (string) $nextRef)) {
+				$this->error = $langs->trans('Error') . ' : ' . $module->error;
+				return -1;
+			}
+
+			$refalreadyused = $this->isReferenceUsedInSharedEntities((string) $nextRef);
+			if ($refalreadyused < 0) {
+				return -1;
+			}
+			if ($refalreadyused > 0) {
+				continue;
+			}
+
+			$this->ref = (string) $nextRef;
+
+			$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+			$sql .= " SET ref = '".$this->db->escape($this->ref)."'";
+			$sql .= " WHERE rowid = ".((int) $this->id);
+
+			$resql = $this->db->query($sql);
+			if ($resql) {
+				return 0;
+			}
+
+			$this->error = $this->db->lasterror();
+			if (preg_match('/duplicate|duplicata|unique/i', $this->error)) {
+				continue;
+			}
+
 			return -1;
 		}
 
-		$this->ref = $nextRef;
+		if (empty($this->error)) {
+			$this->error = $langs->trans('ErrorRefAlreadyExists');
+		}
 
-		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
-		$sql .= " SET ref = '".$this->db->escape($this->ref)."'";
-		$sql .= " WHERE rowid = ".((int) $this->id);
+		return -1;
+	}
+
+	/**
+	 * Check if a reference already exists in the native multicompany sharing scope.
+	 *
+	 * @param	string	$ref	Reference to check
+	 * @return	int				1 if used, 0 if free, <0 if KO
+	 */
+	protected function isReferenceUsedInSharedEntities($ref)
+	{
+		if ($ref === '') {
+			return 0;
+		}
+
+		$sql = "SELECT t.rowid";
+		$sql .= " FROM ".$this->db->prefix().$this->table_element." as t";
+		$sql .= " WHERE t.ref = '".$this->db->escape($ref)."'";
+		if (!empty($this->id)) {
+			$sql .= " AND t.rowid <> ".((int) $this->id);
+		}
+		if ($this->ismultientitymanaged == 1 && !empty($this->fields['entity'])) {
+			$sql .= " AND t.entity IN (".getEntity($this->element).")";
+		}
+		$sql .= " LIMIT 1";
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
@@ -648,7 +706,10 @@ class PowerPlant extends CommonObject
 			return -1;
 		}
 
-		return 0;
+		$found = ($this->db->num_rows($resql) > 0 ? 1 : 0);
+		$this->db->free($resql);
+
+		return $found;
 	}
 
 	/**
@@ -860,7 +921,12 @@ class PowerPlant extends CommonObject
 
 		// Define new ref
 		if (preg_match('/^[\(]?PROV/i', $this->ref) || empty($this->ref)) { // empty should not happened, but when it occurs, the test save life
-			$num = $this->getNextNumRef();
+			$refResult = $this->assignFinalReference($user);
+			if ($refResult < 0) {
+				$this->db->rollback();
+				return -1;
+			}
+			$num = (string) $this->ref;
 		} else {
 			$num = (string) $this->ref;
 		}

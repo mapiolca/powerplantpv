@@ -1262,13 +1262,14 @@ function powerplantpvCreateComponentsFromOrigin($powerplant, $origin, $originid,
 		return 0;
 	}
 
+	$entity = (!empty($powerplant->entity) ? (int) $powerplant->entity : (int) $conf->entity);
 	$created = 0;
 	foreach ($summary['lines'] as $line) {
 		$i = 0;
 		while ($i < (int) $line['components_to_create']) {
 			$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sql .= "(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
-			$sql .= " VALUES (".((int) $powerplant->id).", ".((int) $line['fk_product']).", 4, 1, '', NULL, ".((int) $conf->entity).")";
+			$sql .= " VALUES (".((int) $powerplant->id).", ".((int) $line['fk_product']).", 4, 1, '', NULL, ".$entity.")";
 			$resql = $db->query($sql);
 			if (!$resql) {
 				$powerplant->error = $db->lasterror();

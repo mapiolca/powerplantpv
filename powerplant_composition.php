@@ -84,22 +84,24 @@ if (!function_exists('powerplantCompositionFetchLine')) {
 	 *
 	 * @param	int	$powerplantid	Power plant id
 	 * @param	int	$lineid			Composition line id
+	 * @param	int	$entity			Power plant entity
 	 * @return	stdClass|null		Line object or null
 	 */
-	function powerplantCompositionFetchLine($powerplantid, $lineid)
+	function powerplantCompositionFetchLine($powerplantid, $lineid, $entity = 0)
 	{
 		global $db, $conf;
 
 		if ($powerplantid <= 0 || $lineid <= 0) {
 			return null;
 		}
+		$entity = ($entity > 0 ? (int) $entity : (int) $conf->entity);
 
 		$sql = "SELECT c.rowid, c.fk_product, c.fk_status, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label";
 		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
 		$sql .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
 		$sql .= " WHERE c.rowid = ".((int) $lineid);
 		$sql .= " AND c.fk_powerplant = ".((int) $powerplantid);
-		$sql .= " AND c.entity = ".((int) $conf->entity);
+		$sql .= " AND c.entity = ".$entity;
 
 		$resql = $db->query($sql);
 		if (!$resql) {
@@ -256,6 +258,10 @@ if (!isModEnabled($object->module) || !$permissiontoread) {
 
 include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php';
 
+$powerplantentity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+$isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
+restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+
 powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
 powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);
 
@@ -339,7 +345,7 @@ if ($action === 'createcomposition' && $canedit) {
 		$nbcreated = 0;
 		while ($i < $qty) {
 			$sql = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
-			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', '.((int) $fk_status).', 1, \'\', '.$commissioning_date_sql.', '.((int) $conf->entity).')';
+			$sql .= ' VALUES ('.((int) $object->id).', '.((int) $fk_product).', '.((int) $fk_status).', 1, \'\', '.$commissioning_date_sql.', '.$powerplantentity.')';
 			if ($db->query($sql)) {
 				$nbcreated++;
 			} else {
@@ -364,7 +370,7 @@ if ($action === 'delcomposition' && $canedit && $lineid > 0) {
 	$sql = 'DELETE FROM '.$db->prefix().'powerplantpv_powerplantcomp';
 	$sql .= ' WHERE rowid = '.((int) $lineid);
 	$sql .= ' AND fk_powerplant = '.((int) $object->id);
-	$sql .= ' AND entity = '.((int) $conf->entity);
+	$sql .= ' AND entity = '.$powerplantentity;
 	if ($db->query($sql)) {
 		$recalculateinstalledpower = 1;
 	} else {
@@ -377,7 +383,7 @@ if ($action === 'updateline' && $canmanagecomposition && $lineid > 0) {
 		accessforbidden();
 	}
 
-	$oldline = powerplantCompositionFetchLine($object->id, $lineid);
+	$oldline = powerplantCompositionFetchLine($object->id, $lineid, $powerplantentity);
 	$serial_number = GETPOST('serial_number', 'alphanohtml');
 	$fk_status = GETPOST('fk_status_edit', 'alphanohtml');
 	$fk_status = ($fk_status === '' ? 4 : (int) $fk_status);
@@ -391,13 +397,13 @@ if ($action === 'updateline' && $canmanagecomposition && $lineid > 0) {
 	}
 	$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 	$sql .= " SET serial_number = '".$db->escape($serial_number)."', fk_status = ".((int) $fk_status).", commissioning_date = ".$commissioning_date_sql;
-	$sql .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+	$sql .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 	$resupdate = $db->query($sql);
 	if (!$resupdate) {
 		setEventMessages($db->lasterror(), null, 'errors');
 	} else {
 		$recalculateinstalledpower = 1;
-		$newline = powerplantCompositionFetchLine($object->id, $lineid);
+		$newline = powerplantCompositionFetchLine($object->id, $lineid, $powerplantentity);
 		if ($oldline && $newline) {
 			$changes = array();
 			$triggercode = 'POWERPLANTPV_POWERPLANT_COMP_MODIFY';
@@ -450,7 +456,7 @@ $masslinesbyid = array();
 if (!empty($massselectedids)) {
 	$sqlmasslines = "SELECT rowid, fk_product, serial_number, commissioning_date, fk_status";
 	$sqlmasslines .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp";
-	$sqlmasslines .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+	$sqlmasslines .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 	$sqlmasslines .= " AND rowid IN (".implode(',', $massselectedids).")";
 	$sqlmasslines .= " ORDER BY rowid ASC";
 	$resmasslines = $db->query($sqlmasslines);
@@ -473,7 +479,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 	if (!empty($idstodelete)) {
 		$sql = 'DELETE FROM '.$db->prefix().'powerplantpv_powerplantcomp';
 		$sql .= ' WHERE fk_powerplant = '.((int) $object->id);
-		$sql .= ' AND entity = '.((int) $conf->entity);
+		$sql .= ' AND entity = '.$powerplantentity;
 		$sql .= ' AND rowid IN ('.implode(',', $idstodelete).')';
 		if ($db->query($sql)) {
 			$recalculateinstalledpower = 1;
@@ -510,7 +516,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 		}
 		$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 		$sql .= " SET commissioning_date = '".$db->escape($commissioning_date_mass)."'";
-		$sql .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+		$sql .= " WHERE fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 		$sql .= " AND rowid IN (".implode(',', $idslist).")";
 		$resupdate = $db->query($sql);
 		if (!$resupdate) {
@@ -556,7 +562,7 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 			}
 			$sql = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sql .= " SET fk_status = ".((int) $statusline);
-			$sql .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$sql .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 			$resupdate = $db->query($sql);
 			if (!$resupdate) {
 				$error++;
@@ -624,11 +630,11 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 			}
 			$sqlold = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 			$sqlold .= " SET fk_status = 6";
-			$sqlold .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$sqlold .= " WHERE rowid = ".((int) $lineidmass)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 			$resold = $db->query($sqlold);
 
 			$sqlnew = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
-			$sqlnew .= " VALUES (".((int) $object->id).", ".((int) $productid).", ".((int) $statusval).", 1, '".$serial."', '".$db->escape($dateval)."', ".((int) $conf->entity).")";
+			$sqlnew .= " VALUES (".((int) $object->id).", ".((int) $productid).", ".((int) $statusval).", 1, '".$serial."', '".$db->escape($dateval)."', ".$powerplantentity.")";
 			$resnew = $db->query($sqlnew);
 			if (!$resold || !$resnew) {
 				$error++;
@@ -670,26 +676,26 @@ if ($action === 'confirmreplacecomposition' && $canmanagecomposition && $lineid 
 	}
 
 	$sqlcheckline = "SELECT rowid FROM ".$db->prefix()."powerplantpv_powerplantcomp";
-	$sqlcheckline .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+	$sqlcheckline .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 	$rescheckline = $db->query($sqlcheckline);
 	if ($rescheckline && $db->num_rows($rescheckline) > 0 && $fk_product_replace > 0) {
-		$oldline = powerplantCompositionFetchLine($object->id, $lineid);
+		$oldline = powerplantCompositionFetchLine($object->id, $lineid, $powerplantentity);
 		$db->begin();
 
 		$sqlreplaceold = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
 		$sqlreplaceold .= " SET fk_status = 6";
-		$sqlreplaceold .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+		$sqlreplaceold .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 		$resreplaceold = $db->query($sqlreplaceold);
 
 		$sqladdnew = 'INSERT INTO '.$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, fk_status, qty, serial_number, commissioning_date, entity)";
-		$sqladdnew .= " VALUES (".((int) $object->id).", ".((int) $fk_product_replace).", ".((int) $fk_status_replace).", 1, '".$db->escape($serial_number_replace)."', '".$db->escape($commissioning_date_replace)."', ".((int) $conf->entity).")";
+		$sqladdnew .= " VALUES (".((int) $object->id).", ".((int) $fk_product_replace).", ".((int) $fk_status_replace).", 1, '".$db->escape($serial_number_replace)."', '".$db->escape($commissioning_date_replace)."', ".$powerplantentity.")";
 		$resaddnew = $db->query($sqladdnew);
 
 		if ($resreplaceold && $resaddnew) {
 			$newlineid = $db->last_insert_id($db->prefix()."powerplantpv_powerplantcomp", "rowid");
 			$db->commit();
 			$recalculateinstalledpower = 1;
-			$newline = powerplantCompositionFetchLine($object->id, (int) $newlineid);
+			$newline = powerplantCompositionFetchLine($object->id, (int) $newlineid, $powerplantentity);
 			$oldlabel = ($oldline ? powerplantCompositionLineLabel($oldline) : '#'.((int) $lineid));
 			$newlabel = ($newline ? powerplantCompositionLineLabel($newline) : '#'.((int) $newlineid));
 			$label = $langs->transnoentities('PowerPlantCompositionLineReplaced', $oldlabel);
@@ -710,7 +716,7 @@ if (!empty($recalculateinstalledpower)) {
 	}
 }
 
-$sqlwhere = ' WHERE c.fk_powerplant = '.((int) $object->id).' AND c.entity = '.((int) $conf->entity);
+$sqlwhere = ' WHERE c.fk_powerplant = '.((int) $object->id).' AND c.entity = '.$powerplantentity;
 if ($search_ref !== '') {
 	$sqlwhere .= " AND p.ref LIKE '%".$db->escape($search_ref)."%'";
 }
@@ -898,7 +904,7 @@ if ($id > 0 || !empty($ref)) {
 
 		if ($canmanagecomposition && $action === 'editline' && $lineid > 0) {
 			$sqledit = "SELECT rowid, fk_status, serial_number, commissioning_date FROM ".$db->prefix()."powerplantpv_powerplantcomp";
-			$sqledit .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$sqledit .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 			$resedit = $db->query($sqledit);
 			if ($resedit && ($objedit = $db->fetch_object($resedit))) {
 				print '<div id="dialog-editcomposition" class="hideobject">';
@@ -945,7 +951,7 @@ if ($id > 0 || !empty($ref)) {
 
 		if ($canmanagecomposition && $action === 'replaceline' && $lineid > 0) {
 			$sqlreplace = "SELECT rowid, fk_product, serial_number FROM ".$db->prefix()."powerplantpv_powerplantcomp";
-			$sqlreplace .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".((int) $conf->entity);
+			$sqlreplace .= " WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 			$resreplace = $db->query($sqlreplace);
 			if ($resreplace && ($objreplace = $db->fetch_object($resreplace))) {
 				print '<div id="dialog-replacecomposition" class="hideobject">';

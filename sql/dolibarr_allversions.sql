@@ -19,6 +19,8 @@ ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS buyback_tariff 
 ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS entity integer NOT NULL DEFAULT 1;
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplant_fk_country (fk_country);
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplant_entity (entity);
+ALTER TABLE llx_powerplantpv_powerplant DROP INDEX IF EXISTS uk_powerplantpv_powerplant_ref;
+ALTER TABLE llx_powerplantpv_powerplant ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_powerplant_ref_entity (ref, entity);
 
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,

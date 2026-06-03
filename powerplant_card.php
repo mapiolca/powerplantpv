@@ -195,6 +195,7 @@ if ($user->socid > 0) {
 		$object->socid = $user->socid;
 	}
 }
+$powerplantentity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 $isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
 restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
 if (!isModEnabled($object->module)) {
@@ -244,7 +245,7 @@ if ($action == 'addcomposition' && $permissiontoadd) {
 
 	if ($fk_product > 0 && $qty > 0) {
 		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_powerplantcomp(fk_powerplant, fk_product, qty, entity)";
-		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".((int) $conf->entity).")";
+		$sql .= " VALUES(".((int) $object->id).", ".((int) $fk_product).", ".((float) $qty).", ".$powerplantentity.")";
 		if ($db->query($sql)) {
 			powerplantRecalculateInstalledPower($object);
 		}
@@ -253,7 +254,7 @@ if ($action == 'addcomposition' && $permissiontoadd) {
 if ($action == 'delcomposition' && $permissiontoadd) {
 	$lineid = GETPOSTINT('lineid');
 	if ($lineid > 0) {
-		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id);
+		$sql = "DELETE FROM ".$db->prefix()."powerplantpv_powerplantcomp WHERE rowid = ".((int) $lineid)." AND fk_powerplant = ".((int) $object->id)." AND entity = ".$powerplantentity;
 		if ($db->query($sql)) {
 			powerplantRecalculateInstalledPower($object);
 		}
@@ -1257,7 +1258,7 @@ $k_purchase_tariff = 'buyback_tariff';
 	$sqlcomp .= " LEFT JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = c.fk_product";
 	$sqlcomp .= " LEFT JOIN ".$db->prefix()."c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique";
 	$sqlcomp .= " WHERE c.fk_powerplant = ".((int) $object->id);
-	$sqlcomp .= " AND c.entity = ".((int) $conf->entity);
+	$sqlcomp .= " AND c.entity = ".$powerplantentity;
 	$sqlcomp .= " GROUP BY cpv.rowid, cpv.label, cpv.code, c.fk_status";
 	$sqlcomp .= " ORDER BY cpv.label ASC, cpv.rowid ASC, c.fk_status ASC";
 	$rescomp = $db->query($sqlcomp);

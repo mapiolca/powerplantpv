@@ -306,9 +306,11 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		}
 
 		$morehtmlref .= '<br>';
+		$morehtmlref .= $langs->trans('ThirdParty');
 		if ($permissiontoadd && $action != 'editcustomer') {
 			$morehtmlref .= ' <a class="editfielda" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'&action=editcustomer">'.img_edit($langs->transnoentitiesnoconv('SetThirdParty'), 0).'</a>';
 		}
+		$morehtmlref .= ' : ';
 
 		if ($permissiontoadd && $action == 'editcustomer') {
 			$morehtmlref .= '<form method="post" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
@@ -320,7 +322,6 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		} elseif (!empty($object->thirdparty) && !empty($object->thirdparty->id)) {
 			$morehtmlref .= $object->thirdparty->getNomUrl(1, 'customer');
 		} else {
-			$morehtmlref .= img_picto($langs->trans("ThirdParty"), 'company', 'class="pictofixedwidth"');
 			$morehtmlref .= '<span class="opacitymedium">'.$langs->trans("None").'</span>';
 		}
 	}

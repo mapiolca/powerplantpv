@@ -5,6 +5,9 @@
 Cette version corrige principalement une erreur 500 lors du clonage / de la création d’une centrale PV depuis un document commercial.
 
 Elle améliore aussi l’intégration Dolibarr du module avec :
+- correction Multicompany des references de Centrales : unicite par entite et numerotation dans le perimetre partage natif ;
+- rattachement des lignes de composition a l'entite proprietaire de la Centrale ;
+- alignement de l'affichage du Tiers dans la banniere Centrale ;
 - création directe d’une centrale PV depuis devis ou commande ;
 - meilleure gestion des liens entre objets Dolibarr ;
 - recalcul automatique de la puissance crête sur devis, commandes et factures ;
