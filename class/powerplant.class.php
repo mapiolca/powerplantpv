@@ -142,6 +142,7 @@ class PowerPlant extends CommonObject
 		"zip" => array("type" => "varchar(25)", "label" => "PowerPlantZip", "enabled" => "1", 'position' => 38, 'notnull' => 0, "visible" => "1", "searchall" => "1", "csslist" => "nowraponall", "validate" => "1",),
 		"town" => array("type" => "varchar(255)", "label" => "PowerPlantTown", "enabled" => "1", 'position' => 39, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
 		"fk_country" => array("type" => "integer", "label" => "PowerPlantCountry", "enabled" => "1", 'position' => 40, 'notnull' => 0, "visible" => "1", "index" => "1", "validate" => "1",),
+		"access_instructions" => array("type" => "text", "label" => "PowerPlantAccessInstructions", "enabled" => "1", 'position' => 40, 'notnull' => 0, "visible" => "3", "css" => "minwidth500", "cssview" => "wordbreak", "validate" => "1",),
 		"installed_power" => array("type" => "double(24,8)", "label" => "PowerPlantInstalledPower", "enabled" => "1", 'position' => 41, 'notnull' => 0, "visible" => "1", "noteditable" => "1", "isameasure" => "1", "validate" => "1", "default" => "0", "css" => "right", "cssview" => "right", "csslist" => "right"),
 		"connection_contract_power" => array("type" => "double(24,8)", "label" => "PowerPlantConnectionContractPower", "enabled" => "1", 'position' => 42, 'notnull' => 0, "visible" => "1", "isameasure" => "1", "validate" => "1", "css" => "right", "cssview" => "right", "csslist" => "right"),
 		"connection_type" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionType", "enabled" => "1", 'position' => 43, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
@@ -174,6 +175,7 @@ class PowerPlant extends CommonObject
 	public $zip;
 	public $town;
 	public $fk_country;
+	public $access_instructions;
 	public $installed_power;
 	public $connection_contract_power;
 	public $connection_type;

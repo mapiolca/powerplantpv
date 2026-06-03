@@ -43,6 +43,10 @@ function powerplantPrepareHead($object)
 	$head[$h][2] = 'card';
 	$h++;
 
+	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_location.php', 1), ['id' => $object->id]);
+	$head[$h][1] = $langs->trans('PowerPlantLocationAccess');
+	$head[$h][2] = 'location';
+	$h++;
 
 	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_composition.php', 1), ['id' => $object->id]);
 	$head[$h][1] = $langs->trans('PowerPlantMaterialComposition');
@@ -292,9 +296,33 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 	global $db, $langs;
 
 	require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 	$form = new Form($db);
 
 	$morehtmlref = '<div class="refidno">';
+
+	if (!empty($object->address) || !empty($object->zip) || !empty($object->town) || !empty($object->fk_country)) {
+		$addressobject = new stdClass();
+		$addressobject->address = (string) $object->address;
+		$addressobject->zip = (string) $object->zip;
+		$addressobject->town = (string) $object->town;
+		$addressobject->country_id = (int) $object->fk_country;
+		$addressobject->country_code = '';
+
+		if (!empty($object->fk_country)) {
+			$country = getCountry((int) $object->fk_country, 'all', null, $langs, 0);
+			if (is_array($country)) {
+				$addressobject->country_code = (string) $country['code'];
+			}
+		}
+
+		$formattedaddress = dol_format_address($addressobject, 1, ', ', $langs);
+		if ($formattedaddress !== '') {
+			$morehtmlref .= '<br>';
+			$morehtmlref .= img_picto('', 'address', 'class="pictofixedwidth"');
+			$morehtmlref .= dol_escape_htmltag($formattedaddress);
+		}
+	}
 
 	$morehtmlref .= '<br>';
 	$morehtmlref .= $form->editfieldkey('Label', 'label', $object->label, $object, $permissiontoadd, 'string', '', 0, 1);

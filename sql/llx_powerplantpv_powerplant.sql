@@ -27,6 +27,7 @@ CREATE TABLE llx_powerplantpv_powerplant(
 	zip varchar(25), 
 	town varchar(255), 
 	fk_country integer, 
+	access_instructions text,
 	installed_power double, 
 	connection_contract_power double, 
 	connection_type varchar(128), 
