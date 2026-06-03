@@ -150,7 +150,7 @@ class mod_powerplant_advanced extends ModeleNumRefPowerPlant
 		$forceentity = null;
 		if ($this->hasEntityField($db)) {
 			$bentityon = false;
-			$forceentity = getEntity($object->element);
+			$forceentity = self::getPowerPlantReferenceEntityList($object);
 		}
 
 		$numFinal = get_next_value($db, $mask, 'powerplantpv_powerplant', 'ref', '', '', $date, 'next', $bentityon, null, $forceentity);

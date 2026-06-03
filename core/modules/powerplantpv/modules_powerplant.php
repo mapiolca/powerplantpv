@@ -100,6 +100,40 @@ abstract class ModeleNumRefPowerPlant extends CommonNumRefGenerator
 	}
 
 	/**
+	 * Return the entities where PowerPlant references must be unique.
+	 *
+	 * @param	CommonObject|null	$object		Current object
+	 * @return	string							Comma-separated sanitized entity ids
+	 */
+	public static function getPowerPlantReferenceEntityList($object = null)
+	{
+		global $conf;
+
+		$entities = array();
+		$scopes = array(
+			getEntity('powerplant'),
+			getEntity('powerplantnumber', 1, $object),
+		);
+
+		foreach ($scopes as $scope) {
+			foreach (explode(',', (string) $scope) as $entity) {
+				$entity = trim($entity);
+				if ($entity !== '' && preg_match('/^\d+$/', $entity)) {
+					$entities[(int) $entity] = (int) $entity;
+				}
+			}
+		}
+
+		if (empty($entities)) {
+			$entities[(int) $conf->entity] = (int) $conf->entity;
+		}
+
+		ksort($entities, SORT_NUMERIC);
+
+		return implode(',', $entities);
+	}
+
+	/**
 	 *  Return an example of numbering
 	 *
 	 *  @return     string      Example

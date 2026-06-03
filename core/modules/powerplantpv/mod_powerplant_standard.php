@@ -96,11 +96,11 @@ class mod_powerplant_standard extends ModeleNumRefPowerPlant
 		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplant as t";
 		$sql .= " WHERE t.ref LIKE '".$db->escape($this->prefix)."____-%'";
 		if ($object->ismultientitymanaged == 1 && $this->hasEntityField($db)) {
-			$sql .= " AND t.entity IN (".getEntity($object->element).")";
+			$sql .= " AND t.entity IN (".self::getPowerPlantReferenceEntityList($object).")";
 		} elseif (preg_match('/^\w+@\w+$/', (string) $object->ismultientitymanaged)) {
 			$tmparray = explode('@', (string) $object->ismultientitymanaged);
 			$sql .= " LEFT JOIN ".$db->prefix().$tmparray[1]." as pt ON t.".$db->sanitize($tmparray[0])." = pt.rowid";
-			$sql .= " WHERE pt.entity IN (".getEntity($object->element).")";
+			$sql .= " WHERE pt.entity IN (".self::getPowerPlantReferenceEntityList($object).")";
 		}
 
 		$resql = $db->query($sql);
@@ -136,11 +136,11 @@ class mod_powerplant_standard extends ModeleNumRefPowerPlant
 		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplant as t";
 		$sql .= " WHERE t.ref LIKE '".$db->escape($this->prefix)."____-%'";
 		if ($object->ismultientitymanaged == 1 && $this->hasEntityField($db)) {
-			$sql .= " AND t.entity IN (".getEntity($object->element).")";
+			$sql .= " AND t.entity IN (".self::getPowerPlantReferenceEntityList($object).")";
 		} elseif (preg_match('/^\w+@\w+$/', (string) $object->ismultientitymanaged)) {
 			$tmparray = explode('@', (string) $object->ismultientitymanaged);
 			$sql .= " LEFT JOIN ".$db->prefix().$tmparray[1]." as pt ON t.".$db->sanitize($tmparray[0])." = pt.rowid";
-			$sql .= " WHERE pt.entity IN (".getEntity($object->element).")";
+			$sql .= " WHERE pt.entity IN (".self::getPowerPlantReferenceEntityList($object).")";
 		}
 
 		$resql = $db->query($sql);

@@ -233,7 +233,13 @@ PVSummaryOtherElementsList = Liste des autres éléments
 PVSummaryNone = Aucun
 
 # Dictionary
+SharePowerplant = Partager les centrales
+SharePowerplantnumber = Partager la numérotation des centrales
+PowerPlantSharingInfo = Permet de partager les centrales photovoltaïques entre entités selon les règles Multicompany.
+PowerPlantNumberSharingInfo = Permet d'utiliser une numérotation commune des centrales entre les entités sélectionnées.
 PhotovoltaicCategoryDictionary = Catégorie Photovoltaïque
+CustomPhotovoltaicCategoryDictionary = Personnaliser le dictionnaire des catégories photovoltaïques par entité
+PhotovoltaicCategoryDictionarySharingInfo = Permet de personnaliser le dictionnaire des catégories photovoltaïques par entité.
 ProductPhotovoltaicCategory = Catégorie Photovoltaïque
 
 PowerPlantMaterialComposition = Composition matérielle

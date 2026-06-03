@@ -685,6 +685,24 @@ class PowerPlant extends CommonObject
 	}
 
 	/**
+	 * Return the entities where the current reference must be unique.
+	 *
+	 * @return	string	Comma-separated entity ids
+	 */
+	protected function getReferenceEntityList()
+	{
+		if (!class_exists('ModeleNumRefPowerPlant')) {
+			dol_include_once('/powerplantpv/core/modules/powerplantpv/modules_powerplant.php');
+		}
+
+		if (class_exists('ModeleNumRefPowerPlant')) {
+			return ModeleNumRefPowerPlant::getPowerPlantReferenceEntityList($this);
+		}
+
+		return getEntity($this->element);
+	}
+
+	/**
 	 * Check if a reference already exists in the native multicompany sharing scope.
 	 *
 	 * @param	string	$ref	Reference to check
@@ -703,7 +721,7 @@ class PowerPlant extends CommonObject
 			$sql .= " AND t.rowid <> ".((int) $this->id);
 		}
 		if ($this->ismultientitymanaged == 1 && !empty($this->fields['entity'])) {
-			$sql .= " AND t.entity IN (".getEntity($this->element).")";
+			$sql .= " AND t.entity IN (".$this->getReferenceEntityList().")";
 		}
 		$sql .= " LIMIT 1";
 

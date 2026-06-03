@@ -882,8 +882,23 @@ class modPowerPlantPV extends DolibarrModules
 				'sharingelements' => array(
 					'powerplant' => array(
 						'type' => 'element',
-						'icon' => 'sun-o',
+						'icon' => 'sun',
 						'lang' => 'powerplantpv@powerplantpv',
+						'tooltip' => 'PowerPlantSharingInfo',
+						'enable' => '! empty($conf->powerplantpv->enabled)',
+						'input' => array(
+							'global' => array(
+								'showhide' => true,
+								'hide' => true,
+								'del' => true,
+							),
+						),
+					),
+					'powerplantnumber' => array(
+						'type' => 'objectnumber',
+						'icon' => 'hashtag',
+						'lang' => 'powerplantpv@powerplantpv',
+						'tooltip' => 'PowerPlantNumberSharingInfo',
 						'enable' => '! empty($conf->powerplantpv->enabled)',
 						'input' => array(
 							'global' => array(
@@ -896,12 +911,14 @@ class modPowerPlantPV extends DolibarrModules
 				),
 				'sharingmodulename' => array(
 					'powerplant' => 'powerplantpv',
+					'powerplantnumber' => 'powerplantpv',
 				),
 				'dictionary' => array(
 					'c_powerplantpv_categorypv' => array(
 						'type' => 'dictionary',
 						'icon' => 'tags',
 						'transkey' => 'PhotovoltaicCategoryDictionary',
+						'tooltip' => 'PhotovoltaicCategoryDictionarySharingInfo',
 						'lang' => 'powerplantpv@powerplantpv',
 						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_categorypv.sql',
 					),

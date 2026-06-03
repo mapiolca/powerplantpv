@@ -233,7 +233,13 @@ PVSummaryOtherElementsList = List of other elements
 PVSummaryNone = None
 
 # Dictionary
+SharePowerplant = Share power plants
+SharePowerplantnumber = Share power plant numbering
+PowerPlantSharingInfo = Allows photovoltaic power plants to be shared between entities according to Multicompany rules.
+PowerPlantNumberSharingInfo = Allows selected entities to use a common power plant numbering sequence.
 PhotovoltaicCategoryDictionary = Photovoltaic Category
+CustomPhotovoltaicCategoryDictionary = Customize photovoltaic category dictionary by entity
+PhotovoltaicCategoryDictionarySharingInfo = Allows the photovoltaic category dictionary to be customized by entity.
 ProductPhotovoltaicCategory = Photovoltaic Category
 
 PowerPlantMaterialComposition = Material composition
