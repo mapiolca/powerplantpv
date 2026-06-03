@@ -52,6 +52,31 @@ class ActionsPowerplantpv
 	public $warnings = array();
 
 	/**
+	 * Load PowerPlantPV translations for ticket contexts.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function doActions($parameters, &$object, &$action, $hookmanager)
+	{
+		global $langs;
+
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$contexts = $this->getContexts($parameters, $hookmanager);
+		if (in_array('ticketcard', $contexts) || in_array('publicnewticketcard', $contexts)) {
+			$langs->load('powerplantpv@powerplantpv');
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Add native icon before the ticket power plant extrafield selector on ticket creation.
 	 *
 	 * @param	array<string,mixed>	$parameters		Hook parameters

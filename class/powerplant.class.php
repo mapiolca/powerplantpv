@@ -1237,12 +1237,13 @@ class PowerPlant extends CommonObject
 
 		$result .= $linkstart;
 
+		$withpictorendered = ((int) $withpicto === 3 ? 0 : $withpicto);
 		if (empty($this->showphoto_on_popup)) {
-			if ($withpicto) {
+			if ($withpictorendered) {
 				$result .= img_object(($notooltip ? '' : $label), ($this->picto ? $this->picto : 'generic'), (($withpicto != 2) ? 'class="paddingright"' : ''), 0, 0, $notooltip ? 0 : 1);
 			}
 		} else {
-			if ($withpicto) {
+			if ($withpictorendered) {
 				require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 
 				list($class, $module) = explode('@', $this->picto);
@@ -1266,8 +1267,17 @@ class PowerPlant extends CommonObject
 			}
 		}
 
-		if ($withpicto != 2) {
-			$result .= $this->ref;
+		if ($withpictorendered != 2) {
+			$displaytextparts = array();
+			$displayref = isset($this->ref) ? trim((string) $this->ref) : '';
+			$displaylabel = isset($this->label) ? trim((string) $this->label) : '';
+			if ($displayref !== '') {
+				$displaytextparts[] = $displayref;
+			}
+			if ((int) $withpicto === 3 && $displaylabel !== '') {
+				$displaytextparts[] = $displaylabel;
+			}
+			$result .= dol_escape_htmltag(implode(' - ', $displaytextparts));
 		}
 
 		$result .= $linkend;

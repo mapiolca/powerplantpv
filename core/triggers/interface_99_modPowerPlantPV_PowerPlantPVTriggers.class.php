@@ -69,6 +69,7 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		if ($action == 'TICKET_CREATE') {
+			$this->cleanEmptyTicketPowerPlantOption($object);
 			return $this->linkTicketToPowerPlant($object, $user);
 		}
 		if ($action == 'ACTION_CREATE' || $action == 'ACTION_MODIFY') {
@@ -276,6 +277,32 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Remove the ticket power plant extrafield from the in-memory object when it is empty.
+	 *
+	 * Dolibarr public ticket emails iterate over array_options after TICKET_CREATE. Keeping
+	 * an empty link value there would print an empty generic extrafield line.
+	 *
+	 * @param	CommonObject	$ticket	Ticket object
+	 * @return	void
+	 */
+	private function cleanEmptyTicketPowerPlantOption($ticket)
+	{
+		if (!is_object($ticket) || empty($ticket->array_options) || !is_array($ticket->array_options)) {
+			return;
+		}
+
+		$key = 'options_powerplantpv_powerplant';
+		if (!array_key_exists($key, $ticket->array_options)) {
+			return;
+		}
+
+		$value = trim((string) $ticket->array_options[$key]);
+		if ($value === '' || $value === '0' || $value === '-1') {
+			unset($ticket->array_options[$key]);
+		}
 	}
 
 	/**

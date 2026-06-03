@@ -128,6 +128,7 @@ class modPowerPlantPV extends DolibarrModules
 					'invoicecard',
 					'contractcard',
 					'ticketcard',
+					'publicnewticketcard',
 					'category',
 					'elementproperties',
 					'notification',
