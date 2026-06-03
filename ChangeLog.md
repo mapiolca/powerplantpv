@@ -9,6 +9,7 @@ Elle améliore aussi l’intégration Dolibarr du module avec :
 - rattachement des lignes de composition a l'entite proprietaire de la Centrale ;
 - alignement de l'affichage du Tiers dans la banniere Centrale ;
 - ajout de l'onglet Localisation/Acces des Centrales et de l'adresse formatee dans la banniere ;
+- correction de la migration de la colonne Consignes d'acces a l'activation du module ;
 - amelioration de l'affichage de la Centrale dans les mails de creation de tickets ;
 - création directe d’une centrale PV depuis devis ou commande ;
 - meilleure gestion des liens entre objets Dolibarr ;

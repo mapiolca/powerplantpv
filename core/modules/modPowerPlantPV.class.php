@@ -567,6 +567,11 @@ class modPowerPlantPV extends DolibarrModules
 			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
 		}
 
+		$result = $this->ensurePowerPlantSchema();
+		if ($result < 0) {
+			return -1;
+		}
+
 		// Create product extrafield for photovoltaic category.
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafields = new ExtraFields($this->db);
@@ -733,6 +738,46 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Ensure columns added after the initial table creation exist on upgrades.
+	 *
+	 * _load_tables() creates missing tables but does not reliably replay ALTER statements
+	 * on an already installed module. Keep this guard before any object fetch.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensurePowerPlantSchema()
+	{
+		$table = $this->db->prefix().'powerplantpv_powerplant';
+		$field = 'access_instructions';
+
+		$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		$fieldexists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+		if ($fieldexists) {
+			return 1;
+		}
+
+		$fielddesc = array(
+			'type' => 'text',
+			'value' => '',
+			'null' => '',
+		);
+		$result = $this->db->DDLAddField($table, $field, $fielddesc);
+		if ($result < 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**

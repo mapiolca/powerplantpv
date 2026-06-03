@@ -40,6 +40,11 @@ class PowerPlant extends CommonObject
 	public $module = 'powerplantpv';
 
 	/**
+	 * @var string 		Main module name.
+	 */
+	public $mainmodule = 'powerplantpv';
+
+	/**
 	 * @var string 		ID to identify managed object.
 	 */
 	public $element = 'powerplant';
