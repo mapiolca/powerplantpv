@@ -132,7 +132,11 @@ class modPowerPlantPV extends DolibarrModules
 					'category',
 					'elementproperties',
 					'notification',
+					'multicompanyexternalmodulesharing',
+					'multicompanyexternalmodules',
+					'multicompanysharingoptions',
 				),
+				'entity' => '0',
 			),
 			/* END MODULEBUILDER HOOKSCONTEXTS */
 			// Set this to 1 if features of module are opened to external users
@@ -857,13 +861,15 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	private function saveMulticompanyExternalSharing($externalmodule)
 	{
+		global $conf;
+
 		$jsonformat = json_encode($externalmodule, JSON_UNESCAPED_SLASHES);
 		if ($jsonformat === false) {
 			$this->errors[] = 'Unable to encode MULTICOMPANY_EXTERNAL_MODULES_SHARING JSON value';
 			return -1;
 		}
 
-		$result = dolibarr_set_const($this->db, 'MULTICOMPANY_EXTERNAL_MODULES_SHARING', $jsonformat, 'chaine', 0, '');
+		$result = dolibarr_set_const($this->db, 'MULTICOMPANY_EXTERNAL_MODULES_SHARING', $jsonformat, 'chaine', 0, '', (int) $conf->entity);
 		if ($result <= 0) {
 			$this->errors[] = $this->db->lasterror();
 			return -1;
@@ -879,54 +885,13 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	private function getMulticompanyExternalSharingConfig()
 	{
-		return array(
-			'powerplantpv' => array(
-				'sharingelements' => array(
-					'powerplant' => array(
-						'type' => 'element',
-						'icon' => 'sun',
-						'lang' => 'powerplantpv@powerplantpv',
-						'tooltip' => 'PowerPlantSharingInfo',
-						'enable' => '! empty($conf->powerplantpv->enabled)',
-						'input' => array(
-							'global' => array(
-								'showhide' => true,
-								'hide' => true,
-								'del' => true,
-							),
-						),
-					),
-					'powerplantnumber' => array(
-						'type' => 'objectnumber',
-						'icon' => 'hashtag',
-						'lang' => 'powerplantpv@powerplantpv',
-						'tooltip' => 'PowerPlantNumberSharingInfo',
-						'enable' => '! empty($conf->powerplantpv->enabled)',
-						'input' => array(
-							'global' => array(
-								'showhide' => true,
-								'hide' => true,
-								'del' => true,
-							),
-						),
-					),
-				),
-				'sharingmodulename' => array(
-					'powerplant' => 'powerplantpv',
-					'powerplantnumber' => 'powerplantpv',
-				),
-				'dictionary' => array(
-					'c_powerplantpv_categorypv' => array(
-						'type' => 'dictionary',
-						'icon' => 'tags',
-						'transkey' => 'PhotovoltaicCategoryDictionary',
-						'tooltip' => 'PhotovoltaicCategoryDictionarySharingInfo',
-						'lang' => 'powerplantpv@powerplantpv',
-						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_categorypv.sql',
-					),
-				),
-			),
-		);
+		dol_include_once('/powerplantpv/class/actions_powerplantpv.class.php');
+
+		if (class_exists('ActionsPowerplantpv') && method_exists('ActionsPowerplantpv', 'getMulticompanySharingDefinition')) {
+			return ActionsPowerplantpv::getMulticompanySharingDefinition();
+		}
+
+		return array();
 	}
 
 	/**
