@@ -59,6 +59,7 @@ if (!$res) {
 // Libraries
 require_once DOL_DOCUMENT_ROOT."/core/lib/admin.lib.php";
 require_once '../lib/powerplantpv.lib.php';
+require_once '../lib/powerplantpv_powerplant.lib.php';
 //require_once "../class/myclass.class.php";
 
 /**
@@ -197,7 +198,17 @@ if ($action == 'updateMask') {
 		'@phan-var-force ModelePDFMyObject $module';
 
 		if ($module->write_file($tmpobject, $langs) > 0) {
-			header("Location: ".DOL_URL_ROOT."/document.php?modulepart=powerplantpv-".strtolower($tmpobjectkey)."&file=SPECIMEN.pdf");
+			$documentfile = 'SPECIMEN.pdf';
+			if (!empty($module->result['fullpath'])) {
+				$documentroot = str_replace('\\', '/', powerplantGetDocumentRootDir($tmpobject->entity ?? $conf->entity).'/'.strtolower($tmpobjectkey));
+				$generatedfile = str_replace('\\', '/', $module->result['fullpath']);
+				if (strpos($generatedfile, $documentroot.'/') === 0) {
+					$documentfile = substr($generatedfile, dol_strlen($documentroot) + 1);
+				} else {
+					$documentfile = basename($generatedfile);
+				}
+			}
+			header("Location: ".DOL_URL_ROOT."/document.php?modulepart=powerplantpv-".strtolower($tmpobjectkey)."&file=".urlencode($documentfile));
 			return;
 		} else {
 			setEventMessages($module->error, null, 'errors');
