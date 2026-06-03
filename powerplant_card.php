@@ -181,10 +181,7 @@ $upload_dir = null;
 if (!empty($object->id)) {
 	$upload_dir = powerplantGetDocumentUploadDir($object);
 } else {
-	$diroutput = $conf->powerplantpv->dir_output;
-	if (!empty($conf->powerplantpv->multidir_output[$conf->entity])) {
-		$diroutput = $conf->powerplantpv->multidir_output[$conf->entity];
-	}
+	$diroutput = powerplantGetDocumentRootDir($conf->entity);
 	$upload_dir = $diroutput.'/powerplant';
 }
 $modulepart = powerplantGetDocumentModulePart();
@@ -363,6 +360,8 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 	//include DOL_DOCUMENT_ROOT.'/core/actions_lineupdown.inc.php';
 
 	// Action to build doc
+	// actions_builddoc.inc.php expects the module document root for remove_file.
+	$upload_dir = powerplantGetDocumentRootDir(!empty($object->entity) ? $object->entity : $conf->entity);
 	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
 
 	if ($action == 'set_thirdparty') {

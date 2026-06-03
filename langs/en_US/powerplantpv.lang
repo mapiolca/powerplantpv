@@ -78,6 +78,15 @@ MyPageName = My page name
 #
 MyWidget = My widget
 MyWidgetDescription = My widget description
+PowerPlantPVWidgetInstalledPower = Installed power
+PowerPlantPVWidgetInstalledPowerTotalTitle = Total installed kWp current year
+PowerPlantPVWidgetInstalledPowerMonthlyTitle = Installed kWp monthly N / N-1
+PowerPlantPVWidgetInstalledPowerWeeklyTitle = Installed kWp weekly N / N-1
+PowerPlantPVWidgetInstalledPowerInfo = Calculation rule: installed power of validated, in-service or out-of-service PV plants, grouped by commissioning date.
+PowerPlantPVWidgetNoData = No data
+BoxPowerPlantPVInstalledPowerTotal = Installed kWp annual total chart
+BoxPowerPlantPVInstalledPowerMonthly = Installed kWp monthly chart
+BoxPowerPlantPVInstalledPowerWeekly = Installed kWp weekly chart
 
 PowerPlant = Power plant
 New_PowerPlant = New power plant

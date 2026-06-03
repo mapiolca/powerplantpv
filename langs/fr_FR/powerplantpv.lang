@@ -78,6 +78,15 @@ MyPageName = My page name
 #
 MyWidget = My widget
 MyWidgetDescription = My widget description
+PowerPlantPVWidgetInstalledPower = Puissance installée
+PowerPlantPVWidgetInstalledPowerTotalTitle = kWc installés total année en cours
+PowerPlantPVWidgetInstalledPowerMonthlyTitle = kWc installés mensuel N / N-1
+PowerPlantPVWidgetInstalledPowerWeeklyTitle = kWc installés hebdo. N / N-1
+PowerPlantPVWidgetInstalledPowerInfo = Règle de calcul : puissance installée des centrales validées, mises en service ou hors service, groupée par date de mise en service.
+PowerPlantPVWidgetNoData = Aucune donnée
+BoxPowerPlantPVInstalledPowerTotal = Graphique kWc installés total annuel
+BoxPowerPlantPVInstalledPowerMonthly = Graphique kWc installés mensuel
+BoxPowerPlantPVInstalledPowerWeekly = Graphique kWc installés hebdomadaire
 
 PowerPlant = Centrale
 New_PowerPlant = Nouvelle centrale

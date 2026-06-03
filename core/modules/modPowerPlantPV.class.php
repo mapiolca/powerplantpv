@@ -280,12 +280,21 @@ class modPowerPlantPV extends DolibarrModules
 		// Add here list of php file(s) stored in powerplantpv/core/boxes that contains a class to show a widget.
 		/* BEGIN MODULEBUILDER WIDGETS */
 		$this->boxes = array(
-			//  0 => array(
-			//      'file' => 'powerplantpvwidget1.php@powerplantpv',
-			//      'note' => 'Widget provided by PowerPlantPV',
-			//      'enabledbydefaulton' => 'Home',
-			//  ),
-			//  ...
+			array(
+				'file' => 'powerplantpv_graph_installedpower_totalyear.php@powerplantpv',
+				'note' => 'BoxPowerPlantPVInstalledPowerTotal',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'powerplantpv_graph_installedpower_monthly.php@powerplantpv',
+				'note' => 'BoxPowerPlantPVInstalledPowerMonthly',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'powerplantpv_graph_installedpower_weekly.php@powerplantpv',
+				'note' => 'BoxPowerPlantPVInstalledPowerWeekly',
+				'enabledbydefaulton' => 'Home',
+			),
 		);
 		/* END MODULEBUILDER WIDGETS */
 

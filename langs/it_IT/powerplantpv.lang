@@ -78,6 +78,15 @@ MyPageName = Nome della mia pagina
 #
 MyWidget = Mio widget
 MyWidgetDescription = Descrizione del widget
+PowerPlantPVWidgetInstalledPower = Potenza installata
+PowerPlantPVWidgetInstalledPowerTotalTitle = kWp installati totale anno corrente
+PowerPlantPVWidgetInstalledPowerMonthlyTitle = kWp installati mensile N / N-1
+PowerPlantPVWidgetInstalledPowerWeeklyTitle = kWp installati settimanale N / N-1
+PowerPlantPVWidgetInstalledPowerInfo = Regola di calcolo: potenza installata degli impianti FV validati, in servizio o fuori servizio, raggruppata per data di messa in servizio.
+PowerPlantPVWidgetNoData = Nessun dato
+BoxPowerPlantPVInstalledPowerTotal = Grafico totale annuale kWp installati
+BoxPowerPlantPVInstalledPowerMonthly = Grafico mensile kWp installati
+BoxPowerPlantPVInstalledPowerWeekly = Grafico settimanale kWp installati
 
 PowerPlant = Impianto
 New_PowerPlant = Nuovo impianto
