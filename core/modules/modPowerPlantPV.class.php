@@ -721,7 +721,147 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
 
-		return $this->_init($sql, $options);
+		$result = $this->_init($sql, $options);
+		if ($result <= 0) {
+			return $result;
+		}
+
+		$result = $this->registerMulticompanyExternalSharing();
+		if ($result < 0) {
+			return -1;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Register this module sharing options in Multicompany external module settings.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function registerMulticompanyExternalSharing()
+	{
+		$externalmodule = $this->getCurrentMulticompanyExternalSharing();
+		if (!is_array($externalmodule)) {
+			return -1;
+		}
+
+		$externalmodule = array_merge($externalmodule, $this->getMulticompanyExternalSharingConfig());
+
+		return $this->saveMulticompanyExternalSharing($externalmodule);
+	}
+
+	/**
+	 * Remove this module sharing options from Multicompany external module settings.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function unregisterMulticompanyExternalSharing()
+	{
+		$externalmodule = $this->getCurrentMulticompanyExternalSharing();
+		if (!is_array($externalmodule)) {
+			return -1;
+		}
+
+		if (empty($externalmodule['powerplantpv'])) {
+			return 1;
+		}
+
+		unset($externalmodule['powerplantpv']);
+
+		return $this->saveMulticompanyExternalSharing($externalmodule);
+	}
+
+	/**
+	 * Return current Multicompany external sharing declaration.
+	 *
+	 * @return	array<string,mixed>|null		Current declaration, null on invalid JSON
+	 */
+	private function getCurrentMulticompanyExternalSharing()
+	{
+		global $conf;
+
+		$json = '';
+		if (function_exists('getDolGlobalString')) {
+			$json = getDolGlobalString('MULTICOMPANY_EXTERNAL_MODULES_SHARING');
+		} elseif (!empty($conf->global->MULTICOMPANY_EXTERNAL_MODULES_SHARING)) {
+			$json = (string) $conf->global->MULTICOMPANY_EXTERNAL_MODULES_SHARING;
+		}
+
+		if ($json === '') {
+			return array();
+		}
+
+		$externalmodule = json_decode($json, true);
+		if (!is_array($externalmodule)) {
+			$this->errors[] = 'Invalid MULTICOMPANY_EXTERNAL_MODULES_SHARING JSON value';
+			return null;
+		}
+
+		return $externalmodule;
+	}
+
+	/**
+	 * Save Multicompany external sharing declaration.
+	 *
+	 * @param	array<string,mixed>	$externalmodule		External module sharing declaration
+	 * @return	int										1 if OK, <0 if KO
+	 */
+	private function saveMulticompanyExternalSharing($externalmodule)
+	{
+		$jsonformat = json_encode($externalmodule, JSON_UNESCAPED_SLASHES);
+		if ($jsonformat === false) {
+			$this->errors[] = 'Unable to encode MULTICOMPANY_EXTERNAL_MODULES_SHARING JSON value';
+			return -1;
+		}
+
+		$result = dolibarr_set_const($this->db, 'MULTICOMPANY_EXTERNAL_MODULES_SHARING', $jsonformat, 'chaine', 0, '');
+		if ($result <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Return Multicompany sharing options added by this module.
+	 *
+	 * @return	array<string,mixed>		Multicompany external sharing config
+	 */
+	private function getMulticompanyExternalSharingConfig()
+	{
+		return array(
+			'powerplantpv' => array(
+				'sharingelements' => array(
+					'powerplant' => array(
+						'type' => 'element',
+						'icon' => 'sun-o',
+						'lang' => 'powerplantpv@powerplantpv',
+						'enable' => '! empty($conf->powerplantpv->enabled)',
+						'input' => array(
+							'global' => array(
+								'showhide' => true,
+								'hide' => true,
+								'del' => true,
+							),
+						),
+					),
+				),
+				'sharingmodulename' => array(
+					'powerplant' => 'powerplantpv',
+				),
+				'dictionary' => array(
+					'c_powerplantpv_categorypv' => array(
+						'type' => 'dictionary',
+						'icon' => 'tags',
+						'transkey' => 'PhotovoltaicCategoryDictionary',
+						'lang' => 'powerplantpv@powerplantpv',
+						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_categorypv.sql',
+					),
+				),
+			),
+		);
 	}
 
 	/**
@@ -986,6 +1126,17 @@ class modPowerPlantPV extends DolibarrModules
 	public function remove($options = '')
 	{
 		$sql = array();
-		return $this->_remove($sql, $options);
+
+		$result = $this->_remove($sql, $options);
+		if ($result <= 0) {
+			return $result;
+		}
+
+		$result = $this->unregisterMulticompanyExternalSharing();
+		if ($result < 0) {
+			return -1;
+		}
+
+		return $result;
 	}
 }
