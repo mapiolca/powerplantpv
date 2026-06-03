@@ -1,5 +1,17 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.0.1
+
+Cette version corrige principalement une erreur 500 lors du clonage / de la création d’une centrale PV depuis un document commercial.
+
+Elle améliore aussi l’intégration Dolibarr du module avec :
+- création directe d’une centrale PV depuis devis ou commande ;
+- meilleure gestion des liens entre objets Dolibarr ;
+- recalcul automatique de la puissance crête sur devis, commandes et factures ;
+- ajout du prix par Wc dans les informations de marge ;
+- nouveaux widgets de suivi de puissance installée annuelle, mensuelle et hebdomadaire ;
+- amélioration des messages d’erreur et des traductions.
+
 ## 1.0
 
 Initial version
