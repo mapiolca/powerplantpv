@@ -300,6 +300,7 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 	$form = new Form($db);
 
 	$morehtmlref = '<div class="refidno">';
+	$formattedaddress = '';
 
 	if (!empty($object->address) || !empty($object->zip) || !empty($object->town) || !empty($object->fk_country)) {
 		$addressobject = new stdClass();
@@ -317,11 +318,6 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		}
 
 		$formattedaddress = dol_format_address($addressobject, 1, ', ', $langs);
-		if ($formattedaddress !== '') {
-			$morehtmlref .= '<br>';
-			$morehtmlref .= img_picto('', 'address', 'class="pictofixedwidth"');
-			$morehtmlref .= dol_escape_htmltag($formattedaddress);
-		}
 	}
 
 	$morehtmlref .= '<br>';
@@ -352,6 +348,12 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		} else {
 			$morehtmlref .= '<span class="opacitymedium">'.$langs->trans("None").'</span>';
 		}
+	}
+
+	if ($formattedaddress !== '') {
+		$morehtmlref .= '<br>';
+		$morehtmlref .= img_picto('', 'map-marker-alt', 'class="pictofixedwidth"');
+		$morehtmlref .= dol_escape_htmltag($formattedaddress);
 	}
 
 	$morehtmlref .= '</div>';
