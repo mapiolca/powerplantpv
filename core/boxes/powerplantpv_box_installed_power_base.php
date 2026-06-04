@@ -17,7 +17,7 @@
 
 require_once DOL_DOCUMENT_ROOT.'/core/boxes/modules_boxes.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/dolgraph.class.php';
-dol_include_once('/powerplantpv/class/powerplant.class.php');
+dol_include_once('/commande/class/commande.class.php');
 
 /**
  * Shared helpers for installed peak power widgets.
@@ -25,7 +25,7 @@ dol_include_once('/powerplantpv/class/powerplant.class.php');
 abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 {
 	public $boximg = 'chart';
-	public $depends = array('powerplantpv');
+	public $depends = array('powerplantpv', 'commande');
 	public $lang = 'powerplantpv@powerplantpv';
 	public $version = 'dolibarr';
 
@@ -42,6 +42,12 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 		parent::__construct($db, $param);
 		$this->db = $db;
 		$this->param = $param;
+		if (!isModEnabled('order')) {
+			$this->hidden = true;
+		}
+		if (is_object($user) && !$user->hasRight('commande', 'lire')) {
+			$this->hidden = true;
+		}
 		if (
 			is_object($user)
 			&& getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK')
@@ -96,21 +102,17 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 	}
 
 	/**
-	 * Return active statuses used for installed power statistics.
+	 * Return the minimum order status used for delivered power statistics.
 	 *
-	 * @return	string	Comma-separated SQL integers
+	 * @return	int	Order status
 	 */
-	protected function getInstalledStatusSql()
+	protected function getDeliveredOrderStatus()
 	{
-		if (class_exists('PowerPlant')) {
-			return implode(', ', array(
-				(int) PowerPlant::STATUS_VALIDATED,
-				(int) PowerPlant::STATUS_IN_SERVICE,
-				(int) PowerPlant::STATUS_OUT_OF_SERVICE,
-			));
+		if (class_exists('Commande')) {
+			return (int) Commande::STATUS_CLOSED;
 		}
 
-		return '1, 2, 3';
+		return 3;
 	}
 
 	/**
@@ -126,16 +128,70 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 			return $hasColumns;
 		}
 
-		$table = MAIN_DB_PREFIX.'powerplantpv_powerplant';
-		$required = array('installed_power' => false, 'commissioning_date' => false);
-		foreach (array_keys($required) as $column) {
-			$sql = "SHOW COLUMNS FROM ".$table." LIKE '".$this->db->escape($column)."'";
-			$resql = $this->db->query($sql);
-			$required[$column] = ($resql && $this->db->num_rows($resql) > 0);
+		$required = array(
+			MAIN_DB_PREFIX.'commande' => array('rowid', 'entity', 'fk_statut', 'date_cloture'),
+			MAIN_DB_PREFIX.'commande_extrafields' => array('fk_object', 'powerplantpv_peak_power'),
+		);
+		foreach ($required as $table => $columns) {
+			foreach ($columns as $column) {
+				$sql = "SHOW COLUMNS FROM ".$table." LIKE '".$this->db->escape($column)."'";
+				$resql = $this->db->query($sql);
+				if (!$resql || $this->db->num_rows($resql) <= 0) {
+					$hasColumns = false;
+					return $hasColumns;
+				}
+			}
 		}
 
-		$hasColumns = !in_array(false, $required, true);
+		$hasColumns = true;
 		return $hasColumns;
+	}
+
+	/**
+	 * Add the yearly date range filter.
+	 *
+	 * @param	string	$field	SQL date field
+	 * @param	int		$year	Year
+	 * @return	string			SQL filter
+	 */
+	private function getYearDateRangeSql($field, $year)
+	{
+		$start = $this->db->idate(dol_get_first_day($year, 1, false));
+		$nextstart = $this->db->idate(dol_get_first_day($year + 1, 1, false));
+
+		return " AND ".$field." >= '".$start."' AND ".$field." < '".$nextstart."'";
+	}
+
+	/**
+	 * Return the native thirdparty access join used by customer order statistics.
+	 *
+	 * @return	string	SQL join
+	 */
+	private function getOrderAccessJoinSql()
+	{
+		global $user;
+
+		if (is_object($user) && empty($user->socid) && !$user->hasRight('societe', 'client', 'voir')) {
+			return " INNER JOIN ".MAIN_DB_PREFIX."societe_commerciaux as sc ON c.fk_soc = sc.fk_soc AND sc.fk_user = ".((int) $user->id);
+		}
+
+		return '';
+	}
+
+	/**
+	 * Return the native thirdparty access filter used by customer order statistics.
+	 *
+	 * @return	string	SQL where
+	 */
+	private function getOrderAccessWhereSql()
+	{
+		global $user;
+
+		if (is_object($user) && !empty($user->socid)) {
+			return " AND c.fk_soc = ".((int) $user->socid);
+		}
+
+		return '';
 	}
 
 	/**
@@ -150,13 +206,15 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 			return 0.0;
 		}
 
-		$sql = "SELECT SUM(COALESCE(p.installed_power, 0)) as total";
-		$sql .= " FROM ".MAIN_DB_PREFIX."powerplantpv_powerplant as p";
-		$sql .= " WHERE p.status IN (".$this->getInstalledStatusSql().")";
-		$sql .= " AND p.entity IN (".getEntity('powerplant').")";
-		$sql .= " AND p.commissioning_date IS NOT NULL";
-		$sql .= " AND p.commissioning_date >= '".$this->db->idate(dol_get_first_day($year, 1, false))."'";
-		$sql .= " AND p.commissioning_date <= '".$this->db->idate(dol_get_last_day($year, 12, false))."'";
+		$sql = "SELECT SUM(COALESCE(ef.powerplantpv_peak_power, 0)) as total";
+		$sql .= " FROM ".MAIN_DB_PREFIX."commande as c";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."commande_extrafields as ef ON ef.fk_object = c.rowid";
+		$sql .= $this->getOrderAccessJoinSql();
+		$sql .= " WHERE c.fk_statut >= ".$this->getDeliveredOrderStatus();
+		$sql .= " AND c.entity IN (".getEntity('commande').")";
+		$sql .= $this->getOrderAccessWhereSql();
+		$sql .= " AND c.date_cloture IS NOT NULL";
+		$sql .= $this->getYearDateRangeSql('c.date_cloture', $year);
 
 		$resql = $this->db->query($sql);
 		if ($resql) {
@@ -207,14 +265,16 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 			return $result;
 		}
 
-		$indexExpression = ($isMonth ? "MONTH(p.commissioning_date)" : "WEEK(p.commissioning_date, 3)");
-		$sql = "SELECT ".$indexExpression." as idx, SUM(COALESCE(p.installed_power, 0)) as total";
-		$sql .= " FROM ".MAIN_DB_PREFIX."powerplantpv_powerplant as p";
-		$sql .= " WHERE p.status IN (".$this->getInstalledStatusSql().")";
-		$sql .= " AND p.entity IN (".getEntity('powerplant').")";
-		$sql .= " AND p.commissioning_date IS NOT NULL";
-		$sql .= " AND p.commissioning_date >= '".$this->db->idate(dol_get_first_day($year, 1, false))."'";
-		$sql .= " AND p.commissioning_date <= '".$this->db->idate(dol_get_last_day($year, 12, false))."'";
+		$indexExpression = ($isMonth ? "MONTH(c.date_cloture)" : "WEEK(c.date_cloture, 3)");
+		$sql = "SELECT ".$indexExpression." as idx, SUM(COALESCE(ef.powerplantpv_peak_power, 0)) as total";
+		$sql .= " FROM ".MAIN_DB_PREFIX."commande as c";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."commande_extrafields as ef ON ef.fk_object = c.rowid";
+		$sql .= $this->getOrderAccessJoinSql();
+		$sql .= " WHERE c.fk_statut >= ".$this->getDeliveredOrderStatus();
+		$sql .= " AND c.entity IN (".getEntity('commande').")";
+		$sql .= $this->getOrderAccessWhereSql();
+		$sql .= " AND c.date_cloture IS NOT NULL";
+		$sql .= $this->getYearDateRangeSql('c.date_cloture', $year);
 		$sql .= " GROUP BY idx";
 
 		$resql = $this->db->query($sql);

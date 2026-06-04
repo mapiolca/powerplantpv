@@ -19,6 +19,7 @@ Elle améliore aussi l’intégration Dolibarr du module avec :
 - recalcul automatique de la puissance crête sur devis, commandes et factures ;
 - ajout du prix par Wc dans les informations de marge ;
 - nouveaux widgets de suivi de puissance installée annuelle, mensuelle et hebdomadaire ;
+- les widgets kWc utilisent désormais la puissance-crête des commandes client livrées et leur date de clôture ;
 - amélioration des messages d’erreur et des traductions.
 
 ## 1.0
