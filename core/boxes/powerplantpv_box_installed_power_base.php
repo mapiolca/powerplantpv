@@ -148,18 +148,41 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 	}
 
 	/**
-	 * Add the yearly date range filter.
+	 * Return a yearly date range condition.
 	 *
 	 * @param	string	$field	SQL date field
 	 * @param	int		$year	Year
-	 * @return	string			SQL filter
+	 * @return	string			SQL condition
 	 */
-	private function getYearDateRangeSql($field, $year)
+	private function getYearDateConditionSql($field, $year)
 	{
 		$start = $this->db->idate(dol_get_first_day($year, 1, false));
 		$nextstart = $this->db->idate(dol_get_first_day($year + 1, 1, false));
 
-		return " AND ".$field." >= '".$start."' AND ".$field." < '".$nextstart."'";
+		return $field." >= '".$start."' AND ".$field." < '".$nextstart."'";
+	}
+
+	/**
+	 * Add a multi-year date range filter.
+	 *
+	 * @param	string		$field	SQL date field
+	 * @param	array<int>	$years	Years
+	 * @return	string				SQL filter
+	 */
+	private function getYearsDateRangeSql($field, $years)
+	{
+		$conditions = array();
+		foreach (array_values(array_unique(array_map('intval', $years))) as $year) {
+			if ($year > 0) {
+				$conditions[] = "(".$this->getYearDateConditionSql($field, $year).")";
+			}
+		}
+
+		if (empty($conditions)) {
+			return '';
+		}
+
+		return " AND (".implode(" OR ", $conditions).")";
 	}
 
 	/**
@@ -195,6 +218,136 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 	}
 
 	/**
+	 * Return the FROM/JOIN clause for customer order peak power.
+	 *
+	 * @return	string	SQL from and joins
+	 */
+	private function getOrderPowerFromSql()
+	{
+		$sql = " FROM ".MAIN_DB_PREFIX."commande as c";
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."commande_extrafields as ef ON ef.fk_object = c.rowid";
+		$sql .= $this->getOrderAccessJoinSql();
+
+		return $sql;
+	}
+
+	/**
+	 * Return the base WHERE clause for accessible customer orders.
+	 *
+	 * @return	string	SQL where
+	 */
+	private function getOrderPowerBaseWhereSql()
+	{
+		$sql = " WHERE c.entity IN (".getEntity('commande').")";
+		$sql .= $this->getOrderAccessWhereSql();
+
+		return $sql;
+	}
+
+	/**
+	 * Return the filter for stored non-zero peak power.
+	 *
+	 * @return	string	SQL filter
+	 */
+	private function getStoredPeakPowerWhereSql()
+	{
+		return " AND ef.powerplantpv_peak_power IS NOT NULL AND ef.powerplantpv_peak_power <> 0";
+	}
+
+	/**
+	 * Return the strict delivered order WHERE clause used for widget totals.
+	 *
+	 * @param	array<int>	$years	Years to filter
+	 * @return	string				SQL where
+	 */
+	private function getDeliveredOrderPowerWhereSql($years = array())
+	{
+		$sql = $this->getOrderPowerBaseWhereSql();
+		$sql .= " AND c.fk_statut >= ".$this->getDeliveredOrderStatus();
+		$sql .= " AND c.date_cloture IS NOT NULL";
+		$sql .= $this->getYearsDateRangeSql('c.date_cloture', $years);
+
+		return $sql;
+	}
+
+	/**
+	 * Count accessible orders matching the diagnostic filters.
+	 *
+	 * @param	string	$whereextra	Additional SQL filters
+	 * @return	int					Number of orders
+	 */
+	private function fetchOrderPowerCount($whereextra = '')
+	{
+		if (!$this->hasRequiredColumns()) {
+			return 0;
+		}
+
+		$sql = "SELECT COUNT(c.rowid) as nb";
+		$sql .= $this->getOrderPowerFromSql();
+		$sql .= $this->getOrderPowerBaseWhereSql();
+		$sql .= $whereextra;
+
+		$resql = $this->db->query($sql);
+		if ($resql) {
+			$obj = $this->db->fetch_object($resql);
+			return (int) ($obj->nb ?? 0);
+		}
+
+		dol_syslog(__METHOD__.' SQL error: '.$this->db->lasterror(), LOG_WARNING);
+		return 0;
+	}
+
+	/**
+	 * Return a translation key explaining why strict widget data is empty.
+	 *
+	 * @param	array<int>	$years	Displayed years
+	 * @return	string				Translation key
+	 */
+	protected function getNoDataDiagnosticKey($years = array())
+	{
+		if (!$this->hasRequiredColumns()) {
+			return 'PowerPlantPVWidgetNoDataMissingColumns';
+		}
+
+		$storedpowerfilter = $this->getStoredPeakPowerWhereSql();
+		$deliveredfilter = $storedpowerfilter." AND c.fk_statut >= ".$this->getDeliveredOrderStatus();
+		$closedfilter = $deliveredfilter." AND c.date_cloture IS NOT NULL";
+
+		if ($this->fetchOrderPowerCount($storedpowerfilter) <= 0) {
+			return 'PowerPlantPVWidgetNoAccessibleStoredPower';
+		}
+
+		if ($this->fetchOrderPowerCount($deliveredfilter) <= 0) {
+			return 'PowerPlantPVWidgetNoDeliveredOrders';
+		}
+
+		if ($this->fetchOrderPowerCount($closedfilter) <= 0) {
+			return 'PowerPlantPVWidgetNoDeliveredClosingDate';
+		}
+
+		if (!empty($years) && $this->fetchOrderPowerCount($closedfilter.$this->getYearsDateRangeSql('c.date_cloture', $years)) <= 0) {
+			return 'PowerPlantPVWidgetNoClosedOrdersInPeriod';
+		}
+
+		return 'PowerPlantPVWidgetNoData';
+	}
+
+	/**
+	 * Build a no-data diagnostic message.
+	 *
+	 * @param	array<int>	$years		Displayed years
+	 * @param	string		$style		Inline style
+	 * @return	string					HTML message
+	 */
+	protected function buildNoDataMessageHtml($years = array(), $style = '')
+	{
+		global $langs;
+
+		$styleattribute = ($style !== '' ? ' style="'.$style.'"' : '');
+		return '<div class="center opacitymedium"'.$styleattribute.'>'.$langs->trans($this->getNoDataDiagnosticKey($years)).'</div>';
+	}
+
+	/**
 	 * Fetch total installed peak power for a year.
 	 *
 	 * @param	int	$year	Year
@@ -207,14 +360,8 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 		}
 
 		$sql = "SELECT SUM(COALESCE(ef.powerplantpv_peak_power, 0)) as total";
-		$sql .= " FROM ".MAIN_DB_PREFIX."commande as c";
-		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."commande_extrafields as ef ON ef.fk_object = c.rowid";
-		$sql .= $this->getOrderAccessJoinSql();
-		$sql .= " WHERE c.fk_statut >= ".$this->getDeliveredOrderStatus();
-		$sql .= " AND c.entity IN (".getEntity('commande').")";
-		$sql .= $this->getOrderAccessWhereSql();
-		$sql .= " AND c.date_cloture IS NOT NULL";
-		$sql .= $this->getYearDateRangeSql('c.date_cloture', $year);
+		$sql .= $this->getOrderPowerFromSql();
+		$sql .= $this->getDeliveredOrderPowerWhereSql(array($year));
 
 		$resql = $this->db->query($sql);
 		if ($resql) {
@@ -267,14 +414,8 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 
 		$indexExpression = ($isMonth ? "MONTH(c.date_cloture)" : "WEEK(c.date_cloture, 3)");
 		$sql = "SELECT ".$indexExpression." as idx, SUM(COALESCE(ef.powerplantpv_peak_power, 0)) as total";
-		$sql .= " FROM ".MAIN_DB_PREFIX."commande as c";
-		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."commande_extrafields as ef ON ef.fk_object = c.rowid";
-		$sql .= $this->getOrderAccessJoinSql();
-		$sql .= " WHERE c.fk_statut >= ".$this->getDeliveredOrderStatus();
-		$sql .= " AND c.entity IN (".getEntity('commande').")";
-		$sql .= $this->getOrderAccessWhereSql();
-		$sql .= " AND c.date_cloture IS NOT NULL";
-		$sql .= $this->getYearDateRangeSql('c.date_cloture', $year);
+		$sql .= $this->getOrderPowerFromSql();
+		$sql .= $this->getDeliveredOrderPowerWhereSql(array($year));
 		$sql .= " GROUP BY idx";
 
 		$resql = $this->db->query($sql);

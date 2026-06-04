@@ -16,7 +16,7 @@ class powerplantpv_graph_installedpower_monthly extends PowerPlantPVInstalledPow
 	 */
 	public function loadBox($max = 5)
 	{
-		global $conf, $langs;
+		global $conf;
 
 		$this->loadPowerPlantPVLangs();
 
@@ -35,7 +35,7 @@ class powerplantpv_graph_installedpower_monthly extends PowerPlantPVInstalledPow
 		}
 
 		if ($total <= 0) {
-			$contentHtml = '<div class="center opacitymedium">'.$langs->trans('PowerPlantPVWidgetNoData').'</div>';
+			$contentHtml = $this->buildNoDataMessageHtml(array($y, $y - 1));
 		} else {
 			$graph = new DolGraph();
 			$graph->SetData($graphData);
