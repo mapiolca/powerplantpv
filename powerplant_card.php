@@ -709,12 +709,12 @@ $k_purchase_tariff = 'buyback_tariff';
 		// Left column
 		print '<div class="fichehalfleft">';
 
-		print load_fiche_titre($langs->trans("General"), '', '');
+		print load_fiche_titre(img_picto('', 'setup', 'class="pictofixedwidth"').' '.$langs->trans("General"), '', '');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_description);
 		print '</table>';
 
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print load_fiche_titre($langs->trans("Réseau"), '', 'fa-plug');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_prm_pdl);
 		$printRowEdit($k_connection_type);
@@ -726,14 +726,14 @@ $k_purchase_tariff = 'buyback_tariff';
 		// Right column
 		print '<div class="fichehalfright">';
 
-		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+		print load_fiche_titre($langs->trans("Contrat de rachat"), '', 'currency');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_t0_date);
 		$printRowEdit($k_purchase_contract_no);
 		$printRowEdit($k_purchase_tariff);
 		print '</table>';
 
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print load_fiche_titre($langs->trans("Réseau"), '', 'fa-plug');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$printRowEdit($k_enedis_commissioning_date);
 		$printRowEdit($k_connection_request_number);
@@ -1034,13 +1034,13 @@ $k_purchase_tariff = 'buyback_tariff';
 		// Left column
 		print '<div class="fichehalfleft">';
 
-		print load_fiche_titre($langs->trans("General"), '', '');
+		print load_fiche_titre(img_picto('', 'setup', 'class="pictofixedwidth"').' '.$langs->trans("General"), '', '');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_description);
 		print '</table>';
 
 		// Réseau
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print load_fiche_titre($langs->trans("Réseau"), '', 'fa-plug');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_prm_pdl);
 		$printRowView($k_connection_type);
@@ -1052,7 +1052,7 @@ $k_purchase_tariff = 'buyback_tariff';
 		// Right column
 		print '<div class="fichehalfright">';
 
-		print load_fiche_titre($langs->trans("Contrat de rachat"), '', '');
+		print load_fiche_titre($langs->trans("Contrat de rachat"), '', 'currency');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_t0_date);
 		$printRowView($k_installed_power);
@@ -1060,7 +1060,7 @@ $k_purchase_tariff = 'buyback_tariff';
 		$printRowView($k_purchase_tariff);
 		print '</table>';
 
-		print load_fiche_titre($langs->trans("Réseau"), '', '');
+		print load_fiche_titre($langs->trans("Réseau"), '', 'fa-plug');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$printRowView($k_enedis_commissioning_date);
 		$printRowView($k_connection_request_number);
@@ -1130,7 +1130,7 @@ $k_purchase_tariff = 'buyback_tariff';
 	if (isModEnabled('category')) {
 		print '<div class="clearboth"></div>';
 		print '<div class="fichecenter">';
-		print load_fiche_titre($langs->trans('Categories'), '', '');
+		print load_fiche_titre($langs->trans('Categories'), '', 'category');
 		print '<table class="border centpercent tableforfield">';
 		print '<tr>';
 		print '<td class="titlefield">'.$langs->trans('Categories').'</td>';
@@ -1206,7 +1206,7 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print '<div class="fichecenter">';
 	print '<div class="underbanner clearboth"></div>';
-	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', '');
+	print load_fiche_titre($langs->trans('PowerPlantComposition'), '', 'products');
 	print '<table class="border centpercent tableforfield">';
 	print '<tr class="liste_titre">';
 	print '<td>'.$langs->trans('Category').'</td>';

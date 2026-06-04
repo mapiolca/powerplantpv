@@ -322,7 +322,7 @@ class PowerPlant extends CommonObject
 
 		$this->db->begin();
 
-		$result = $this->createCommon($user, $notrigger);
+		$result = $this->createCommon($user, 1);
 		if ($result < 0) {
 			$this->db->rollback();
 			return $result;
@@ -382,7 +382,33 @@ class PowerPlant extends CommonObject
 		// if ($resultupdate < 0) { return $resultupdate; }
 		// }
 
+		if ($result > 0 && !$notrigger) {
+			$triggerResult = $this->callPowerPlantTrigger('CREATE', $user);
+			if ($triggerResult < 0) {
+				$this->db->rollback();
+				return -1;
+			}
+		}
+
 		$this->db->commit();
+
+		return $result;
+	}
+
+	/**
+	 * Call a canonical PowerPlantPV business trigger.
+	 *
+	 * @param	string	$action	Trigger action suffix
+	 * @param	User	$user	User that performs the action
+	 * @return	int			Return integer <0 if KO, >=0 if OK
+	 */
+	protected function callPowerPlantTrigger($action, User $user)
+	{
+		$triggercode = $this->TRIGGER_PREFIX.'_'.strtoupper($action);
+		$result = $this->call_trigger($triggercode, $user);
+		if ($result < 0 && empty($this->error)) {
+			$this->error = 'ErrorTriggerFailed';
+		}
 
 		return $result;
 	}
@@ -553,8 +579,12 @@ class PowerPlant extends CommonObject
 
 		// Create clone
 		$object->context['createfromclone'] = 'createfromclone';
-		$result = $object->createCommon($user);
+		$result = $object->createCommon($user, 1);
 		if ($result < 0) {
+			$error++;
+			$this->setErrorsFromObject($object);
+		}
+		if (!$error && $object->callPowerPlantTrigger('CREATE', $user) < 0) {
 			$error++;
 			$this->setErrorsFromObject($object);
 		}
@@ -876,7 +906,15 @@ class PowerPlant extends CommonObject
 			$this->socid = (int) $this->fk_soc;
 		}
 
-		return $this->updateCommon($user, $notrigger);
+		$result = $this->updateCommon($user, 1);
+		if ($result > 0 && !$notrigger) {
+			$triggerResult = $this->callPowerPlantTrigger('MODIFY', $user);
+			if ($triggerResult < 0) {
+				return -1;
+			}
+		}
+
+		return $result;
 	}
 
 	/**
@@ -888,7 +926,14 @@ class PowerPlant extends CommonObject
 	 */
 	public function delete(User $user, $notrigger = 0)
 	{
-		return $this->deleteCommon($user, $notrigger);
+		if (!$notrigger) {
+			$triggerResult = $this->callPowerPlantTrigger('DELETE', $user);
+			if ($triggerResult < 0) {
+				return -1;
+			}
+		}
+
+		return $this->deleteCommon($user, 1);
 		//return $this->deleteCommon($user, $notrigger, 1);
 	}
 

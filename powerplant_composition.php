@@ -1174,7 +1174,7 @@ if ($id > 0 || !empty($ref)) {
 		print '<input type="hidden" name="page" value="'.((int) $page).'">';
 		print '<input type="hidden" name="page_y" value="">';
 		print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
-		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'product', 0, $newcardbutton, '', $limit, 0, 0, 1);
+		print_barre_liste($langs->trans('PowerPlantMaterialComposition'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, $massactionbutton, $nbtotalofrecords, $nbtotalofrecords, 'products', 0, $newcardbutton, '', $limit, 0, 0, 1);
 		print '<div class="div-table-responsive">';
 		print '<table class="tagtable liste centpercent">';
 

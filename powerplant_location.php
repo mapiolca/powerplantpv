@@ -188,7 +188,7 @@ if ($id > 0 || !empty($ref)) {
 			print '<input type="hidden" name="backtopage" value="'.dol_escape_htmltag($backtopage).'">';
 		}
 
-		print load_fiche_titre($langs->trans('Localisation'), '', '');
+		print load_fiche_titre($langs->trans('Localisation'), '', 'country');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		foreach (array('address', 'zip', 'town', 'fk_country') as $field) {
 			$def = $object->fields[$field];
@@ -200,7 +200,7 @@ if ($id > 0 || !empty($ref)) {
 		}
 		print '</table>';
 
-		print load_fiche_titre($langs->trans('PowerPlantAccess'), '', '');
+		print load_fiche_titre($langs->trans('PowerPlantAccess'), '', 'lock');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
 		$def = $object->fields['access_instructions'];
 		print '<tr class="field_access_instructions">';
@@ -214,7 +214,7 @@ if ($id > 0 || !empty($ref)) {
 		print $form->buttonsSaveCancel();
 		print '</form>';
 	} else {
-		print load_fiche_titre($langs->trans('Localisation'), '', '');
+		print load_fiche_titre($langs->trans('Localisation'), '', 'country');
 		print '<table class="border centpercent tableforfield">'."\n";
 		foreach (array('address', 'zip', 'town', 'fk_country') as $field) {
 			$def = $object->fields[$field];
@@ -226,7 +226,7 @@ if ($id > 0 || !empty($ref)) {
 		}
 		print '</table>';
 
-		print load_fiche_titre($langs->trans('PowerPlantAccess'), '', '');
+		print load_fiche_titre($langs->trans('PowerPlantAccess'), '', 'lock');
 		print '<table class="border centpercent tableforfield">'."\n";
 		$def = $object->fields['access_instructions'];
 		print '<tr class="field_access_instructions">';
