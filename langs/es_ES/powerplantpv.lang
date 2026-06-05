@@ -94,6 +94,7 @@ BoxPowerPlantPVInstalledPowerMonthly = Gráfico mensual de kWp instalados
 BoxPowerPlantPVInstalledPowerWeekly = Gráfico semanal de kWp instalados
 
 PowerPlant = Planta de energía
+PowerPlants = Plantas de energía
 New_PowerPlant = Nueva planta
 List_PowerPlant = Lista de plantas
 CreatePowerPlant = Crear planta de energia

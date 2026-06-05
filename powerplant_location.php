@@ -155,8 +155,6 @@ if (empty($reshook)) {
  * View
  */
 
-$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
-
 $title = $langs->trans('PowerPlant').' - '.$langs->trans('PowerPlantLocationAccess');
 $help_url = '';
 

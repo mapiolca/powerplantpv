@@ -526,7 +526,6 @@ if ($action == 'create') {
 	$object->fields['ref']['noteditable'] = 1;
 	$object->fields['ref']['visible'] = 0;
 	$object->fields['ref']['default'] = $object->ref;
-	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['installed_power']['visible'] = 0;
 	$object->fields = dol_sort_array($object->fields, 'position');
@@ -713,7 +712,6 @@ if (($id || $ref) && $action == 'edit') {
 	$object->fields['ref']['noteditable'] = 1;
 	$object->fields['ref']['visible'] = 5;
 	unset($object->fields['status']);
-	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	powerplantApplyPowerPlantRuntimeFields($object, $langs);
 
 	$allfields = $object->fields;
@@ -1002,7 +1000,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	print '<div class="underbanner clearboth"></div>';
 
 	// Prepare field types
-	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
 	powerplantApplyPowerPlantRuntimeFields($object, $langs);
 
 	$allfields = $object->fields;

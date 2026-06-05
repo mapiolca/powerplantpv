@@ -94,6 +94,7 @@ BoxPowerPlantPVInstalledPowerMonthly = Installierte kWp Monats-Diagramm
 BoxPowerPlantPVInstalledPowerWeekly = Installierte kWp Wochen-Diagramm
 
 PowerPlant = Kraftwerk
+PowerPlants = Kraftwerke
 New_PowerPlant = Neues PV-Kraftwerk
 List_PowerPlant = Liste der PV-Kraftwerke
 CreatePowerPlant = Kraftwerk erstellen
