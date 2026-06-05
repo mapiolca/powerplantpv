@@ -52,7 +52,17 @@ function powerplantpvSerialImportLoadPhpSpreadsheet()
 
 	foreach ($candidates as $candidate) {
 		if (is_readable($candidate)) {
-			require_once $candidate;
+			try {
+				require_once $candidate;
+			} catch (Throwable $e) {
+				if (function_exists('dol_syslog')) {
+					dol_syslog(
+						__FUNCTION__.' failed to load '.$candidate.': '.$e->getMessage(),
+						(defined('LOG_WARNING') ? LOG_WARNING : 4)
+					);
+				}
+				continue;
+			}
 			if (class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
 				return true;
 			}
@@ -63,7 +73,20 @@ function powerplantpvSerialImportLoadPhpSpreadsheet()
 }
 
 /**
- * Tell whether XLSX import is available.
+ * Tell whether XLSX import reading is available.
+ *
+ * @return	bool	True if available
+ */
+function powerplantpvSerialImportIsXlsxReadAvailable()
+{
+	return (class_exists('ZipArchive') && function_exists('simplexml_load_string'))
+		|| powerplantpvSerialImportLoadPhpSpreadsheet();
+}
+
+/**
+ * Tell whether PhpSpreadsheet XLSX operations are available.
+ *
+ * Export still relies on PhpSpreadsheet writers.
  *
  * @return	bool	True if available
  */
@@ -280,11 +303,20 @@ function powerplantpvSerialImportNormalizeHeader($value)
 		'serial_no' => 'serial_number',
 		'serial_num' => 'serial_number',
 		'sn' => 'serial_number',
+		's_n' => 'serial_number',
+		'ns' => 'serial_number',
+		'n_s' => 'serial_number',
 		'numero_serie' => 'serial_number',
 		'numero_de_serie' => 'serial_number',
+		'num_serie' => 'serial_number',
 		'n_serie' => 'serial_number',
 		'no_serie' => 'serial_number',
+		'n_de_serie' => 'serial_number',
+		'no_de_serie' => 'serial_number',
 		'product' => 'product_ref',
+		'ref' => 'product_ref',
+		'reference' => 'product_ref',
+		'r_f_rence' => 'product_ref',
 		'product_reference' => 'product_ref',
 		'ref_product' => 'product_ref',
 		'ref_produit' => 'product_ref',
@@ -407,16 +439,30 @@ function powerplantpvSerialImportReadCsv($filepath, $firstlineheaders)
  */
 function powerplantpvSerialImportReadXlsx($filepath, $firstlineheaders)
 {
+	$native = powerplantpvSerialImportReadXlsxNative($filepath, $firstlineheaders);
+	if (empty($native['errors'])
+		|| in_array('SerialNumbersColumnSerialNotFound', $native['errors'], true)
+		|| in_array('SerialNumbersNoUsableLine', $native['errors'], true)
+	) {
+		return $native;
+	}
+
 	if (!powerplantpvSerialImportLoadPhpSpreadsheet()) {
-		return array('rows' => array(), 'errors' => array('SerialNumbersXlsxReaderUnavailable'), 'warnings' => array(), 'unknown_columns' => array());
+		return $native;
 	}
 
 	try {
 		$spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filepath);
 		$worksheet = $spreadsheet->getActiveSheet();
 		$array = $worksheet->toArray('', false, false, false);
-	} catch (Exception $e) {
-		return array('rows' => array(), 'errors' => array('SerialNumbersFileNotReadable'), 'warnings' => array($e->getMessage()), 'unknown_columns' => array());
+	} catch (Throwable $e) {
+		if (function_exists('dol_syslog')) {
+			dol_syslog(
+				__FUNCTION__.' failed to read '.$filepath.': '.$e->getMessage(),
+				(defined('LOG_WARNING') ? LOG_WARNING : 4)
+			);
+		}
+		return $native;
 	}
 
 	$matrix = array();
@@ -425,6 +471,338 @@ function powerplantpvSerialImportReadXlsx($filepath, $firstlineheaders)
 	}
 
 	return powerplantpvSerialImportRowsFromMatrix($matrix, $firstlineheaders);
+}
+
+/**
+ * Read an XLSX file without external Composer dependencies.
+ *
+ * @param	string	$filepath			File path
+ * @param	int		$firstlineheaders	1 if first line contains headers
+ * @return	array<string,mixed>		Read result
+ */
+function powerplantpvSerialImportReadXlsxNative($filepath, $firstlineheaders)
+{
+	if (!class_exists('ZipArchive') || !function_exists('simplexml_load_string')) {
+		return array(
+			'rows' => array(),
+			'errors' => array('SerialNumbersXlsxReaderUnavailable'),
+			'warnings' => array(),
+			'unknown_columns' => array(),
+		);
+	}
+
+	$zip = new ZipArchive();
+	if ($zip->open($filepath) !== true) {
+		return array(
+			'rows' => array(),
+			'errors' => array('SerialNumbersFileNotReadable'),
+			'warnings' => array(),
+			'unknown_columns' => array(),
+		);
+	}
+
+	$sheetpath = powerplantpvSerialImportXlsxGetFirstSheetPath($zip);
+	if ($sheetpath === '') {
+		$zip->close();
+		return array(
+			'rows' => array(),
+			'errors' => array('SerialNumbersFileNotReadable'),
+			'warnings' => array(),
+			'unknown_columns' => array(),
+		);
+	}
+
+	$sheetxml = $zip->getFromName($sheetpath);
+	if ($sheetxml === false) {
+		$zip->close();
+		return array(
+			'rows' => array(),
+			'errors' => array('SerialNumbersFileNotReadable'),
+			'warnings' => array(),
+			'unknown_columns' => array(),
+		);
+	}
+
+	$sharedstrings = powerplantpvSerialImportXlsxReadSharedStrings($zip);
+	$zip->close();
+
+	$matrix = powerplantpvSerialImportXlsxSheetToMatrix($sheetxml, $sharedstrings);
+	if ($matrix === false) {
+		return array(
+			'rows' => array(),
+			'errors' => array('SerialNumbersFileNotReadable'),
+			'warnings' => array(),
+			'unknown_columns' => array(),
+		);
+	}
+
+	return powerplantpvSerialImportRowsFromMatrix($matrix, $firstlineheaders);
+}
+
+/**
+ * Return the first worksheet path from an XLSX archive.
+ *
+ * @param	ZipArchive	$zip	XLSX archive
+ * @return	string				Worksheet path inside the archive
+ */
+function powerplantpvSerialImportXlsxGetFirstSheetPath($zip)
+{
+	$fallback = 'xl/worksheets/sheet1.xml';
+	$workbookxml = $zip->getFromName('xl/workbook.xml');
+	$relsxml = $zip->getFromName('xl/_rels/workbook.xml.rels');
+	if ($workbookxml === false || $relsxml === false) {
+		return ($zip->locateName($fallback) !== false ? $fallback : '');
+	}
+
+	$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+	$relsns = 'http://schemas.openxmlformats.org/package/2006/relationships';
+	$officerelsns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+	$workbook = powerplantpvSerialImportXlsxLoadXml($workbookxml);
+	$rels = powerplantpvSerialImportXlsxLoadXml($relsxml);
+	if ($workbook === false || $rels === false) {
+		return ($zip->locateName($fallback) !== false ? $fallback : '');
+	}
+
+	$targets = array();
+	foreach ($rels->children($relsns)->Relationship as $relationship) {
+		$attrs = $relationship->attributes();
+		$id = (string) $attrs['Id'];
+		if ($id !== '') {
+			$targets[$id] = (string) $attrs['Target'];
+		}
+	}
+
+	$activeindex = 0;
+	$bookviews = $workbook->children($mainns)->bookViews;
+	foreach ($bookviews->children($mainns)->workbookView as $workbookview) {
+		$viewattrs = $workbookview->attributes();
+		$activetab = (string) $viewattrs['activeTab'];
+		if ($activetab !== '') {
+			$activeindex = (int) $activetab;
+			break;
+		}
+	}
+
+	$sheetpaths = array();
+	$sheets = $workbook->children($mainns)->sheets;
+	foreach ($sheets->children($mainns)->sheet as $sheet) {
+		$attrs = $sheet->attributes($officerelsns);
+		$rid = (string) $attrs['id'];
+		if ($rid !== '' && !empty($targets[$rid])) {
+			$path = powerplantpvSerialImportXlsxNormalizeTargetPath('xl/workbook.xml', $targets[$rid]);
+			if ($path !== '' && $zip->locateName($path) !== false) {
+				$sheetpaths[] = $path;
+			}
+		}
+	}
+	if (!empty($sheetpaths[$activeindex])) {
+		return $sheetpaths[$activeindex];
+	}
+	if (!empty($sheetpaths[0])) {
+		return $sheetpaths[0];
+	}
+
+	return ($zip->locateName($fallback) !== false ? $fallback : '');
+}
+
+/**
+ * Read shared strings from an XLSX archive.
+ *
+ * @param	ZipArchive	$zip	XLSX archive
+ * @return	string[]			Shared strings indexed by position
+ */
+function powerplantpvSerialImportXlsxReadSharedStrings($zip)
+{
+	$strings = array();
+	$xml = $zip->getFromName('xl/sharedStrings.xml');
+	if ($xml === false) {
+		return $strings;
+	}
+
+	$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+	$sst = powerplantpvSerialImportXlsxLoadXml($xml);
+	if ($sst === false) {
+		return $strings;
+	}
+
+	foreach ($sst->children($mainns)->si as $si) {
+		$strings[] = powerplantpvSerialImportXlsxReadStringNode($si);
+	}
+
+	return $strings;
+}
+
+/**
+ * Convert worksheet XML to the import matrix.
+ *
+ * @param	string		$sheetxml		Worksheet XML
+ * @param	string[]	$sharedstrings	Shared strings
+ * @return	array<int,array<string,mixed>>|false	Matrix or false on parsing error
+ */
+function powerplantpvSerialImportXlsxSheetToMatrix($sheetxml, $sharedstrings)
+{
+	$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+	$sheet = powerplantpvSerialImportXlsxLoadXml($sheetxml);
+	if ($sheet === false) {
+		return false;
+	}
+
+	$matrix = array();
+	$rowposition = 0;
+	$sheetdata = $sheet->children($mainns)->sheetData;
+	foreach ($sheetdata->children($mainns)->row as $rownode) {
+		$rowposition++;
+		$rowattrs = $rownode->attributes();
+		$rowref = (string) $rowattrs['r'];
+		$linenumber = ($rowref !== '' ? (int) $rowref : $rowposition);
+		$cells = array();
+		$nextcol = 0;
+		foreach ($rownode->children($mainns)->c as $cellnode) {
+			$cellattrs = $cellnode->attributes();
+			$cellref = (string) $cellattrs['r'];
+			$colindex = ($cellref !== '' ? powerplantpvSerialImportXlsxColumnIndex($cellref) : $nextcol);
+			$cells[$colindex] = powerplantpvSerialImportXlsxCellValue($cellnode, $sharedstrings);
+			$nextcol = $colindex + 1;
+		}
+		if (empty($cells)) {
+			continue;
+		}
+
+		ksort($cells);
+		$maxcol = (int) max(array_keys($cells));
+		$dense = array();
+		for ($i = 0; $i <= $maxcol; $i++) {
+			$dense[] = isset($cells[$i]) ? $cells[$i] : '';
+		}
+		$matrix[] = array('line' => $linenumber, 'cells' => $dense);
+	}
+
+	return $matrix;
+}
+
+/**
+ * Safely load XML.
+ *
+ * @param	string	$xml	XML content
+ * @return	SimpleXMLElement|false	XML object or false
+ */
+function powerplantpvSerialImportXlsxLoadXml($xml)
+{
+	$previous = libxml_use_internal_errors(true);
+	$object = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+	libxml_clear_errors();
+	libxml_use_internal_errors($previous);
+
+	return $object;
+}
+
+/**
+ * Read an XLSX shared or inline string node.
+ *
+ * @param	SimpleXMLElement	$node	String node
+ * @return	string					Text
+ */
+function powerplantpvSerialImportXlsxReadStringNode($node)
+{
+	$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+	$children = $node->children($mainns);
+	$text = '';
+	if (isset($children->t)) {
+		$text .= (string) $children->t;
+	}
+	foreach ($children->r as $run) {
+		$rchildren = $run->children($mainns);
+		if (isset($rchildren->t)) {
+			$text .= (string) $rchildren->t;
+		}
+	}
+
+	return $text;
+}
+
+/**
+ * Return the display value of an XLSX cell.
+ *
+ * @param	SimpleXMLElement	$cellnode		Cell XML node
+ * @param	string[]			$sharedstrings	Shared strings
+ * @return	string								Cell value
+ */
+function powerplantpvSerialImportXlsxCellValue($cellnode, $sharedstrings)
+{
+	$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+	$attrs = $cellnode->attributes();
+	$type = (string) $attrs['t'];
+	$children = $cellnode->children($mainns);
+
+	if ($type === 'inlineStr') {
+		return isset($children->is) ? powerplantpvSerialImportXlsxReadStringNode($children->is) : '';
+	}
+
+	$value = isset($children->v) ? (string) $children->v : '';
+	if ($type === 's') {
+		$index = (int) $value;
+		return isset($sharedstrings[$index]) ? $sharedstrings[$index] : '';
+	}
+	if ($type === 'b') {
+		return ($value === '1' ? '1' : '0');
+	}
+
+	return $value;
+}
+
+/**
+ * Convert a cell reference to a zero-based column index.
+ *
+ * @param	string	$cellref	Cell reference, for example B12
+ * @return	int					Zero-based column index
+ */
+function powerplantpvSerialImportXlsxColumnIndex($cellref)
+{
+	$letters = preg_replace('/[^A-Z]/', '', strtoupper($cellref));
+	if ($letters === '') {
+		return 0;
+	}
+
+	$index = 0;
+	$length = strlen($letters);
+	for ($i = 0; $i < $length; $i++) {
+		$index = ($index * 26) + (ord($letters[$i]) - 64);
+	}
+
+	return max(0, $index - 1);
+}
+
+/**
+ * Normalize a relationship target path.
+ *
+ * @param	string	$basepath	Base path
+ * @param	string	$target		Relationship target
+ * @return	string				Archive path
+ */
+function powerplantpvSerialImportXlsxNormalizeTargetPath($basepath, $target)
+{
+	$target = str_replace('\\', '/', (string) $target);
+	if ($target === '') {
+		return '';
+	}
+	if ($target[0] === '/') {
+		return ltrim($target, '/');
+	}
+
+	$parts = explode('/', $basepath);
+	array_pop($parts);
+	foreach (explode('/', $target) as $part) {
+		if ($part === '' || $part === '.') {
+			continue;
+		}
+		if ($part === '..') {
+			array_pop($parts);
+			continue;
+		}
+		$parts[] = $part;
+	}
+
+	return implode('/', $parts);
 }
 
 /**

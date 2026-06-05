@@ -60,8 +60,10 @@ class PowerPlantPVCompatibility
 	{
 		dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
 
-		$baseavailable = self::isPhpVersionAtLeast(self::MIN_PHP_VERSION) && self::isDolibarrVersionAtLeast(self::MIN_DOLIBARR_VERSION);
-		$xlsxavailable = $baseavailable && powerplantpvSerialImportIsXlsxAvailable();
+		$baseavailable = self::isPhpVersionAtLeast(self::MIN_PHP_VERSION)
+			&& self::isDolibarrVersionAtLeast(self::MIN_DOLIBARR_VERSION);
+		$xlsxreadavailable = $baseavailable && powerplantpvSerialImportIsXlsxReadAvailable();
+		$xlsxwriteavailable = $baseavailable && powerplantpvSerialImportIsXlsxAvailable();
 
 		return array(
 			'powerplant_core' => array(
@@ -85,8 +87,8 @@ class PowerPlantPVCompatibility
 				'description' => 'SerialNumbersImportXlsxFeatureDescription',
 				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
 				'min_php' => self::MIN_PHP_VERSION,
-				'available' => $xlsxavailable,
-				'reason' => ($xlsxavailable ? '' : 'SerialNumbersXlsxReaderUnavailable'),
+				'available' => $xlsxreadavailable,
+				'reason' => ($xlsxreadavailable ? '' : 'SerialNumbersXlsxReaderUnavailable'),
 			),
 			'serial_number_export_csv' => array(
 				'label' => 'SerialNumbersExportCsvFeature',
@@ -101,8 +103,8 @@ class PowerPlantPVCompatibility
 				'description' => 'SerialNumbersExportXlsxFeatureDescription',
 				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
 				'min_php' => self::MIN_PHP_VERSION,
-				'available' => $xlsxavailable,
-				'reason' => ($xlsxavailable ? '' : 'SerialNumbersXlsxReaderUnavailable'),
+				'available' => $xlsxwriteavailable,
+				'reason' => ($xlsxwriteavailable ? '' : 'SerialNumbersXlsxReaderUnavailable'),
 			),
 		);
 	}
