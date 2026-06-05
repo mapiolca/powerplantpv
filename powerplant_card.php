@@ -450,7 +450,7 @@ $formfile = new FormFile($db);
 $title = $langs->trans("PowerPlant")." - ".$langs->trans('Card');
 //$title = $object->ref." - ".$langs->trans('Card');
 if ($action == 'create') {
-	$title = $langs->trans("NewObject", $langs->transnoentitiesnoconv("PowerPlant"));
+	$title = $langs->trans("New_PowerPlant");
 }
 $help_url = '';
 

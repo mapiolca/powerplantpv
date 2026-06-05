@@ -94,7 +94,7 @@ BoxPowerPlantPVInstalledPowerMonthly = Graphique kWc installés mensuel
 BoxPowerPlantPVInstalledPowerWeekly = Graphique kWc installés hebdomadaire
 
 PowerPlant = Centrale
-New_PowerPlant = Nouvelle centrale
+New_PowerPlant = Nouvelle Centrale PV
 List_PowerPlant = Liste des centrales
 CreatePowerPlant = Créer une centrale
 CreatePowerPlantDropdown = Créer centrale PV
