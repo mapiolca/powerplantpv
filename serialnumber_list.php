@@ -114,11 +114,13 @@ $enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK')
 if ($enablepermissioncheck) {
 	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
 	$permissiontoserialread = $user->hasRight('powerplantpv', 'serialnumber', 'read');
+	$permissiontoserialimport = $user->hasRight('powerplantpv', 'serialnumber', 'import');
 	$permissiontoserialdelete = $user->hasRight('powerplantpv', 'serialnumber', 'delete');
 	$permissiontoserialexport = $user->hasRight('powerplantpv', 'serialnumber', 'export');
 } else {
 	$permissiontoread = 1;
 	$permissiontoserialread = 1;
+	$permissiontoserialimport = 1;
 	$permissiontoserialdelete = 1;
 	$permissiontoserialexport = 1;
 }
@@ -355,7 +357,6 @@ if (!empty($arrayofmassactions)) {
 $showmassactions = !empty($arrayofmassactions);
 
 $buttons = '';
-$buttons .= dolGetButtonTitle($langs->trans('SerialNumbersBackToComposition'), '', 'fa fa-arrow-left', dol_buildpath('/powerplantpv/powerplant_composition.php', 1).'?id='.(int) $object->id, '', 1);
 if ($permissiontoserialexport) {
 	$buttons .= dolGetButtonTitle($langs->trans('Export').' CSV', '', 'fa fa-download', $_SERVER['PHP_SELF'].'?'.$param.'&export=csv', '', 1);
 	if (powerplantpvSerialImportIsXlsxAvailable()) {
@@ -377,21 +378,9 @@ print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
 
 $missingsummary = powerplantpvSerialNumberFetchMissingSummary($object);
 $missingrows = (!empty($missingsummary['missing_rows']) && is_array($missingsummary['missing_rows']) ? $missingsummary['missing_rows'] : array());
-print load_fiche_titre($langs->trans('SerialNumbersMissingSummary'), '', 'fa-exclamation-triangle');
-print '<div class="div-table-responsive-no-min">';
-print '<table class="noborder centpercent">';
-print '<tr class="liste_titre">';
-print '<td class="right">'.$langs->trans('SerialNumbersExpectedQty').'</td>';
-print '<td class="right">'.$langs->trans('SerialNumbersRecordedQty').'</td>';
-print '<td class="right">'.$langs->trans('SerialNumbersMissingQty').'</td>';
-print '</tr>';
-print '<tr class="oddeven">';
-print '<td class="right">'.((int) $missingsummary['expected_qty']).'</td>';
-print '<td class="right">'.((int) $missingsummary['stored_qty']).'</td>';
-print '<td class="right">'.((int) $missingsummary['missing_qty']).'</td>';
-print '</tr>';
-print '</table>';
-print '</div>';
+$firstmissingcategory = (!empty($missingsummary['first_missing_category']) ? (int) $missingsummary['first_missing_category'] : 0);
+$missingtitlebuttons = dolGetButtonTitle($langs->trans('SerialNumbersBackToComposition'), '', 'fa fa-arrow-left', dol_buildpath('/powerplantpv/powerplant_composition.php', 1).'?id='.(int) $object->id, '', 1);
+print load_fiche_titre($langs->trans('SerialNumbersMissingSummary'), $missingtitlebuttons, 'fa-exclamation-triangle');
 
 if ((int) $missingsummary['expected_qty'] <= 0) {
 	print '<div class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersNoSerializableEquipment')).'</div>';
@@ -403,22 +392,32 @@ if ((int) $missingsummary['expected_qty'] <= 0) {
 	print '<tr class="liste_titre">';
 	print '<td>'.$langs->trans('Category').'</td>';
 	print '<td>'.$langs->trans('Product').'</td>';
-	print '<td>'.$langs->trans('PowerPlantCompositionLine').'</td>';
-	print '<td class="right">'.$langs->trans('SerialNumbersExpectedQty').'</td>';
-	print '<td class="right">'.$langs->trans('SerialNumbersRecordedQty').'</td>';
 	print '<td class="right">'.$langs->trans('SerialNumbersMissingQty').'</td>';
 	print '</tr>';
 	foreach ($missingrows as $missingrow) {
+		$expectedqty = max(0, (int) $missingrow['expected_qty']);
+		$missingqty = max(0, (int) $missingrow['missing_qty']);
+		$missingratio = ($expectedqty > 0 ? ($missingqty / $expectedqty) : 0);
+		$badgeclass = ($missingratio >= 0.5 ? 'badge-status8' : 'badge-status1');
 		print '<tr class="oddeven">';
 		print '<td>'.dol_escape_htmltag($missingrow['category_label']).'</td>';
 		print '<td>'.dol_escape_htmltag($missingrow['product_display']).'</td>';
-		print '<td>#'.((int) $missingrow['fk_powerplant_line']).'</td>';
-		print '<td class="right">'.((int) $missingrow['expected_qty']).'</td>';
-		print '<td class="right">'.((int) $missingrow['stored_qty']).'</td>';
-		print '<td class="right">'.((int) $missingrow['missing_qty']).'</td>';
+		print '<td class="right"><span class="badge '.$badgeclass.'">'.$missingqty.' / '.$expectedqty.'</span></td>';
 		print '</tr>';
 	}
 	print '</table>';
+	print '</div>';
+}
+if ((int) $missingsummary['missing_qty'] > 0 && $firstmissingcategory > 0 && $permissiontoserialimport) {
+	print '<div class="tabsAction">';
+	print dolGetButtonAction(
+		$langs->trans('SerialNumbersImportMissing'),
+		'',
+		'default',
+		dol_buildpath('/powerplantpv/serialimport.php', 1).'?id='.(int) $object->id.'&fk_categorie='.$firstmissingcategory,
+		'',
+		true
+	);
 	print '</div>';
 }
 print '<br>';
