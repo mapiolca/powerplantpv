@@ -135,6 +135,22 @@ function powerplantpv_fetch_pvpanel($db, $productId)
 }
 
 /**
+ * Get a numeric POST value while preserving empty fields.
+ *
+ * @param string $field Field name
+ * @return string|float Empty string or normalized number
+ */
+function powerplantpv_get_numeric_post_value($field)
+{
+	$value = GETPOST($field, 'alpha');
+	if (trim((string) $value) === '') {
+		return '';
+	}
+
+	return price2num($value, 'MT');
+}
+
+/**
  * Save PV panel data.
  *
  * @param DoliDB      $db        Database handler
@@ -148,7 +164,7 @@ function powerplantpv_save_pvpanel($db, Product $product, $panel)
 
 	$data = array();
 	foreach (powerplantpv_get_pvpanel_fields() as $field) {
-		$data[$field] = price2num(GETPOST($field, 'alpha'), 'MT');
+		$data[$field] = powerplantpv_get_numeric_post_value($field);
 	}
 
 	if ($panel && !empty($panel->rowid)) {
