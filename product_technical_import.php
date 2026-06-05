@@ -315,13 +315,14 @@ function powerplantpv_technical_import_format_value($value)
  * @param array<string,array<string,mixed>> $rows       Preview rows
  * @param string                            $type       Product PV type
  * @param bool                              $withReason Show reason
+ * @param string                            $picto      Title picto
  * @return void
  */
-function powerplantpv_technical_import_print_preview_rows($title, array $rows, $type, $withReason = false)
+function powerplantpv_technical_import_print_preview_rows($title, array $rows, $type, $withReason = false, $picto = '')
 {
 	global $langs;
 
-	print load_fiche_titre($langs->trans($title), '', '');
+	print load_fiche_titre($langs->trans($title), '', $picto);
 	print '<div class="div-table-responsive-no-min">';
 	print '<table class="noborder centpercent">';
 	print '<tr class="liste_titre">';
@@ -743,8 +744,6 @@ if ($user->socid && !in_array('product', explode(',', getDolGlobalString('MAIN_M
 dol_banner_tab($object, 'ref', $linkback, $shownav, 'ref');
 print dol_get_fiche_end();
 
-print load_fiche_titre($langs->trans('ProductTechnicalImport'), '', 'fa-file-import');
-
 if ($pvfreeEnabled) {
 	print '<div class="div-table-responsive-no-min">';
 	print '<table class="noborder centpercent">';
@@ -817,7 +816,7 @@ if (!empty($showselection) && is_array($metadata)) {
 }
 
 if (is_array($metadata) && is_array($selectedrow) && is_array($normalizedData) && is_array($rawData) && is_array($preview)) {
-	print load_fiche_titre($langs->trans('ProductTechnicalImportPreview'), '', '');
+	print load_fiche_titre($langs->trans('ProductTechnicalImportPreview'), '', 'fa-eye');
 	print '<div class="div-table-responsive-no-min">';
 	print '<table class="noborder centpercent">';
 	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('ProductTechnicalImportFile').'</td><td>'.dol_escape_htmltag(isset($metadata['filename']) ? (string) $metadata['filename'] : '').'</td></tr>';
@@ -827,8 +826,8 @@ if (is_array($metadata) && is_array($selectedrow) && is_array($normalizedData) &
 	print '</table>';
 	print '</div>';
 
-	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsModified', $preview['changes'], $categoryCode, false);
-	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsIgnored', $preview['ignored'], $categoryCode, true);
+	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsModified', $preview['changes'], $categoryCode, false, 'fa-check-circle');
+	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsIgnored', $preview['ignored'], $categoryCode, true, 'fa-ban');
 
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
