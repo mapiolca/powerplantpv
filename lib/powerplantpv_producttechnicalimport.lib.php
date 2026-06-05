@@ -96,15 +96,33 @@ function powerplantpvProductTechnicalImportBuildTemplateData($categoryCode)
 }
 
 /**
+ * Tell whether both PhpSpreadsheet export classes are available.
+ *
+ * @return bool True when Spreadsheet and IOFactory are available
+ */
+function powerplantpvProductTechnicalImportHasPhpSpreadsheetExportClasses()
+{
+	try {
+		return class_exists('PhpOffice\\PhpSpreadsheet\\Spreadsheet') && class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory');
+	} catch (Throwable $e) {
+		if (function_exists('dol_syslog')) {
+			dol_syslog(
+				__FUNCTION__.' failed while checking PhpSpreadsheet classes: '.$e->getMessage(),
+				(defined('LOG_WARNING') ? LOG_WARNING : 4)
+			);
+		}
+		return false;
+	}
+}
+
+/**
  * Tell whether XLSX template export is available.
  *
  * @return bool True when PhpSpreadsheet can be loaded
  */
 function powerplantpvProductTechnicalImportIsXlsxTemplateAvailable()
 {
-	dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
-
-	return function_exists('powerplantpvSerialImportIsXlsxAvailable') && powerplantpvSerialImportIsXlsxAvailable();
+	return powerplantpvProductTechnicalImportLoadPhpSpreadsheet();
 }
 
 /**
@@ -114,9 +132,17 @@ function powerplantpvProductTechnicalImportIsXlsxTemplateAvailable()
  */
 function powerplantpvProductTechnicalImportLoadPhpSpreadsheet()
 {
+	if (powerplantpvProductTechnicalImportHasPhpSpreadsheetExportClasses()) {
+		return true;
+	}
+
 	dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
 
-	return function_exists('powerplantpvSerialImportLoadPhpSpreadsheet') && powerplantpvSerialImportLoadPhpSpreadsheet();
+	if (function_exists('powerplantpvSerialImportLoadPhpSpreadsheet')) {
+		powerplantpvSerialImportLoadPhpSpreadsheet();
+	}
+
+	return powerplantpvProductTechnicalImportHasPhpSpreadsheetExportClasses();
 }
 
 /**

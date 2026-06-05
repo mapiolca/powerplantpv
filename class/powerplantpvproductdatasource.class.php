@@ -57,6 +57,11 @@ class PowerPlantPVProductDataSource
 	public $data = array();
 
 	/**
+	 * @var bool|null Cached filename column availability
+	 */
+	protected $hasFilenameColumn = null;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param DoliDB $db Database handler
@@ -178,7 +183,6 @@ class PowerPlantPVProductDataSource
 			'source_key',
 			'source_name',
 			'source_url',
-			'filename',
 			'raw_json',
 			'normalized_json',
 			'import_status',
@@ -193,13 +197,16 @@ class PowerPlantPVProductDataSource
 			$this->sqlString($this->requiredString($data, 'source_key')),
 			$this->sqlNullableString(isset($data['source_name']) ? $data['source_name'] : null),
 			$this->sqlNullableString(isset($data['source_url']) ? $data['source_url'] : null),
-			$this->sqlNullableString(isset($data['filename']) ? $data['filename'] : null),
 			$this->sqlNullableString(isset($data['raw_json']) ? $data['raw_json'] : null),
 			$this->sqlNullableString(isset($data['normalized_json']) ? $data['normalized_json'] : null),
 			$this->sqlString(isset($data['import_status']) && $data['import_status'] !== '' ? (string) $data['import_status'] : 'imported'),
 			"'".$this->db->idate(dol_now())."'",
 			(int) $user->id,
 		);
+		if ($this->hasFilenameColumn()) {
+			array_splice($fields, 7, 0, array('filename'));
+			array_splice($values, 7, 0, array($this->sqlNullableString(isset($data['filename']) ? $data['filename'] : null)));
+		}
 
 		$sql = 'INSERT INTO '.$this->db->prefix().'powerplantpv_product_datasource';
 		$sql .= ' ('.implode(', ', $fields).') VALUES ('.implode(', ', $values).')';
@@ -248,12 +255,14 @@ class PowerPlantPVProductDataSource
 			'fk_product = '.((int) $fkProduct),
 			'source_name = '.$this->sqlNullableString(isset($data['source_name']) ? $data['source_name'] : null),
 			'source_url = '.$this->sqlNullableString(isset($data['source_url']) ? $data['source_url'] : null),
-			'filename = '.$this->sqlNullableString(isset($data['filename']) ? $data['filename'] : null),
 			'raw_json = '.$this->sqlNullableString(isset($data['raw_json']) ? $data['raw_json'] : null),
 			'normalized_json = '.$this->sqlNullableString(isset($data['normalized_json']) ? $data['normalized_json'] : null),
 			'import_status = '.$this->sqlString(isset($data['import_status']) && $data['import_status'] !== '' ? (string) $data['import_status'] : 'imported'),
 			'fk_user_modif = '.((int) $user->id),
 		);
+		if ($this->hasFilenameColumn()) {
+			array_splice($sets, 3, 0, array('filename = '.$this->sqlNullableString(isset($data['filename']) ? $data['filename'] : null)));
+		}
 
 		$sql = 'UPDATE '.$this->db->prefix().'powerplantpv_product_datasource';
 		$sql .= ' SET '.implode(', ', $sets);
@@ -276,7 +285,41 @@ class PowerPlantPVProductDataSource
 	 */
 	protected function getSelectFields()
 	{
-		return 'rowid, entity, fk_product, source, source_dataset, source_key, source_name, source_url, filename, raw_json, normalized_json, import_status, datec, tms, fk_user_creat, fk_user_modif';
+		$fields = array('rowid', 'entity', 'fk_product', 'source', 'source_dataset', 'source_key', 'source_name', 'source_url');
+		if ($this->hasFilenameColumn()) {
+			$fields[] = 'filename';
+		}
+		$fields = array_merge($fields, array('raw_json', 'normalized_json', 'import_status', 'datec', 'tms', 'fk_user_creat', 'fk_user_modif'));
+
+		return implode(', ', $fields);
+	}
+
+	/**
+	 * Test if the filename column exists on the current database.
+	 *
+	 * @return bool True if the column exists
+	 */
+	protected function hasFilenameColumn()
+	{
+		if ($this->hasFilenameColumn !== null) {
+			return $this->hasFilenameColumn;
+		}
+
+		$table = $this->db->prefix().'powerplantpv_product_datasource';
+		$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE 'filename'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			if (function_exists('dol_syslog')) {
+				dol_syslog(__METHOD__.' failed to check filename column: '.$this->db->lasterror(), (defined('LOG_WARNING') ? LOG_WARNING : 4));
+			}
+			$this->hasFilenameColumn = false;
+			return false;
+		}
+
+		$this->hasFilenameColumn = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+
+		return $this->hasFilenameColumn;
 	}
 
 	/**
@@ -292,6 +335,9 @@ class PowerPlantPVProductDataSource
 		$this->data = array();
 		foreach (explode(', ', $this->getSelectFields()) as $field) {
 			$this->data[$field] = isset($obj->{$field}) ? $obj->{$field} : null;
+		}
+		if (!array_key_exists('filename', $this->data)) {
+			$this->data['filename'] = null;
 		}
 	}
 

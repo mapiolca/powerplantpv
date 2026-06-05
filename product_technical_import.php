@@ -550,18 +550,34 @@ if ($action === 'downloadtemplate') {
 				$data[] = $datarow;
 			}
 
-			$spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-			$sheet = $spreadsheet->getActiveSheet();
-			$sheet->fromArray($headers, null, 'A1');
-			if (!empty($data)) {
-				$sheet->fromArray($data, null, 'A2');
-			}
+			$oblevel = ob_get_level();
+			try {
+				$spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+				$sheet = $spreadsheet->getActiveSheet();
+				$sheet->fromArray($headers, null, 'A1');
+				if (!empty($data)) {
+					$sheet->fromArray($data, null, 'A2');
+				}
 
-			header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-			header('Content-Disposition: attachment; filename="'.$filenamebase.'.xlsx"');
-			$writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
-			$writer->save('php://output');
-			exit;
+				$writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+				ob_start();
+				$writer->save('php://output');
+				$xlsxcontent = ob_get_clean();
+				if ($xlsxcontent === false) {
+					throw new Exception('Unable to capture XLSX template output');
+				}
+				header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+				header('Content-Disposition: attachment; filename="'.$filenamebase.'.xlsx"');
+				print $xlsxcontent;
+				exit;
+			} catch (Throwable $e) {
+				while (ob_get_level() > $oblevel) {
+					ob_end_clean();
+				}
+				dol_syslog('product_technical_import.php downloadtemplate xlsx failed: '.$e->getMessage(), (defined('LOG_WARNING') ? LOG_WARNING : 4));
+				setEventMessages($langs->trans('ProductTechnicalImportXlsxTemplateUnavailable'), null, 'errors');
+				$action = 'view';
+			}
 		}
 	}
 }
@@ -813,8 +829,6 @@ if (is_array($metadata) && is_array($selectedrow) && is_array($normalizedData) &
 
 	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsModified', $preview['changes'], $categoryCode, false);
 	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsIgnored', $preview['ignored'], $categoryCode, true);
-	powerplantpv_technical_import_print_json_block('ProductTechnicalImportNormalizedData', $normalizedData);
-	powerplantpv_technical_import_print_json_block('ProductTechnicalImportRawData', $rawData);
 
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
