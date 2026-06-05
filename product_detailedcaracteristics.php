@@ -43,6 +43,7 @@ require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/productinverter.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
 
 $langs->loadLangs(array('products', 'powerplantpv@powerplantpv', 'other'));
 
@@ -704,7 +705,7 @@ if ($isPVPanel) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_panel', '', true);
 		}
 		if ($showTechnicalImportButton) {
-			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, '', true);
+			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-panel', true);
 		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
@@ -742,7 +743,7 @@ if ($isInverter) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_inverter', '', true);
 		}
 		if ($showTechnicalImportButton) {
-			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, '', true);
+			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-inverter', true);
 		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
@@ -856,6 +857,10 @@ if ($isInverter) {
 			print '</div><br>';
 		}
 	}
+}
+
+if ($showTechnicalImportButton) {
+	powerplantpvProductTechnicalImportPrintDialog($object, $categoryCode, false);
 }
 
 llxFooter();

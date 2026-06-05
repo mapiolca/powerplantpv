@@ -11,6 +11,7 @@ Cette version ajoute la V1 du connecteur PV Free pour les produits existants :
 
 Complément V1 :
 - ajout de l'import CSV/XLSX des caractéristiques détaillées depuis un produit existant ;
+- ajout des modèles CSV/XLSX téléchargeables et de la modale d'import depuis l'onglet produit ;
 - prévisualisation des champs reconnus, ignorés et modifiés avant confirmation ;
 - sélection d'une ligne lorsque le fichier contient plusieurs lignes ;
 - réutilisation de la traçabilité des sources avec `source = csv` ou `source = xlsx` et nom du fichier importé ;

@@ -43,6 +43,7 @@ require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvfileimport.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvproductimport.class.php');
 dol_include_once('/powerplantpv/class/productinverter.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
 
 $langs->loadLangs(array('products', 'powerplantpv@powerplantpv', 'other'));
 
@@ -415,6 +416,7 @@ function powerplantpv_technical_import_selected_row(array $metadata, $lineIndex)
 
 $id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
+$format = GETPOST('format', 'alpha');
 $source = GETPOST('import_source', 'alpha');
 $strategy = GETPOST('strategy', 'aZ09');
 $separator = GETPOST('separator', 'nohtml');
@@ -500,6 +502,69 @@ $selectedrow = false;
 $normalizedData = null;
 $rawData = null;
 $preview = null;
+
+if ($action === 'downloadtemplate') {
+	$format = strtolower($format);
+	if ($format === 'csv' && !$csvEnabled) {
+		setEventMessages($langs->trans('ProductTechnicalImportCsvDisabled'), null, 'errors');
+		$action = 'view';
+	} elseif ($format === 'xlsx' && (!$xlsxEnabled || !powerplantpvProductTechnicalImportIsXlsxTemplateAvailable())) {
+		setEventMessages($langs->trans('ProductTechnicalImportXlsxTemplateUnavailable'), null, 'errors');
+		$action = 'view';
+	} elseif (!in_array($format, array('csv', 'xlsx'), true)) {
+		setEventMessages($langs->trans('ProductTechnicalImportUnsupportedFileExtension'), null, 'errors');
+		$action = 'view';
+	} else {
+		$template = powerplantpvProductTechnicalImportBuildTemplateData($categoryCode);
+		$headers = (array) $template['headers'];
+		$rows = (array) $template['rows'];
+		$filenamebase = dol_sanitizeFileName($object->ref.'-'.strtolower($categoryCode).'-technical-characteristics-template');
+
+		if ($format === 'csv') {
+			header('Content-Type: text/csv; charset=UTF-8');
+			header('Content-Disposition: attachment; filename="'.$filenamebase.'.csv"');
+			$out = fopen('php://output', 'wb');
+			fputs($out, "\xEF\xBB\xBF");
+			fputcsv($out, $headers, ';');
+			foreach ($rows as $row) {
+				$data = array();
+				foreach ($headers as $header) {
+					$data[] = isset($row[$header]) ? $row[$header] : '';
+				}
+				fputcsv($out, $data, ';');
+			}
+			fclose($out);
+			exit;
+		}
+
+		if (!powerplantpvProductTechnicalImportLoadPhpSpreadsheet()) {
+			setEventMessages($langs->trans('ProductTechnicalImportXlsxTemplateUnavailable'), null, 'errors');
+			$action = 'view';
+		} else {
+			$data = array();
+			foreach ($rows as $row) {
+				$datarow = array();
+				foreach ($headers as $header) {
+					$datarow[] = isset($row[$header]) ? $row[$header] : '';
+				}
+				$data[] = $datarow;
+			}
+
+			$spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+			$sheet = $spreadsheet->getActiveSheet();
+			$sheet->fromArray($headers, null, 'A1');
+			if (!empty($data)) {
+				$sheet->fromArray($data, null, 'A2');
+			}
+
+			header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+			header('Content-Disposition: attachment; filename="'.$filenamebase.'.xlsx"');
+			$writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+			$writer->save('php://output');
+			exit;
+		}
+	}
+}
 
 powerplantpv_technical_import_purge_old_temp();
 
@@ -673,12 +738,16 @@ if ($pvfreeEnabled) {
 }
 
 if (!empty($sourceOptions)) {
+	$templatehtml = powerplantpvProductTechnicalImportTemplateLinksHtml((int) $object->id, $csvEnabled, $xlsxEnabled);
 	print '<form method="POST" enctype="multipart/form-data" action="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="upload_file">';
 	print '<table class="noborder centpercent">';
 	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('ProductTechnicalImportSource').'</td><td>'.$form->selectarray('import_source', $sourceOptions, $source, 0, 0, '', 0, 0, 0, '', 'flat minwidth200').'</td></tr>';
 	print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportFile').'</td><td><input type="file" class="flat" name="technical_file" accept="'.($csvEnabled ? '.csv' : '').($csvEnabled && $xlsxEnabled ? ',' : '').($xlsxEnabled ? '.xlsx' : '').'"></td></tr>';
+	if ($templatehtml !== '') {
+		print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportDownloadTemplate').'</td><td>'.$templatehtml.'</td></tr>';
+	}
 	print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportOverwriteStrategy').'</td><td>'.$form->selectarray('strategy', $strategyOptions, $strategy, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportDefaultSeparator').'</td><td>'.$form->selectarray('separator', $separatorOptions, $separator, 0, 0, '', 0, 0, 0, '', 'flat minwidth200').'</td></tr>';
 	print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportMaxFileSize').'</td><td>'.((int) getDolGlobalInt('POWERPLANTPV_IMPORT_MAX_FILE_SIZE', 5)).' MB</td></tr>';
