@@ -1,5 +1,17 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.1.0
+
+Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration Multicompany :
+- fusion des sections Réseau et harmonisation des champs de raccordement ;
+- affichage des unités `kWc` et `kVA` sur la fiche et dans le PDF ;
+- remplacement du type de raccordement par un choix Select2 avec clés techniques stables et compatibilité avec les anciennes valeurs ;
+- correction de la couleur du tableau Contacts dans le PDF Centrale PV ;
+- repositionnement du Tiers après le Libellé dans la création et la liste ;
+- ajout de l'affichage conditionnel de l'environnement Multicompany en fiche et en liste.
+- ajout de l'import CSV/XLSX des numéros de série par catégorie PV de composition, avec validation, table dédiée, droits spécifiques, export CSV/XLSX et traçabilité ;
+- ajout de l'onglet de réglages Compatibilité pour signaler les fonctionnalités disponibles ou indisponibles, notamment le lecteur XLSX PhpSpreadsheet ;
+
 ## 1.0.1
 
 Cette version corrige principalement une erreur 500 lors du clonage / de la création d’une centrale PV depuis un document commercial.
@@ -18,8 +30,6 @@ Elle améliore aussi l’intégration Dolibarr du module avec :
 - meilleure gestion des liens entre objets Dolibarr ;
 - recalcul automatique de la puissance crête sur devis, commandes et factures ;
 - ajout du prix par Wc dans les informations de marge ;
-- ajout de l'import CSV/XLSX des numéros de série par catégorie PV de composition, avec validation, table dédiée, droits spécifiques, export CSV/XLSX et traçabilité ;
-- ajout de l'onglet de réglages Compatibilité pour signaler les fonctionnalités disponibles ou indisponibles, notamment le lecteur XLSX PhpSpreadsheet ;
 - nouveaux widgets de suivi de puissance installée annuelle, mensuelle et hebdomadaire ;
 - les widgets kWc utilisent désormais la puissance-crête des commandes client livrées et leur date de clôture ;
 - ajout d'un diagnostic explicite lorsque les widgets kWc n'ont aucune commande livrée/clôturée dans le périmètre affiché ;

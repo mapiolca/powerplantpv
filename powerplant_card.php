@@ -322,6 +322,9 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 				$format = 'text';
 				$newvalue = GETPOST($field, 'restricthtml');
 			}
+			if ($field === 'connection_type' && class_exists('PowerPlant')) {
+				$newvalue = PowerPlant::normalizeConnectionTypeValue($newvalue);
+			}
 
 			$res = $object->setValueFrom($field, $newvalue, '', $object->id, $format, '', $user, $triggermodname);
 
@@ -447,7 +450,7 @@ $formfile = new FormFile($db);
 $title = $langs->trans("PowerPlant")." - ".$langs->trans('Card');
 //$title = $object->ref." - ".$langs->trans('Card');
 if ($action == 'create') {
-	$title = $langs->trans("NewObject", $langs->transnoentitiesnoconv("PowerPlant"));
+	$title = $langs->trans("New_PowerPlant");
 }
 $help_url = '';
 
@@ -518,14 +521,76 @@ if ($action == 'create') {
 	if (empty($object->ref)) {
 		$object->ref = $object->getProvisionalRefPreview();
 	}
+	powerplantApplyPowerPlantRuntimeFields($object, $langs);
 	$object->fields['ref']['disabled'] = 1;
 	$object->fields['ref']['noteditable'] = 1;
+	$object->fields['ref']['visible'] = 0;
 	$object->fields['ref']['default'] = $object->ref;
-	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
-	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
 	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['installed_power']['visible'] = 0;
-	include DOL_DOCUMENT_ROOT.'/core/tpl/commonfields_add.tpl.php';
+	$object->fields = dol_sort_array($object->fields, 'position');
+	foreach ($object->fields as $key => $val) {
+		$visible = (int) $val['visible'];
+		if (abs($visible) != 1 && abs($visible) != 3 && abs($visible) != 6) {
+			continue;
+		}
+		if (array_key_exists('enabled', $val) && isset($val['enabled']) && !verifCond($val['enabled'])) {
+			continue;
+		}
+
+		$nativeval = powerplantGetNativeFieldDefinition($val);
+		$type = (string) $nativeval['type'];
+		if (in_array($type, array('int', 'integer'))) {
+			$value = GETPOST($key);
+		} elseif (preg_match('/^double/', $type)) {
+			$value = price2num(GETPOST($key, 'alphanohtml'));
+		} elseif (preg_match('/^text/', $type)) {
+			$tmparray = explode(':', $type);
+			$value = GETPOST($key, (!empty($tmparray[1]) ? $tmparray[1] : 'nohtml'));
+		} elseif (preg_match('/^html/', $type)) {
+			$tmparray = explode(':', $type);
+			$value = GETPOST($key, (!empty($tmparray[1]) ? $tmparray[1] : 'restricthtml'));
+		} elseif ($type == 'date') {
+			$value = dol_mktime(12, 0, 0, GETPOSTINT($key.'month'), GETPOSTINT($key.'day'), GETPOSTINT($key.'year'));
+		} elseif ($type == 'datetime') {
+			$value = dol_mktime(GETPOSTINT($key.'hour'), GETPOSTINT($key.'min'), 0, GETPOSTINT($key.'month'), GETPOSTINT($key.'day'), GETPOSTINT($key.'year'));
+		} elseif ($type == 'boolean') {
+			$value = (GETPOST($key) == 'on' ? 1 : 0);
+		} elseif ($type == 'price') {
+			$value = price2num(GETPOST($key));
+		} elseif ($key == 'lang') {
+			$value = GETPOST($key, 'aZ09');
+		} else {
+			$value = GETPOST($key, 'alphanohtml');
+		}
+
+		print '<tr class="field_'.$key.'">';
+		print '<td class="titlefieldcreate'.((isset($val['notnull']) && $val['notnull'] > 0) ? ' fieldrequired' : '').(($type == 'text' || $type == 'html') ? ' tdtop' : '').'">';
+		print '<label for="'.$key.'" class="block">';
+		if (!empty($val['help'])) {
+			print $form->textwithpicto($langs->trans($val['label']), $langs->trans($val['help']));
+		} else {
+			print $langs->trans($val['label']);
+		}
+		print '</label>';
+		print '</td>';
+		print '<td class="valuefieldcreate">';
+		if (!empty($val['picto'])) {
+			print img_picto('', $val['picto'], '', 0, 0, 0, '', 'pictofixedwidth');
+		}
+		if (!empty($val['noteditable'])) {
+			print powerplantRenderPowerPlantOutputField($object, $val, $key, $value);
+		} elseif ($key == 'lang') {
+			require_once DOL_DOCUMENT_ROOT.'/core/class/html.formadmin.class.php';
+			$formadmin = new FormAdmin($db);
+			print img_picto('', 'language', 'class="pictofixedwidth"');
+			print $formadmin->select_language($value, $key, 0, array(), 1, 0, 0, 'minwidth300', 2);
+		} else {
+			print powerplantRenderPowerPlantInputField($object, $val, $key, $value);
+		}
+		print '</td>';
+		print '</tr>';
+	}
 
 	// Other attributes
 	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_add.tpl.php';
@@ -647,10 +712,7 @@ if (($id || $ref) && $action == 'edit') {
 	$object->fields['ref']['noteditable'] = 1;
 	$object->fields['ref']['visible'] = 5;
 	unset($object->fields['status']);
-	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
-	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
-	$object->fields['installed_power']['noteditable'] = 1;
-	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
+	powerplantApplyPowerPlantRuntimeFields($object, $langs);
 
 	$allfields = $object->fields;
 
@@ -699,10 +761,17 @@ $k_purchase_tariff = 'buyback_tariff';
 			$def = $object->fields[$key];
 			$label = $labelOverride ?: $langs->trans(!empty($def['label']) ? $def['label'] : $key);
 			$value = (isset($object->$key) ? $object->$key : '');
+			if ($key === 'connection_type') {
+				$value = powerplantGetConnectionTypeFormValue($value);
+			}
 
 			print '<tr class="field_'.$key.'">';
 			print '<td class="titlefieldcreate">'.$label.'</td>';
-			print '<td class="valuefieldcreate">'.$object->showInputField($def, $key, $value, '', '', '', $morecss).'</td>';
+			if (!empty($def['noteditable']) || !empty($def['disabled'])) {
+				print '<td class="valuefieldcreate">'.powerplantRenderPowerPlantOutputField($object, $def, $key, $value).'</td>';
+			} else {
+				print '<td class="valuefieldcreate">'.powerplantRenderPowerPlantInputField($object, $def, $key, $value, $morecss).'</td>';
+			}
 			print '</tr>';
 		};
 
@@ -719,7 +788,12 @@ $k_purchase_tariff = 'buyback_tariff';
 		$printRowEdit($k_prm_pdl);
 		$printRowEdit($k_connection_type);
 		$printRowEdit($k_commissioning_date);
-				print '</table>';
+		$printRowEdit($k_enedis_commissioning_date);
+		$printRowEdit($k_connection_request_number);
+		$printRowEdit($k_connection_request_no);
+		$printRowEdit($k_t0_date);
+		$printRowEdit($k_connection_contract_power);
+		print '</table>';
 
 		print '</div>'; // fichehalfleft
 
@@ -728,17 +802,9 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', 'currency');
 		print '<table class="border centpercent tableforfieldedit">'."\n";
-		$printRowEdit($k_t0_date);
+		$printRowEdit($k_installed_power);
 		$printRowEdit($k_purchase_contract_no);
 		$printRowEdit($k_purchase_tariff);
-		print '</table>';
-
-		print load_fiche_titre($langs->trans("Réseau"), '', 'fa-plug');
-		print '<table class="border centpercent tableforfieldedit">'."\n";
-		$printRowEdit($k_enedis_commissioning_date);
-		$printRowEdit($k_connection_request_number);
-		$printRowEdit($k_connection_request_no);
-		$printRowEdit($k_connection_contract_power);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
@@ -775,24 +841,22 @@ $k_purchase_tariff = 'buyback_tariff';
 		if ($hasremaining || $hasextra) {
 			print load_fiche_titre($langs->trans("Other"), '', '');
 
-			if ($hasremaining) {
-				print '<table class="border centpercent tableforfield">'."
-";
+				if ($hasremaining) {
+					print '<table class="border centpercent tableforfield">'."\n";
 
 				foreach ($allfields as $key => $def) {
 					if (!empty($exclude[$key])) continue;
 					$vis = isset($def['visible']) ? (int) $def['visible'] : 0;
 					if ($vis <= 0 || $vis == 2) continue;
 
-					$printRowView($key);
+					$printRowEdit($key);
 				}
 
 				print '</table>';
 			}
 
-			if ($hasextra) {
-				print '<table class="border centpercent tableforfield">'."
-";
+				if ($hasextra) {
+					print '<table class="border centpercent tableforfield">'."\n";
 				// Other attributes
 				include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
 				print '</table>';
@@ -936,10 +1000,7 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	print '<div class="underbanner clearboth"></div>';
 
 	// Prepare field types
-	$object->fields['fk_country']['type'] = 'sellist:c_country:label:rowid::active=1';
-	$object->fields['installed_power']['type'] = 'double(24,8):kWc';
-	$object->fields['installed_power']['noteditable'] = 1;
-	$object->fields['connection_contract_power']['type'] = 'double(24,8):kWc';
+	powerplantApplyPowerPlantRuntimeFields($object, $langs);
 
 	$allfields = $object->fields;
 
@@ -993,6 +1054,9 @@ $k_purchase_tariff = 'buyback_tariff';
 			$def = $object->fields[$key];
 			$label = $labelOverride ?: $langs->trans(!empty($def['label']) ? $def['label'] : $key);
 			$value = ($valueOverride !== null ? $valueOverride : (isset($object->$key) ? $object->$key : ''));
+			if ($key === 'connection_type') {
+				$value = powerplantGetConnectionTypeFormValue($value);
+			}
 
 			$canedit = (!empty($permissiontoadd) && empty($def['noteditable']) && empty($def['disabled']));
 			$isedit = ($canedit && $fieldtoedit === $key);
@@ -1010,7 +1074,7 @@ $k_purchase_tariff = 'buyback_tariff';
 				print '<input type="hidden" name="token" value="'.newToken().'">';
 				print '<input type="hidden" name="action" value="updatefield">';
 				print '<input type="hidden" name="field" value="'.$key.'">';
-				print $object->showInputField($def, $key, $value, '', '', '', '');
+				print powerplantRenderPowerPlantInputField($object, $def, $key, $value);
 				print '</form>';
 				print '</td>';
 				print '<td class="right nowraponall">';
@@ -1018,7 +1082,7 @@ $k_purchase_tariff = 'buyback_tariff';
 				print ' <a class="reposition" href="'.$urlcard.'">'.img_picto($langs->trans("Cancel"), 'cancel').'</a>';
 				print '</td>';
 			} else {
-				print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+				print '<td class="valuefield">'.powerplantRenderPowerPlantOutputField($object, $def, $key, $value).'</td>';
 				print '<td class="right nowraponall">';
 				if ($canedit) {
 					print '<a class="editfielda reposition" href="'.$urledit.'">'.img_edit().'</a>';
@@ -1045,7 +1109,12 @@ $k_purchase_tariff = 'buyback_tariff';
 		$printRowView($k_prm_pdl);
 		$printRowView($k_connection_type);
 		$printRowView($k_commissioning_date);
-				print '</table>';
+		$printRowView($k_enedis_commissioning_date);
+		$printRowView($k_connection_request_number);
+		$printRowView($k_connection_request_no);
+		$printRowView($k_t0_date);
+		$printRowView($k_connection_contract_power);
+		print '</table>';
 
 		print '</div>'; // fichehalfleft
 
@@ -1054,18 +1123,9 @@ $k_purchase_tariff = 'buyback_tariff';
 
 		print load_fiche_titre($langs->trans("Contrat de rachat"), '', 'currency');
 		print '<table class="border centpercent tableforfield">'."\n";
-		$printRowView($k_t0_date);
 		$printRowView($k_installed_power);
 		$printRowView($k_purchase_contract_no);
 		$printRowView($k_purchase_tariff);
-		print '</table>';
-
-		print load_fiche_titre($langs->trans("Réseau"), '', 'fa-plug');
-		print '<table class="border centpercent tableforfield">'."\n";
-		$printRowView($k_enedis_commissioning_date);
-		$printRowView($k_connection_request_number);
-		$printRowView($k_connection_request_no);
-		$printRowView($k_connection_contract_power);
 		print '</table>';
 
 		print '</div>'; // fichehalfright
@@ -1112,7 +1172,7 @@ $k_purchase_tariff = 'buyback_tariff';
 
 					print '<tr class="field_'.$key.'">';
 					print '<td class="titlefieldmiddle">'.$label.'</td>';
-					print '<td class="valuefield">'.$object->showOutputField($def, $key, $value).'</td>';
+					print '<td class="valuefield">'.powerplantRenderPowerPlantOutputField($object, $def, $key, $value).'</td>';
 					print '</tr>';
 				}
 			}

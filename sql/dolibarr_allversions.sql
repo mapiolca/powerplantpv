@@ -17,8 +17,12 @@ ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS connection_requ
 ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS t0_obtention_date date;
 ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS buyback_contract_number varchar(128);
 ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS buyback_tariff double;
+ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS fk_soc integer;
+ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS fk_project integer;
 ALTER TABLE llx_powerplantpv_powerplant ADD COLUMN IF NOT EXISTS entity integer NOT NULL DEFAULT 1;
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplant_fk_country (fk_country);
+ALTER TABLE llx_powerplantpv_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplant_fk_soc (fk_soc);
+ALTER TABLE llx_powerplantpv_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplant_fk_project (fk_project);
 ALTER TABLE llx_powerplantpv_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplant_entity (entity);
 ALTER TABLE llx_powerplantpv_powerplant DROP INDEX IF EXISTS uk_powerplantpv_powerplant_ref;
 ALTER TABLE llx_powerplantpv_powerplant ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_powerplant_ref_entity (ref, entity);

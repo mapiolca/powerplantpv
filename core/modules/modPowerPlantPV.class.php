@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.0.1';
+		$this->version = '1.1.0';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -777,30 +777,68 @@ class modPowerPlantPV extends DolibarrModules
 	private function ensurePowerPlantSchema()
 	{
 		$table = $this->db->prefix().'powerplantpv_powerplant';
-		$field = 'access_instructions';
-
-		$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
-		$resql = $this->db->query($sql);
-		if (!$resql) {
-			$this->errors[] = $this->db->lasterror();
-			return -1;
-		}
-
-		$fieldexists = ($this->db->num_rows($resql) > 0);
-		$this->db->free($resql);
-		if ($fieldexists) {
-			return 1;
-		}
-
-		$fielddesc = array(
-			'type' => 'text',
-			'value' => '',
-			'null' => '',
+		$fields = array(
+			'access_instructions' => array(
+				'type' => 'text',
+				'value' => '',
+				'null' => '',
+			),
+			'fk_soc' => array(
+				'type' => 'integer',
+				'value' => '',
+				'null' => '',
+			),
+			'fk_project' => array(
+				'type' => 'integer',
+				'value' => '',
+				'null' => '',
+			),
 		);
-		$result = $this->db->DDLAddField($table, $field, $fielddesc);
-		if ($result < 0) {
-			$this->errors[] = $this->db->lasterror();
-			return -1;
+
+		foreach ($fields as $field => $fielddesc) {
+			$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+
+			$fieldexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if ($fieldexists) {
+				continue;
+			}
+
+			$result = $this->db->DDLAddField($table, $field, $fielddesc);
+			if ($result < 0) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
+		$indexes = array(
+			'idx_powerplantpv_powerplant_fk_soc' => 'fk_soc',
+			'idx_powerplantpv_powerplant_fk_project' => 'fk_project',
+		);
+		foreach ($indexes as $indexname => $fieldname) {
+			$sql = "SHOW INDEX FROM ".$this->db->sanitize($table)." WHERE Key_name = '".$this->db->escape($indexname)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+
+			$indexexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if ($indexexists) {
+				continue;
+			}
+
+			$sql = "ALTER TABLE ".$this->db->sanitize($table)." ADD INDEX ".$this->db->sanitize($indexname)." (".$this->db->sanitize($fieldname).")";
+			if (!$this->db->query($sql)) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
 		}
 
 		return 1;

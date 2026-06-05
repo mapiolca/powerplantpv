@@ -93,6 +93,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/lib/date.lib.php';
 include_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 // load module libraries
 include_once __DIR__.'/class/powerplant.class.php';
+include_once __DIR__.'/lib/powerplantpv_powerplant.lib.php';
 // for other modules
 //dol_include_once('/othermodule/class/otherobject.class.php');
 
@@ -131,6 +132,7 @@ $pagenext = $page + 1;
 
 // Initialize technical objects
 $object = new PowerPlant($db);
+powerplantApplyPowerPlantRuntimeFields($object, $langs);
 $extrafields = new ExtraFields($db);
 $diroutputmassaction = $conf->powerplantpv->dir_output.'/temp/massgeneration/'.$user->id;
 $hookmanager->initHooks(array($contextpage)); 	// Note that conf->hooks_modules contains array of activated contexes
@@ -152,6 +154,7 @@ if (!$sortorder) {
 
 // Initialize array of search criteria
 $search_all = trim(GETPOST('search_all', 'alphanohtml'));
+$search_environment = powerplantSanitizeEntityIdArray(GETPOST('search_environment', 'array:int'));
 $search = array();
 foreach ($object->fields as $key => $val) {
 	if (GETPOST('search_'.$key, 'alpha') !== '') {
@@ -265,6 +268,7 @@ if (empty($reshook)) {
 			}
 		}
 		$search_all = '';
+		$search_environment = array();
 		$toselect = array();
 		$search_array_options = array();
 	}
@@ -301,6 +305,10 @@ $help_url = '';
 $morejs = array();
 $morecss = array();
 
+$powerplantentityscope = '';
+if (!empty($object->ismultientitymanaged) && (int) $object->ismultientitymanaged == 1) {
+	$powerplantentityscope = getEntity($object->element, (GETPOSTINT('search_current_entity') ? 0 : 1));
+}
 
 // Build and execute select
 // --------------------------------------------------------------------
@@ -331,13 +339,25 @@ $reshook = $hookmanager->executeHooks('printFieldListFrom', $parameters, $object
 $sql .= $hookmanager->resPrint;
 
 if (!empty($object->ismultientitymanaged) && (int) $object->ismultientitymanaged == 1) {
-	$sql .= " WHERE t.entity IN (".getEntity($object->element, (GETPOSTINT('search_current_entity') ? 0 : 1)).")";
+	$sql .= " WHERE t.entity IN (".$powerplantentityscope.")";
 } elseif (preg_match('/^\w+@\w+$/', (string) $object->ismultientitymanaged)) {
 	$tmparray = explode('@', (string) $object->ismultientitymanaged);
 	$sql .= " LEFT JOIN ".$object->db->prefix().$tmparray[1]." as pt ON t.".$db->sanitize($tmparray[0])." = pt.rowid";
 	$sql .= " WHERE pt.entity IN (".getEntity($object->element, (GETPOSTINT('search_current_entity') ? 0 : 1)).")";
 } else {
 	$sql .= " WHERE 1 = 1";
+}
+if (!empty($search_environment) && $powerplantentityscope !== '') {
+	$allowedentities = array_flip(powerplantSanitizeEntityIdArray($powerplantentityscope));
+	$filterentities = array();
+	foreach ($search_environment as $entity) {
+		if (isset($allowedentities[$entity])) {
+			$filterentities[] = (int) $entity;
+		}
+	}
+	if (!empty($filterentities)) {
+		$sql .= " AND t.entity IN (".implode(',', $filterentities).")";
+	}
 }
 foreach ($search as $key => $val) {
 	if (array_key_exists($key, $object->fields)) {
@@ -412,6 +432,25 @@ include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_search_sql.tpl.php';
 $parameters = array();
 $reshook = $hookmanager->executeHooks('printFieldListWhere', $parameters, $object, $action); // Note that $action and $object may have been modified by hook
 $sql .= $hookmanager->resPrint;
+
+$environmentfilteroptions = array();
+$showenvironmentcolumn = 0;
+if (isModEnabled('multicompany') && $powerplantentityscope !== '') {
+	$environmentfilteroptions = powerplantGetAccessibleEntityOptions($powerplantentityscope);
+	if (count($environmentfilteroptions) > 1) {
+		$sqlforenvironment = preg_replace('/^'.preg_quote($sqlfields, '/').'/', 'SELECT DISTINCT t.entity as powerplant_entity', $sql);
+		$resqlenvironment = $db->query($sqlforenvironment);
+		if ($resqlenvironment) {
+			while ($objenvironment = $db->fetch_object($resqlenvironment)) {
+				if ((int) $objenvironment->powerplant_entity > 0 && (int) $objenvironment->powerplant_entity !== (int) $conf->entity) {
+					$showenvironmentcolumn = 1;
+					break;
+				}
+			}
+			$db->free($resqlenvironment);
+		}
+	}
+}
 
 /* If a group by is required
 $sql .= " GROUP BY ";
@@ -546,6 +585,9 @@ foreach ($search as $key => $val) {
 		$param .= '&search_'.$key.'='.urlencode($search[$key]);
 	}
 }
+foreach ($search_environment as $entity) {
+	$param .= '&search_environment[]='.urlencode((string) $entity);
+}
 // Add $param from extra fields
 include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_search_param.tpl.php';
 // Add $param from hooks
@@ -638,6 +680,16 @@ $htmlofselectarray = $form->multiSelectArrayWithCheckbox('selectedfields', $arra
 $selectedfields = (($mode != 'kanban' && $mode != 'kanbangroupby') ? $htmlofselectarray : '');
 $selectedfields .= (count($arrayofmassactions) ? $form->showCheckAddButtons('checkforselect', 1) : '');
 
+$environmentcolumnafterkey = '';
+if ($showenvironmentcolumn) {
+	foreach (array('fk_project', 'fk_soc', 'label', 'ref') as $candidatekey) {
+		if (!empty($arrayfields['t.'.$candidatekey]['checked'])) {
+			$environmentcolumnafterkey = $candidatekey;
+			break;
+		}
+	}
+}
+
 print '<div class="div-table-responsive">'; // You can use div-table-responsive-no-min if you don't need reserved height for your table
 print '<table class="tagtable nobottomiftotal noborder liste'.($moreforfilter ? " listwithfilterbefore" : "").'">'."\n";
 
@@ -651,6 +703,7 @@ if ($conf->main_checkbox_left_column) {
 	print $searchpicto;
 	print '</td>';
 }
+$environmentcolumnprinted = 0;
 foreach ($object->fields as $key => $val) {
 	//$searchkey = empty($search[$key]) ? '' : $search[$key];
 	$cssforfield = (empty($val['csslist']) ? (empty($val['css']) ? '' : $val['css']) : $val['csslist']);
@@ -660,7 +713,7 @@ foreach ($object->fields as $key => $val) {
 		$cssforfield .= ($cssforfield ? ' ' : '').'center';
 	} elseif (in_array($val['type'], array('timestamp'))) {
 		$cssforfield .= ($cssforfield ? ' ' : '').'nowrap';
-	} elseif (in_array($val['type'], array('double(24,8)', 'double(6,3)', 'integer', 'real', 'price')) && !in_array($key, array('id', 'rowid', 'ref', 'status')) && $val['label'] != 'TechnicalID' && empty($val['arrayofkeyval'])) {
+	} elseif (powerplantIsNumericFieldType($val['type']) && !in_array($key, array('id', 'rowid', 'ref', 'status')) && $val['label'] != 'TechnicalID' && empty($val['arrayofkeyval'])) {
 		$cssforfield .= ($cssforfield ? ' ' : '').'right';
 	}
 	if (!empty($arrayfields['t.'.$key]['checked'])) {
@@ -691,6 +744,17 @@ foreach ($object->fields as $key => $val) {
 		}
 		print '</td>';
 	}
+	if ($showenvironmentcolumn && empty($environmentcolumnprinted) && $environmentcolumnafterkey === $key) {
+		print '<td class="liste_titre center">';
+		print $form->multiselectarray('search_environment', $environmentfilteroptions, $search_environment, 0, 0, 'maxwidth150', 0, 0);
+		print '</td>';
+		$environmentcolumnprinted = 1;
+	}
+}
+if ($showenvironmentcolumn && empty($environmentcolumnprinted)) {
+	print '<td class="liste_titre center">';
+	print $form->multiselectarray('search_environment', $environmentfilteroptions, $search_environment, 0, 0, 'maxwidth150', 0, 0);
+	print '</td>';
 }
 // Extra fields
 include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_search_input.tpl.php';
@@ -722,6 +786,7 @@ if ($conf->main_checkbox_left_column) {
 	print getTitleFieldOfList($selectedfields, 0, $_SERVER["PHP_SELF"], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ')."\n";
 	$totalarray['nbfield']++;
 }
+$environmentcolumnprinted = 0;
 foreach ($object->fields as $key => $val) {
 	$cssforfield = (empty($val['csslist']) ? (empty($val['css']) ? '' : $val['css']) : $val['csslist']);
 	if ($key == 'status') {
@@ -730,7 +795,7 @@ foreach ($object->fields as $key => $val) {
 		$cssforfield .= ($cssforfield ? ' ' : '').'center';
 	} elseif (in_array($val['type'], array('timestamp'))) {
 		$cssforfield .= ($cssforfield ? ' ' : '').'nowrap';
-	} elseif (in_array($val['type'], array('double(24,8)', 'double(6,3)', 'integer', 'real', 'price')) && !in_array($key, array('id', 'rowid', 'ref', 'status')) && $val['label'] != 'TechnicalID' && empty($val['arrayofkeyval'])) {
+	} elseif (powerplantIsNumericFieldType($val['type']) && !in_array($key, array('id', 'rowid', 'ref', 'status')) && $val['label'] != 'TechnicalID' && empty($val['arrayofkeyval'])) {
 		$cssforfield .= ($cssforfield ? ' ' : '').'right';
 	}
 	$cssforfield = preg_replace('/small\s*/', '', $cssforfield);	// the 'small' css must not be used for the title label
@@ -738,6 +803,15 @@ foreach ($object->fields as $key => $val) {
 		print getTitleFieldOfList($arrayfields['t.'.$key]['label'], 0, $_SERVER['PHP_SELF'], 't.'.$key, '', $param, ($cssforfield ? 'class="'.$cssforfield.'"' : ''), $sortfield, $sortorder, ($cssforfield ? $cssforfield.' ' : ''), 0, (empty($val['helplist']) ? '' : $val['helplist']))."\n";
 		$totalarray['nbfield']++;
 	}
+	if ($showenvironmentcolumn && empty($environmentcolumnprinted) && $environmentcolumnafterkey === $key) {
+		print getTitleFieldOfList($langs->trans('PowerPlantEnvironment'), 0, $_SERVER['PHP_SELF'], 't.entity', '', $param, 'class="center"', $sortfield, $sortorder, 'center ')."\n";
+		$totalarray['nbfield']++;
+		$environmentcolumnprinted = 1;
+	}
+}
+if ($showenvironmentcolumn && empty($environmentcolumnprinted)) {
+	print getTitleFieldOfList($langs->trans('PowerPlantEnvironment'), 0, $_SERVER['PHP_SELF'], 't.entity', '', $param, 'class="center"', $sortfield, $sortorder, 'center ')."\n";
+	$totalarray['nbfield']++;
 }
 // Extra fields
 include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_search_title.tpl.php';
@@ -782,6 +856,7 @@ while ($i < $imaxinloop) {
 
 	// Store properties in $object
 	$object->setVarsFromFetchObj($obj);
+	powerplantApplyPowerPlantRuntimeFields($object, $langs);
 
 	/*
 	$object->thirdparty = null;
@@ -837,6 +912,7 @@ while ($i < $imaxinloop) {
 			}
 		}
 		// Fields
+		$environmentcolumnprinted = 0;
 		foreach ($object->fields as $key => $val) {
 			$cssforfield = (empty($val['csslist']) ? (empty($val['css']) ? '' : $val['css']) : $val['csslist']);
 			if (in_array($val['type'], array('date', 'datetime', 'timestamp'))) {
@@ -851,7 +927,7 @@ while ($i < $imaxinloop) {
 				$cssforfield .= ($cssforfield ? ' ' : '').'nowraponall';
 			}
 
-			if (in_array($val['type'], array('double(24,8)', 'double(6,3)', 'integer', 'real', 'price')) && !in_array($key, array('id', 'rowid', 'ref', 'status')) && empty($val['arrayofkeyval'])) {
+			if (powerplantIsNumericFieldType($val['type']) && !in_array($key, array('id', 'rowid', 'ref', 'status')) && empty($val['arrayofkeyval'])) {
 				$cssforfield .= ($cssforfield ? ' ' : '').'right';
 			}
 			//if (in_array($key, array('fk_soc', 'fk_user', 'fk_warehouse'))) $cssforfield = 'tdoverflowmax100';
@@ -867,10 +943,14 @@ while ($i < $imaxinloop) {
 				} elseif ($key == 'rowid') {
 					print $object->showOutputField($val, $key, (string) $object->id, '');
 				} else {
+					$fieldvalue = (isset($object->$key) ? (string) $object->$key : '');
+					if ($key === 'connection_type') {
+						$fieldvalue = powerplantGetConnectionTypeFormValue($fieldvalue);
+					}
 					if ($val['type'] == 'html') {
 						print '<div class="small lineheightsmall twolinesmax-normallineheight">';
 					}
-					print $object->showOutputField($val, $key, (string) $object->$key, '');
+					print powerplantRenderPowerPlantOutputField($object, $val, $key, $fieldvalue);
 					if ($val['type'] == 'html') {
 						print '</div>';
 					}
@@ -891,6 +971,19 @@ while ($i < $imaxinloop) {
 					}
 					$totalarray['val']['t.'.$key] += $object->$key;
 				}
+			}
+			if ($showenvironmentcolumn && empty($environmentcolumnprinted) && $environmentcolumnafterkey === $key) {
+				print '<td class="center nowraponall">'.powerplantGetEntityBadgeHtml((int) $object->entity).'</td>';
+				if (!$i) {
+					$totalarray['nbfield']++;
+				}
+				$environmentcolumnprinted = 1;
+			}
+		}
+		if ($showenvironmentcolumn && empty($environmentcolumnprinted)) {
+			print '<td class="center nowraponall">'.powerplantGetEntityBadgeHtml((int) $object->entity).'</td>';
+			if (!$i) {
+				$totalarray['nbfield']++;
 			}
 		}
 		// Extra fields
@@ -936,6 +1029,9 @@ if ($num == 0) {
 		if (!empty($val['checked'])) {
 			$colspan++;
 		}
+	}
+	if ($showenvironmentcolumn) {
+		$colspan++;
 	}
 	print '<tr><td colspan="'.$colspan.'"><span class="opacitymedium">'.$langs->trans("NoRecordFound").'</span></td></tr>';
 }

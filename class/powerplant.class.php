@@ -88,6 +88,11 @@ class PowerPlant extends CommonObject
 	const STATUS_OUT_OF_SERVICE = 3;
 	const STATUS_CANCELED = 9;
 
+	const CONNECTION_TYPE_SELF_CONSUMPTION = 'self_consumption';
+	const CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS = 'self_consumption_surplus';
+	const CONNECTION_TYPE_TOTAL_SALE = 'total_sale';
+	const CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION = 'collective_self_consumption';
+
 	/**
 	 *  'type' field format:
 	 *  	'integer', 'integer:ObjectClass:PathToClass[:AddCreateButtonOrNot[:Filter[:Sortfield]]]',
@@ -140,24 +145,24 @@ class PowerPlant extends CommonObject
 		"rowid" => array("type" => "integer", "label" => "TechnicalID", "enabled" => "1", 'position' => 1, 'notnull' => 1, "visible" => "0", "noteditable" => "1", "index" => "1", "css" => "left", "comment" => "Id"),
 		"ref" => array("type" => "varchar(128)", "label" => "Ref", "enabled" => "1", 'position' => 20, 'notnull' => 1, "visible" => "1", "index" => "1", "searchall" => "1", "showoncombobox" => "1", "validate" => "1", "default" => "(PROV)", "comment" => "Reference of object"),
 		"label" => array("type" => "varchar(255)", "label" => "Label", "enabled" => "1", 'position' => 30, 'notnull' => 0, "visible" => "1", "alwayseditable" => "1", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "help" => "Help text", "showoncombobox" => "2", "validate" => "1",),
-		"entity" => array("type" => "integer", "label" => "Entity", "enabled" => "1", 'position' => 45, 'notnull' => 1, "visible" => "-2", "default" => 1, "index" => "1"),
+		"entity" => array("type" => "integer", "label" => "Entity", "enabled" => "1", 'position' => 900, 'notnull' => 1, "visible" => "-2", "default" => 1, "index" => "1"),
 		"commissioning_date" => array("type" => "date", "label" => "PowerPlantCommissioningDate", "enabled" => "1", 'position' => 35, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"prm_pdl_number" => array("type" => "varchar(128)", "label" => "PowerPlantPrmPdlNumber", "enabled" => "1", 'position' => 36, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
-		"address" => array("type" => "varchar(255)", "label" => "PowerPlantAddress", "enabled" => "1", 'position' => 37, 'notnull' => 0, "visible" => "3", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "validate" => "1",),
-		"zip" => array("type" => "varchar(25)", "label" => "PowerPlantZip", "enabled" => "1", 'position' => 38, 'notnull' => 0, "visible" => "1", "searchall" => "1", "csslist" => "nowraponall", "validate" => "1",),
-		"town" => array("type" => "varchar(255)", "label" => "PowerPlantTown", "enabled" => "1", 'position' => 39, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
-		"fk_country" => array("type" => "integer", "label" => "PowerPlantCountry", "enabled" => "1", 'position' => 40, 'notnull' => 0, "visible" => "1", "index" => "1", "validate" => "1",),
+		"address" => array("type" => "varchar(255)", "label" => "Address", "enabled" => "1", 'position' => 37, 'notnull' => 0, "visible" => "3", "searchall" => "1", "css" => "minwidth300", "cssview" => "wordbreak", "validate" => "1",),
+		"zip" => array("type" => "varchar(25)", "label" => "Zip", "enabled" => "1", 'position' => 38, 'notnull' => 0, "visible" => "1", "searchall" => "1", "csslist" => "nowraponall", "validate" => "1",),
+		"town" => array("type" => "varchar(255)", "label" => "Town", "enabled" => "1", 'position' => 39, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"fk_country" => array("type" => "sellist:c_country:label:rowid::active=1", "label" => "Country", "enabled" => "1", 'position' => 40, 'notnull' => 0, "visible" => "1", "index" => "1", "validate" => "1",),
 		"access_instructions" => array("type" => "text", "label" => "PowerPlantAccessInstructions", "enabled" => "1", 'position' => 40, 'notnull' => 0, "visible" => "3", "css" => "minwidth500", "cssview" => "wordbreak", "validate" => "1",),
 		"installed_power" => array("type" => "double(24,8)", "label" => "PowerPlantInstalledPower", "enabled" => "1", 'position' => 41, 'notnull' => 0, "visible" => "1", "noteditable" => "1", "isameasure" => "1", "validate" => "1", "default" => "0", "css" => "right", "cssview" => "right", "csslist" => "right"),
 		"connection_contract_power" => array("type" => "double(24,8)", "label" => "PowerPlantConnectionContractPower", "enabled" => "1", 'position' => 42, 'notnull' => 0, "visible" => "1", "isameasure" => "1", "validate" => "1", "css" => "right", "cssview" => "right", "csslist" => "right"),
-		"connection_type" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionType", "enabled" => "1", 'position' => 43, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
+		"connection_type" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionType", "enabled" => "1", 'position' => 43, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1", "arrayofkeyval" => array(),),
 		"enedis_commissioning_date" => array("type" => "date", "label" => "PowerPlantEnedisCommissioningDate", "enabled" => "1", 'position' => 44, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"connection_request_number" => array("type" => "varchar(128)", "label" => "PowerPlantConnectionRequestNumber", "enabled" => "1", 'position' => 45, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
 		"t0_obtention_date" => array("type" => "date", "label" => "PowerPlantT0ObtentionDate", "enabled" => "1", 'position' => 46, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"buyback_contract_number" => array("type" => "varchar(128)", "label" => "PowerPlantBuybackContractNumber", "enabled" => "1", 'position' => 47, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
 		"buyback_tariff" => array("type" => "price", "label" => "PowerPlantBuybackTariff", "enabled" => "1", 'position' => 48, 'notnull' => 0, "visible" => "1", "validate" => "1",),
-		"fk_soc" => array("type" => "integer:Societe:societe/class/societe.class.php:1:((status:=:1) AND (entity:IN:__SHARED_ENTITIES__))", "label" => "ThirdParty", "picto" => "company", "enabled" => "isModEnabled('societe')", 'position' => 50, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "help" => "OrganizationEventLinkToThirdParty", "validate" => "1",),
-		"fk_project" => array("type" => "integer:Project:projet/class/project.class.php:1", "label" => "Project", "picto" => "project", "enabled" => "1", 'position' => 52, 'notnull' => -1, "visible" => "0", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "validate" => "1",),
+		"fk_soc" => array("type" => "integer:Societe:societe/class/societe.class.php:1:((status:=:1) AND (entity:IN:__SHARED_ENTITIES__))", "label" => "ThirdParty", "picto" => "company", "enabled" => "isModEnabled('societe')", 'position' => 31, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "help" => "OrganizationEventLinkToThirdParty", "validate" => "1",),
+		"fk_project" => array("type" => "integer:Project:projet/class/project.class.php:1", "label" => "Project", "picto" => "project", "enabled" => "isModEnabled('project')", 'position' => 32, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "validate" => "1",),
 		"description" => array("type" => "text", "label" => "Description", "enabled" => "1", 'position' => 60, 'notnull' => 0, "visible" => "3", "validate" => "1",),
 		"note_public" => array("type" => "html", "label" => "NotePublic", "enabled" => "1", 'position' => 61, 'notnull' => 0, "visible" => "0", "cssview" => "wordbreak", "validate" => "1",),
 		"note_private" => array("type" => "html", "label" => "NotePrivate", "enabled" => "1", 'position' => 62, 'notnull' => 0, "visible" => "0", "cssview" => "wordbreak", "validate" => "1",),
@@ -265,6 +270,9 @@ class PowerPlant extends CommonObject
 		if (!isModEnabled('multicompany') && isset($this->fields['entity'])) {
 			$this->fields['entity']['enabled'] = 0;
 		}
+		if (isset($this->fields['connection_type'])) {
+			$this->fields['connection_type']['arrayofkeyval'] = self::getConnectionTypeOptions();
+		}
 
 		// Example to show how to set values of fields definition dynamically
 		/*if ($user->hasRight('powerplantpv', 'powerplant', 'read')) {
@@ -274,7 +282,11 @@ class PowerPlant extends CommonObject
 
 		// Unset fields that are disabled
 		foreach ($this->fields as $key => $val) {
-			if (isset($val['enabled']) && empty($val['enabled'])) {
+			$enabled = (isset($val['enabled']) ? $val['enabled'] : 1);
+			if (is_string($enabled) && !is_numeric($enabled)) {
+				$enabled = dol_eval($enabled, 1);
+			}
+			if (empty($enabled)) {
 				unset($this->fields[$key]);
 			}
 		}
@@ -289,6 +301,145 @@ class PowerPlant extends CommonObject
 				}
 			}
 		}
+	}
+
+	/**
+	 * Return available grid connection types.
+	 *
+	 * @return	array<string,string>	Technical key => translation key
+	 */
+	public static function getConnectionTypeOptions()
+	{
+		return array(
+			self::CONNECTION_TYPE_SELF_CONSUMPTION => 'PowerPlantConnectionTypeSelfConsumption',
+			self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS => 'PowerPlantConnectionTypeSelfConsumptionSurplus',
+			self::CONNECTION_TYPE_TOTAL_SALE => 'PowerPlantConnectionTypeTotalSale',
+			self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION => 'PowerPlantConnectionTypeCollectiveSelfConsumption',
+		);
+	}
+
+	/**
+	 * Normalize a stored or legacy connection type value.
+	 *
+	 * Known legacy labels are mapped to stable technical keys. Unknown values are
+	 * returned unchanged so existing records remain readable and editable.
+	 *
+	 * @param	mixed	$value	Stored value
+	 * @return	string			Technical key or original unknown value
+	 */
+	public static function normalizeConnectionTypeValue($value)
+	{
+		$value = trim((string) $value);
+		if ($value === '' || $value === '0' || $value === '-1') {
+			return '';
+		}
+
+		$options = self::getConnectionTypeOptions();
+		if (array_key_exists($value, $options)) {
+			return $value;
+		}
+
+		$normalized = self::normalizeConnectionTypeSearchValue($value);
+		$mapping = array(
+			'self_consumption' => self::CONNECTION_TYPE_SELF_CONSUMPTION,
+			'autoconsommation' => self::CONNECTION_TYPE_SELF_CONSUMPTION,
+			'auto_consumption' => self::CONNECTION_TYPE_SELF_CONSUMPTION,
+			'autoconsumo' => self::CONNECTION_TYPE_SELF_CONSUMPTION,
+			'eigenverbrauch' => self::CONNECTION_TYPE_SELF_CONSUMPTION,
+			'selfconsumption' => self::CONNECTION_TYPE_SELF_CONSUMPTION,
+			'self_consumption_surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'self_consumption_with_surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'self_consumption_with_surplus_monetization' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'autoconsommation_avec_surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'autoconsommation_avec_valorisation_du_surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'autoconsumo_con_valorizacion_del_excedente' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'autoconsumo_con_valorizzazione_del_surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'eigenverbrauch_mit_verwertung_des_uberschusses' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'valorisation_du_surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'vente_surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'surplus' => self::CONNECTION_TYPE_SELF_CONSUMPTION_SURPLUS,
+			'total_sale' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'total_sale_of_production' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'valorisation_totale_de_la_production' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'valorisation_totale_production' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'valorizacion_total_de_la_produccion' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'valorizzazione_totale_della_produzione' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'vollstandige_vermarktung_der_produktion' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'vente_totale' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'revente_totale' => self::CONNECTION_TYPE_TOTAL_SALE,
+			'collective_self_consumption' => self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION,
+			'collective_autoconsommation' => self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION,
+			'autoconsommation_collective' => self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION,
+			'autoconsumo_colectivo' => self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION,
+			'autoconsumo_collettivo' => self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION,
+			'kollektiver_eigenverbrauch' => self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION,
+		);
+
+		return (isset($mapping[$normalized]) ? $mapping[$normalized] : $value);
+	}
+
+	/**
+	 * Return the display label for a connection type.
+	 *
+	 * @param	mixed			$value			Stored value
+	 * @param	Translate|null	$outputlangs	Output language
+	 * @return	string							Translated label or original unknown value
+	 */
+	public static function getConnectionTypeLabel($value, $outputlangs = null)
+	{
+		global $langs;
+
+		$value = trim((string) $value);
+		if ($value === '') {
+			return '';
+		}
+
+		$normalized = self::normalizeConnectionTypeValue($value);
+		if ($normalized === '') {
+			return '';
+		}
+		$options = self::getConnectionTypeOptions();
+		if (!isset($options[$normalized])) {
+			return $value;
+		}
+
+		$translator = (is_object($outputlangs) ? $outputlangs : $langs);
+		if (is_object($translator)) {
+			return $translator->trans($options[$normalized]);
+		}
+
+		return $options[$normalized];
+	}
+
+	/**
+	 * Normalize a connection type string for legacy matching.
+	 *
+	 * @param	string	$value	Raw value
+	 * @return	string			Search key
+	 */
+	protected static function normalizeConnectionTypeSearchValue($value)
+	{
+		$value = html_entity_decode(trim((string) $value), ENT_QUOTES, 'UTF-8');
+		$value = strtr($value, array(
+			'À' => 'A', 'Á' => 'A', 'Â' => 'A', 'Ã' => 'A', 'Ä' => 'A', 'Å' => 'A',
+			'à' => 'a', 'á' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a', 'å' => 'a',
+			'Ç' => 'C', 'ç' => 'c',
+			'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+			'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+			'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I',
+			'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+			'Ñ' => 'N', 'ñ' => 'n',
+			'Ó' => 'O', 'Ò' => 'O', 'Ô' => 'O', 'Õ' => 'O', 'Ö' => 'O',
+			'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+			'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U',
+			'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+			'Ý' => 'Y', 'ý' => 'y', 'ÿ' => 'y',
+			'Œ' => 'OE', 'œ' => 'oe',
+		));
+		$value = strtolower($value);
+		$value = preg_replace('/[^a-z0-9]+/', '_', $value);
+
+		return trim((string) $value, '_');
 	}
 
 	/**
@@ -310,6 +461,9 @@ class PowerPlant extends CommonObject
 		}
 		if (empty($this->entity)) {
 			$this->entity = (int) $conf->entity;
+		}
+		if (isset($this->connection_type)) {
+			$this->connection_type = self::normalizeConnectionTypeValue($this->connection_type);
 		}
 
 		// Ensure provisional reference and draft status before creation
@@ -556,6 +710,9 @@ class PowerPlant extends CommonObject
 		}
 		if (property_exists($object, 'fk_project')) {
 			$object->fk_project = null;
+		}
+		if (property_exists($object, 'connection_type')) {
+			$object->connection_type = self::normalizeConnectionTypeValue($object->connection_type);
 		}
 		if (property_exists($object, 'date_creation')) {
 			$object->date_creation = dol_now();
@@ -904,6 +1061,9 @@ class PowerPlant extends CommonObject
 		}
 		if (!empty($this->fk_soc)) {
 			$this->socid = (int) $this->fk_soc;
+		}
+		if (isset($this->connection_type)) {
+			$this->connection_type = self::normalizeConnectionTypeValue($this->connection_type);
 		}
 
 		$result = $this->updateCommon($user, 1);
