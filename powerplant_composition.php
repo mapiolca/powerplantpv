@@ -905,38 +905,7 @@ if ($id > 0 || !empty($ref)) {
 		print '</script>';
 
 		if ($canimportserialnumbers) {
-			$serialcategoryoptions = array();
-			foreach ($serialimportcategories as $serialcatid => $serialcat) {
-				$serialcategoryoptions[(int) $serialcatid] = $serialcat['label'].' ('.((int) $serialcat['expected_qty']).')';
-			}
-			$selectedserialcategory = GETPOSTINT('fk_categorie');
-			print '<div id="dialog-serialimport" class="hideobject">';
-			print '<form method="POST" enctype="multipart/form-data" action="'.dol_buildpath('/powerplantpv/serialimport.php', 1).'?id='.$object->id.'">';
-			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="uploadserials">';
-			print '<table class="border centpercent tableforfield">';
-			print '<tr><td class="titlefieldcreate">'.$langs->trans('SerialNumbersCategoryToImport').'</td><td>'.$form->selectarray('fk_categorie', $serialcategoryoptions, ($selectedserialcategory > 0 ? $selectedserialcategory : 0), 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
-			print '<tr><td class="titlefieldcreate">'.$langs->trans('SerialNumbersFileToImport').'</td><td><input type="file" class="flat" name="serial_file" accept=".csv,.xlsx"></td></tr>';
-			print '<tr><td>'.$langs->trans('SerialNumbersFirstLineHeaders').'</td><td><input type="checkbox" class="flat" name="first_line_headers" value="1" checked></td></tr>';
-			print '<tr><td>'.$langs->trans('SerialNumbersImportMode').'</td><td>'.$form->selectarray('import_mode', array('add' => $langs->trans('SerialNumbersAddOnly'), 'replace' => $langs->trans('SerialNumbersReplaceExisting')), 'add', 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
-			print '</table>';
-			print '<div class="center">';
-			print '<input type="submit" class="button button-add" value="'.$langs->trans('Send').'">';
-			print ' <input type="button" class="button button-cancel" id="serialimport-cancel-btn" value="'.$langs->trans('Cancel').'">';
-			print '</div>';
-			print '</form>';
-			print '</div>';
-			print '<script nonce="'.getNonce().'">';
-			print 'jQuery(function(){';
-			print 'jQuery("#dialog-serialimport").dialog({autoOpen:false,modal:true,width:720,title:"'.dol_escape_js($langs->transnoentitiesnoconv('SerialNumbersImport')).'"});';
-			print 'jQuery("#dialog-serialimport #fk_categorie,#dialog-serialimport #import_mode").select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
-			print 'jQuery("a[href*=\"action=serialimport\"]").on("click", function(e){e.preventDefault();jQuery("#dialog-serialimport").dialog("open");});';
-			print 'jQuery("#serialimport-cancel-btn").on("click", function(){jQuery("#dialog-serialimport").dialog("close");});';
-			if ($action === 'serialimport') {
-				print 'jQuery("#dialog-serialimport").dialog("open");';
-			}
-			print '});';
-			print '</script>';
+			powerplantpvSerialImportPrintDialog($object, GETPOSTINT('fk_categorie'), ($action === 'serialimport'));
 		}
 
 		if ($canmanagecomposition && $action === 'editline' && $lineid > 0) {

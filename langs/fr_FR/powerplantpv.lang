@@ -497,8 +497,13 @@ ImportSerialNumbers = Importer les numéros de série
 SerialNumbers = Numéros de série
 PowerPlantCompositionLine = Ligne de composition
 SerialNumbersImport = Import des numéros de série
+SerialNumbersImportSubmit = Importer
 SerialNumbersCategoryToImport = Catégorie à importer
 SerialNumbersFileToImport = Fichier à importer
+SerialNumbersDownloadTemplate = Télécharger un modèle
+SerialNumbersDownloadCsvTemplate = Modèle CSV
+SerialNumbersDownloadXlsxTemplate = Modèle XLSX
+SerialNumbersTemplateComment = Le modèle contient une ligne par numéro de série manquant. Renseignez la colonne serial_number avant l'import.
 SerialNumbersFirstLineHeaders = Première ligne = en-têtes
 SerialNumbersImportMode = Mode d'import
 SerialNumbersValidateAssociation = Valider l'association des numéros

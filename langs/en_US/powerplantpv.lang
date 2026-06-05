@@ -497,8 +497,13 @@ ImportSerialNumbers = Import serial numbers
 SerialNumbers = Serial numbers
 PowerPlantCompositionLine = Composition line
 SerialNumbersImport = Serial number import
+SerialNumbersImportSubmit = Import
 SerialNumbersCategoryToImport = Category to import
 SerialNumbersFileToImport = File to import
+SerialNumbersDownloadTemplate = Download a template
+SerialNumbersDownloadCsvTemplate = CSV template
+SerialNumbersDownloadXlsxTemplate = XLSX template
+SerialNumbersTemplateComment = The template contains one row for each missing serial number. Fill the serial_number column before import.
 SerialNumbersFirstLineHeaders = First line = headers
 SerialNumbersImportMode = Import mode
 SerialNumbersValidateAssociation = Validate serial number associations

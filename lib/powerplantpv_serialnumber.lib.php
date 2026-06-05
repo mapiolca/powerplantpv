@@ -220,6 +220,129 @@ function powerplantpvSerialImportFetchCategoryLines($powerplantid, $categoryid, 
 }
 
 /**
+ * Build rows for a serial number import template.
+ *
+ * @param	PowerPlant	$object		Power plant
+ * @param	int			$categoryid	Category id
+ * @return	array<string,mixed>		Template headers and rows
+ */
+function powerplantpvSerialImportBuildTemplateData($object, $categoryid)
+{
+	global $conf;
+
+	$template = array(
+		'headers' => array('product_ref', 'serial_number', 'product_label', 'comment'),
+		'rows' => array(),
+	);
+	if (empty($object->id) || $categoryid <= 0) {
+		return $template;
+	}
+
+	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+	$lines = powerplantpvSerialImportFetchCategoryLines((int) $object->id, (int) $categoryid, $entity);
+	foreach ($lines as $line) {
+		$missingqty = powerplantpvSerialImportLineCapacity($line, 'add');
+		for ($i = 0; $i < $missingqty; $i++) {
+			$template['rows'][] = array(
+				'product_ref' => (string) $line['product_ref'],
+				'serial_number' => '',
+				'product_label' => (string) $line['product_label'],
+				'comment' => '',
+			);
+		}
+	}
+
+	return $template;
+}
+
+/**
+ * Print the serial number import dialog.
+ *
+ * @param	PowerPlant	$object				Power plant
+ * @param	int			$selectedcategoryid	Selected category id
+ * @param	bool		$openmodal			Open dialog on page load
+ * @return	void
+ */
+function powerplantpvSerialImportPrintDialog($object, $selectedcategoryid = 0, $openmodal = false)
+{
+	global $db, $langs;
+
+	if (empty($object->id)) {
+		return;
+	}
+
+	if (!class_exists('Form')) {
+		require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+	}
+
+	$form = new Form($db);
+	$serialimportcategories = powerplantpvSerialImportFetchCompositionCategories($object);
+	if (empty($serialimportcategories)) {
+		return;
+	}
+
+	$serialcategoryoptions = array();
+	foreach ($serialimportcategories as $serialcatid => $serialcat) {
+		$serialcategoryoptions[(int) $serialcatid] = $serialcat['label'].' ('.((int) $serialcat['expected_qty']).')';
+	}
+	$defaultserialcategory = (int) $selectedcategoryid;
+	if (empty($serialcategoryoptions[$defaultserialcategory])) {
+		reset($serialcategoryoptions);
+		$defaultserialcategory = (int) key($serialcategoryoptions);
+	}
+
+	$serialtemplatebaseurl = dol_buildpath('/powerplantpv/serialimport.php', 1).'?id='.(int) $object->id.'&action=downloadtemplate';
+	$serialtemplatecsvurl = $serialtemplatebaseurl.'&format=csv&fk_categorie='.(int) $defaultserialcategory;
+	$serialtemplatexlsxurl = $serialtemplatebaseurl.'&format=xlsx&fk_categorie='.(int) $defaultserialcategory;
+	$serialtemplatexlsxavailable = powerplantpvSerialImportIsXlsxAvailable();
+
+	print '<div id="dialog-serialimport" class="hideobject">';
+	print '<form method="POST" enctype="multipart/form-data" action="'.dol_buildpath('/powerplantpv/serialimport.php', 1).'?id='.(int) $object->id.'">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="action" value="uploadserials">';
+	print '<table class="border centpercent tableforfield">';
+	print '<tr><td class="titlefieldcreate">'.$langs->trans('SerialNumbersCategoryToImport').'</td><td>'.$form->selectarray('fk_categorie', $serialcategoryoptions, $defaultserialcategory, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+	print '<tr><td class="titlefieldcreate">'.$langs->trans('SerialNumbersFileToImport').'</td><td><input type="file" class="flat" name="serial_file" accept=".csv,.xlsx"></td></tr>';
+	print '<tr><td>'.$langs->trans('SerialNumbersDownloadTemplate').'</td><td>';
+	print '<a id="serialimport-template-csv" href="'.dol_escape_htmltag($serialtemplatecsvurl).'">'.img_picto('', 'fa-download', 'class="pictofixedwidth"').$langs->trans('SerialNumbersDownloadCsvTemplate').'</a>';
+	if ($serialtemplatexlsxavailable) {
+		print ' &nbsp; <a id="serialimport-template-xlsx" href="'.dol_escape_htmltag($serialtemplatexlsxurl).'">'.img_picto('', 'fa-download', 'class="pictofixedwidth"').$langs->trans('SerialNumbersDownloadXlsxTemplate').'</a>';
+	}
+	print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersTemplateComment')).'</span>';
+	print '</td></tr>';
+	print '<tr><td>'.$langs->trans('SerialNumbersFirstLineHeaders').'</td><td><input type="checkbox" class="flat" name="first_line_headers" value="1" checked></td></tr>';
+	print '<tr><td>'.$langs->trans('SerialNumbersImportMode').'</td><td>'.$form->selectarray('import_mode', array('add' => $langs->trans('SerialNumbersAddOnly'), 'replace' => $langs->trans('SerialNumbersReplaceExisting')), 'add', 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+	print '</table>';
+	print '<div class="center">';
+	print '<input type="submit" class="button button-add" value="'.$langs->trans('SerialNumbersImportSubmit').'">';
+	print ' <input type="button" class="button button-cancel" id="serialimport-cancel-btn" value="'.$langs->trans('Cancel').'">';
+	print '</div>';
+	print '</form>';
+	print '</div>';
+	print '<script nonce="'.getNonce().'">';
+	print 'jQuery(function(){';
+	print 'jQuery("#dialog-serialimport").dialog({autoOpen:false,modal:true,width:720,title:"'.dol_escape_js($langs->transnoentitiesnoconv('SerialNumbersImport')).'"});';
+	print 'jQuery("#dialog-serialimport #fk_categorie,#dialog-serialimport #import_mode").select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
+	print 'var serialimportTemplateBaseUrl = "'.dol_escape_js($serialtemplatebaseurl).'";';
+	print 'function powerplantpvRefreshSerialImportTemplateLinks(){';
+	print 'var category = jQuery("#dialog-serialimport #fk_categorie").val() || "'.((int) $defaultserialcategory).'";';
+	print 'jQuery("#serialimport-template-csv").attr("href", serialimportTemplateBaseUrl+"&format=csv&fk_categorie="+encodeURIComponent(category));';
+	if ($serialtemplatexlsxavailable) {
+		print 'jQuery("#serialimport-template-xlsx").attr("href", serialimportTemplateBaseUrl+"&format=xlsx&fk_categorie="+encodeURIComponent(category));';
+	}
+	print '}';
+	print 'powerplantpvRefreshSerialImportTemplateLinks();';
+	print 'jQuery("#dialog-serialimport #fk_categorie").on("change", powerplantpvRefreshSerialImportTemplateLinks);';
+	print 'jQuery("a[href*=\"action=serialimport\"]").on("click", function(e){e.preventDefault();jQuery("#dialog-serialimport").dialog("open");});';
+	print 'jQuery("#serialimport-cancel-btn").on("click", function(){jQuery("#dialog-serialimport").dialog("close");});';
+	if ($openmodal) {
+		print 'jQuery("#dialog-serialimport").dialog("open");';
+	}
+	print '});';
+	print '</script>';
+}
+
+/**
  * Return grouped composition serial number summary.
  *
  * @param	PowerPlant	$object	Power plant

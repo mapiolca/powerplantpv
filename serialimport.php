@@ -102,6 +102,7 @@ function powerplantpv_serialimport_messages_html($messages)
 $id = GETPOSTINT('id');
 $importid = GETPOSTINT('importid');
 $action = GETPOST('action', 'aZ09');
+$format = GETPOST('format', 'alpha');
 $categoryid = GETPOSTINT('fk_categorie');
 $mode = GETPOST('import_mode', 'alpha');
 $mode = ($mode === 'replace' ? 'replace' : 'add');
@@ -138,6 +139,65 @@ restrictedArea($user, $object->module, $object, $object->table_element, $object-
 
 $canimport = ($permissiontoadd && $permissiontoserialimport && (int) $object->status !== (int) $object::STATUS_CANCELED);
 $categories = powerplantpvSerialImportFetchCompositionCategories($object);
+
+if ($action === 'downloadtemplate') {
+	if (!$canimport) {
+		accessforbidden();
+	}
+	if (empty($categories[$categoryid])) {
+		setEventMessages($langs->trans('SerialNumbersCategoryAbsentFromPowerplant'), null, 'errors');
+	} else {
+		$template = powerplantpvSerialImportBuildTemplateData($object, $categoryid);
+		$headers = (array) $template['headers'];
+		$rows = (array) $template['rows'];
+		$filenamebase = dol_sanitizeFileName($object->ref.'-'.$categories[$categoryid]['label'].'-serialnumbers-template');
+
+		if ($format === 'csv') {
+			header('Content-Type: text/csv; charset=UTF-8');
+			header('Content-Disposition: attachment; filename="'.$filenamebase.'.csv"');
+			$out = fopen('php://output', 'wb');
+			fputs($out, "\xEF\xBB\xBF");
+			fputcsv($out, $headers, ';');
+			foreach ($rows as $row) {
+				$data = array();
+				foreach ($headers as $header) {
+					$data[] = isset($row[$header]) ? $row[$header] : '';
+				}
+				fputcsv($out, $data, ';');
+			}
+			fclose($out);
+			exit;
+		} elseif ($format === 'xlsx') {
+			if (!powerplantpvSerialImportLoadPhpSpreadsheet()) {
+				setEventMessages($langs->trans('SerialNumbersXlsxReaderUnavailable'), null, 'errors');
+			} else {
+				$data = array();
+				foreach ($rows as $row) {
+					$datarow = array();
+					foreach ($headers as $header) {
+						$datarow[] = isset($row[$header]) ? $row[$header] : '';
+					}
+					$data[] = $datarow;
+				}
+
+				$spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+				$sheet = $spreadsheet->getActiveSheet();
+				$sheet->fromArray($headers, null, 'A1');
+				if (!empty($data)) {
+					$sheet->fromArray($data, null, 'A2');
+				}
+
+				header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+				header('Content-Disposition: attachment; filename="'.$filenamebase.'.xlsx"');
+				$writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+				$writer->save('php://output');
+				exit;
+			}
+		} else {
+			setEventMessages($langs->trans('SerialNumbersUnsupportedFileExtension'), null, 'errors');
+		}
+	}
+}
 
 if ($action === 'uploadserials' && $canimport) {
 	if (!powerplantpv_serialimport_check_token()) {
