@@ -302,38 +302,41 @@ function powerplantpvSerialNumberFetchTraceabilitySummary($object)
 
 	$rows = powerplantpvSerialNumberFetchCompositionSummary($object);
 	$summary['composition_rows'] = $rows;
-	$missingbyproduct = array();
+	$productgroups = array();
 	foreach ($rows as $row) {
 		$expectedqty = max(0, (int) $row['expected_qty']);
 		$storedqty = max(0, (int) $row['stored_qty']);
-		$missingqty = max(0, $expectedqty - $storedqty);
 		$summary['expected_qty'] += $expectedqty;
 		$summary['stored_qty'] += $storedqty;
-		if ($missingqty > 0) {
-			if (empty($summary['first_missing_category'])) {
-				$summary['first_missing_category'] = (int) $row['fk_categorie'];
-			}
-			$productkey = ((int) $row['fk_categorie']).'-'.((int) $row['fk_product']);
-			if (empty($missingbyproduct[$productkey])) {
-				$missingbyproduct[$productkey] = array(
-					'fk_categorie' => (int) $row['fk_categorie'],
-					'category_label' => (string) $row['category_label'],
-					'fk_product' => (int) $row['fk_product'],
-					'product_ref' => (string) $row['product_ref'],
-					'product_label' => (string) $row['product_label'],
-					'product_display' => (string) $row['product_display'],
-					'expected_qty' => 0,
-					'stored_qty' => 0,
-					'missing_qty' => 0,
-				);
-			}
-			$missingbyproduct[$productkey]['expected_qty'] += $expectedqty;
-			$missingbyproduct[$productkey]['stored_qty'] += $storedqty;
-			$missingbyproduct[$productkey]['missing_qty'] += $missingqty;
+
+		$productkey = ((int) $row['fk_categorie']).'-'.(string) $row['product_ref'];
+		if (empty($productgroups[$productkey])) {
+			$productgroups[$productkey] = array(
+				'fk_categorie' => (int) $row['fk_categorie'],
+				'category_label' => (string) $row['category_label'],
+				'fk_product' => (int) $row['fk_product'],
+				'product_ref' => (string) $row['product_ref'],
+				'product_label' => (string) $row['product_label'],
+				'product_display' => (string) $row['product_display'],
+				'expected_qty' => 0,
+				'stored_qty' => 0,
+				'missing_qty' => 0,
+			);
 		}
+		$productgroups[$productkey]['expected_qty'] += $expectedqty;
+		$productgroups[$productkey]['stored_qty'] += $storedqty;
 	}
 	$summary['missing_qty'] = max(0, (int) $summary['expected_qty'] - (int) $summary['stored_qty']);
-	$summary['missing_rows'] = array_values($missingbyproduct);
+	foreach ($productgroups as $productgroup) {
+		$productgroup['missing_qty'] = max(0, (int) $productgroup['expected_qty'] - (int) $productgroup['stored_qty']);
+		if ($productgroup['missing_qty'] <= 0) {
+			continue;
+		}
+		if (empty($summary['first_missing_category'])) {
+			$summary['first_missing_category'] = (int) $productgroup['fk_categorie'];
+		}
+		$summary['missing_rows'][] = $productgroup;
+	}
 
 	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 	$sql = "SELECT si.rowid, si.datec, si.filename, u.login, u.firstname, u.lastname";
