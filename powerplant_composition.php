@@ -56,6 +56,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'products', 'other'));
 
@@ -247,9 +248,17 @@ $enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK')
 if ($enablepermissioncheck) {
 	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
 	$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write');
+	$permissiontoserialread = $user->hasRight('powerplantpv', 'serialnumber', 'read');
+	$permissiontoserialimport = $user->hasRight('powerplantpv', 'serialnumber', 'import');
+	$permissiontoserialdelete = $user->hasRight('powerplantpv', 'serialnumber', 'delete');
+	$permissiontoserialexport = $user->hasRight('powerplantpv', 'serialnumber', 'export');
 } else {
 	$permissiontoread = 1;
 	$permissiontoadd = 1;
+	$permissiontoserialread = 1;
+	$permissiontoserialimport = 1;
+	$permissiontoserialdelete = 1;
+	$permissiontoserialexport = 1;
 }
 
 if (!isModEnabled($object->module) || !$permissiontoread) {
@@ -292,6 +301,8 @@ $componentstatus = array(
 
 $canedit = ($permissiontoadd && (int) $object->status === (int) $object::STATUS_DRAFT);
 $canmanagecomposition = ($permissiontoadd && (int) $object->status !== (int) $object::STATUS_CANCELED);
+$serialimportcategories = powerplantpvSerialImportFetchCompositionCategories($object);
+$canimportserialnumbers = ($canmanagecomposition && $permissiontoserialimport && !empty($object->id) && !empty($serialimportcategories));
 $availablemassactions = array();
 if ($canmanagecomposition) {
 	$availablemassactions[] = 'massreplace';
@@ -806,6 +817,9 @@ if ($id > 0 || !empty($ref)) {
 		$arrayofmassactions['massdelete'] = img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete');
 		$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition&token='.newToken());
 	}
+	if ($canimportserialnumbers) {
+		$newcardbutton .= dolGetButtonTitle($langs->trans('ImportSerialNumbers'), '', 'fa fa-file-import', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=serialimport&token='.newToken());
+	}
 	if (!empty($arrayofmassactions)) {
 		$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
 	}
@@ -901,6 +915,41 @@ if ($id > 0 || !empty($ref)) {
 		}
 		print '});';
 		print '</script>';
+
+		if ($canimportserialnumbers) {
+			$serialcategoryoptions = array();
+			foreach ($serialimportcategories as $serialcatid => $serialcat) {
+				$serialcategoryoptions[(int) $serialcatid] = $serialcat['label'].' ('.((int) $serialcat['expected_qty']).')';
+			}
+			$selectedserialcategory = GETPOSTINT('fk_categorie');
+			print '<div id="dialog-serialimport" class="hideobject">';
+			print '<form method="POST" enctype="multipart/form-data" action="'.dol_buildpath('/powerplantpv/serialimport.php', 1).'?id='.$object->id.'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="uploadserials">';
+			print '<table class="border centpercent tableforfield">';
+			print '<tr><td class="titlefieldcreate">'.$langs->trans('SerialNumbersCategoryToImport').'</td><td>'.$form->selectarray('fk_categorie', $serialcategoryoptions, ($selectedserialcategory > 0 ? $selectedserialcategory : 0), 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+			print '<tr><td class="titlefieldcreate">'.$langs->trans('SerialNumbersFileToImport').'</td><td><input type="file" class="flat" name="serial_file" accept=".csv,.xlsx"></td></tr>';
+			print '<tr><td>'.$langs->trans('SerialNumbersFirstLineHeaders').'</td><td><input type="checkbox" class="flat" name="first_line_headers" value="1" checked></td></tr>';
+			print '<tr><td>'.$langs->trans('SerialNumbersImportMode').'</td><td>'.$form->selectarray('import_mode', array('add' => $langs->trans('SerialNumbersAddOnly'), 'replace' => $langs->trans('SerialNumbersReplaceExisting')), 'add', 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+			print '</table>';
+			print '<div class="center">';
+			print '<input type="submit" class="button button-add" value="'.$langs->trans('Send').'">';
+			print ' <input type="button" class="button button-cancel" id="serialimport-cancel-btn" value="'.$langs->trans('Cancel').'">';
+			print '</div>';
+			print '</form>';
+			print '</div>';
+			print '<script nonce="'.getNonce().'">';
+			print 'jQuery(function(){';
+			print 'jQuery("#dialog-serialimport").dialog({autoOpen:false,modal:true,width:720,title:"'.dol_escape_js($langs->transnoentitiesnoconv('SerialNumbersImport')).'"});';
+			print 'jQuery("#dialog-serialimport #fk_categorie,#dialog-serialimport #import_mode").select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
+			print 'jQuery("a[href*=\"action=serialimport\"]").on("click", function(e){e.preventDefault();jQuery("#dialog-serialimport").dialog("open");});';
+			print 'jQuery("#serialimport-cancel-btn").on("click", function(){jQuery("#dialog-serialimport").dialog("close");});';
+			if ($action === 'serialimport') {
+				print 'jQuery("#dialog-serialimport").dialog("open");';
+			}
+			print '});';
+			print '</script>';
+		}
 
 		if ($canmanagecomposition && $action === 'editline' && $lineid > 0) {
 			$sqledit = "SELECT rowid, fk_status, serial_number, commissioning_date FROM ".$db->prefix()."powerplantpv_powerplantcomp";
@@ -1162,6 +1211,48 @@ if ($id > 0 || !empty($ref)) {
 			print '});';
 			print '});';
 			print '</script>';
+		}
+
+		$serialsummary = powerplantpvSerialNumberFetchCompositionSummary($object);
+		if (!empty($serialsummary) && $permissiontoserialread) {
+			print load_fiche_titre($langs->trans('SerialNumbersCompositionSummary'), '', 'fa-barcode');
+			print '<div class="div-table-responsive-no-min">';
+			print '<table class="noborder centpercent">';
+			print '<tr class="liste_titre">';
+			print '<td>'.$langs->trans('Category').'</td>';
+			print '<td>'.$langs->trans('Product').'</td>';
+			print '<td class="right">'.$langs->trans('SerialNumbersExpectedQty').'</td>';
+			print '<td class="right">'.$langs->trans('SerialNumbersRecordedQty').'</td>';
+			print '<td class="center">'.$langs->trans('Actions').'</td>';
+			print '</tr>';
+			foreach ($serialsummary as $summaryrow) {
+				$listurl = dol_buildpath('/powerplantpv/serialnumber_list.php', 1).'?id='.(int) $object->id.'&lineid='.(int) $summaryrow['fk_powerplant_line'];
+				$reimporturl = $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&fk_categorie='.(int) $summaryrow['fk_categorie'].'&token='.newToken();
+				print '<tr class="oddeven">';
+				print '<td>'.dol_escape_htmltag($summaryrow['category_label']).'</td>';
+				print '<td>'.dol_escape_htmltag($summaryrow['product_display']).' <span class="opacitymedium">#'.((int) $summaryrow['fk_powerplant_line']).'</span></td>';
+				print '<td class="right">'.((int) $summaryrow['expected_qty']).'</td>';
+				print '<td class="right">'.((int) $summaryrow['stored_qty']).' / '.((int) $summaryrow['expected_qty']).'</td>';
+				print '<td class="center nowraponall">';
+				print '<a class="reposition" href="'.$listurl.'" title="'.$langs->trans('SerialNumbersView').'">'.img_view().'</a>';
+				if ($permissiontoserialexport) {
+					print '<a class="reposition marginleftonly" href="'.$listurl.'&export=csv" title="'.$langs->trans('Export').'">'.img_picto($langs->trans('Export'), 'download').'</a>';
+					if (powerplantpvSerialImportIsXlsxAvailable()) {
+						print '<a class="reposition marginleftonly" href="'.$listurl.'&export=xlsx" title="'.$langs->trans('Export').' XLSX">'.img_picto($langs->trans('Export').' XLSX', 'fa-file-excel').'</a>';
+					}
+				}
+				if ($permissiontoserialdelete && (int) $summaryrow['stored_qty'] > 0) {
+					print '<a class="reposition marginleftonly" href="'.$listurl.'&action=deletefilter&token='.newToken().'" title="'.$langs->trans('Delete').'">'.img_delete().'</a>';
+				}
+				if ($canimportserialnumbers) {
+					print '<a class="reposition marginleftonly" href="'.$reimporturl.'" title="'.$langs->trans('SerialNumbersReimport').'">'.img_picto($langs->trans('SerialNumbersReimport'), 'refresh').'</a>';
+				}
+				print '</td>';
+				print '</tr>';
+			}
+			print '</table>';
+			print '</div>';
+			print '<br>';
 		}
 
 		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';

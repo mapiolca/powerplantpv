@@ -433,3 +433,92 @@ TypeContact_powerplant_external_CENTPV_EXTERNAL_ELECTRICAL_TECH = Técnico elect
 TypeContact_powerplant_external_CENTPV_EXTERNAL_COMMISSION_TECH = Técnico externo de puesta en servicio
 TypeContact_powerplant_external_CENTPV_EXTERNAL_MAINTENANCE_TECH = Técnico de mantenimiento externo
 TypeContact_powerplant_external_CENTPV_EXTERNAL_ROOFER = Técnico externo de cubierta
+
+#
+# Serial numbers import
+#
+ImportSerialNumbers = Importar números de serie
+SerialNumbers = Números de serie
+PowerPlantCompositionLine = Línea de composición
+SerialNumbersImport = Importación de números de serie
+SerialNumbersCategoryToImport = Categoría a importar
+SerialNumbersFileToImport = Archivo a importar
+SerialNumbersFirstLineHeaders = Primera línea = encabezados
+SerialNumbersImportMode = Modo de importación
+SerialNumbersValidateAssociation = Validar la asociación de números
+SerialNumbersImportSummary = Resumen de la importación
+SerialNumbersExpectedQty = Cantidad esperada
+SerialNumbersImportedQty = Cantidad importada
+SerialNumbersRecordedQty = Números registrados
+SerialNumbersDetectedRows = Líneas detectadas
+SerialNumbersValidQty = Números válidos
+SerialNumbersGap = Diferencia
+SerialNumbersDuplicateInFile = Duplicado en el archivo
+SerialNumbersDuplicateInPowerplant = Número ya presente en la planta
+SerialNumbersUnknownProduct = Producto no reconocido
+SerialNumbersAssociationRequired = Asociación manual requerida
+SerialNumbersImportValidated = Importación de números de serie validada
+SerialNumbersImportCancelled = Importación de números de serie cancelada
+SerialNumbersCancelImport = Cancelar la importación
+SerialNumbersReplaceExisting = Reemplazar los números existentes
+SerialNumbersAddOnly = Solo añadir
+SerialNumbersNoCategoryAvailable = No hay ninguna categoría de producto FV disponible en la planta
+SerialNumbersSourceFile = Archivo origen
+SerialNumbersImportBatch = Lote de importación
+SerialNumbersRawData = Datos brutos
+SerialNumbersParsedData = Datos analizados
+SerialNumbersUnsupportedFileExtension = Extensión de archivo no autorizada
+SerialNumbersFileNotReadable = Archivo no legible
+SerialNumbersNoUsableLine = Ninguna línea utilizable
+SerialNumbersXlsxReaderUnavailable = Lector XLSX PhpSpreadsheet no disponible
+SerialNumbersColumnSerialNotFound = Columna serial_number no encontrada
+SerialNumbersUnknownColumnsIgnored = Se han ignorado algunas columnas desconocidas
+SerialNumbersEmptySerialNumber = Número de serie vacío
+SerialNumbersAlreadyAssociatedWillBeReplaced = Este número ya existe en esta categoría y será reemplazado
+SerialNumbersQuantityExceedsExpected = La cantidad importada supera la cantidad prevista
+SerialNumbersCategoryAbsentFromPowerplant = Categoría ausente de la composición de la planta
+SerialNumbersLineAlreadyUsedInImport = Línea de composición ya utilizada en esta importación
+SerialNumbersLineAlreadyHasSerial = Esta línea ya tiene un número de serie
+SerialNumbersUnusualFormat = Formato de número inusual
+SerialNumbersImportHasBlockingErrors = La importación contiene errores bloqueantes
+SerialNumbersExistingDeletedCount = Se eliminarán %s número(s) existente(s)
+SerialNumbersStatusOk = OK
+SerialNumbersStatusWarning = Alerta
+SerialNumbersStatusError = Error
+SerialNumbersDetectedProduct = Producto detectado
+SerialNumbersProposedAssociation = Asociación propuesta
+SerialNumbersImportedForCategory = Se importaron %s número(s) de serie para la categoría %s.
+SerialNumbersImportValidatedLog = Categoría: %s\nArchivo: %s\nNúmeros importados: %s\nUsuario: %s
+SerialNumbersCompositionSummary = Resumen de números de serie
+SerialNumbersView = Ver números
+SerialNumbersReimport = Reimportar
+SerialNumbersDeletedCount = %s número(s) de serie eliminado(s)
+SerialNumbersConfirmDeleteSelection = ¿Confirma la eliminación de los números de serie seleccionados?
+PowerPlantSerialNumberPermissionRead = Leer números de serie
+PowerPlantSerialNumberPermissionImport = Importar números de serie
+PowerPlantSerialNumberPermissionDelete = Eliminar números de serie
+PowerPlantSerialNumberPermissionExport = Exportar números de serie
+PowerPlantCompTriggerSerialImport = Importación de números de serie validada
+PowerPlantCompTriggerSerialImportDesc = Ejecutado cuando se valida una importación de números de serie
+
+#
+# Compatibility
+#
+PowerPlantPVCompatibilityEnvironment = Entorno detectado
+PowerPlantPVDetectedPhpVersion = Versión PHP detectada
+PowerPlantPVDetectedDolibarrVersion = Versión Dolibarr detectada
+PowerPlantPVMinPhpVersion = Versión PHP mínima soportada
+PowerPlantPVMinDolibarrVersion = Versión Dolibarr mínima soportada
+PowerPlantCompatibilityCoreDescription = Funciones principales del módulo Plantas FV
+PowerPlantPVRequiresDolibarr20Php80 = Requiere Dolibarr v20 y PHP 8.0
+SerialNumbersImportCsvFeature = Importación CSV de números de serie
+SerialNumbersImportCsvFeatureDescription = Lectura y análisis de archivos CSV de números de serie
+SerialNumbersImportXlsxFeature = Importación XLSX de números de serie
+SerialNumbersImportXlsxFeatureDescription = Lectura y análisis de archivos XLSX mediante PhpSpreadsheet
+SerialNumbersExportCsvFeature = Exportación CSV de números de serie
+SerialNumbersExportCsvFeatureDescription = Exportación CSV de los números de serie registrados
+SerialNumbersExportXlsxFeature = Exportación XLSX de números de serie
+SerialNumbersExportXlsxFeatureDescription = Exportación XLSX de los números de serie registrados mediante PhpSpreadsheet
+Reason = Motivo
+Available = Disponible
+Unavailable = No disponible

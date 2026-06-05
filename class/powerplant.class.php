@@ -1562,6 +1562,102 @@ class PowerPlant extends CommonObject
 	}
 
 	/**
+	 * Validate a serial number import batch for this power plant.
+	 *
+	 * @param	PowerPlantPVSerialNumberImport	$import			Import batch
+	 * @param	array<int,int>					$assignments	Manual composition line assignments
+	 * @param	User							$user			User
+	 * @return	array<string,mixed>|int							Result array, <0 on error
+	 */
+	public function validateSerialNumbersImport($import, $assignments, User $user)
+	{
+		dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
+
+		return powerplantpvSerialImportValidateBatch($this, $import, $assignments, $user);
+	}
+
+	/**
+	 * Cancel a serial number import batch.
+	 *
+	 * @param	PowerPlantPVSerialNumberImport	$import	Import batch
+	 * @param	User							$user	User
+	 * @return	int									1 if OK, <0 on error
+	 */
+	public function cancelSerialNumbersImport($import, User $user)
+	{
+		dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
+
+		return powerplantpvSerialImportCancelBatch($import);
+	}
+
+	/**
+	 * Delete one serial number and clear the linked composition line value.
+	 *
+	 * @param	int		$serialid	Serial number id
+	 * @param	User	$user		User
+	 * @return	int					1 if OK, 0 if not found, <0 on error
+	 */
+	public function deleteSerialNumber($serialid, User $user)
+	{
+		global $conf;
+
+		$serialid = (int) $serialid;
+		if ($serialid <= 0 || empty($this->id)) {
+			return 0;
+		}
+		$entity = (!empty($this->entity) ? (int) $this->entity : (int) $conf->entity);
+
+		$sql = "SELECT rowid, fk_powerplant_line FROM ".$this->db->prefix()."powerplantpv_serialnumber";
+		$sql .= " WHERE rowid = ".$serialid;
+		$sql .= " AND fk_powerplant = ".((int) $this->id);
+		$sql .= " AND entity = ".$entity;
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		if (!$obj) {
+			return 0;
+		}
+
+		$this->db->begin();
+		$sqldelete = "DELETE FROM ".$this->db->prefix()."powerplantpv_serialnumber WHERE rowid = ".$serialid." AND entity = ".$entity;
+		if (!$this->db->query($sqldelete)) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		$sqlclear = "UPDATE ".$this->db->prefix()."powerplantpv_powerplantcomp";
+		$sqlclear .= " SET serial_number = ''";
+		$sqlclear .= " WHERE rowid = ".((int) $obj->fk_powerplant_line);
+		$sqlclear .= " AND fk_powerplant = ".((int) $this->id);
+		$sqlclear .= " AND entity = ".$entity;
+		if (!$this->db->query($sqlclear)) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		$this->db->commit();
+
+		return 1;
+	}
+
+	/**
+	 * Delete serial numbers by category for this power plant.
+	 *
+	 * @param	int		$categoryid	Category id
+	 * @param	User	$user		User
+	 * @return	int					Deleted count, <0 on error
+	 */
+	public function deleteSerialNumbersByCategory($categoryid, User $user)
+	{
+		dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
+
+		return powerplantpvSerialNumberDeleteByFilter($this, array('fk_categorie' => (int) $categoryid));
+	}
+
+	/**
 	 * Initialize object with example values
 	 * Id must be 0 if object instance is a specimen
 	 *
