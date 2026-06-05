@@ -450,6 +450,7 @@ $categoryCode = powerplantpv_get_product_category_code($db, $categoryRowId);
 $isPVPanel = ($categoryCode === 'MODULE');
 $isInverter = ($categoryCode === 'ONDULE');
 $hasDetailedCharacteristics = ($isPVPanel || $isInverter);
+$showPVFreeImportButton = (getDolGlobalInt('POWERPLANTPV_PVFREE_ENABLED') && $permissiontoadd && $hasDetailedCharacteristics && ($isPVPanel || $isInverter));
 
 $form = new Form($db);
 $panel = null;
@@ -697,6 +698,9 @@ if ($isPVPanel) {
 		if ($permissiontoadd) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_panel', '', true);
 		}
+		if ($showPVFreeImportButton) {
+			print dolGetButtonAction($langs->trans('PVFreeImportFromPVFree'), '', 'default', dol_buildpath('/powerplantpv/product_pvfree_import.php', 1).'?id='.$object->id, '', true);
+		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
 		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id, '', true);
@@ -731,6 +735,9 @@ if ($isInverter) {
 	if (!$editmode) {
 		if ($permissiontoadd) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_inverter', '', true);
+		}
+		if ($showPVFreeImportButton) {
+			print dolGetButtonAction($langs->trans('PVFreeImportFromPVFree'), '', 'default', dol_buildpath('/powerplantpv/product_pvfree_import.php', 1).'?id='.$object->id, '', true);
 		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';

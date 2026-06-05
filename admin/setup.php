@@ -58,6 +58,7 @@ if (!$res) {
 
 // Libraries
 require_once DOL_DOCUMENT_ROOT."/core/lib/admin.lib.php";
+require_once DOL_DOCUMENT_ROOT."/core/lib/ajax.lib.php";
 require_once '../lib/powerplantpv.lib.php';
 require_once '../lib/powerplantpv_powerplant.lib.php';
 //require_once "../class/myclass.class.php";
@@ -258,6 +259,44 @@ if ($action == 'updateMask') {
 		$constforval = 'POWERPLANTPV_'.strtoupper($tmpobjectkey).'_ADDON_PDF';
 		dolibarr_del_const($db, $constforval, $conf->entity);
 	}
+} elseif ($action == 'save_pvfree') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$pvfreeapiurl = trim(GETPOST('pvfree_api_url', 'nohtml'));
+	$pvfreetimeout = GETPOSTINT('pvfree_timeout');
+	$pvfreeoverwritestrategy = GETPOST('pvfree_overwrite_strategy', 'aZ09');
+	$pvfreemoduledataset = GETPOST('pvfree_default_module_dataset', 'aZ09');
+	$pvfreeinverterdataset = GETPOST('pvfree_default_inverter_dataset', 'aZ09');
+
+	if ($pvfreeapiurl === '') {
+		$pvfreeapiurl = 'https://pvfree.azurewebsites.net';
+	}
+	if ($pvfreetimeout <= 0) {
+		$pvfreetimeout = 10;
+	}
+	if (!in_array($pvfreeoverwritestrategy, array('never', 'empty_only', 'overwrite_after_confirm'), true)) {
+		$pvfreeoverwritestrategy = 'empty_only';
+	}
+	if (!in_array($pvfreemoduledataset, array('cecmodule', 'pvmodule'), true)) {
+		$pvfreemoduledataset = 'cecmodule';
+	}
+	if ($pvfreeinverterdataset !== 'pvinverter') {
+		$pvfreeinverterdataset = 'pvinverter';
+	}
+
+	$res = dolibarr_set_const($db, 'POWERPLANTPV_PVFREE_API_URL', $pvfreeapiurl, 'chaine', 0, '', $conf->entity);
+	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_PVFREE_TIMEOUT', $pvfreetimeout, 'chaine', 0, '', $conf->entity);
+	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_PVFREE_OVERWRITE_EXISTING_DATA', $pvfreeoverwritestrategy, 'chaine', 0, '', $conf->entity);
+	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_PVFREE_DEFAULT_MODULE_DATASET', $pvfreemoduledataset, 'chaine', 0, '', $conf->entity);
+	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_PVFREE_DEFAULT_INVERTER_DATASET', $pvfreeinverterdataset, 'chaine', 0, '', $conf->entity);
+
+	if ($res) {
+		setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
 }
 
 $action = 'edit';
@@ -300,6 +339,41 @@ echo '<span class="opacitymedium">'.$langs->trans("PowerPlantPVSetupPage").'</sp
 if (!empty($formSetup->items)) {
 	print $formSetup->generateOutput(true);
 	print '<br>';
+}
+
+$conf->global->POWERPLANTPV_PVFREE_IMPORT_RAW_JSON = getDolGlobalInt('POWERPLANTPV_PVFREE_IMPORT_RAW_JSON', 1);
+$pvfreeoverwritestrategies = array(
+	'never' => $langs->trans('PVFreeOverwriteNever'),
+	'empty_only' => $langs->trans('PVFreeOverwriteEmptyOnly'),
+	'overwrite_after_confirm' => $langs->trans('PVFreeOverwriteAfterConfirm'),
+);
+$pvfreemoduledatasets = array(
+	'cecmodule' => $langs->trans('PVFreeDatasetCECModule'),
+	'pvmodule' => $langs->trans('PVFreeDatasetSandiaModule'),
+);
+$pvfreeinverterdatasets = array(
+	'pvinverter' => $langs->trans('PVFreeDatasetPVInverter'),
+);
+
+print load_fiche_titre($langs->trans('PVFreeConnector'), '', '');
+print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_pvfree">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PVFreeConnectorEnabled').'</td><td>'.ajax_constantonoff('POWERPLANTPV_PVFREE_ENABLED', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PVFreeStoreRawJson').'</td><td>'.ajax_constantonoff('POWERPLANTPV_PVFREE_IMPORT_RAW_JSON', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PVFreeAPIUrl').'</td><td><input type="text" class="flat minwidth500" name="pvfree_api_url" value="'.dol_escape_htmltag(getDolGlobalString('POWERPLANTPV_PVFREE_API_URL', 'https://pvfree.azurewebsites.net')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PVFreeTimeout').'</td><td><input type="number" min="1" class="flat maxwidth100 right" name="pvfree_timeout" value="'.((int) getDolGlobalInt('POWERPLANTPV_PVFREE_TIMEOUT', 10)).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PVFreeOverwriteStrategy').'</td><td>'.$form->selectarray('pvfree_overwrite_strategy', $pvfreeoverwritestrategies, getDolGlobalString('POWERPLANTPV_PVFREE_OVERWRITE_EXISTING_DATA', 'empty_only'), 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PVFreeDefaultModuleDataset').'</td><td>'.$form->selectarray('pvfree_default_module_dataset', $pvfreemoduledatasets, getDolGlobalString('POWERPLANTPV_PVFREE_DEFAULT_MODULE_DATASET', 'cecmodule'), 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PVFreeDefaultInverterDataset').'</td><td>'.$form->selectarray('pvfree_default_inverter_dataset', $pvfreeinverterdatasets, getDolGlobalString('POWERPLANTPV_PVFREE_DEFAULT_INVERTER_DATASET', 'pvinverter'), 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+print '</table>';
+print '<div class="tabsAction">';
+print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+print '</div>';
+print '</form>';
+if ($conf->use_javascript_ajax) {
+	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#pvfree_overwrite_strategy,#pvfree_default_module_dataset,#pvfree_default_inverter_dataset").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
 }
 
 print load_fiche_titre($langs->trans('PowerPlantPVPeakPowerRecalculation'), '', '');

@@ -4,6 +4,7 @@
 
 - Manage photovoltaic power plants in Dolibarr.
 - Track the material composition of a power plant by PV product category.
+- Import PV Free technical data into existing Dolibarr PV module and inverter products from the detailed characteristics tab.
 - Import CSV/XLSX serial numbers by composition category, validate product-line associations, and store each serial number against the power plant, composition line, product and PV category.
 - Export recorded serial numbers as CSV or XLSX.
 

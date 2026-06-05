@@ -59,11 +59,13 @@ class PowerPlantPVCompatibility
 	public static function getFeatures()
 	{
 		dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
+		require_once DOL_DOCUMENT_ROOT.'/core/lib/geturl.lib.php';
 
 		$baseavailable = self::isPhpVersionAtLeast(self::MIN_PHP_VERSION)
 			&& self::isDolibarrVersionAtLeast(self::MIN_DOLIBARR_VERSION);
 		$xlsxreadavailable = $baseavailable && powerplantpvSerialImportIsXlsxReadAvailable();
 		$xlsxwriteavailable = $baseavailable && powerplantpvSerialImportIsXlsxAvailable();
+		$pvfreeavailable = $baseavailable && function_exists('getURLContent');
 
 		return array(
 			'powerplant_core' => array(
@@ -105,6 +107,14 @@ class PowerPlantPVCompatibility
 				'min_php' => self::MIN_PHP_VERSION,
 				'available' => $xlsxwriteavailable,
 				'reason' => ($xlsxwriteavailable ? '' : 'SerialNumbersXlsxReaderUnavailable'),
+			),
+			'pvfree_connector' => array(
+				'label' => 'PVFreeConnector',
+				'description' => 'PVFreeConnectorCompatibilityDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $pvfreeavailable,
+				'reason' => ($pvfreeavailable ? '' : 'PVFreeGetURLContentUnavailable'),
 			),
 		);
 	}

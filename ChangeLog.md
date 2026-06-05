@@ -1,5 +1,14 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.0
+
+Cette version ajoute la V1 du connecteur PV Free pour les produits existants :
+- ajout d'un import PV Free depuis l'onglet Caractéristiques détaillées des produits Dolibarr ;
+- alimentation des tables techniques existantes des modules PV et onduleurs, sans référentiel composant séparé ;
+- ajout d'une table de traçabilité des sources importées ;
+- ajout des réglages PV Free, des stratégies d'écrasement et des datasets par défaut ;
+- les détails MPPT / entrées DC des onduleurs ne sont pas écrasés automatiquement et restent à vérifier manuellement.
+
 ## 1.1.0
 
 Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration Multicompany :
@@ -17,15 +26,15 @@ Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration M
 Cette version corrige principalement une erreur 500 lors du clonage / de la création d’une centrale PV depuis un document commercial.
 
 Elle améliore aussi l’intégration Dolibarr du module avec :
-- correction Multicompany des references de Centrales : unicite par entite et numerotation dans le perimetre partage natif ;
-- completude des reglages Multicompany : partage des Centrales, partage de la numerotation et dictionnaire photovoltaique traduit ;
-- affichage des reglages de partage Multicompany PowerPlantPV dans toutes les entites via les hooks dedies ;
-- rattachement des lignes de composition a l'entite proprietaire de la Centrale ;
-- alignement de l'affichage du Tiers dans la banniere Centrale ;
-- ajout de l'onglet Localisation/Acces des Centrales et de l'adresse formatee dans la banniere ;
-- ajout du modele PDF Centrale PV pour generer une synthese autonome des caracteristiques d'une centrale ;
-- correction de la migration de la colonne Consignes d'acces a l'activation du module ;
-- amelioration de l'affichage de la Centrale dans les mails de creation de tickets ;
+- correction Multicompany des références de Centrales : unicité par entité et numérotation dans le périmètre partagé natif ;
+- complétude des réglages Multicompany : partage des Centrales, partage de la numérotation et dictionnaire photovoltaïque traduit ;
+- affichage des réglages de partage Multicompany PowerPlantPV dans toutes les entités via les hooks dédiés ;
+- rattachement des lignes de composition à l'entité propriétaire de la Centrale ;
+- alignement de l'affichage du Tiers dans la bannière Centrale ;
+- ajout de l'onglet Localisation/Accès des Centrales et de l'adresse formatée dans la bannière ;
+- ajout du modèle PDF Centrale PV pour générer une synthèse autonome des caractéristiques d'une centrale ;
+- correction de la migration de la colonne Consignes d'accès à l'activation du module ;
+- amélioration de l'affichage de la Centrale dans les mails de création de tickets ;
 - création directe d’une centrale PV depuis devis ou commande ;
 - meilleure gestion des liens entre objets Dolibarr ;
 - recalcul automatique de la puissance crête sur devis, commandes et factures ;
