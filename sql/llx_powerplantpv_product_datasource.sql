@@ -23,6 +23,7 @@ CREATE TABLE llx_powerplantpv_product_datasource (
 	source_key varchar(255) NOT NULL,
 	source_name varchar(255) DEFAULT NULL,
 	source_url varchar(1024) DEFAULT NULL,
+	filename varchar(255) DEFAULT NULL,
 	raw_json mediumtext,
 	normalized_json mediumtext,
 	import_status varchar(32) NOT NULL DEFAULT 'imported',

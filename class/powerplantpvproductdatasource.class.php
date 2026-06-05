@@ -178,6 +178,7 @@ class PowerPlantPVProductDataSource
 			'source_key',
 			'source_name',
 			'source_url',
+			'filename',
 			'raw_json',
 			'normalized_json',
 			'import_status',
@@ -192,6 +193,7 @@ class PowerPlantPVProductDataSource
 			$this->sqlString($this->requiredString($data, 'source_key')),
 			$this->sqlNullableString(isset($data['source_name']) ? $data['source_name'] : null),
 			$this->sqlNullableString(isset($data['source_url']) ? $data['source_url'] : null),
+			$this->sqlNullableString(isset($data['filename']) ? $data['filename'] : null),
 			$this->sqlNullableString(isset($data['raw_json']) ? $data['raw_json'] : null),
 			$this->sqlNullableString(isset($data['normalized_json']) ? $data['normalized_json'] : null),
 			$this->sqlString(isset($data['import_status']) && $data['import_status'] !== '' ? (string) $data['import_status'] : 'imported'),
@@ -238,7 +240,7 @@ class PowerPlantPVProductDataSource
 		}
 
 		if ((int) $this->data['fk_product'] !== (int) $fkProduct) {
-			$this->setError('PVFreeDataSourceAlreadyLinkedToAnotherProduct');
+			$this->setError($source === 'pvfree' ? 'PVFreeDataSourceAlreadyLinkedToAnotherProduct' : 'ProductTechnicalImportDataSourceAlreadyLinkedToAnotherProduct');
 			return -1;
 		}
 
@@ -246,6 +248,7 @@ class PowerPlantPVProductDataSource
 			'fk_product = '.((int) $fkProduct),
 			'source_name = '.$this->sqlNullableString(isset($data['source_name']) ? $data['source_name'] : null),
 			'source_url = '.$this->sqlNullableString(isset($data['source_url']) ? $data['source_url'] : null),
+			'filename = '.$this->sqlNullableString(isset($data['filename']) ? $data['filename'] : null),
 			'raw_json = '.$this->sqlNullableString(isset($data['raw_json']) ? $data['raw_json'] : null),
 			'normalized_json = '.$this->sqlNullableString(isset($data['normalized_json']) ? $data['normalized_json'] : null),
 			'import_status = '.$this->sqlString(isset($data['import_status']) && $data['import_status'] !== '' ? (string) $data['import_status'] : 'imported'),
@@ -273,7 +276,7 @@ class PowerPlantPVProductDataSource
 	 */
 	protected function getSelectFields()
 	{
-		return 'rowid, entity, fk_product, source, source_dataset, source_key, source_name, source_url, raw_json, normalized_json, import_status, datec, tms, fk_user_creat, fk_user_modif';
+		return 'rowid, entity, fk_product, source, source_dataset, source_key, source_name, source_url, filename, raw_json, normalized_json, import_status, datec, tms, fk_user_creat, fk_user_modif';
 	}
 
 	/**

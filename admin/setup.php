@@ -297,6 +297,34 @@ if ($action == 'updateMask') {
 	} else {
 		setEventMessages($db->lasterror(), null, 'errors');
 	}
+} elseif ($action == 'save_file_import') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$importmaxfilesize = GETPOSTINT('import_max_file_size');
+	$importoverwritestrategy = GETPOST('import_overwrite_strategy', 'aZ09');
+	$importseparator = GETPOST('import_default_separator', 'nohtml');
+
+	if ($importmaxfilesize <= 0) {
+		$importmaxfilesize = 5;
+	}
+	if (!in_array($importoverwritestrategy, array('never', 'empty_only', 'overwrite_after_confirm'), true)) {
+		$importoverwritestrategy = 'empty_only';
+	}
+	if (!in_array($importseparator, array(';', ',', 'tab'), true)) {
+		$importseparator = ';';
+	}
+
+	$res = dolibarr_set_const($db, 'POWERPLANTPV_IMPORT_MAX_FILE_SIZE', $importmaxfilesize, 'chaine', 0, '', $conf->entity);
+	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_IMPORT_OVERWRITE_EXISTING_DATA', $importoverwritestrategy, 'chaine', 0, '', $conf->entity);
+	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_IMPORT_DEFAULT_SEPARATOR', $importseparator, 'chaine', 0, '', $conf->entity);
+
+	if ($res) {
+		setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
 }
 
 $action = 'edit';
@@ -374,6 +402,40 @@ print '</div>';
 print '</form>';
 if ($conf->use_javascript_ajax) {
 	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#pvfree_overwrite_strategy,#pvfree_default_module_dataset,#pvfree_default_inverter_dataset").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
+}
+
+$conf->global->POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED = getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED', 1);
+$conf->global->POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED = getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', 1);
+$conf->global->POWERPLANTPV_IMPORT_RAW_DATA = getDolGlobalInt('POWERPLANTPV_IMPORT_RAW_DATA', 1);
+$fileimportoverwritestrategies = array(
+	'never' => $langs->trans('ProductTechnicalImportOverwriteNever'),
+	'empty_only' => $langs->trans('ProductTechnicalImportOverwriteEmptyOnly'),
+	'overwrite_after_confirm' => $langs->trans('ProductTechnicalImportOverwriteAfterConfirm'),
+);
+$fileimportseparators = array(
+	';' => $langs->trans('ProductTechnicalImportSeparatorSemicolon'),
+	',' => $langs->trans('ProductTechnicalImportSeparatorComma'),
+	'tab' => $langs->trans('ProductTechnicalImportSeparatorTab'),
+);
+
+print load_fiche_titre($langs->trans('ProductTechnicalImportConnector'), '', '');
+print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_file_import">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('ProductTechnicalImportCSVEnabled').'</td><td>'.ajax_constantonoff('POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportXLSXEnabled').'</td><td>'.ajax_constantonoff('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportStoreRawData').'</td><td>'.ajax_constantonoff('POWERPLANTPV_IMPORT_RAW_DATA', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportMaxFileSize').'</td><td><input type="number" min="1" class="flat maxwidth100 right" name="import_max_file_size" value="'.((int) getDolGlobalInt('POWERPLANTPV_IMPORT_MAX_FILE_SIZE', 5)).'"> MB</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportOverwriteStrategy').'</td><td>'.$form->selectarray('import_overwrite_strategy', $fileimportoverwritestrategies, getDolGlobalString('POWERPLANTPV_IMPORT_OVERWRITE_EXISTING_DATA', 'empty_only'), 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportDefaultSeparator').'</td><td>'.$form->selectarray('import_default_separator', $fileimportseparators, getDolGlobalString('POWERPLANTPV_IMPORT_DEFAULT_SEPARATOR', ';'), 0, 0, '', 0, 0, 0, '', 'flat minwidth200').'</td></tr>';
+print '</table>';
+print '<div class="tabsAction">';
+print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+print '</div>';
+print '</form>';
+if ($conf->use_javascript_ajax) {
+	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#import_overwrite_strategy,#import_default_separator").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
 }
 
 print load_fiche_titre($langs->trans('PowerPlantPVPeakPowerRecalculation'), '', '');

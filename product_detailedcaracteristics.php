@@ -450,7 +450,12 @@ $categoryCode = powerplantpv_get_product_category_code($db, $categoryRowId);
 $isPVPanel = ($categoryCode === 'MODULE');
 $isInverter = ($categoryCode === 'ONDULE');
 $hasDetailedCharacteristics = ($isPVPanel || $isInverter);
-$showPVFreeImportButton = (getDolGlobalInt('POWERPLANTPV_PVFREE_ENABLED') && $permissiontoadd && $hasDetailedCharacteristics && ($isPVPanel || $isInverter));
+$hasTechnicalImportSource = (
+	getDolGlobalInt('POWERPLANTPV_PVFREE_ENABLED')
+	|| getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED', 1)
+	|| getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', 1)
+);
+$showTechnicalImportButton = ($permissiontoadd && $hasDetailedCharacteristics && $hasTechnicalImportSource);
 
 $form = new Form($db);
 $panel = null;
@@ -698,8 +703,8 @@ if ($isPVPanel) {
 		if ($permissiontoadd) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_panel', '', true);
 		}
-		if ($showPVFreeImportButton) {
-			print dolGetButtonAction($langs->trans('PVFreeImportFromPVFree'), '', 'default', dol_buildpath('/powerplantpv/product_pvfree_import.php', 1).'?id='.$object->id, '', true);
+		if ($showTechnicalImportButton) {
+			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, '', true);
 		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
@@ -736,8 +741,8 @@ if ($isInverter) {
 		if ($permissiontoadd) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_inverter', '', true);
 		}
-		if ($showPVFreeImportButton) {
-			print dolGetButtonAction($langs->trans('PVFreeImportFromPVFree'), '', 'default', dol_buildpath('/powerplantpv/product_pvfree_import.php', 1).'?id='.$object->id, '', true);
+		if ($showTechnicalImportButton) {
+			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, '', true);
 		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';

@@ -9,6 +9,13 @@ Cette version ajoute la V1 du connecteur PV Free pour les produits existants :
 - ajout des réglages PV Free, des stratégies d'écrasement et des datasets par défaut ;
 - les détails MPPT / entrées DC des onduleurs ne sont pas écrasés automatiquement et restent à vérifier manuellement.
 
+Complément V1 :
+- ajout de l'import CSV/XLSX des caractéristiques détaillées depuis un produit existant ;
+- prévisualisation des champs reconnus, ignorés et modifiés avant confirmation ;
+- sélection d'une ligne lorsque le fichier contient plusieurs lignes ;
+- réutilisation de la traçabilité des sources avec `source = csv` ou `source = xlsx` et nom du fichier importé ;
+- les détails MPPT / entrées DC restent exclus de l'import automatique et doivent être vérifiés manuellement.
+
 ## 1.1.0
 
 Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration Multicompany :

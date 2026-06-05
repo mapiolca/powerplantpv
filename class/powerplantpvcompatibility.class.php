@@ -108,6 +108,22 @@ class PowerPlantPVCompatibility
 				'available' => $xlsxwriteavailable,
 				'reason' => ($xlsxwriteavailable ? '' : 'SerialNumbersXlsxReaderUnavailable'),
 			),
+			'product_technical_import_csv' => array(
+				'label' => 'ProductTechnicalImportCsvFeature',
+				'description' => 'ProductTechnicalImportCsvFeatureDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable,
+				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
+			'product_technical_import_xlsx' => array(
+				'label' => 'ProductTechnicalImportXlsxFeature',
+				'description' => 'ProductTechnicalImportXlsxFeatureDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $xlsxreadavailable,
+				'reason' => ($xlsxreadavailable ? '' : 'ProductTechnicalImportXlsxReaderUnavailable'),
+			),
 			'pvfree_connector' => array(
 				'label' => 'PVFreeConnector',
 				'description' => 'PVFreeConnectorCompatibilityDescription',

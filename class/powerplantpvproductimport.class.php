@@ -18,7 +18,7 @@
 /**
  * \file       class/powerplantpvproductimport.class.php
  * \ingroup    powerplantpv
- * \brief      PV Free product technical data importer.
+ * \brief      Product technical data importer.
  */
 
 dol_include_once('/powerplantpv/class/productinverter.class.php');
@@ -27,7 +27,7 @@ dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
 /**
- * Normalize and import PV Free data into existing PowerPlantPV product technical tables.
+ * Normalize and import external data into existing PowerPlantPV product technical tables.
  */
 class PowerPlantPVProductImport
 {
@@ -61,21 +61,80 @@ class PowerPlantPVProductImport
 	}
 
 	/**
-	 * Return PV panel fields imported by PV Free V1.
+	 * Return PV panel fields imported by V1 connectors.
 	 *
 	 * @return array<int,string> Fields
 	 */
 	public static function getModuleImportFields()
 	{
-		return array('pmax', 'vmp', 'imp', 'voc', 'isc', 'module_efficiency', 'noct', 'temp_coeff_pmax', 'temp_coeff_voc', 'temp_coeff_isc');
+		return array(
+			'pmax',
+			'power_tolerance',
+			'module_efficiency',
+			'vmp',
+			'imp',
+			'voc',
+			'isc',
+			'noct',
+			'temp_coeff_pmax',
+			'temp_coeff_voc',
+			'temp_coeff_isc',
+			'max_system_voltage',
+			'max_series_fuse',
+			'product_warranty',
+			'power_warranty',
+			'first_year_degradation',
+			'annual_degradation',
+		);
 	}
 
 	/**
-	 * Return inverter fields imported by PV Free V1.
+	 * Return inverter fields imported by V1 connectors.
 	 *
 	 * @return array<int,string> Fields
 	 */
 	public static function getInverterImportFields()
+	{
+		return array(
+			'pv_max_power',
+			'dc_max_voltage',
+			'startup_voltage',
+			'mppt_voltage_min',
+			'mppt_voltage_max',
+			'nominal_dc_voltage',
+			'ac_nominal_power',
+			'ac_max_power',
+			'ac_apparent_power',
+			'ac_nominal_voltage',
+			'grid_frequency',
+			'ac_max_output_current',
+			'max_efficiency',
+			'european_efficiency',
+			'ip_rating',
+			'operating_temperature',
+			'cooling',
+			'communication_interfaces',
+			'warranty',
+			'certifications',
+		);
+	}
+
+	/**
+	 * Return PV Free module fields from connector V1.
+	 *
+	 * @return array<int,string> Fields
+	 */
+	protected static function getPVFreeModuleImportFields()
+	{
+		return array('pmax', 'vmp', 'imp', 'voc', 'isc', 'module_efficiency', 'noct', 'temp_coeff_pmax', 'temp_coeff_voc', 'temp_coeff_isc');
+	}
+
+	/**
+	 * Return PV Free inverter fields from connector V1.
+	 *
+	 * @return array<int,string> Fields
+	 */
+	protected static function getPVFreeInverterImportFields()
 	{
 		return array('pv_max_power', 'dc_max_voltage', 'startup_voltage', 'mppt_voltage_min', 'mppt_voltage_max', 'nominal_dc_voltage', 'ac_nominal_power', 'ac_max_power', 'ac_apparent_power', 'ac_nominal_voltage', 'grid_frequency', 'ac_max_output_current', 'max_efficiency', 'european_efficiency');
 	}
@@ -173,7 +232,8 @@ class PowerPlantPVProductImport
 		$this->resetErrors();
 
 		$current = $this->fetchPvPanel($fkProduct);
-		return $this->buildPreview(self::getModuleImportFields(), $current, $normalizedData, $strategy);
+		$fields = (isset($normalizedData['_dataset']) && in_array($normalizedData['_dataset'], array('cecmodule', 'pvmodule'), true)) ? self::getPVFreeModuleImportFields() : self::getModuleImportFields();
+		return $this->buildPreview($fields, $current, $normalizedData, $strategy);
 	}
 
 	/**
@@ -198,7 +258,8 @@ class PowerPlantPVProductImport
 			$current->rowid = $inverter->id;
 		}
 
-		return $this->buildPreview(self::getInverterImportFields(), $current, $normalizedData, $strategy);
+		$fields = (isset($normalizedData['_dataset']) && $normalizedData['_dataset'] === 'pvinverter') ? self::getPVFreeInverterImportFields() : self::getInverterImportFields();
+		return $this->buildPreview($fields, $current, $normalizedData, $strategy);
 	}
 
 	/**
@@ -209,16 +270,18 @@ class PowerPlantPVProductImport
 	 * @param array<string,mixed> $rawData        Raw data
 	 * @param User                $user           Current user
 	 * @param string              $strategy       Import strategy
+	 * @param array<string,mixed> $sourceData     Optional source trace data
 	 * @return array<string,mixed> Result data
 	 */
-	public function importModuleToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy)
+	public function importModuleToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array())
 	{
+		$isgenericimport = !empty($sourceData) && (!isset($sourceData['source']) || $sourceData['source'] !== 'pvfree');
 		$preview = $this->previewModuleImport($fkProduct, $normalizedData, $strategy);
 		if ($this->error) {
 			return array('result' => -1, 'preview' => $preview);
 		}
 		if (empty($preview['changes'])) {
-			return array('result' => 0, 'preview' => $preview, 'message' => 'PVFreeNoFieldToImport');
+			return array('result' => 0, 'preview' => $preview, 'message' => ($isgenericimport ? 'ProductTechnicalImportNoFieldToImport' : 'PVFreeNoFieldToImport'));
 		}
 
 		$this->db->begin();
@@ -229,7 +292,10 @@ class PowerPlantPVProductImport
 			return array('result' => -1, 'preview' => $preview);
 		}
 
-		$result = $this->saveDataSource($fkProduct, $this->buildSourceData('pvfree', $rawData, $preview['dataset']), $rawData, $normalizedData, $user);
+		if (empty($sourceData)) {
+			$sourceData = $this->buildSourceData('pvfree', $rawData, $preview['dataset']);
+		}
+		$result = $this->saveDataSource($fkProduct, $sourceData, $rawData, $normalizedData, $user);
 		if ($result < 0) {
 			$this->db->rollback();
 			return array('result' => -1, 'preview' => $preview);
@@ -245,7 +311,7 @@ class PowerPlantPVProductImport
 				if ($resultcommercialrecalculate < 0) {
 					$this->errors[] = 'PowerPlantPVPeakPowerRecalculationFailed';
 				}
-				$this->error = 'PVFreeImportPartial';
+				$this->error = ($isgenericimport ? 'ProductTechnicalImportPartial' : 'PVFreeImportPartial');
 				$this->db->rollback();
 				return array('result' => -1, 'preview' => $preview);
 			}
@@ -264,16 +330,18 @@ class PowerPlantPVProductImport
 	 * @param array<string,mixed> $rawData        Raw data
 	 * @param User                $user           Current user
 	 * @param string              $strategy       Import strategy
+	 * @param array<string,mixed> $sourceData     Optional source trace data
 	 * @return array<string,mixed> Result data
 	 */
-	public function importInverterToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy)
+	public function importInverterToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array())
 	{
+		$isgenericimport = !empty($sourceData) && (!isset($sourceData['source']) || $sourceData['source'] !== 'pvfree');
 		$preview = $this->previewInverterImport($fkProduct, $normalizedData, $strategy);
 		if ($this->error) {
 			return array('result' => -1, 'preview' => $preview);
 		}
 		if (empty($preview['changes'])) {
-			return array('result' => 0, 'preview' => $preview, 'message' => 'PVFreeNoFieldToImport');
+			return array('result' => 0, 'preview' => $preview, 'message' => ($isgenericimport ? 'ProductTechnicalImportNoFieldToImport' : 'PVFreeNoFieldToImport'));
 		}
 
 		$this->db->begin();
@@ -284,7 +352,10 @@ class PowerPlantPVProductImport
 			return array('result' => -1, 'preview' => $preview);
 		}
 
-		$result = $this->saveDataSource($fkProduct, $this->buildSourceData('pvfree', $rawData, $preview['dataset']), $rawData, $normalizedData, $user);
+		if (empty($sourceData)) {
+			$sourceData = $this->buildSourceData('pvfree', $rawData, $preview['dataset']);
+		}
+		$result = $this->saveDataSource($fkProduct, $sourceData, $rawData, $normalizedData, $user);
 		if ($result < 0) {
 			$this->db->rollback();
 			return array('result' => -1, 'preview' => $preview);
@@ -292,7 +363,7 @@ class PowerPlantPVProductImport
 
 		$this->db->commit();
 
-		return array('result' => 1, 'preview' => $preview, 'warning' => 'PVFreeMPPTManualCheckRequired');
+		return array('result' => 1, 'preview' => $preview, 'warning' => ($isgenericimport ? 'ProductTechnicalImportMPPTManualCheckRequired' : 'PVFreeMPPTManualCheckRequired'));
 	}
 
 	/**
@@ -308,17 +379,19 @@ class PowerPlantPVProductImport
 	public function saveDataSource($fkProduct, array $sourceData, array $rawData, array $normalizedData, User $user)
 	{
 		$rawjson = null;
-		if (getDolGlobalInt('POWERPLANTPV_PVFREE_IMPORT_RAW_JSON', 1)) {
+		$rawdataconst = isset($sourceData['raw_data_const']) ? (string) $sourceData['raw_data_const'] : 'POWERPLANTPV_PVFREE_IMPORT_RAW_JSON';
+		$invalidresponseerror = isset($sourceData['invalid_response_error']) ? (string) $sourceData['invalid_response_error'] : 'PVFreeInvalidResponse';
+		if (getDolGlobalInt($rawdataconst, 1)) {
 			$rawjson = json_encode($rawData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 			if ($rawjson === false) {
-				$this->setError('PVFreeInvalidResponse');
+				$this->setError($invalidresponseerror);
 				return -1;
 			}
 		}
 
 		$normalizedjson = json_encode($normalizedData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 		if ($normalizedjson === false) {
-			$this->setError('PVFreeInvalidResponse');
+			$this->setError($invalidresponseerror);
 			return -1;
 		}
 
@@ -329,6 +402,7 @@ class PowerPlantPVProductImport
 			'source_key' => isset($sourceData['source_key']) ? $sourceData['source_key'] : '',
 			'source_name' => isset($sourceData['source_name']) ? $sourceData['source_name'] : '',
 			'source_url' => isset($sourceData['source_url']) ? $sourceData['source_url'] : '',
+			'filename' => isset($sourceData['filename']) ? $sourceData['filename'] : '',
 			'raw_json' => $rawjson,
 			'normalized_json' => $normalizedjson,
 			'import_status' => isset($sourceData['import_status']) ? $sourceData['import_status'] : 'imported',
