@@ -1,22 +1,5 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
-## 1.2.0
-
-Cette version ajoute la V1 du connecteur PV Free pour les produits existants :
-- ajout d'un import PV Free depuis l'onglet Caractéristiques détaillées des produits Dolibarr ;
-- alimentation des tables techniques existantes des modules PV et onduleurs, sans référentiel composant séparé ;
-- ajout d'une table de traçabilité des sources importées ;
-- ajout des réglages PV Free, des stratégies d'écrasement et des datasets par défaut ;
-- les détails MPPT / entrées DC des onduleurs ne sont pas écrasés automatiquement et restent à vérifier manuellement.
-
-Complément V1 :
-- ajout de l'import CSV/XLSX des caractéristiques détaillées depuis un produit existant ;
-- ajout des modèles CSV/XLSX téléchargeables et de la modale d'import depuis l'onglet produit ;
-- prévisualisation des champs reconnus, ignorés et modifiés avant confirmation ;
-- sélection d'une ligne lorsque le fichier contient plusieurs lignes ;
-- réutilisation de la traçabilité des sources avec `source = csv` ou `source = xlsx` et nom du fichier importé ;
-- les détails MPPT / entrées DC restent exclus de l'import automatique et doivent être vérifiés manuellement.
-
 ## 1.1.0
 
 Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration Multicompany :
@@ -28,6 +11,17 @@ Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration M
 - ajout de l'affichage conditionnel de l'environnement Multicompany en fiche et en liste.
 - ajout de l'import CSV/XLSX des numéros de série par catégorie PV de composition, avec validation, table dédiée, droits spécifiques, export CSV/XLSX et traçabilité ;
 - ajout de l'onglet de réglages Compatibilité pour signaler les fonctionnalités disponibles ou indisponibles, notamment le lecteur XLSX PhpSpreadsheet ;
+- ajout d'un import PV Free depuis l'onglet Caractéristiques détaillées des produits Dolibarr ;
+- alimentation des tables techniques existantes des modules PV et onduleurs, sans référentiel composant séparé ;
+- ajout d'une table de traçabilité des sources importées ;
+- ajout des réglages PV Free, des stratégies d'écrasement et des datasets par défaut ;
+- les détails MPPT / entrées DC des onduleurs ne sont pas écrasés automatiquement et restent à vérifier manuellement.
+- ajout de l'import CSV/XLSX des caractéristiques détaillées depuis un produit existant ;
+- ajout des modèles CSV/XLSX téléchargeables et de la modale d'import depuis l'onglet produit ;
+- prévisualisation des champs reconnus, ignorés et modifiés avant confirmation ;
+- sélection d'une ligne lorsque le fichier contient plusieurs lignes ;
+- réutilisation de la traçabilité des sources avec `source = csv` ou `source = xlsx` et nom du fichier importé ;
+- les détails MPPT / entrées DC restent exclus de l'import automatique et doivent être vérifiés manuellement.
 
 ## 1.0.1
 
