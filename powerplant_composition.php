@@ -203,7 +203,6 @@ $sortfieldlist = array(
 	'p.label',
 	'cpv.label',
 	'c.fk_status',
-	'c.serial_number',
 	'c.commissioning_date',
 	'c.rowid'
 );
@@ -233,7 +232,6 @@ $search_nature = ($search_nature < 0 ? 0 : $search_nature);
 if ($search_status !== '' && (int) $search_status < 0) {
 	$search_status = '';
 }
-$search_serial = trim(GETPOST('search_serial', 'alphanohtml'));
 $search_commissioning = trim(GETPOST('search_commissioning', 'alphanohtml'));
 
 if (GETPOST('cancel', 'alpha')) {
@@ -288,7 +286,6 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 	$search_label = '';
 	$search_nature = 0;
 	$search_status = '';
-	$search_serial = '';
 	$search_commissioning = '';
 }
 
@@ -740,9 +737,6 @@ if ($search_nature > 0) {
 if ($search_status !== '') {
 	$sqlwhere .= ' AND c.fk_status = '.((int) $search_status);
 }
-if ($search_serial !== '') {
-	$sqlwhere .= " AND c.serial_number LIKE '%".$db->escape($search_serial)."%'";
-}
 if ($search_commissioning !== '') {
 	$sqlwhere .= " AND c.commissioning_date = '".$db->escape($search_commissioning)."'";
 }
@@ -759,7 +753,7 @@ if ($rescount) {
 	$nbtotalofrecords = (int) $objcount->nb;
 }
 
-$sql = 'SELECT c.rowid, c.fk_status, c.serial_number, c.commissioning_date, p.rowid as fk_product, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
+$sql = 'SELECT c.rowid, c.fk_status, c.commissioning_date, p.rowid as fk_product, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
 $sql .= ' FROM '.$db->prefix().'powerplantpv_powerplantcomp as c';
 $sql .= ' JOIN '.$db->prefix().'product as p ON p.rowid = c.fk_product';
 $sql .= ' LEFT JOIN '.$db->prefix().'product_extrafields as pe ON pe.fk_object = p.rowid';
@@ -798,9 +792,6 @@ if ($id > 0 || !empty($ref)) {
 	if ($search_status !== '') {
 		$param .= '&search_status='.$search_status;
 	}
-	if ($search_serial !== '') {
-		$param .= '&search_serial='.urlencode($search_serial);
-	}
 	if ($search_commissioning !== '') {
 		$param .= '&search_commissioning='.urlencode($search_commissioning);
 	}
@@ -816,9 +807,6 @@ if ($id > 0 || !empty($ref)) {
 	if ($canedit) {
 		$arrayofmassactions['massdelete'] = img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete');
 		$newcardbutton = dolGetButtonTitle($langs->trans('Add'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=addcomposition&token='.newToken());
-	}
-	if ($canimportserialnumbers) {
-		$newcardbutton .= dolGetButtonTitle($langs->trans('ImportSerialNumbers'), '', 'fa fa-file-import', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=serialimport&token='.newToken());
 	}
 	if (!empty($arrayofmassactions)) {
 		$massactionbutton = $form->selectMassAction('', $arrayofmassactions);
@@ -1213,48 +1201,6 @@ if ($id > 0 || !empty($ref)) {
 			print '</script>';
 		}
 
-		$serialsummary = powerplantpvSerialNumberFetchCompositionSummary($object);
-		if (!empty($serialsummary) && $permissiontoserialread) {
-			print load_fiche_titre($langs->trans('SerialNumbersCompositionSummary'), '', 'fa-barcode');
-			print '<div class="div-table-responsive-no-min">';
-			print '<table class="noborder centpercent">';
-			print '<tr class="liste_titre">';
-			print '<td>'.$langs->trans('Category').'</td>';
-			print '<td>'.$langs->trans('Product').'</td>';
-			print '<td class="right">'.$langs->trans('SerialNumbersExpectedQty').'</td>';
-			print '<td class="right">'.$langs->trans('SerialNumbersRecordedQty').'</td>';
-			print '<td class="center">'.$langs->trans('Actions').'</td>';
-			print '</tr>';
-			foreach ($serialsummary as $summaryrow) {
-				$listurl = dol_buildpath('/powerplantpv/serialnumber_list.php', 1).'?id='.(int) $object->id.'&lineid='.(int) $summaryrow['fk_powerplant_line'];
-				$reimporturl = $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&fk_categorie='.(int) $summaryrow['fk_categorie'].'&token='.newToken();
-				print '<tr class="oddeven">';
-				print '<td>'.dol_escape_htmltag($summaryrow['category_label']).'</td>';
-				print '<td>'.dol_escape_htmltag($summaryrow['product_display']).' <span class="opacitymedium">#'.((int) $summaryrow['fk_powerplant_line']).'</span></td>';
-				print '<td class="right">'.((int) $summaryrow['expected_qty']).'</td>';
-				print '<td class="right">'.((int) $summaryrow['stored_qty']).' / '.((int) $summaryrow['expected_qty']).'</td>';
-				print '<td class="center nowraponall">';
-				print '<a class="reposition" href="'.$listurl.'" title="'.$langs->trans('SerialNumbersView').'">'.img_view().'</a>';
-				if ($permissiontoserialexport) {
-					print '<a class="reposition marginleftonly" href="'.$listurl.'&export=csv" title="'.$langs->trans('Export').'">'.img_picto($langs->trans('Export'), 'download').'</a>';
-					if (powerplantpvSerialImportIsXlsxAvailable()) {
-						print '<a class="reposition marginleftonly" href="'.$listurl.'&export=xlsx" title="'.$langs->trans('Export').' XLSX">'.img_picto($langs->trans('Export').' XLSX', 'fa-file-excel').'</a>';
-					}
-				}
-				if ($permissiontoserialdelete && (int) $summaryrow['stored_qty'] > 0) {
-					print '<a class="reposition marginleftonly" href="'.$listurl.'&action=deletefilter&token='.newToken().'" title="'.$langs->trans('Delete').'">'.img_delete().'</a>';
-				}
-				if ($canimportserialnumbers) {
-					print '<a class="reposition marginleftonly" href="'.$reimporturl.'" title="'.$langs->trans('SerialNumbersReimport').'">'.img_picto($langs->trans('SerialNumbersReimport'), 'refresh').'</a>';
-				}
-				print '</td>';
-				print '</tr>';
-			}
-			print '</table>';
-			print '</div>';
-			print '<br>';
-		}
-
 		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="formfilteraction" id="formfilteraction" value="list">';
@@ -1279,7 +1225,6 @@ if ($id > 0 || !empty($ref)) {
 			print '<td class="liste_titre left"><input type="text" class="flat width75" name="search_ref" value="'.dol_escape_htmltag($search_ref).'"></td>';
 			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_label" value="'.dol_escape_htmltag($search_label).'"></td>';
 			print '<td class="liste_titre left">'.$form->selectarray('search_nature', array('' => '') + $categories, ($search_nature > 0 ? $search_nature : ''), 0).'</td>';
-			print '<td class="liste_titre left"><input type="text" class="flat width100" name="search_serial" value="'.dol_escape_htmltag($search_serial).'"></td>';
 			print '<td class="liste_titre left"><input type="date" class="flat width100" name="search_commissioning" value="'.dol_escape_htmltag($search_commissioning).'"></td>';
 			print '<td class="liste_titre left">'.$form->selectarray('search_status', array('' => '') + $componentstatus, ($search_status !== '' ? (int) $search_status : ''), 0, 0, '', 0, 0, 0, '', 'flat minwidth100').'</td>';
 			print '<td class="liste_titre"></td>';
@@ -1290,7 +1235,6 @@ if ($id > 0 || !empty($ref)) {
 		print_liste_field_titre($langs->trans('Ref'), $_SERVER['PHP_SELF'], 'p.ref', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Label'), $_SERVER['PHP_SELF'], 'p.label', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('Category'), $_SERVER['PHP_SELF'], 'cpv.label', '', $param, '', $sortfield, $sortorder);
-		print_liste_field_titre($langs->trans('PowerPlantSerialNumber'), $_SERVER['PHP_SELF'], 'c.serial_number', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('PowerPlantCommissioningDate'), $_SERVER['PHP_SELF'], 'c.commissioning_date', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre($langs->trans('PowerPlantStatus'), $_SERVER['PHP_SELF'], 'c.fk_status', '', $param, '', $sortfield, $sortorder);
 		print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', $param, 'class="center"', $sortfield, $sortorder);
@@ -1314,7 +1258,6 @@ if ($id > 0 || !empty($ref)) {
 			print '<td>'.$productstatic->getNomUrl(1).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->product_label).'</td>';
 			print '<td>'.dol_escape_htmltag($objline->category_label).'</td>';
-			print '<td>'.dol_escape_htmltag($objline->serial_number).'</td>';
 			print '<td>'.(!empty($objline->commissioning_date) ? dol_print_date($db->jdate($objline->commissioning_date), 'day') : '').'</td>';
 			print '<td>';
 			if ($objline->fk_status !== null && $objline->fk_status !== '') {
@@ -1336,12 +1279,78 @@ if ($id > 0 || !empty($ref)) {
 			$i++;
 		}
 	} else {
-		print '<tr class="oddeven"><td colspan="8"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+		print '<tr class="oddeven"><td colspan="7"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 	}
 
 	print '</table>';
 	print '</div>';
 	print '</form>';
+	if ($permissiontoserialread || $canimportserialnumbers) {
+		$serialtraceability = array(
+			'expected_qty' => 0,
+			'stored_qty' => 0,
+			'missing_qty' => 0,
+			'last_import' => null,
+		);
+		if ($permissiontoserialread) {
+			$serialtraceability = powerplantpvSerialNumberFetchTraceabilitySummary($object);
+		}
+		$serialexpectedqty = (int) $serialtraceability['expected_qty'];
+		$serialstoredqty = (int) $serialtraceability['stored_qty'];
+		$serialmissingqty = (int) $serialtraceability['missing_qty'];
+		$listurl = dol_buildpath('/powerplantpv/serialnumber_list.php', 1).'?id='.(int) $object->id;
+
+		print '<br>';
+		print load_fiche_titre($langs->trans('SerialNumbersTraceability'), '', 'fa-barcode');
+		print '<div class="div-table-responsive-no-min">';
+		print '<table class="noborder centpercent">';
+		print '<tr class="oddeven">';
+		print '<td>';
+		if (!$permissiontoserialread) {
+			print '<span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('ImportSerialNumbers')).'</span>';
+		} elseif ($serialexpectedqty <= 0) {
+			print '<span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersNoSerializableEquipment')).'</span>';
+		} elseif ($serialstoredqty <= 0) {
+			print dol_escape_htmltag($langs->transnoentities('SerialNumbersNoneRecordedForPowerPlant'));
+		} else {
+			print dol_escape_htmltag($langs->transnoentities('SerialNumbersRecordedProgress', $serialstoredqty, $serialexpectedqty));
+			if ($serialmissingqty > 0) {
+				print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersMissingCount', $serialmissingqty)).'</span>';
+			} else {
+				print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersAllRecorded')).'</span>';
+			}
+		}
+		if ($permissiontoserialread && !empty($serialtraceability['last_import']) && is_array($serialtraceability['last_import'])) {
+			$lastimport = $serialtraceability['last_import'];
+			$lastimportdate = (!empty($lastimport['datec']) ? dol_print_date($db->jdate($lastimport['datec']), 'dayhour') : '');
+			if ($lastimportdate !== '') {
+				$lastimportuser = trim((string) $lastimport['user_name']);
+				if ($lastimportuser !== '') {
+					print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersLastImportBy', $lastimportdate, $lastimportuser)).'</span>';
+				} else {
+					print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersLastImport', $lastimportdate)).'</span>';
+				}
+			}
+		}
+		print '</td>';
+		print '<td class="right nowraponall">';
+		if ($canimportserialnumbers) {
+			print dolGetButtonAction($langs->trans('ImportSerialNumbers'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&token='.newToken(), '', true);
+		}
+		if ($permissiontoserialread) {
+			print dolGetButtonAction($langs->trans('SerialNumbersViewManage'), '', 'default', $listurl, '', true);
+		}
+		if ($permissiontoserialread && $permissiontoserialexport) {
+			print dolGetButtonAction($langs->trans('Export').' CSV', '', 'default', $listurl.'&export=csv', '', ($serialstoredqty > 0));
+			if (powerplantpvSerialImportIsXlsxAvailable()) {
+				print dolGetButtonAction($langs->trans('Export').' XLSX', '', 'default', $listurl.'&export=xlsx', '', ($serialstoredqty > 0));
+			}
+		}
+		print '</td>';
+		print '</tr>';
+		print '</table>';
+		print '</div>';
+	}
 	print '</div>';
 	print dol_get_fiche_end();
 }

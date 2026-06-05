@@ -278,6 +278,63 @@ function powerplantpvSerialNumberFetchCompositionSummary($object)
 }
 
 /**
+ * Return compact serial number traceability counters for a power plant.
+ *
+ * @param	PowerPlant	$object	Power plant
+ * @return	array<string,mixed>	Traceability summary
+ */
+function powerplantpvSerialNumberFetchTraceabilitySummary($object)
+{
+	global $db, $conf;
+
+	$summary = array(
+		'expected_qty' => 0,
+		'stored_qty' => 0,
+		'missing_qty' => 0,
+		'composition_rows' => array(),
+		'last_import' => null,
+	);
+	if (empty($object->id)) {
+		return $summary;
+	}
+
+	$rows = powerplantpvSerialNumberFetchCompositionSummary($object);
+	$summary['composition_rows'] = $rows;
+	foreach ($rows as $row) {
+		$expectedqty = max(0, (int) $row['expected_qty']);
+		$storedqty = max(0, (int) $row['stored_qty']);
+		$summary['expected_qty'] += $expectedqty;
+		$summary['stored_qty'] += $storedqty;
+	}
+	$summary['missing_qty'] = max(0, (int) $summary['expected_qty'] - (int) $summary['stored_qty']);
+
+	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+	$sql = "SELECT si.rowid, si.datec, si.filename, u.login, u.firstname, u.lastname";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_serialnumber_import as si";
+	$sql .= " LEFT JOIN ".$db->prefix()."user as u ON u.rowid = si.fk_user";
+	$sql .= " WHERE si.fk_powerplant = ".((int) $object->id);
+	$sql .= " AND si.entity = ".$entity;
+	$sql .= " AND si.status = 'validated'";
+	$sql .= " ORDER BY si.datec DESC, si.rowid DESC";
+	$sql .= $db->plimit(1);
+	$resql = $db->query($sql);
+	if ($resql && ($obj = $db->fetch_object($resql))) {
+		$username = trim((string) $obj->firstname.' '.(string) $obj->lastname);
+		if ($username === '') {
+			$username = (string) $obj->login;
+		}
+		$summary['last_import'] = array(
+			'id' => (int) $obj->rowid,
+			'datec' => (string) $obj->datec,
+			'filename' => (string) $obj->filename,
+			'user_name' => $username,
+		);
+	}
+
+	return $summary;
+}
+
+/**
  * Normalize an import header.
  *
  * @param	string	$value	Header
