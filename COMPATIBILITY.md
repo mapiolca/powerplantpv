@@ -8,21 +8,24 @@ Dolibarr v20.0.
 
 ## Multicompany
 
-- Les Centrales utilisent la colonne `entity` et suivent le perimetre natif `getEntity('powerplant')`.
-- La reference d'une Centrale est unique dans le perimetre d'entites partagees par Multicompany, mais peut etre reutilisee dans deux entites non partagees.
-- La numerotation des Centrales expose le partage Multicompany `powerplantnumber`; le controle de sequence utilise l'union de `getEntity('powerplant')` et `getEntity('powerplantnumber')`.
-- Les lignes de composition materielle sont rattachees a l'entite proprietaire de la Centrale.
-- Le dictionnaire photovoltaique `c_powerplantpv_categorypv` reste declare comme dictionnaire Multicompany personnalisable par entite.
+- Les centrales utilisent la colonne `entity` et suivent le périmètre natif `getEntity('powerplant')`.
+- La référence d'une centrale est unique dans le périmètre d'entités partagées par Multicompany, mais peut être réutilisée dans deux entités non partagées.
+- La numérotation des centrales expose le partage Multicompany `powerplantnumber`; le contrôle de séquence utilise l'union de `getEntity('powerplant')` et `getEntity('powerplantnumber')`.
+- Les lignes de composition matérielle sont rattachées à l'entité propriétaire de la centrale.
+- Les numéros de série importés utilisent `llx_powerplantpv_serialnumber.entity` et sont rattachés à la centrale, à la ligne de composition, au produit et à la catégorie PV.
+- Le dictionnaire photovoltaïque `c_powerplantpv_categorypv` reste déclaré comme dictionnaire Multicompany personnalisable par entité.
 
-## Fonctionnalites avec compatibilite limitee
+## Fonctionnalités avec compatibilité limitée
 
-| Fonctionnalite | Version requise | Raison | Impact si version inferieure |
+| Fonctionnalité | Version requise | Raison | Impact si version inférieure |
 |---|---:|---|---|
-| Ligne `Centrale` dans `categories/index.php` | v23.0 | La page globale des categories v23 parcourt `Categorie::$MAP_ID` et tient compte du hook `constructCategory`. | En v20-v22, les categories restent utilisables sur la fiche centrale, mais la ligne n'apparait pas dans l'index global natif. |
+| Ligne `Centrale` dans `categories/index.php` | v23.0 | La page globale des catégories v23 parcourt `Categorie::$MAP_ID` et tient compte du hook `constructCategory`. | En v20-v22, les catégories restent utilisables sur la fiche centrale, mais la ligne n'apparaît pas dans l'index global natif. |
+| Import et export XLSX des numéros de série | v20.0 + PhpSpreadsheet disponible | L'analyse et la génération XLSX utilisent la bibliothèque PhpSpreadsheet livrée par Dolibarr. | Si PhpSpreadsheet est absent ou non chargeable, l'import CSV et l'export CSV restent disponibles et l'onglet Compatibilité indique l'indisponibilité XLSX. |
 
-## Fonctionnalites avec retrocompatibilite
+## Fonctionnalités avec rétrocompatibilité
 
-| Fonctionnalite | Version native | Retrocompatibilite | Fichier |
+| Fonctionnalité | Version native | Rétrocompatibilité | Fichier |
 |---|---:|---|---|
-| Selection des categories dans une fiche objet | v23.0 | Fallback local vers `select_all_categories()` + `multiselectarray()` quand `Form::selectCategories()` est absent. | `lib/powerplantpv_powerplant.lib.php` |
-| Liaison multi-projets | v20.0 | Utilise `llx_element_element`; l'ancien `fk_project` est conserve en base et migre en lien objet a l'activation. | `core/modules/modPowerPlantPV.class.php` |
+| Sélection des catégories dans une fiche objet | v23.0 | Fallback local vers `select_all_categories()` + `multiselectarray()` quand `Form::selectCategories()` est absent. | `lib/powerplantpv_powerplant.lib.php` |
+| Liaison multi-projets | v20.0 | Utilise `llx_element_element`; l'ancien `fk_project` est conservé en base et migré en lien objet à l'activation. | `core/modules/modPowerPlantPV.class.php` |
+| Import CSV des numéros de série | v20.0 | Lecture CSV dédiée au module avec `fgetcsv()` et validation métier PowerPlantPV. | `lib/powerplantpv_serialnumber.lib.php` |

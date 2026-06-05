@@ -168,7 +168,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->langfiles = array("powerplantpv@powerplantpv");
 
 		// Prerequisites
-		$this->phpmin = array(7, 2); // Minimum version of PHP required by module
+		$this->phpmin = array(8, 0); // Minimum version of PHP required by module
 		// $this->phpmax = array(8, 0); // Maximum version of PHP required by module
 		$this->need_dolibarr_version = array(20, 0); // Minimum version of Dolibarr required by module
 		// $this->max_dolibarr_version = array(19, -3); // Maximum version of Dolibarr required by module
@@ -357,6 +357,26 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][1] = 'PowerPlantPermissionOutOfService';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'outofservice';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 5 + 1);
+		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionRead';
+		$this->rights[$r][4] = 'serialnumber';
+		$this->rights[$r][5] = 'read';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 6 + 1);
+		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionImport';
+		$this->rights[$r][4] = 'serialnumber';
+		$this->rights[$r][5] = 'import';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 7 + 1);
+		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionDelete';
+		$this->rights[$r][4] = 'serialnumber';
+		$this->rights[$r][5] = 'delete';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 8 + 1);
+		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionExport';
+		$this->rights[$r][4] = 'serialnumber';
+		$this->rights[$r][5] = 'export';
 		$r++;
 
 		/* END MODULEBUILDER PERMISSIONS */
@@ -1049,6 +1069,7 @@ class modPowerPlantPV extends DolibarrModules
 			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_OUTOFSERVICE', 'label' => 'PowerPlantCompTriggerOutOfService', 'description' => 'PowerPlantCompTriggerOutOfServiceDesc', 'rang' => 45000413),
 			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_SERIAL', 'label' => 'PowerPlantCompTriggerSerial', 'description' => 'PowerPlantCompTriggerSerialDesc', 'rang' => 45000414),
 			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING', 'label' => 'PowerPlantCompTriggerCommissioning', 'description' => 'PowerPlantCompTriggerCommissioningDesc', 'rang' => 45000415),
+			array('code' => 'POWERPLANTPV_POWERPLANT_COMP_SERIAL_IMPORT', 'label' => 'PowerPlantCompTriggerSerialImport', 'description' => 'PowerPlantCompTriggerSerialImportDesc', 'rang' => 45000416),
 		);
 	}
 

@@ -46,6 +46,11 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][2] = 'settings';
 	$h++;
 
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/compatibility.php", 1));
+	$head[$h][1] = $langs->trans("Compatibility");
+	$head[$h][2] = 'compatibility';
+	$h++;
+
 	/*
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/myobject_extrafields.php", 1));
 	$head[$h][1] = $langs->trans("ExtraFields");

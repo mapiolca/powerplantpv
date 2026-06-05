@@ -2,7 +2,10 @@
 
 ## Features
 
-Description of the module...
+- Manage photovoltaic power plants in Dolibarr.
+- Track the material composition of a power plant by PV product category.
+- Import CSV/XLSX serial numbers by composition category, validate product-line associations, and store each serial number against the power plant, composition line, product and PV category.
+- Export recorded serial numbers as CSV or XLSX.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}

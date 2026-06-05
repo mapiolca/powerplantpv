@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	fk_product integer NOT NULL,
 	fk_status integer,
 	qty double NOT NULL,
-	serial_number varchar(20),
+	serial_number varchar(128),
 	commissioning_date date,
 	entity integer NOT NULL DEFAULT 1
 ) ENGINE=innodb DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -165,8 +165,8 @@ ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerpla
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_fk_status (fk_status);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD INDEX IF NOT EXISTS idx_powerplantpv_powerplantcomp_entity (entity);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS fk_status integer;
-ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS serial_number varchar(20);
-ALTER TABLE llx_powerplantpv_powerplantcomp MODIFY COLUMN serial_number varchar(20);
+ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS serial_number varchar(128);
+ALTER TABLE llx_powerplantpv_powerplantcomp MODIFY COLUMN serial_number varchar(128);
 ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS commissioning_date date;
 ALTER TABLE llx_powerplantpv_powerplantcomp CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE llx_powerplantpv_powerplantcomp DROP COLUMN IF EXISTS nature_code;
@@ -210,3 +210,52 @@ CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_categorypv(
 ALTER TABLE llx_c_powerplantpv_categorypv ADD INDEX IF NOT EXISTS idx_c_powerplantpv_categorypv_rowid (rowid);
 ALTER TABLE llx_c_powerplantpv_categorypv ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_categorypv_code (code);
 ALTER TABLE llx_c_powerplantpv_categorypv ADD INDEX IF NOT EXISTS idx_c_powerplantpv_categorypv_active (active);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_serialnumber(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_powerplant integer NOT NULL,
+	fk_powerplant_line integer NOT NULL,
+	fk_product integer NOT NULL,
+	fk_categorie integer NOT NULL,
+	serial_number varchar(128) NOT NULL,
+	source_file varchar(255),
+	import_batch varchar(64),
+	note text,
+	import_status varchar(32) DEFAULT 'validated' NOT NULL,
+	datec datetime NOT NULL,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer NOT NULL,
+	fk_user_modif integer,
+	import_key varchar(14)
+) ENGINE=innodb DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ALTER TABLE llx_powerplantpv_serialnumber ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_serialnumber_powerplant_serial (entity, fk_powerplant, serial_number);
+ALTER TABLE llx_powerplantpv_serialnumber ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_entity (entity);
+ALTER TABLE llx_powerplantpv_serialnumber ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_fk_powerplant (fk_powerplant);
+ALTER TABLE llx_powerplantpv_serialnumber ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_fk_powerplant_line (fk_powerplant_line);
+ALTER TABLE llx_powerplantpv_serialnumber ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_fk_product (fk_product);
+ALTER TABLE llx_powerplantpv_serialnumber ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_fk_categorie (fk_categorie);
+ALTER TABLE llx_powerplantpv_serialnumber ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_batch (import_batch);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_serialnumber_import(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_powerplant integer NOT NULL,
+	fk_categorie integer NOT NULL,
+	fk_user integer NOT NULL,
+	filename varchar(255) NOT NULL,
+	filepath varchar(1024),
+	status varchar(16) DEFAULT 'draft' NOT NULL,
+	import_mode varchar(16) DEFAULT 'add' NOT NULL,
+	first_line_headers smallint DEFAULT 1 NOT NULL,
+	raw_data_json mediumtext,
+	parsed_data_json mediumtext,
+	errors_json mediumtext,
+	datec datetime NOT NULL,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=innodb DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_entity (entity);
+ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_fk_powerplant (fk_powerplant);
+ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_fk_categorie (fk_categorie);
+ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_fk_user (fk_user);
+ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_status (status);

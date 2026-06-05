@@ -64,10 +64,11 @@ if (empty($user->admin)) {
 
 $moduleDescriptor = new modPowerPlantPV($db);
 $title = $langs->trans('About');
+$linkback = '<a href="'.DOL_URL_ROOT.'/admin/modules.php?search_keyword='.urlencode('powerplantpv').'">'.img_picto($langs->trans('BackToModuleList'), 'back', 'class="pictofixedwidth"').'<span class="hideonsmartphone">'.$langs->trans('BackToModuleList').'</span></a>';
 
 llxHeader('', $title);
 
-print load_fiche_titre($title, '', 'info');
+print load_fiche_titre($title, $linkback, 'info');
 $head = powerplantpvAdminPrepareHead();
 print dol_get_fiche_head($head, 'about', $title, -1, 'powerplantpv@powerplantpv');
 

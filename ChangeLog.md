@@ -18,6 +18,8 @@ Elle améliore aussi l’intégration Dolibarr du module avec :
 - meilleure gestion des liens entre objets Dolibarr ;
 - recalcul automatique de la puissance crête sur devis, commandes et factures ;
 - ajout du prix par Wc dans les informations de marge ;
+- ajout de l'import CSV/XLSX des numéros de série par catégorie PV de composition, avec validation, table dédiée, droits spécifiques, export CSV/XLSX et traçabilité ;
+- ajout de l'onglet de réglages Compatibilité pour signaler les fonctionnalités disponibles ou indisponibles, notamment le lecteur XLSX PhpSpreadsheet ;
 - nouveaux widgets de suivi de puissance installée annuelle, mensuelle et hebdomadaire ;
 - les widgets kWc utilisent désormais la puissance-crête des commandes client livrées et leur date de clôture ;
 - ajout d'un diagnostic explicite lorsque les widgets kWc n'ont aucune commande livrée/clôturée dans le périmètre affiché ;

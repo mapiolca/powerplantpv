@@ -433,3 +433,92 @@ TypeContact_powerplant_external_CENTPV_EXTERNAL_ELECTRICAL_TECH = Externer Elekt
 TypeContact_powerplant_external_CENTPV_EXTERNAL_COMMISSION_TECH = Externer Inbetriebnahmetechniker
 TypeContact_powerplant_external_CENTPV_EXTERNAL_MAINTENANCE_TECH = Externer Wartungstechniker
 TypeContact_powerplant_external_CENTPV_EXTERNAL_ROOFER = Externer Dachtechniker
+
+#
+# Serial numbers import
+#
+ImportSerialNumbers = Seriennummern importieren
+SerialNumbers = Seriennummern
+PowerPlantCompositionLine = Zusammensetzungszeile
+SerialNumbersImport = Import von Seriennummern
+SerialNumbersCategoryToImport = Zu importierende Kategorie
+SerialNumbersFileToImport = Zu importierende Datei
+SerialNumbersFirstLineHeaders = Erste Zeile = Überschriften
+SerialNumbersImportMode = Importmodus
+SerialNumbersValidateAssociation = Zuordnung der Nummern bestätigen
+SerialNumbersImportSummary = Importübersicht
+SerialNumbersExpectedQty = Erwartete Menge
+SerialNumbersImportedQty = Importierte Menge
+SerialNumbersRecordedQty = Gespeicherte Nummern
+SerialNumbersDetectedRows = Erkannte Zeilen
+SerialNumbersValidQty = Gültige Nummern
+SerialNumbersGap = Abweichung
+SerialNumbersDuplicateInFile = Duplikat in der Datei
+SerialNumbersDuplicateInPowerplant = Nummer bereits in der Anlage vorhanden
+SerialNumbersUnknownProduct = Produkt nicht erkannt
+SerialNumbersAssociationRequired = Manuelle Zuordnung erforderlich
+SerialNumbersImportValidated = Import der Seriennummern bestätigt
+SerialNumbersImportCancelled = Import der Seriennummern abgebrochen
+SerialNumbersCancelImport = Import abbrechen
+SerialNumbersReplaceExisting = Vorhandene Nummern ersetzen
+SerialNumbersAddOnly = Nur hinzufügen
+SerialNumbersNoCategoryAvailable = Keine PV-Produktkategorie in dieser Anlage verfügbar
+SerialNumbersSourceFile = Quelldatei
+SerialNumbersImportBatch = Importstapel
+SerialNumbersRawData = Rohdaten
+SerialNumbersParsedData = Analysierte Daten
+SerialNumbersUnsupportedFileExtension = Dateierweiterung nicht erlaubt
+SerialNumbersFileNotReadable = Datei nicht lesbar
+SerialNumbersNoUsableLine = Keine nutzbare Zeile
+SerialNumbersXlsxReaderUnavailable = XLSX-Unterstützung nicht verfügbar
+SerialNumbersColumnSerialNotFound = Spalte serial_number nicht gefunden
+SerialNumbersUnknownColumnsIgnored = Einige unbekannte Spalten wurden ignoriert
+SerialNumbersEmptySerialNumber = Leere Seriennummer
+SerialNumbersAlreadyAssociatedWillBeReplaced = Diese Nummer existiert bereits in dieser Kategorie und wird ersetzt
+SerialNumbersQuantityExceedsExpected = Importierte Menge überschreitet die erwartete Menge
+SerialNumbersCategoryAbsentFromPowerplant = Kategorie fehlt in der Anlagenzusammensetzung
+SerialNumbersLineAlreadyUsedInImport = Zusammensetzungszeile bereits in diesem Import verwendet
+SerialNumbersLineAlreadyHasSerial = Diese Zeile hat bereits eine Seriennummer
+SerialNumbersUnusualFormat = Ungewöhnliches Seriennummernformat
+SerialNumbersImportHasBlockingErrors = Der Import enthält blockierende Fehler
+SerialNumbersExistingDeletedCount = %s vorhandene Seriennummer(n) werden gelöscht
+SerialNumbersStatusOk = OK
+SerialNumbersStatusWarning = Warnung
+SerialNumbersStatusError = Fehler
+SerialNumbersDetectedProduct = Erkanntes Produkt
+SerialNumbersProposedAssociation = Vorgeschlagene Zuordnung
+SerialNumbersImportedForCategory = %s Seriennummer(n) wurden für die Kategorie %s importiert.
+SerialNumbersImportValidatedLog = Kategorie: %s\nDatei: %s\nImportierte Nummern: %s\nBenutzer: %s
+SerialNumbersCompositionSummary = Übersicht der Seriennummern
+SerialNumbersView = Nummern anzeigen
+SerialNumbersReimport = Erneut importieren
+SerialNumbersDeletedCount = %s Seriennummer(n) gelöscht
+SerialNumbersConfirmDeleteSelection = Löschen der ausgewählten Seriennummern bestätigen?
+PowerPlantSerialNumberPermissionRead = Seriennummern lesen
+PowerPlantSerialNumberPermissionImport = Seriennummern importieren
+PowerPlantSerialNumberPermissionDelete = Seriennummern löschen
+PowerPlantSerialNumberPermissionExport = Seriennummern exportieren
+PowerPlantCompTriggerSerialImport = Import von Seriennummern bestätigt
+PowerPlantCompTriggerSerialImportDesc = Ausgeführt, wenn ein Import von Seriennummern bestätigt wird
+
+#
+# Compatibility
+#
+PowerPlantPVCompatibilityEnvironment = Erkannte Umgebung
+PowerPlantPVDetectedPhpVersion = Erkannte PHP-Version
+PowerPlantPVDetectedDolibarrVersion = Erkannte Dolibarr-Version
+PowerPlantPVMinPhpVersion = Minimal unterstützte PHP-Version
+PowerPlantPVMinDolibarrVersion = Minimal unterstützte Dolibarr-Version
+PowerPlantCompatibilityCoreDescription = Hauptfunktionen des Moduls PV-Anlagen
+PowerPlantPVRequiresDolibarr20Php80 = Erfordert Dolibarr v20 und PHP 8.0
+SerialNumbersImportCsvFeature = CSV-Import von Seriennummern
+SerialNumbersImportCsvFeatureDescription = Lesen und Analysieren von CSV-Dateien mit Seriennummern
+SerialNumbersImportXlsxFeature = XLSX-Import von Seriennummern
+SerialNumbersImportXlsxFeatureDescription = Lesen und Analysieren von XLSX-Dateien über PhpSpreadsheet
+SerialNumbersExportCsvFeature = CSV-Export von Seriennummern
+SerialNumbersExportCsvFeatureDescription = CSV-Export der gespeicherten Seriennummern
+SerialNumbersExportXlsxFeature = XLSX-Export von Seriennummern
+SerialNumbersExportXlsxFeatureDescription = XLSX-Export der gespeicherten Seriennummern über PhpSpreadsheet
+Reason = Grund
+Available = Verfügbar
+Unavailable = Nicht verfügbar
