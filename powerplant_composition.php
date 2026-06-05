@@ -1201,6 +1201,73 @@ if ($id > 0 || !empty($ref)) {
 			print '</script>';
 		}
 
+		if ($permissiontoserialread || $canimportserialnumbers) {
+			$serialtraceability = array(
+				'expected_qty' => 0,
+				'stored_qty' => 0,
+				'missing_qty' => 0,
+				'last_import' => null,
+			);
+			if ($permissiontoserialread) {
+				$serialtraceability = powerplantpvSerialNumberFetchTraceabilitySummary($object);
+			}
+			$serialexpectedqty = (int) $serialtraceability['expected_qty'];
+			$serialstoredqty = (int) $serialtraceability['stored_qty'];
+			$serialmissingqty = (int) $serialtraceability['missing_qty'];
+			$listurl = dol_buildpath('/powerplantpv/serialnumber_list.php', 1).'?id='.(int) $object->id;
+
+			print load_fiche_titre($langs->trans('SerialNumbersTraceability'), '', 'fa-barcode');
+			print '<div class="div-table-responsive-no-min">';
+			print '<table class="noborder centpercent">';
+			print '<tr class="oddeven">';
+			print '<td>';
+			if (!$permissiontoserialread) {
+				print '<span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('ImportSerialNumbers')).'</span>';
+			} elseif ($serialexpectedqty <= 0) {
+				print '<span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersNoSerializableEquipment')).'</span>';
+			} elseif ($serialstoredqty <= 0) {
+				print dol_escape_htmltag($langs->transnoentities('SerialNumbersNoneRecordedForPowerPlant'));
+			} else {
+				print dol_escape_htmltag($langs->transnoentities('SerialNumbersRecordedProgress', $serialstoredqty, $serialexpectedqty));
+				if ($serialmissingqty > 0) {
+					print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersMissingCount', $serialmissingqty)).'</span>';
+				} else {
+					print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersAllRecorded')).'</span>';
+				}
+			}
+			if ($permissiontoserialread && !empty($serialtraceability['last_import']) && is_array($serialtraceability['last_import'])) {
+				$lastimport = $serialtraceability['last_import'];
+				$lastimportdate = (!empty($lastimport['datec']) ? dol_print_date($db->jdate($lastimport['datec']), 'dayhour') : '');
+				if ($lastimportdate !== '') {
+					$lastimportuser = trim((string) $lastimport['user_name']);
+					if ($lastimportuser !== '') {
+						print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersLastImportBy', $lastimportdate, $lastimportuser)).'</span>';
+					} else {
+						print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersLastImport', $lastimportdate)).'</span>';
+					}
+				}
+			}
+			print '</td>';
+			print '<td class="right nowraponall">';
+			if ($canimportserialnumbers) {
+				print dolGetButtonAction($langs->trans('ImportSerialNumbers'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&token='.newToken(), '', true);
+			}
+			if ($permissiontoserialread) {
+				print dolGetButtonAction($langs->trans('SerialNumbersViewManage'), '', 'default', $listurl, '', true);
+			}
+			if ($permissiontoserialread && $permissiontoserialexport) {
+				print dolGetButtonAction($langs->trans('Export').' CSV', '', 'default', $listurl.'&export=csv', '', ($serialstoredqty > 0));
+				if (powerplantpvSerialImportIsXlsxAvailable()) {
+					print dolGetButtonAction($langs->trans('Export').' XLSX', '', 'default', $listurl.'&export=xlsx', '', ($serialstoredqty > 0));
+				}
+			}
+			print '</td>';
+			print '</tr>';
+			print '</table>';
+			print '</div>';
+			print '<br>';
+		}
+
 		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="formfilteraction" id="formfilteraction" value="list">';
@@ -1285,72 +1352,6 @@ if ($id > 0 || !empty($ref)) {
 	print '</table>';
 	print '</div>';
 	print '</form>';
-	if ($permissiontoserialread || $canimportserialnumbers) {
-		$serialtraceability = array(
-			'expected_qty' => 0,
-			'stored_qty' => 0,
-			'missing_qty' => 0,
-			'last_import' => null,
-		);
-		if ($permissiontoserialread) {
-			$serialtraceability = powerplantpvSerialNumberFetchTraceabilitySummary($object);
-		}
-		$serialexpectedqty = (int) $serialtraceability['expected_qty'];
-		$serialstoredqty = (int) $serialtraceability['stored_qty'];
-		$serialmissingqty = (int) $serialtraceability['missing_qty'];
-		$listurl = dol_buildpath('/powerplantpv/serialnumber_list.php', 1).'?id='.(int) $object->id;
-
-		print '<br>';
-		print load_fiche_titre($langs->trans('SerialNumbersTraceability'), '', 'fa-barcode');
-		print '<div class="div-table-responsive-no-min">';
-		print '<table class="noborder centpercent">';
-		print '<tr class="oddeven">';
-		print '<td>';
-		if (!$permissiontoserialread) {
-			print '<span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('ImportSerialNumbers')).'</span>';
-		} elseif ($serialexpectedqty <= 0) {
-			print '<span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersNoSerializableEquipment')).'</span>';
-		} elseif ($serialstoredqty <= 0) {
-			print dol_escape_htmltag($langs->transnoentities('SerialNumbersNoneRecordedForPowerPlant'));
-		} else {
-			print dol_escape_htmltag($langs->transnoentities('SerialNumbersRecordedProgress', $serialstoredqty, $serialexpectedqty));
-			if ($serialmissingqty > 0) {
-				print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersMissingCount', $serialmissingqty)).'</span>';
-			} else {
-				print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersAllRecorded')).'</span>';
-			}
-		}
-		if ($permissiontoserialread && !empty($serialtraceability['last_import']) && is_array($serialtraceability['last_import'])) {
-			$lastimport = $serialtraceability['last_import'];
-			$lastimportdate = (!empty($lastimport['datec']) ? dol_print_date($db->jdate($lastimport['datec']), 'dayhour') : '');
-			if ($lastimportdate !== '') {
-				$lastimportuser = trim((string) $lastimport['user_name']);
-				if ($lastimportuser !== '') {
-					print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersLastImportBy', $lastimportdate, $lastimportuser)).'</span>';
-				} else {
-					print '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->transnoentities('SerialNumbersLastImport', $lastimportdate)).'</span>';
-				}
-			}
-		}
-		print '</td>';
-		print '<td class="right nowraponall">';
-		if ($canimportserialnumbers) {
-			print dolGetButtonAction($langs->trans('ImportSerialNumbers'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&token='.newToken(), '', true);
-		}
-		if ($permissiontoserialread) {
-			print dolGetButtonAction($langs->trans('SerialNumbersViewManage'), '', 'default', $listurl, '', true);
-		}
-		if ($permissiontoserialread && $permissiontoserialexport) {
-			print dolGetButtonAction($langs->trans('Export').' CSV', '', 'default', $listurl.'&export=csv', '', ($serialstoredqty > 0));
-			if (powerplantpvSerialImportIsXlsxAvailable()) {
-				print dolGetButtonAction($langs->trans('Export').' XLSX', '', 'default', $listurl.'&export=xlsx', '', ($serialstoredqty > 0));
-			}
-		}
-		print '</td>';
-		print '</tr>';
-		print '</table>';
-		print '</div>';
-	}
 	print '</div>';
 	print dol_get_fiche_end();
 }

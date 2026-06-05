@@ -292,6 +292,7 @@ function powerplantpvSerialNumberFetchTraceabilitySummary($object)
 		'stored_qty' => 0,
 		'missing_qty' => 0,
 		'composition_rows' => array(),
+		'missing_rows' => array(),
 		'last_import' => null,
 	);
 	if (empty($object->id)) {
@@ -303,8 +304,13 @@ function powerplantpvSerialNumberFetchTraceabilitySummary($object)
 	foreach ($rows as $row) {
 		$expectedqty = max(0, (int) $row['expected_qty']);
 		$storedqty = max(0, (int) $row['stored_qty']);
+		$missingqty = max(0, $expectedqty - $storedqty);
 		$summary['expected_qty'] += $expectedqty;
 		$summary['stored_qty'] += $storedqty;
+		if ($missingqty > 0) {
+			$row['missing_qty'] = $missingqty;
+			$summary['missing_rows'][] = $row;
+		}
 	}
 	$summary['missing_qty'] = max(0, (int) $summary['expected_qty'] - (int) $summary['stored_qty']);
 
@@ -332,6 +338,17 @@ function powerplantpvSerialNumberFetchTraceabilitySummary($object)
 	}
 
 	return $summary;
+}
+
+/**
+ * Return detailed missing serial number summary for a power plant.
+ *
+ * @param	PowerPlant	$object	Power plant
+ * @return	array<string,mixed>	Missing serial number summary
+ */
+function powerplantpvSerialNumberFetchMissingSummary($object)
+{
+	return powerplantpvSerialNumberFetchTraceabilitySummary($object);
 }
 
 /**
@@ -1634,4 +1651,95 @@ function powerplantpvSerialNumberDeleteByFilter($object, $filters)
 	$db->commit();
 
 	return count($ids);
+}
+
+/**
+ * Delete selected serial numbers and resync composition line serial values.
+ *
+ * @param	PowerPlant	$object	Power plant
+ * @param	int[]		$ids	Serial number ids
+ * @return	int					Deleted count, <0 on error
+ */
+function powerplantpvSerialNumberDeleteByIds($object, $ids)
+{
+	global $db, $conf;
+
+	$ids = array_map('intval', (array) $ids);
+	$ids = array_filter($ids, function ($id) {
+		return ($id > 0);
+	});
+	$ids = array_values(array_unique($ids));
+	if (empty($ids)) {
+		return 0;
+	}
+
+	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+	$sqlids = "SELECT rowid, fk_powerplant_line FROM ".$db->prefix()."powerplantpv_serialnumber";
+	$sqlids .= " WHERE fk_powerplant = ".((int) $object->id);
+	$sqlids .= " AND entity = ".$entity;
+	$sqlids .= " AND rowid IN (".implode(',', $ids).")";
+	$resids = $db->query($sqlids);
+	if (!$resids) {
+		$object->error = $db->lasterror();
+		return -1;
+	}
+
+	$idsfound = array();
+	$lineids = array();
+	while ($obj = $db->fetch_object($resids)) {
+		$idsfound[] = (int) $obj->rowid;
+		$lineids[] = (int) $obj->fk_powerplant_line;
+	}
+	$lineids = array_values(array_unique(array_filter($lineids, function ($lineid) {
+		return ($lineid > 0);
+	})));
+	if (empty($idsfound)) {
+		return 0;
+	}
+
+	$db->begin();
+
+	$sqldelete = "DELETE FROM ".$db->prefix()."powerplantpv_serialnumber";
+	$sqldelete .= " WHERE fk_powerplant = ".((int) $object->id);
+	$sqldelete .= " AND entity = ".$entity;
+	$sqldelete .= " AND rowid IN (".implode(',', $idsfound).")";
+	if (!$db->query($sqldelete)) {
+		$object->error = $db->lasterror();
+		$db->rollback();
+		return -1;
+	}
+
+	foreach ($lineids as $lineid) {
+		$serialnumber = '';
+		$sqlremaining = "SELECT serial_number FROM ".$db->prefix()."powerplantpv_serialnumber";
+		$sqlremaining .= " WHERE fk_powerplant = ".((int) $object->id);
+		$sqlremaining .= " AND entity = ".$entity;
+		$sqlremaining .= " AND fk_powerplant_line = ".((int) $lineid);
+		$sqlremaining .= " ORDER BY rowid ASC";
+		$sqlremaining .= $db->plimit(1);
+		$resremaining = $db->query($sqlremaining);
+		if (!$resremaining) {
+			$object->error = $db->lasterror();
+			$db->rollback();
+			return -1;
+		}
+		if ($objremaining = $db->fetch_object($resremaining)) {
+			$serialnumber = (string) $objremaining->serial_number;
+		}
+
+		$sqlupdate = "UPDATE ".$db->prefix()."powerplantpv_powerplantcomp";
+		$sqlupdate .= " SET serial_number = '".$db->escape($serialnumber)."'";
+		$sqlupdate .= " WHERE rowid = ".((int) $lineid);
+		$sqlupdate .= " AND fk_powerplant = ".((int) $object->id);
+		$sqlupdate .= " AND entity = ".$entity;
+		if (!$db->query($sqlupdate)) {
+			$object->error = $db->lasterror();
+			$db->rollback();
+			return -1;
+		}
+	}
+
+	$db->commit();
+
+	return count($idsfound);
 }
