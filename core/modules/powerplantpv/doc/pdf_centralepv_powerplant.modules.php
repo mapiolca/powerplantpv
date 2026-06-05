@@ -22,6 +22,7 @@
  */
 
 dol_include_once('/powerplantpv/core/modules/powerplantpv/modules_powerplant.php');
+dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
 require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
@@ -335,10 +336,20 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 		));
 		$this->renderSection($pdf, $object, $outputlangs, $tplidx, 'PowerPlantPDFSectionAccess', $accessRows);
 
+		$connectioncontractpower = $this->formatNumber($object->connection_contract_power, 2, $outputlangs);
+		if ($connectioncontractpower !== '') {
+			$connectioncontractpower .= ' kVA';
+		}
+		$installedpower = $this->formatNumber($object->installed_power, 2, $outputlangs);
+		if ($installedpower !== '') {
+			$installedpower .= ' kWc';
+		}
+		$connectiontype = (class_exists('PowerPlant') ? PowerPlant::getConnectionTypeLabel($object->connection_type, $outputlangs) : $object->connection_type);
+
 		$connectionRows = $this->filterRows(array(
 			array($outputlangs->transnoentities('PowerPlantPDFPrmPdl'), $object->prm_pdl_number),
-			array($outputlangs->transnoentities('PowerPlantPDFConnectionContractPower'), $this->formatNumber($object->connection_contract_power, 2, $outputlangs)),
-			array($outputlangs->transnoentities('PowerPlantPDFConnectionType'), $object->connection_type),
+			array($outputlangs->transnoentities('PowerPlantPDFConnectionContractPower'), $connectioncontractpower),
+			array($outputlangs->transnoentities('PowerPlantPDFConnectionType'), $connectiontype),
 			array($outputlangs->transnoentities('PowerPlantPDFEnedisCommissioningDate'), $this->formatDate($object->enedis_commissioning_date, $outputlangs)),
 			array($outputlangs->transnoentities('PowerPlantPDFConnectionRequestNumber'), $object->connection_request_number),
 			array($outputlangs->transnoentities('PowerPlantPDFT0ObtentionDate'), $this->formatDate($object->t0_obtention_date, $outputlangs)),
@@ -346,7 +357,7 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 		$this->renderSection($pdf, $object, $outputlangs, $tplidx, 'PowerPlantPDFSectionConnection', $connectionRows);
 
 		$operationRows = $this->filterRows(array(
-			array($outputlangs->transnoentities('PowerPlantPDFInstalledPower'), $this->formatNumber($object->installed_power, 2, $outputlangs)),
+			array($outputlangs->transnoentities('PowerPlantPDFInstalledPower'), $installedpower),
 			array($outputlangs->transnoentities('PowerPlantPDFBuybackContractNumber'), $object->buyback_contract_number),
 			array($outputlangs->transnoentities('PowerPlantPDFBuybackTariff'), $object->buyback_tariff),
 		));
@@ -874,6 +885,7 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 
 		$y = $pdf->GetY();
 		$x = $this->marge_gauche;
+		$pdf->SetTextColor($this->colors['muted'][0], $this->colors['muted'][1], $this->colors['muted'][2]);
 		$pdf->SetFont('', 'B', $this->defaultFontSize - 1);
 		foreach ($columns as $title => $width) {
 			$this->drawRect($pdf, $x, $y, $width, 7, $this->colors['soft'], $this->colors['line']);
@@ -896,6 +908,7 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 
 			$y = $pdf->GetY();
 			$x = $this->marge_gauche;
+			$pdf->SetTextColor($this->colors['dark'][0], $this->colors['dark'][1], $this->colors['dark'][2]);
 			$pdf->SetFont('', '', $this->defaultFontSize - 1);
 			$i = 0;
 			foreach ($columns as $width) {

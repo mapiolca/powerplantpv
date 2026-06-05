@@ -284,6 +284,281 @@ function powerplantGetBackToListLink($object, $socid = 0)
 }
 
 /**
+ * Apply runtime field metadata shared by card, list and inline edition.
+ *
+ * @param	PowerPlant		$object			PowerPlant object
+ * @param	Translate|null	$outputlangs	Language handler
+ * @return	void
+ */
+function powerplantApplyPowerPlantRuntimeFields($object, $outputlangs = null)
+{
+	global $langs;
+
+	if (!is_object($object) || empty($object->fields) || !is_array($object->fields)) {
+		return;
+	}
+
+	if (isset($object->fields['installed_power'])) {
+		$object->fields['installed_power']['noteditable'] = 1;
+	}
+	if (isset($object->fields['connection_type']) && class_exists('PowerPlant')) {
+		$translator = (is_object($outputlangs) ? $outputlangs : $langs);
+		$options = array();
+		foreach (PowerPlant::getConnectionTypeOptions() as $key => $translationkey) {
+			$options[$key] = (is_object($translator) ? $translator->trans($translationkey) : $translationkey);
+		}
+
+		$currentvalue = (isset($object->connection_type) ? trim((string) $object->connection_type) : '');
+		if ($currentvalue !== '') {
+			$normalizedvalue = PowerPlant::normalizeConnectionTypeValue($currentvalue);
+			if ($normalizedvalue !== '' && !isset($options[$normalizedvalue]) && !isset($options[$currentvalue])) {
+				$options[$currentvalue] = $currentvalue;
+			}
+		}
+
+		$object->fields['connection_type']['arrayofkeyval'] = $options;
+	}
+}
+
+/**
+ * Return the value to preselect in connection type selects.
+ *
+ * @param	mixed	$value	Stored value
+ * @return	string			Technical key if known, original value otherwise
+ */
+function powerplantGetConnectionTypeFormValue($value)
+{
+	if (!class_exists('PowerPlant')) {
+		return trim((string) $value);
+	}
+
+	$normalizedvalue = PowerPlant::normalizeConnectionTypeValue($value);
+	$options = PowerPlant::getConnectionTypeOptions();
+
+	return (isset($options[$normalizedvalue]) ? $normalizedvalue : trim((string) $value));
+}
+
+/**
+ * Return unit suffix for power fields.
+ *
+ * @param	string	$key	Field key
+ * @return	string			Unit
+ */
+function powerplantGetFieldDisplayUnit($key)
+{
+	if ($key === 'installed_power') {
+		return 'kWc';
+	}
+	if ($key === 'connection_contract_power') {
+		return 'kVA';
+	}
+
+	return '';
+}
+
+/**
+ * Return a field definition compatible with native CommonObject rendering.
+ *
+ * @param	array<string,mixed>	$def	Field definition
+ * @return	array<string,mixed>			Field definition
+ */
+function powerplantGetNativeFieldDefinition($def)
+{
+	if (!empty($def['type']) && preg_match('/^double(?:\([^)]+\))?(?::.*)?$/', (string) $def['type'])) {
+		$def['type'] = 'double';
+	}
+
+	return $def;
+}
+
+/**
+ * Render a field value with module-specific display additions.
+ *
+ * @param	PowerPlant			$object		PowerPlant object
+ * @param	array<string,mixed>	$def		Field definition
+ * @param	string				$key		Field key
+ * @param	mixed				$value		Value
+ * @return	string							HTML
+ */
+function powerplantRenderPowerPlantOutputField($object, $def, $key, $value)
+{
+	if ($key === 'connection_type') {
+		$value = powerplantGetConnectionTypeFormValue($value);
+	}
+
+	$unit = powerplantGetFieldDisplayUnit($key);
+	$nativefield = powerplantGetNativeFieldDefinition($def);
+	$originalfield = (isset($object->fields[$key]) ? $object->fields[$key] : null);
+	$object->fields[$key] = $nativefield;
+	$out = $object->showOutputField($nativefield, $key, $value);
+	if ($originalfield !== null) {
+		$object->fields[$key] = $originalfield;
+	} else {
+		unset($object->fields[$key]);
+	}
+	if ($unit !== '' && trim((string) $value) !== '') {
+		$out .= ' <span class="opacitymedium">'.dol_escape_htmltag($unit).'</span>';
+	}
+
+	return $out;
+}
+
+/**
+ * Render a field input with module-specific display additions.
+ *
+ * @param	PowerPlant			$object		PowerPlant object
+ * @param	array<string,mixed>	$def		Field definition
+ * @param	string				$key		Field key
+ * @param	mixed				$value		Value
+ * @param	string|int			$morecss	CSS classes
+ * @param	string				$keyprefix	Field prefix
+ * @return	string							HTML
+ */
+function powerplantRenderPowerPlantInputField($object, $def, $key, $value, $morecss = '', $keyprefix = '')
+{
+	if ($key === 'connection_type') {
+		$value = powerplantGetConnectionTypeFormValue($value);
+	}
+
+	$unit = powerplantGetFieldDisplayUnit($key);
+	$nativefield = powerplantGetNativeFieldDefinition($def);
+	$originalfield = (isset($object->fields[$key]) ? $object->fields[$key] : null);
+	$object->fields[$key] = $nativefield;
+	$out = $object->showInputField($nativefield, $key, $value, '', '', $keyprefix, $morecss);
+	if ($originalfield !== null) {
+		$object->fields[$key] = $originalfield;
+	} else {
+		unset($object->fields[$key]);
+	}
+	if ($unit !== '') {
+		$out .= ' <span class="opacitymedium">'.dol_escape_htmltag($unit).'</span>';
+	}
+
+	return $out;
+}
+
+/**
+ * Test if a field type is numeric for list alignment and totals.
+ *
+ * @param	string	$type	Field type
+ * @return	bool			True if numeric
+ */
+function powerplantIsNumericFieldType($type)
+{
+	$type = (string) $type;
+
+	return (preg_match('/^(double|real|price)(\(|:|$)/', $type) || $type === 'integer');
+}
+
+/**
+ * Normalize a list of entity ids.
+ *
+ * @param	mixed	$values	Raw value from GETPOST or getEntity()
+ * @return	array<int,int>	Entity ids
+ */
+function powerplantSanitizeEntityIdArray($values)
+{
+	if (!is_array($values)) {
+		$values = preg_split('/[,;]+/', (string) $values);
+	}
+
+	$entities = array();
+	foreach ($values as $value) {
+		$entity = (int) $value;
+		if ($entity > 0) {
+			$entities[$entity] = $entity;
+		}
+	}
+
+	return array_values($entities);
+}
+
+/**
+ * Return the label of a Dolibarr entity.
+ *
+ * @param	int		$entity	Entity id
+ * @return	string			Entity label
+ */
+function powerplantGetEntityLabel($entity)
+{
+	global $db, $langs;
+	static $entitylabels = array();
+
+	$entity = (int) $entity;
+	if ($entity <= 0 || !isModEnabled('multicompany')) {
+		return '';
+	}
+	if (isset($entitylabels[$entity])) {
+		return $entitylabels[$entity];
+	}
+
+	$sql = "SELECT label";
+	$sql .= " FROM ".$db->prefix()."entity";
+	$sql .= " WHERE rowid = ".$entity;
+
+	$resql = $db->query($sql);
+	if ($resql) {
+		$obj = $db->fetch_object($resql);
+		$db->free($resql);
+		if ($obj && trim((string) $obj->label) !== '') {
+			$entitylabels[$entity] = (string) $obj->label;
+			return $entitylabels[$entity];
+		}
+	}
+
+	$entitylabels[$entity] = (is_object($langs) ? $langs->trans('Entity').' '.$entity : 'Entity '.$entity);
+	return $entitylabels[$entity];
+}
+
+/**
+ * Return a compact Multicompany entity badge.
+ *
+ * @param	int		$entity	Entity id
+ * @return	string			HTML badge
+ */
+function powerplantGetEntityBadgeHtml($entity)
+{
+	$entity = (int) $entity;
+	if ($entity <= 0 || !isModEnabled('multicompany')) {
+		return '';
+	}
+
+	$label = powerplantGetEntityLabel($entity);
+	if ($label === '') {
+		return '';
+	}
+
+	return '<span class="refidno multicompany-entity-card-container nowraponall">'
+		.'<span class="fa fa-globe pictofixedwidth"></span>'
+		.'<span class="multiselect-selected-title-text">'.dol_escape_htmltag($label).'</span>'
+		.'</span>';
+}
+
+/**
+ * Return accessible entity options for filters.
+ *
+ * @param	string	$entitylist	Comma-separated allowed entity ids
+ * @return	array<int,string>	Entity id => label
+ */
+function powerplantGetAccessibleEntityOptions($entitylist = '')
+{
+	if (!isModEnabled('multicompany')) {
+		return array();
+	}
+
+	if ($entitylist === '') {
+		$entitylist = getEntity('powerplant');
+	}
+
+	$options = array();
+	foreach (powerplantSanitizeEntityIdArray($entitylist) as $entity) {
+		$options[$entity] = powerplantGetEntityLabel($entity);
+	}
+
+	return $options;
+}
+
+/**
  * Build native banner details for a power plant.
  *
  * @param	PowerPlant	$object				PowerPlant
@@ -293,7 +568,7 @@ function powerplantGetBackToListLink($object, $socid = 0)
  */
 function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = '')
 {
-	global $db, $langs;
+	global $conf, $db, $langs;
 
 	require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
@@ -347,6 +622,13 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 			$morehtmlref .= $object->thirdparty->getNomUrl(1, 'customer');
 		} else {
 			$morehtmlref .= '<span class="opacitymedium">'.$langs->trans("None").'</span>';
+		}
+	}
+
+	if (isModEnabled('multicompany') && !empty($object->entity) && (int) $object->entity !== (int) $conf->entity) {
+		$entitybadge = powerplantGetEntityBadgeHtml((int) $object->entity);
+		if ($entitybadge !== '') {
+			$morehtmlref .= '<br>'.$entitybadge;
 		}
 	}
 

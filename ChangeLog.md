@@ -1,5 +1,15 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.0.2
+
+Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration Multicompany :
+- fusion des sections Réseau et harmonisation des champs de raccordement ;
+- affichage des unités `kWc` et `kVA` sur la fiche et dans le PDF ;
+- remplacement du type de raccordement par un choix Select2 avec clés techniques stables et compatibilité avec les anciennes valeurs ;
+- correction de la couleur du tableau Contacts dans le PDF Centrale PV ;
+- repositionnement du Tiers après le Libellé dans la création et la liste ;
+- ajout de l'affichage conditionnel de l'environnement Multicompany en fiche et en liste.
+
 ## 1.0.1
 
 Cette version corrige principalement une erreur 500 lors du clonage / de la création d’une centrale PV depuis un document commercial.
