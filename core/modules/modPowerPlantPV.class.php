@@ -863,8 +863,8 @@ class modPowerPlantPV extends DolibarrModules
 			$this->db->free($resql);
 			if (!$fieldexists) {
 				$result = $this->db->DDLAddField($datasourcetable, 'filename', array(
-					'type' => 'varchar(255)',
-					'value' => '',
+					'type' => 'varchar',
+					'value' => '255',
 					'null' => '',
 				));
 				if ($result < 0) {
