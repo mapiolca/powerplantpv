@@ -841,6 +841,39 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		$datasourcetable = $this->db->prefix().'powerplantpv_product_datasource';
+		$sql = "SHOW TABLES LIKE '".$this->db->escape($datasourcetable)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		$tableexists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+		if ($tableexists) {
+			$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($datasourcetable)." LIKE 'filename'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+
+			$fieldexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if (!$fieldexists) {
+				$result = $this->db->DDLAddField($datasourcetable, 'filename', array(
+					'type' => 'varchar',
+					'value' => '255',
+					'null' => '',
+				));
+				if ($result < 0) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+
 		return 1;
 	}
 

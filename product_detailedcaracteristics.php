@@ -43,6 +43,7 @@ require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/productinverter.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
 
 $langs->loadLangs(array('products', 'powerplantpv@powerplantpv', 'other'));
 
@@ -134,6 +135,22 @@ function powerplantpv_fetch_pvpanel($db, $productId)
 }
 
 /**
+ * Get a numeric POST value while preserving empty fields.
+ *
+ * @param string $field Field name
+ * @return string|float Empty string or normalized number
+ */
+function powerplantpv_get_numeric_post_value($field)
+{
+	$value = GETPOST($field, 'alpha');
+	if (trim((string) $value) === '') {
+		return '';
+	}
+
+	return price2num($value, 'MT');
+}
+
+/**
  * Save PV panel data.
  *
  * @param DoliDB      $db        Database handler
@@ -147,7 +164,7 @@ function powerplantpv_save_pvpanel($db, Product $product, $panel)
 
 	$data = array();
 	foreach (powerplantpv_get_pvpanel_fields() as $field) {
-		$data[$field] = price2num(GETPOST($field, 'alpha'), 'MT');
+		$data[$field] = powerplantpv_get_numeric_post_value($field);
 	}
 
 	if ($panel && !empty($panel->rowid)) {
@@ -450,6 +467,12 @@ $categoryCode = powerplantpv_get_product_category_code($db, $categoryRowId);
 $isPVPanel = ($categoryCode === 'MODULE');
 $isInverter = ($categoryCode === 'ONDULE');
 $hasDetailedCharacteristics = ($isPVPanel || $isInverter);
+$hasTechnicalImportSource = (
+	getDolGlobalInt('POWERPLANTPV_PVFREE_ENABLED')
+	|| getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED', 1)
+	|| getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', 1)
+);
+$showTechnicalImportButton = ($permissiontoadd && $hasDetailedCharacteristics && $hasTechnicalImportSource);
 
 $form = new Form($db);
 $panel = null;
@@ -612,7 +635,7 @@ if ($isInverter && $action === 'delete_input' && $inputid > 0 && $mpptid > 0) {
 }
 
 $linkback = '<a href="'.DOL_URL_ROOT.'/product/list.php?restore_lastsearch_values=1&type='.$object->type.'">'.$langs->trans('BackToList').'</a>';
-$object->next_prev_filter = '(te.fk_product_type:=:'.((int) $object->type).')';
+$object->next_prev_filter = ' fk_product_type = '.((int) $object->type);
 $shownav = 1;
 if ($user->socid && !in_array('product', explode(',', getDolGlobalString('MAIN_MODULES_FOR_EXTERNAL')))) {
 	$shownav = 0;
@@ -697,6 +720,9 @@ if ($isPVPanel) {
 		if ($permissiontoadd) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_panel', '', true);
 		}
+		if ($showTechnicalImportButton) {
+			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-panel', true);
+		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
 		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id, '', true);
@@ -731,6 +757,9 @@ if ($isInverter) {
 	if (!$editmode) {
 		if ($permissiontoadd) {
 			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_inverter', '', true);
+		}
+		if ($showTechnicalImportButton) {
+			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-inverter', true);
 		}
 	} else {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
@@ -844,6 +873,10 @@ if ($isInverter) {
 			print '</div><br>';
 		}
 	}
+}
+
+if ($showTechnicalImportButton) {
+	powerplantpvProductTechnicalImportPrintDialog($object, $categoryCode, false);
 }
 
 llxFooter();

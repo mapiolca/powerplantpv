@@ -1,0 +1,1261 @@
+<?php
+/* Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * \file       class/powerplantpvfileimport.class.php
+ * \ingroup    powerplantpv
+ * \brief      CSV/XLSX reader and normalizer for product technical imports.
+ */
+
+/**
+ * Read and normalize CSV/XLSX product technical characteristics.
+ */
+class PowerPlantPVFileImport
+{
+	/**
+	 * @var string Last error
+	 */
+	protected $error = '';
+
+	/**
+	 * @var array<int,string> Error keys
+	 */
+	protected $errors = array();
+
+	/**
+	 * Validate an uploaded CSV/XLSX file.
+	 *
+	 * @param array<string,mixed> $file Uploaded file entry
+	 * @return array<string,mixed>|false File metadata, false on error
+	 */
+	public function validateUploadedFile(array $file)
+	{
+		$this->resetErrors();
+
+		if (empty($file) || empty($file['name'])) {
+			$this->setError('ProductTechnicalImportFileMissing');
+			return false;
+		}
+		if (!isset($file['error']) || (int) $file['error'] !== UPLOAD_ERR_OK) {
+			$this->setError('ProductTechnicalImportUploadError');
+			return false;
+		}
+		if (empty($file['tmp_name']) || !is_readable((string) $file['tmp_name'])) {
+			$this->setError('ProductTechnicalImportFileUnreadable');
+			return false;
+		}
+
+		$filename = function_exists('dol_sanitizeFileName') ? dol_sanitizeFileName((string) $file['name']) : basename((string) $file['name']);
+		$extension = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
+		if (!in_array($extension, array('csv', 'xlsx'), true)) {
+			$this->setError('ProductTechnicalImportUnsupportedFileExtension');
+			return false;
+		}
+		if ($extension === 'csv' && !getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED', 1)) {
+			$this->setError('ProductTechnicalImportCsvDisabled');
+			return false;
+		}
+		if ($extension === 'xlsx' && !getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', 1)) {
+			$this->setError('ProductTechnicalImportXlsxDisabled');
+			return false;
+		}
+
+		$size = isset($file['size']) ? (int) $file['size'] : (int) @filesize((string) $file['tmp_name']);
+		$maxfilesizemb = (int) getDolGlobalInt('POWERPLANTPV_IMPORT_MAX_FILE_SIZE', 5);
+		if ($maxfilesizemb <= 0) {
+			$maxfilesizemb = 5;
+		}
+		if ($size > ($maxfilesizemb * 1024 * 1024)) {
+			$this->setError('ProductTechnicalImportFileTooLarge');
+			return false;
+		}
+
+		if (function_exists('mime_content_type')) {
+			$mime = (string) @mime_content_type((string) $file['tmp_name']);
+			if (preg_match('/php|script|executable/i', $mime)) {
+				$this->setError('ProductTechnicalImportInvalidMimeType');
+				return false;
+			}
+		}
+
+		return array(
+			'filename' => $filename,
+			'extension' => $extension,
+			'size' => $size,
+		);
+	}
+
+	/**
+	 * Read a CSV file as a raw matrix.
+	 *
+	 * @param string $filepath  File path
+	 * @param string $separator Preferred separator
+	 * @return array<int,array<int,string>> Rows
+	 */
+	public function readCsv($filepath, $separator = ';')
+	{
+		$this->resetErrors();
+
+		$handle = @fopen($filepath, 'rb');
+		if (!$handle) {
+			$this->setError('ProductTechnicalImportFileUnreadable');
+			return array();
+		}
+
+		$firstline = fgets($handle);
+		if ($firstline === false) {
+			fclose($handle);
+			$this->setError('ProductTechnicalImportNoUsableLine');
+			return array();
+		}
+
+		$delimiter = $this->detectCsvDelimiter($firstline, $separator);
+		rewind($handle);
+
+		$rows = array();
+		while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
+			$cells = array();
+			foreach ($data as $cell) {
+				$cells[] = $this->cleanCell((string) $cell);
+			}
+			if (!empty($rows) || !$this->isEmptyRow($cells)) {
+				$rows[] = $cells;
+			}
+		}
+		fclose($handle);
+
+		if (empty($rows)) {
+			$this->setError('ProductTechnicalImportNoUsableLine');
+		} elseif (isset($rows[0][0])) {
+			$rows[0][0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) $rows[0][0]);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Read an XLSX file as a raw matrix.
+	 *
+	 * @param string $filepath File path
+	 * @return array<int,array<int,string>> Rows
+	 */
+	public function readXlsx($filepath)
+	{
+		$this->resetErrors();
+
+		$native = $this->readXlsxNative($filepath);
+		if (is_array($native)) {
+			return $native;
+		}
+
+		if (!$this->loadPhpSpreadsheet()) {
+			$this->setError('ProductTechnicalImportXlsxReaderUnavailable');
+			return array();
+		}
+
+		try {
+			$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filepath);
+			if (method_exists($reader, 'setReadDataOnly')) {
+				$reader->setReadDataOnly(true);
+			}
+			$spreadsheet = $reader->load($filepath);
+			$worksheet = $spreadsheet->getActiveSheet();
+			$array = $worksheet->toArray('', false, false, false);
+		} catch (Throwable $e) {
+			if (function_exists('dol_syslog')) {
+				dol_syslog(__METHOD__.' failed to read '.$filepath.': '.$e->getMessage(), (defined('LOG_WARNING') ? LOG_WARNING : 4));
+			}
+			$this->setError('ProductTechnicalImportFileUnreadable');
+			return array();
+		}
+
+		$rows = array();
+		foreach ($array as $cells) {
+			$row = array();
+			foreach ((array) $cells as $cell) {
+				$row[] = $this->cleanCell((string) $cell);
+			}
+			if (!$this->isEmptyRow($row)) {
+				$rows[] = $row;
+			}
+		}
+
+		if (empty($rows)) {
+			$this->setError('ProductTechnicalImportNoUsableLine');
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Detect the header row index.
+	 *
+	 * @param array<int,array<int,string>> $rows Rows
+	 * @return int Header row index, -1 if not found
+	 */
+	public function detectHeaderRow(array $rows)
+	{
+		$aliases = $this->getCombinedAliases();
+		$bestindex = -1;
+		$bestscore = 0;
+		$limit = min(10, count($rows));
+
+		for ($i = 0; $i < $limit; $i++) {
+			$score = 0;
+			foreach ($this->normalizeHeaders((array) $rows[$i]) as $header) {
+				if ($header !== '' && isset($aliases[$header])) {
+					$score++;
+				}
+			}
+			if ($score > $bestscore) {
+				$bestscore = $score;
+				$bestindex = $i;
+			}
+		}
+
+		return ($bestscore > 0 ? $bestindex : -1);
+	}
+
+	/**
+	 * Normalize header labels.
+	 *
+	 * @param array<int,string> $headers Headers
+	 * @return array<int,string> Normalized headers
+	 */
+	public function normalizeHeaders(array $headers)
+	{
+		$normalized = array();
+		foreach ($headers as $header) {
+			$normalized[] = $this->normalizeHeader((string) $header);
+		}
+
+		return $normalized;
+	}
+
+	/**
+	 * Extract non-empty data rows after the detected header.
+	 *
+	 * @param array<int,array<int,string>> $rows Rows
+	 * @return array<int,array<int,string>> Data rows
+	 */
+	public function extractRows(array $rows)
+	{
+		$headerrow = $this->detectHeaderRow($rows);
+		if ($headerrow < 0) {
+			$this->setError('ProductTechnicalImportNoRecognizedColumn');
+			return array();
+		}
+
+		$extracted = array();
+		for ($i = $headerrow + 1; $i < count($rows); $i++) {
+			if (!$this->isEmptyRow((array) $rows[$i])) {
+				$extracted[] = (array) $rows[$i];
+			}
+		}
+
+		if (empty($extracted)) {
+			$this->setError('ProductTechnicalImportNoUsableLine');
+		}
+
+		return $extracted;
+	}
+
+	/**
+	 * Build normalized import row descriptors.
+	 *
+	 * @param array<int,array<int,string>> $rows Raw rows
+	 * @param string                       $type module|inverter
+	 * @return array<string,mixed> Parsed import data
+	 */
+	public function buildImportRows(array $rows, $type)
+	{
+		$this->resetErrors();
+
+		$headerrow = $this->detectHeaderRow($rows);
+		if ($headerrow < 0) {
+			$this->setError('ProductTechnicalImportNoRecognizedColumn');
+			return array();
+		}
+
+		$headers = (array) $rows[$headerrow];
+		$normalizedheaders = $this->normalizeHeaders($headers);
+		$fieldmap = $this->buildFieldMap($normalizedheaders, $type);
+		if (empty($fieldmap['fields'])) {
+			$this->setError('ProductTechnicalImportNoRecognizedColumn');
+			return array();
+		}
+
+		$importrows = array();
+		for ($i = $headerrow + 1; $i < count($rows); $i++) {
+			$cells = (array) $rows[$i];
+			if ($this->isEmptyRow($cells)) {
+				continue;
+			}
+			$raw = $this->rowToAssoc($headers, $cells);
+			$normalized = ($type === 'inverter') ? $this->normalizeInverterRow($raw) : $this->normalizeModuleRow($raw);
+			$recognizedcount = $this->countRecognizedValues($normalized);
+
+			$importrows[] = array(
+				'index' => count($importrows),
+				'line' => $i + 1,
+				'manufacturer' => $this->firstRawValue($raw, array('manufacturer', 'fabricant', 'maker', 'brand', 'marque')),
+				'model' => $this->firstRawValue($raw, array('model', 'modele', 'modèle', 'name', 'nom', 'ref', 'reference', 'référence')),
+				'power' => $this->firstNormalizedValue($normalized, array('pmax', 'pv_max_power', 'ac_nominal_power', 'ac_max_power')),
+				'recognized_count' => $recognizedcount,
+				'raw' => $raw,
+				'normalized' => $normalized,
+			);
+		}
+
+		if (empty($importrows)) {
+			$this->setError('ProductTechnicalImportNoUsableLine');
+			return array();
+		}
+
+		return array(
+			'header_row' => $headerrow + 1,
+			'headers' => $headers,
+			'normalized_headers' => $normalizedheaders,
+			'field_map' => $fieldmap,
+			'rows' => $importrows,
+		);
+	}
+
+	/**
+	 * Normalize a module row.
+	 *
+	 * @param array<string,mixed> $row Raw row indexed by file headers
+	 * @return array<string,mixed> Normalized data
+	 */
+	public function normalizeModuleRow(array $row)
+	{
+		return $this->normalizeRowWithAliases($row, $this->getModuleAliases(), $this->getModuleNumericFields(), 'module');
+	}
+
+	/**
+	 * Normalize an inverter row.
+	 *
+	 * @param array<string,mixed> $row Raw row indexed by file headers
+	 * @return array<string,mixed> Normalized data
+	 */
+	public function normalizeInverterRow(array $row)
+	{
+		return $this->normalizeRowWithAliases($row, $this->getInverterAliases(), $this->getInverterNumericFields(), 'inverter');
+	}
+
+	/**
+	 * Return last error.
+	 *
+	 * @return string Error key
+	 */
+	public function getLastError()
+	{
+		return $this->error;
+	}
+
+	/**
+	 * Return all errors.
+	 *
+	 * @return array<int,string> Error keys
+	 */
+	public function getLastErrors()
+	{
+		return $this->errors;
+	}
+
+	/**
+	 * Detect CSV delimiter.
+	 *
+	 * @param string $line      First line
+	 * @param string $preferred Preferred separator
+	 * @return string Delimiter
+	 */
+	protected function detectCsvDelimiter($line, $preferred)
+	{
+		$allowed = array(';' => ';', ',' => ',', "\t" => "\t");
+		$preferred = isset($allowed[$preferred]) ? $preferred : ';';
+		$counts = array(';' => substr_count($line, ';'), ',' => substr_count($line, ','), "\t" => substr_count($line, "\t"));
+		if (!empty($counts[$preferred])) {
+			return $preferred;
+		}
+		arsort($counts);
+		foreach ($counts as $delimiter => $count) {
+			if ($count > 0) {
+				return $delimiter;
+			}
+		}
+
+		return $preferred;
+	}
+
+	/**
+	 * Load Dolibarr bundled PhpSpreadsheet when available.
+	 *
+	 * @return bool True if loaded
+	 */
+	protected function loadPhpSpreadsheet()
+	{
+		if (class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+			return true;
+		}
+
+		$candidates = array(
+			DOL_DOCUMENT_ROOT.'/includes/phpoffice/phpspreadsheet/src/autoloader.php',
+			DOL_DOCUMENT_ROOT.'/includes/phpoffice/phpspreadsheet/src/Bootstrap.php',
+			DOL_DOCUMENT_ROOT.'/vendor/autoload.php',
+		);
+
+		foreach ($candidates as $candidate) {
+			if (is_readable($candidate)) {
+				try {
+					require_once $candidate;
+				} catch (Throwable $e) {
+					if (function_exists('dol_syslog')) {
+						dol_syslog(__METHOD__.' failed to load '.$candidate.': '.$e->getMessage(), (defined('LOG_WARNING') ? LOG_WARNING : 4));
+					}
+					continue;
+				}
+				if (class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+					return true;
+				}
+			}
+		}
+
+		return class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory');
+	}
+
+	/**
+	 * Read XLSX without Composer dependency.
+	 *
+	 * @param string $filepath File path
+	 * @return array<int,array<int,string>>|false Rows or false
+	 */
+	protected function readXlsxNative($filepath)
+	{
+		if (!class_exists('ZipArchive') || !function_exists('simplexml_load_string')) {
+			return false;
+		}
+
+		$zip = new ZipArchive();
+		if ($zip->open($filepath) !== true) {
+			return false;
+		}
+
+		$sheetpath = $this->xlsxGetFirstSheetPath($zip);
+		if ($sheetpath === '') {
+			$zip->close();
+			return false;
+		}
+
+		$sheetxml = $zip->getFromName($sheetpath);
+		if ($sheetxml === false) {
+			$zip->close();
+			return false;
+		}
+		$sharedstrings = $this->xlsxReadSharedStrings($zip);
+		$zip->close();
+
+		$rows = $this->xlsxSheetToMatrix($sheetxml, $sharedstrings);
+		if ($rows === false || empty($rows)) {
+			return false;
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Return first sheet path in XLSX archive.
+	 *
+	 * @param ZipArchive $zip XLSX archive
+	 * @return string Path
+	 */
+	protected function xlsxGetFirstSheetPath($zip)
+	{
+		$fallback = 'xl/worksheets/sheet1.xml';
+		$workbookxml = $zip->getFromName('xl/workbook.xml');
+		$relsxml = $zip->getFromName('xl/_rels/workbook.xml.rels');
+		if ($workbookxml === false || $relsxml === false) {
+			return ($zip->locateName($fallback) !== false ? $fallback : '');
+		}
+
+		$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+		$relsns = 'http://schemas.openxmlformats.org/package/2006/relationships';
+		$officerelsns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+		$workbook = $this->xlsxLoadXml($workbookxml);
+		$rels = $this->xlsxLoadXml($relsxml);
+		if ($workbook === false || $rels === false) {
+			return ($zip->locateName($fallback) !== false ? $fallback : '');
+		}
+
+		$targets = array();
+		foreach ($rels->children($relsns)->Relationship as $relationship) {
+			$attrs = $relationship->attributes();
+			$id = (string) $attrs['Id'];
+			if ($id !== '') {
+				$targets[$id] = (string) $attrs['Target'];
+			}
+		}
+
+		$sheetpaths = array();
+		$sheets = $workbook->children($mainns)->sheets;
+		foreach ($sheets->children($mainns)->sheet as $sheet) {
+			$attrs = $sheet->attributes($officerelsns);
+			$rid = (string) $attrs['id'];
+			if ($rid !== '' && !empty($targets[$rid])) {
+				$path = $this->xlsxNormalizeTargetPath('xl/workbook.xml', $targets[$rid]);
+				if ($path !== '' && $zip->locateName($path) !== false) {
+					$sheetpaths[] = $path;
+				}
+			}
+		}
+		if (!empty($sheetpaths[0])) {
+			return $sheetpaths[0];
+		}
+
+		return ($zip->locateName($fallback) !== false ? $fallback : '');
+	}
+
+	/**
+	 * Read shared strings.
+	 *
+	 * @param ZipArchive $zip XLSX archive
+	 * @return array<int,string> Shared strings
+	 */
+	protected function xlsxReadSharedStrings($zip)
+	{
+		$strings = array();
+		$xml = $zip->getFromName('xl/sharedStrings.xml');
+		if ($xml === false) {
+			return $strings;
+		}
+
+		$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+		$sst = $this->xlsxLoadXml($xml);
+		if ($sst === false) {
+			return $strings;
+		}
+
+		foreach ($sst->children($mainns)->si as $si) {
+			$strings[] = $this->xlsxReadStringNode($si);
+		}
+
+		return $strings;
+	}
+
+	/**
+	 * Convert worksheet XML to rows.
+	 *
+	 * @param string            $sheetxml      Sheet XML
+	 * @param array<int,string> $sharedstrings Shared strings
+	 * @return array<int,array<int,string>>|false Rows or false
+	 */
+	protected function xlsxSheetToMatrix($sheetxml, array $sharedstrings)
+	{
+		$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+		$sheet = $this->xlsxLoadXml($sheetxml);
+		if ($sheet === false) {
+			return false;
+		}
+
+		$rows = array();
+		$sheetdata = $sheet->children($mainns)->sheetData;
+		foreach ($sheetdata->children($mainns)->row as $rownode) {
+			$cells = array();
+			$nextcol = 0;
+			foreach ($rownode->children($mainns)->c as $cellnode) {
+				$cellattrs = $cellnode->attributes();
+				$cellref = (string) $cellattrs['r'];
+				$colindex = ($cellref !== '' ? $this->xlsxColumnIndex($cellref) : $nextcol);
+				$cells[$colindex] = $this->cleanCell($this->xlsxCellValue($cellnode, $sharedstrings));
+				$nextcol = $colindex + 1;
+			}
+			if (empty($cells)) {
+				continue;
+			}
+
+			ksort($cells);
+			$maxcol = (int) max(array_keys($cells));
+			$dense = array();
+			for ($i = 0; $i <= $maxcol; $i++) {
+				$dense[] = isset($cells[$i]) ? $cells[$i] : '';
+			}
+			if (!$this->isEmptyRow($dense)) {
+				$rows[] = $dense;
+			}
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Load XML safely.
+	 *
+	 * @param string $xml XML
+	 * @return SimpleXMLElement|false XML object
+	 */
+	protected function xlsxLoadXml($xml)
+	{
+		$previous = libxml_use_internal_errors(true);
+		$object = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+		libxml_clear_errors();
+		libxml_use_internal_errors($previous);
+
+		return $object;
+	}
+
+	/**
+	 * Read XLSX string node.
+	 *
+	 * @param SimpleXMLElement $node String node
+	 * @return string Text
+	 */
+	protected function xlsxReadStringNode($node)
+	{
+		$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+		$children = $node->children($mainns);
+		$text = '';
+		if (isset($children->t)) {
+			$text .= (string) $children->t;
+		}
+		foreach ($children->r as $run) {
+			$rchildren = $run->children($mainns);
+			if (isset($rchildren->t)) {
+				$text .= (string) $rchildren->t;
+			}
+		}
+
+		return $text;
+	}
+
+	/**
+	 * Read XLSX cell value without formula calculation.
+	 *
+	 * @param SimpleXMLElement  $cellnode      Cell node
+	 * @param array<int,string> $sharedstrings Shared strings
+	 * @return string Cell value
+	 */
+	protected function xlsxCellValue($cellnode, array $sharedstrings)
+	{
+		$mainns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+		$attrs = $cellnode->attributes();
+		$type = (string) $attrs['t'];
+		$children = $cellnode->children($mainns);
+
+		if ($type === 'inlineStr') {
+			return isset($children->is) ? $this->xlsxReadStringNode($children->is) : '';
+		}
+
+		$value = isset($children->v) ? (string) $children->v : '';
+		if ($type === 's') {
+			$index = (int) $value;
+			return isset($sharedstrings[$index]) ? $sharedstrings[$index] : '';
+		}
+		if ($type === 'b') {
+			return ($value === '1' ? '1' : '0');
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Convert XLSX cell reference to column index.
+	 *
+	 * @param string $cellref Cell reference
+	 * @return int Index
+	 */
+	protected function xlsxColumnIndex($cellref)
+	{
+		$letters = preg_replace('/[^A-Z]/', '', strtoupper($cellref));
+		if ($letters === '') {
+			return 0;
+		}
+
+		$index = 0;
+		$length = strlen($letters);
+		for ($i = 0; $i < $length; $i++) {
+			$index = ($index * 26) + (ord($letters[$i]) - 64);
+		}
+
+		return max(0, $index - 1);
+	}
+
+	/**
+	 * Normalize relationship target path.
+	 *
+	 * @param string $basepath Base path
+	 * @param string $target   Target
+	 * @return string Archive path
+	 */
+	protected function xlsxNormalizeTargetPath($basepath, $target)
+	{
+		$target = str_replace('\\', '/', (string) $target);
+		if ($target === '') {
+			return '';
+		}
+		if ($target[0] === '/') {
+			return ltrim($target, '/');
+		}
+
+		$parts = explode('/', $basepath);
+		array_pop($parts);
+		foreach (explode('/', $target) as $part) {
+			if ($part === '' || $part === '.') {
+				continue;
+			}
+			if ($part === '..') {
+				array_pop($parts);
+				continue;
+			}
+			$parts[] = $part;
+		}
+
+		return implode('/', $parts);
+	}
+
+	/**
+	 * Normalize a row using aliases.
+	 *
+	 * @param array<string,mixed> $row           Raw row
+	 * @param array<string,string> $aliases      Alias map
+	 * @param array<int,string>    $numericFields Numeric fields
+	 * @param string               $dataset      Dataset label
+	 * @return array<string,mixed> Normalized row
+	 */
+	protected function normalizeRowWithAliases(array $row, array $aliases, array $numericFields, $dataset)
+	{
+		$normalized = array('_dataset' => $dataset);
+		foreach ($row as $header => $value) {
+			$normalizedheader = $this->normalizeHeader((string) $header);
+			if ($normalizedheader === '' || !isset($aliases[$normalizedheader])) {
+				continue;
+			}
+			$field = $aliases[$normalizedheader];
+			if (isset($normalized[$field]) && $normalized[$field] !== null && $normalized[$field] !== '') {
+				continue;
+			}
+			if (in_array($field, $numericFields, true)) {
+				$normalized[$field] = $this->parseNumericValue($value);
+			} else {
+				$normalized[$field] = $this->parseStringValue($value);
+			}
+		}
+
+		return $normalized;
+	}
+
+	/**
+	 * Build field map from headers.
+	 *
+	 * @param array<int,string> $normalizedheaders Headers
+	 * @param string            $type              module|inverter
+	 * @return array<string,mixed> Field map
+	 */
+	protected function buildFieldMap(array $normalizedheaders, $type)
+	{
+		$aliases = ($type === 'inverter') ? $this->getInverterAliases() : $this->getModuleAliases();
+		$fields = array();
+		$recognized = array();
+		$ignored = array();
+		foreach ($normalizedheaders as $idx => $header) {
+			if ($header === '') {
+				continue;
+			}
+			if (isset($aliases[$header])) {
+				$field = $aliases[$header];
+				if (!isset($fields[$field])) {
+					$fields[$field] = $idx;
+				}
+				$recognized[$header] = $field;
+			} else {
+				$ignored[] = $header;
+			}
+		}
+
+		return array('fields' => $fields, 'recognized_headers' => $recognized, 'ignored_headers' => array_values(array_unique($ignored)));
+	}
+
+	/**
+	 * Convert raw row to associative row.
+	 *
+	 * @param array<int,string> $headers Headers
+	 * @param array<int,string> $cells   Cells
+	 * @return array<string,string> Row
+	 */
+	protected function rowToAssoc(array $headers, array $cells)
+	{
+		$row = array();
+		$count = max(count($headers), count($cells));
+		for ($i = 0; $i < $count; $i++) {
+			$header = isset($headers[$i]) && trim((string) $headers[$i]) !== '' ? (string) $headers[$i] : 'column_'.($i + 1);
+			$row[$header] = isset($cells[$i]) ? (string) $cells[$i] : '';
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Count recognized values.
+	 *
+	 * @param array<string,mixed> $normalized Normalized row
+	 * @return int Count
+	 */
+	protected function countRecognizedValues(array $normalized)
+	{
+		$count = 0;
+		foreach ($normalized as $key => $value) {
+			if ($key === '_dataset') {
+				continue;
+			}
+			if ($value !== null && $value !== '') {
+				$count++;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Return first raw value by aliases.
+	 *
+	 * @param array<string,mixed> $raw     Raw row
+	 * @param array<int,string>   $aliases Aliases
+	 * @return string Value
+	 */
+	protected function firstRawValue(array $raw, array $aliases)
+	{
+		$lookup = array();
+		foreach ($aliases as $alias) {
+			$lookup[$this->normalizeHeader($alias)] = 1;
+		}
+		foreach ($raw as $header => $value) {
+			if (isset($lookup[$this->normalizeHeader((string) $header)]) && trim((string) $value) !== '') {
+				return trim((string) $value);
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Return first normalized value.
+	 *
+	 * @param array<string,mixed> $normalized Normalized row
+	 * @param array<int,string>   $fields     Fields
+	 * @return mixed Value
+	 */
+	protected function firstNormalizedValue(array $normalized, array $fields)
+	{
+		foreach ($fields as $field) {
+			if (isset($normalized[$field]) && $normalized[$field] !== null && $normalized[$field] !== '') {
+				return $normalized[$field];
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Return module aliases.
+	 *
+	 * @return array<string,string> Alias => field
+	 */
+	protected function getModuleAliases()
+	{
+		return array(
+			'pmax' => 'pmax',
+			'pmpp' => 'pmax',
+			'stc' => 'pmax',
+			'power' => 'pmax',
+			'puissance' => 'pmax',
+			'puissance_stc' => 'pmax',
+			'power_tolerance' => 'power_tolerance',
+			'tolerance' => 'power_tolerance',
+			'tolerance_puissance' => 'power_tolerance',
+			'module_efficiency' => 'module_efficiency',
+			'efficiency' => 'module_efficiency',
+			'rendement' => 'module_efficiency',
+			'vmp' => 'vmp',
+			'vmpp' => 'vmp',
+			'v_mpp' => 'vmp',
+			'tension_mpp' => 'vmp',
+			'imp' => 'imp',
+			'impp' => 'imp',
+			'i_mpp' => 'imp',
+			'courant_mpp' => 'imp',
+			'voc' => 'voc',
+			'uoc' => 'voc',
+			'v_oc' => 'voc',
+			'tension_vide' => 'voc',
+			'isc' => 'isc',
+			'i_sc' => 'isc',
+			'courant_cc' => 'isc',
+			'front_glass_thickness' => 'front_glass_thickness',
+			'front_glass_thickness_mm' => 'front_glass_thickness',
+			'front_glass' => 'front_glass_thickness',
+			'front_glass_mm' => 'front_glass_thickness',
+			'glass_front' => 'front_glass_thickness',
+			'glass_front_mm' => 'front_glass_thickness',
+			'epaisseur_verre_avant' => 'front_glass_thickness',
+			'epaisseur_verre_avant_mm' => 'front_glass_thickness',
+			'verre_avant' => 'front_glass_thickness',
+			'back_glass_thickness' => 'back_glass_thickness',
+			'back_glass_thickness_mm' => 'back_glass_thickness',
+			'back_glass' => 'back_glass_thickness',
+			'back_glass_mm' => 'back_glass_thickness',
+			'glass_back' => 'back_glass_thickness',
+			'glass_back_mm' => 'back_glass_thickness',
+			'epaisseur_verre_arriere' => 'back_glass_thickness',
+			'epaisseur_verre_arriere_mm' => 'back_glass_thickness',
+			'verre_arriere' => 'back_glass_thickness',
+			'cable_section' => 'cable_section',
+			'cable_section_mm' => 'cable_section',
+			'cable_section_mm2' => 'cable_section',
+			'cable_section_mm_2' => 'cable_section',
+			'section_cable' => 'cable_section',
+			'section_cable_mm' => 'cable_section',
+			'section_cable_mm2' => 'cable_section',
+			'section_cable_mm_2' => 'cable_section',
+			'cable_length' => 'cable_length',
+			'cable_length_mm' => 'cable_length',
+			'longueur_cable' => 'cable_length',
+			'longueur_cable_mm' => 'cable_length',
+			'noct' => 'noct',
+			'nmot' => 'noct',
+			'gamma_pmax' => 'temp_coeff_pmax',
+			'temp_coeff_pmax' => 'temp_coeff_pmax',
+			'coeff_pmax' => 'temp_coeff_pmax',
+			'beta_voc' => 'temp_coeff_voc',
+			'temp_coeff_voc' => 'temp_coeff_voc',
+			'coeff_voc' => 'temp_coeff_voc',
+			'alpha_isc' => 'temp_coeff_isc',
+			'temp_coeff_isc' => 'temp_coeff_isc',
+			'coeff_isc' => 'temp_coeff_isc',
+			'max_system_voltage' => 'max_system_voltage',
+			'tension_systeme_max' => 'max_system_voltage',
+			'max_series_fuse' => 'max_series_fuse',
+			'fuse' => 'max_series_fuse',
+			'fusible_max' => 'max_series_fuse',
+			'operating_temperature' => 'operating_temperature',
+			'operating_temperature_c' => 'operating_temperature',
+			'temperature_fonctionnement' => 'operating_temperature',
+			'temperature_fonctionnement_c' => 'operating_temperature',
+			'temperature_de_fonctionnement' => 'operating_temperature',
+			'temperature_de_fonctionnement_c' => 'operating_temperature',
+			'temperature_service' => 'operating_temperature',
+			'temperature_service_c' => 'operating_temperature',
+			'snow_load' => 'snow_load',
+			'snow_load_pa' => 'snow_load',
+			'charge_neige' => 'snow_load',
+			'charge_neige_pa' => 'snow_load',
+			'wind_load' => 'wind_load',
+			'wind_load_pa' => 'wind_load',
+			'charge_vent' => 'wind_load',
+			'charge_vent_pa' => 'wind_load',
+			'product_warranty' => 'product_warranty',
+			'warranty_product' => 'product_warranty',
+			'garantie_produit' => 'product_warranty',
+			'power_warranty' => 'power_warranty',
+			'warranty_power' => 'power_warranty',
+			'garantie_puissance' => 'power_warranty',
+			'first_year_degradation' => 'first_year_degradation',
+			'degradation_first_year' => 'first_year_degradation',
+			'degradation_1ere_annee' => 'first_year_degradation',
+			'degradation_premiere_annee' => 'first_year_degradation',
+			'annual_degradation' => 'annual_degradation',
+			'degradation_annuelle' => 'annual_degradation',
+			'degradation_an' => 'annual_degradation',
+			'modules_per_box' => 'modules_per_box',
+			'modules_per_box_pcs' => 'modules_per_box',
+			'modules_box' => 'modules_per_box',
+			'modules_box_pcs' => 'modules_per_box',
+			'modules_par_boite' => 'modules_per_box',
+			'modules_par_boite_pcs' => 'modules_per_box',
+			'modules_boite' => 'modules_per_box',
+			'modules_boite_pcs' => 'modules_per_box',
+			'modules_per_container40' => 'modules_per_container40',
+			'modules_per_container40_pcs' => 'modules_per_container40',
+			'modules_per_container_40' => 'modules_per_container40',
+			'modules_per_container_40_pcs' => 'modules_per_container40',
+			'modules_per_container_40_ft' => 'modules_per_container40',
+			'modules_per_container_40_ft_pcs' => 'modules_per_container40',
+			'modules_per_40_ft_container' => 'modules_per_container40',
+			'modules_per_40_ft_container_pcs' => 'modules_per_container40',
+			'modules_per_40_container' => 'modules_per_container40',
+			'modules_per_40_container_pcs' => 'modules_per_container40',
+			'modules_container40' => 'modules_per_container40',
+			'modules_container40_pcs' => 'modules_per_container40',
+			'modules_container_40' => 'modules_per_container40',
+			'modules_container_40_pcs' => 'modules_per_container40',
+			'modules_par_conteneur40' => 'modules_per_container40',
+			'modules_par_conteneur40_pcs' => 'modules_per_container40',
+			'modules_par_conteneur_40' => 'modules_per_container40',
+			'modules_par_conteneur_40_pcs' => 'modules_per_container40',
+		);
+	}
+
+	/**
+	 * Return inverter aliases.
+	 *
+	 * @return array<string,string> Alias => field
+	 */
+	protected function getInverterAliases()
+	{
+		return array(
+			'pv_max_power' => 'pv_max_power',
+			'dc_power_max' => 'pv_max_power',
+			'puissance_dc_max' => 'pv_max_power',
+			'dc_max_voltage' => 'dc_max_voltage',
+			'vdc_max' => 'dc_max_voltage',
+			'tension_dc_max' => 'dc_max_voltage',
+			'startup_voltage' => 'startup_voltage',
+			'start_voltage' => 'startup_voltage',
+			'tension_demarrage' => 'startup_voltage',
+			'mppt_voltage_min' => 'mppt_voltage_min',
+			'vmppt_min' => 'mppt_voltage_min',
+			'mppt_voltage_max' => 'mppt_voltage_max',
+			'vmppt_max' => 'mppt_voltage_max',
+			'nominal_dc_voltage' => 'nominal_dc_voltage',
+			'vdc_nominal' => 'nominal_dc_voltage',
+			'ac_nominal_power' => 'ac_nominal_power',
+			'pac_nom' => 'ac_nominal_power',
+			'puissance_ac_nominale' => 'ac_nominal_power',
+			'ac_max_power' => 'ac_max_power',
+			'pac_max' => 'ac_max_power',
+			'puissance_ac_max' => 'ac_max_power',
+			'ac_apparent_power' => 'ac_apparent_power',
+			'puissance_apparente' => 'ac_apparent_power',
+			'kva' => 'ac_apparent_power',
+			'ac_nominal_voltage' => 'ac_nominal_voltage',
+			'vac_nominal' => 'ac_nominal_voltage',
+			'grid_frequency' => 'grid_frequency',
+			'frequency' => 'grid_frequency',
+			'frequence' => 'grid_frequency',
+			'ac_max_output_current' => 'ac_max_output_current',
+			'iac_max' => 'ac_max_output_current',
+			'courant_ac_max' => 'ac_max_output_current',
+			'max_efficiency' => 'max_efficiency',
+			'efficiency_max' => 'max_efficiency',
+			'rendement_max' => 'max_efficiency',
+			'european_efficiency' => 'european_efficiency',
+			'euro_efficiency' => 'european_efficiency',
+			'rendement_europeen' => 'european_efficiency',
+			'ip_rating' => 'ip_rating',
+			'indice_ip' => 'ip_rating',
+			'operating_temperature' => 'operating_temperature',
+			'temperature_fonctionnement' => 'operating_temperature',
+			'cooling' => 'cooling',
+			'refroidissement' => 'cooling',
+			'communication_interfaces' => 'communication_interfaces',
+			'communication' => 'communication_interfaces',
+			'interfaces_communication' => 'communication_interfaces',
+			'warranty' => 'warranty',
+			'garantie' => 'warranty',
+			'certifications' => 'certifications',
+			'certification' => 'certifications',
+		);
+	}
+
+	/**
+	 * Return combined aliases.
+	 *
+	 * @return array<string,string> Aliases
+	 */
+	protected function getCombinedAliases()
+	{
+		return array_merge($this->getModuleAliases(), $this->getInverterAliases());
+	}
+
+	/**
+	 * Return module numeric fields.
+	 *
+	 * @return array<int,string> Fields
+	 */
+	protected function getModuleNumericFields()
+	{
+		return array(
+			'pmax',
+			'power_tolerance',
+			'module_efficiency',
+			'vmp',
+			'imp',
+			'voc',
+			'isc',
+			'front_glass_thickness',
+			'back_glass_thickness',
+			'cable_section',
+			'cable_length',
+			'noct',
+			'temp_coeff_pmax',
+			'temp_coeff_voc',
+			'temp_coeff_isc',
+			'max_system_voltage',
+			'max_series_fuse',
+			'operating_temperature',
+			'snow_load',
+			'wind_load',
+			'product_warranty',
+			'power_warranty',
+			'first_year_degradation',
+			'annual_degradation',
+			'modules_per_box',
+			'modules_per_container40',
+		);
+	}
+
+	/**
+	 * Return inverter numeric fields.
+	 *
+	 * @return array<int,string> Fields
+	 */
+	protected function getInverterNumericFields()
+	{
+		return array(
+			'pv_max_power',
+			'dc_max_voltage',
+			'startup_voltage',
+			'mppt_voltage_min',
+			'mppt_voltage_max',
+			'nominal_dc_voltage',
+			'ac_nominal_power',
+			'ac_max_power',
+			'ac_apparent_power',
+			'ac_max_output_current',
+			'max_efficiency',
+			'european_efficiency',
+		);
+	}
+
+	/**
+	 * Normalize a header string.
+	 *
+	 * @param string $header Header
+	 * @return string Normalized header
+	 */
+	protected function normalizeHeader($header)
+	{
+		$header = trim(strtolower((string) $header));
+		if (function_exists('iconv')) {
+			$converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $header);
+			if ($converted !== false) {
+				$header = $converted;
+			}
+		}
+		$header = preg_replace('/[^a-z0-9]+/', '_', $header);
+		$header = preg_replace('/_+/', '_', (string) $header);
+
+		return trim((string) $header, '_');
+	}
+
+	/**
+	 * Parse a numeric value without unit conversion.
+	 *
+	 * @param mixed $value Value
+	 * @return float|null Number
+	 */
+	protected function parseNumericValue($value)
+	{
+		$value = trim((string) $value);
+		if ($value === '') {
+			return null;
+		}
+
+		$value = str_replace(array("\xc2\xa0", ' '), '', $value);
+		if (!preg_match('/[-+]?[0-9][0-9\\.,]*/', $value, $matches)) {
+			return null;
+		}
+
+		$number = trim($matches[0], '.,');
+		if (strpos($number, ',') !== false && strpos($number, '.') !== false) {
+			$lastcomma = strrpos($number, ',');
+			$lastdot = strrpos($number, '.');
+			if ($lastcomma > $lastdot) {
+				$number = str_replace('.', '', $number);
+				$number = str_replace(',', '.', $number);
+			} else {
+				$number = str_replace(',', '', $number);
+			}
+		} else {
+			$number = str_replace(',', '.', $number);
+		}
+
+		return is_numeric($number) ? (float) $number : null;
+	}
+
+	/**
+	 * Parse a string value.
+	 *
+	 * @param mixed $value Value
+	 * @return string|null String
+	 */
+	protected function parseStringValue($value)
+	{
+		$value = trim((string) $value);
+
+		return ($value === '' ? null : $value);
+	}
+
+	/**
+	 * Clean a cell value.
+	 *
+	 * @param string $value Value
+	 * @return string Clean value
+	 */
+	protected function cleanCell($value)
+	{
+		return trim(str_replace("\xc2\xa0", ' ', (string) $value));
+	}
+
+	/**
+	 * Check if a row is empty.
+	 *
+	 * @param array<int,string> $row Row
+	 * @return bool True if empty
+	 */
+	protected function isEmptyRow(array $row)
+	{
+		foreach ($row as $cell) {
+			if (trim((string) $cell) !== '') {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Reset errors.
+	 *
+	 * @return void
+	 */
+	protected function resetErrors()
+	{
+		$this->error = '';
+		$this->errors = array();
+	}
+
+	/**
+	 * Register an error.
+	 *
+	 * @param string $error Error key
+	 * @return void
+	 */
+	protected function setError($error)
+	{
+		$this->error = $error;
+		$this->errors[] = $error;
+	}
+}

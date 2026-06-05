@@ -153,6 +153,30 @@ ALTER TABLE llx_powerplantpv_product_inverter_pvinput ADD INDEX IF NOT EXISTS id
 ALTER TABLE llx_powerplantpv_product_inverter_pvinput ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_inverter_pvinput_position (fk_mppt, entity, position);
 ALTER TABLE llx_powerplantpv_product_inverter_pvinput ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_pvinput_entity (entity);
 
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_datasource (
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer NOT NULL DEFAULT 1,
+	fk_product integer NOT NULL,
+	source varchar(64) NOT NULL,
+	source_dataset varchar(64) DEFAULT NULL,
+	source_key varchar(255) NOT NULL,
+	source_name varchar(255) DEFAULT NULL,
+	source_url varchar(1024) DEFAULT NULL,
+	filename varchar(255) DEFAULT NULL,
+	raw_json mediumtext,
+	normalized_json mediumtext,
+	import_status varchar(32) NOT NULL DEFAULT 'imported',
+	datec datetime NOT NULL,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer NOT NULL,
+	fk_user_modif integer
+) ENGINE=innodb DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+ALTER TABLE llx_powerplantpv_product_datasource ADD COLUMN IF NOT EXISTS filename varchar(255) DEFAULT NULL;
+ALTER TABLE llx_powerplantpv_product_datasource ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_datasource_source (entity, source, source_dataset, source_key);
+ALTER TABLE llx_powerplantpv_product_datasource ADD INDEX IF NOT EXISTS idx_powerplantpv_product_datasource_product (fk_product);
+ALTER TABLE llx_powerplantpv_product_datasource ADD INDEX IF NOT EXISTS idx_powerplantpv_product_datasource_entity (entity);
+ALTER TABLE llx_powerplantpv_product_datasource ADD INDEX IF NOT EXISTS idx_powerplantpv_product_datasource_source (source);
+
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_powerplant integer NOT NULL,
