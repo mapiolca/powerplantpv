@@ -69,13 +69,6 @@ if ($action == 'save') {
 	}
 
 	$settings = array(
-		'POWERPLANTPV_ATTESTATION_DEFAULT_PLACE' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_DEFAULT_PLACE', 'alphanohtml')),
-		'POWERPLANTPV_ATTESTATION_INSTALLER_NAME' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_INSTALLER_NAME', 'alphanohtml')),
-		'POWERPLANTPV_ATTESTATION_INSTALLER_ADDRESS' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_INSTALLER_ADDRESS', 'alphanohtml')),
-		'POWERPLANTPV_ATTESTATION_INSTALLER_ZIP' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_INSTALLER_ZIP', 'alphanohtml')),
-		'POWERPLANTPV_ATTESTATION_INSTALLER_TOWN' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_INSTALLER_TOWN', 'alphanohtml')),
-		'POWERPLANTPV_ATTESTATION_INSTALLER_SIRET' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_INSTALLER_SIRET', 'alphanohtml')),
-		'POWERPLANTPV_ATTESTATION_INSTALLER_VAT' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_INSTALLER_VAT', 'alphanohtml')),
 		'POWERPLANTPV_ATTESTATION_WRITER_FUNCTION' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_WRITER_FUNCTION', 'alphanohtml')),
 		'POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ' => array('type' => 'chaine', 'value' => price2num(GETPOST('POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ', 'alphanohtml'), 'MU')),
 		'POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER' => array('type' => 'chaine', 'value' => price2num(GETPOST('POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER', 'alphanohtml'), 'MU')),
@@ -158,13 +151,6 @@ print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('AttestationSettings').'</td></tr>';
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('AttestationEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_ATTESTATION_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
 $fields = array(
-	'POWERPLANTPV_ATTESTATION_DEFAULT_PLACE' => 'AttestationDefaultPlace',
-	'POWERPLANTPV_ATTESTATION_INSTALLER_NAME' => 'AttestationInstallerName',
-	'POWERPLANTPV_ATTESTATION_INSTALLER_ADDRESS' => 'AttestationInstallerAddress',
-	'POWERPLANTPV_ATTESTATION_INSTALLER_ZIP' => 'AttestationInstallerZip',
-	'POWERPLANTPV_ATTESTATION_INSTALLER_TOWN' => 'AttestationInstallerTown',
-	'POWERPLANTPV_ATTESTATION_INSTALLER_SIRET' => 'SIRET',
-	'POWERPLANTPV_ATTESTATION_INSTALLER_VAT' => 'VATIntra',
 	'POWERPLANTPV_ATTESTATION_WRITER_FUNCTION' => 'AttestationWriterFunction',
 	'POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ' => 'AttestationDefaultMaxFrequencyHz',
 	'POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER' => 'AttestationDefaultBridagePower',

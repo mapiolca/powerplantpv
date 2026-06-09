@@ -258,6 +258,23 @@ function powerplantpvAttestationBuildBannerMoreHtml($object)
 }
 
 /**
+ * Return a MyCompany value with a snapshot fallback.
+ *
+ * @param	string	$constant	MyCompany constant
+ * @param	string	$fallback	Fallback value
+ * @return	string				Value
+ */
+function powerplantpvAttestationGetMyCompanyValue($constant, $fallback = '')
+{
+	$value = getDolGlobalString($constant, '');
+	if ($value !== '') {
+		return $value;
+	}
+
+	return (string) $fallback;
+}
+
+/**
  * Apply defaults and copied power plant data to an attestation before creation.
  *
  * @param	PowerPlantPVAttestation	$attestation	Attestation
@@ -269,13 +286,13 @@ function powerplantpvAttestationPrefillFromPowerPlant($attestation, $fkPowerPlan
 {
 	global $db, $conf, $mysoc;
 
-	$attestation->place = getDolGlobalString('POWERPLANTPV_ATTESTATION_DEFAULT_PLACE', (is_object($mysoc) ? $mysoc->town : ''));
-	$attestation->installer_name = getDolGlobalString('POWERPLANTPV_ATTESTATION_INSTALLER_NAME', (is_object($mysoc) ? $mysoc->name : ''));
-	$attestation->installer_address = getDolGlobalString('POWERPLANTPV_ATTESTATION_INSTALLER_ADDRESS', (is_object($mysoc) ? $mysoc->address : ''));
-	$attestation->installer_zip = getDolGlobalString('POWERPLANTPV_ATTESTATION_INSTALLER_ZIP', (is_object($mysoc) ? $mysoc->zip : ''));
-	$attestation->installer_town = getDolGlobalString('POWERPLANTPV_ATTESTATION_INSTALLER_TOWN', (is_object($mysoc) ? $mysoc->town : ''));
-	$attestation->installer_siret = getDolGlobalString('POWERPLANTPV_ATTESTATION_INSTALLER_SIRET', (is_object($mysoc) ? $mysoc->idprof2 : ''));
-	$attestation->installer_vat = getDolGlobalString('POWERPLANTPV_ATTESTATION_INSTALLER_VAT', (is_object($mysoc) ? $mysoc->tva_intra : ''));
+	$attestation->place = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_TOWN', (is_object($mysoc) ? $mysoc->town : ''));
+	$attestation->installer_name = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_NOM', (is_object($mysoc) ? $mysoc->name : ''));
+	$attestation->installer_address = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_ADDRESS', (is_object($mysoc) ? $mysoc->address : ''));
+	$attestation->installer_zip = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_ZIP', (is_object($mysoc) ? $mysoc->zip : ''));
+	$attestation->installer_town = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_TOWN', (is_object($mysoc) ? $mysoc->town : ''));
+	$attestation->installer_siret = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SIRET', (is_object($mysoc) ? $mysoc->idprof2 : ''));
+	$attestation->installer_vat = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_TVAINTRA', (is_object($mysoc) ? $mysoc->tva_intra : ''));
 	$attestation->installer_fk_pays = (is_object($mysoc) && !empty($mysoc->country_id) ? (int) $mysoc->country_id : null);
 	$attestation->writer_name = trim($user->firstname.' '.$user->lastname);
 	$attestation->writer_function = getDolGlobalString('POWERPLANTPV_ATTESTATION_WRITER_FUNCTION', !empty($user->job) ? $user->job : '');
