@@ -156,7 +156,7 @@ class PowerPlantPVAttestation extends CommonObject
 	 */
 	public function __construct($db)
 	{
-		parent::__construct($db);
+		$this->db = $db;
 
 		global $langs;
 		if (is_object($langs)) {
