@@ -192,7 +192,6 @@ class modPowerPlantPV extends DolibarrModules
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_ENABLE', 'chaine', '1', 'Enable attestations', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_ADDON', 'chaine', 'mod_attestation_standard', 'Default attestation numbering model', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_MASK', 'chaine', 'ATT{yy}{mm}-{0000}', 'Default attestation numbering mask', 0, 'current');
-		$this->const[] = array('POWERPLANTPV_ATTESTATION_WRITER_FUNCTION', 'chaine', '', 'Default attestation writer function', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ', 'chaine', '51.5', 'Default attestation maximum frequency', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER', 'chaine', '', 'Default attestation curtailment power', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_COMPANY_STAMP', 'chaine', 'setup/company_stamp.png', 'Default attestation company stamp', 0, 'current');

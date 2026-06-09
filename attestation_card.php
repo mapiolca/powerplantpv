@@ -51,10 +51,18 @@ $fkPowerPlant = GETPOSTINT('fk_powerplant');
 $backtopage = GETPOST('backtopage', 'alpha');
 
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
+	dol_syslog(
+		'PowerPlantPV attestation card forbidden: module or attestation feature disabled action='.$action.' id='.$id,
+		LOG_WARNING
+	);
 	accessforbidden();
 }
 
 if (!class_exists('PowerPlantPVAttestation') || !class_exists('PowerPlantPVAttestationTypes') || !function_exists('powerplantpvAttestationUserHasRight')) {
+	dol_syslog(
+		'PowerPlantPV attestation card unavailable: missing class or permission helper action='.$action.' id='.$id,
+		LOG_ERR
+	);
 	llxHeader('', $langs->trans('Attestation'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-card');
 	print '<div class="error">'.$langs->trans('AttestationInstallationIncomplete').'</div>';
 	llxFooter();
@@ -72,12 +80,20 @@ $permissiontocancel = powerplantpvAttestationUserHasRight($user, 'cancel');
 
 $isCreateAccess = ($id <= 0 && in_array($action, array('create', 'add'), true));
 if (($isCreateAccess && !$permissiontoadd) || (!$isCreateAccess && !$permissiontoread)) {
+	dol_syslog(
+		'PowerPlantPV attestation card forbidden: missing '.($isCreateAccess ? 'write' : 'read').' right for user '.$user->id.' action='.$action.' id='.$id,
+		LOG_WARNING
+	);
 	accessforbidden();
 }
 
 if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
 	$attestationInstallationIssues = powerplantpvAttestationGetInstallationIssues();
 	if (!empty($attestationInstallationIssues['tables'])) {
+		dol_syslog(
+			'PowerPlantPV attestation card unavailable: missing tables '.implode(', ', $attestationInstallationIssues['tables']).' action='.$action.' id='.$id,
+			LOG_ERR
+		);
 		llxHeader('', $langs->trans('Attestation'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-card');
 		powerplantpvAttestationPrintInstallationWarnings();
 		llxFooter();

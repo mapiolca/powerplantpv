@@ -295,7 +295,7 @@ function powerplantpvAttestationPrefillFromPowerPlant($attestation, $fkPowerPlan
 	$attestation->installer_vat = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_TVAINTRA', (is_object($mysoc) ? $mysoc->tva_intra : ''));
 	$attestation->installer_fk_pays = (is_object($mysoc) && !empty($mysoc->country_id) ? (int) $mysoc->country_id : null);
 	$attestation->writer_name = trim($user->firstname.' '.$user->lastname);
-	$attestation->writer_function = getDolGlobalString('POWERPLANTPV_ATTESTATION_WRITER_FUNCTION', !empty($user->job) ? $user->job : '');
+	$attestation->writer_function = !empty($user->job) ? (string) $user->job : '';
 	$attestation->max_frequency_hz = getDolGlobalString('POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ', '51.5');
 	$attestation->max_export_power_kw = getDolGlobalString('POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER', '');
 	$attestation->date_attestation = dol_now();

@@ -8,12 +8,12 @@
  */
 
 /**
- * \file		core/modules/powerplantpv/doc/pdf_attestation_base.modules.php
+ * \file		core/modules/attestation/doc/pdf_attestation_base.modules.php
  * \ingroup		powerplantpv
  * \brief		Shared PDF helpers for attestation models.
  */
 
-dol_include_once('/powerplantpv/core/modules/powerplantpv/modules_attestation.php');
+dol_include_once('/powerplantpv/core/modules/attestation/modules_attestation.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';

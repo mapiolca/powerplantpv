@@ -8,7 +8,7 @@
  */
 
 /**
- * \file		core/modules/powerplantpv/modules_attestation.php
+ * \file		core/modules/attestation/modules_attestation.php
  * \ingroup		powerplantpv
  * \brief		Parent classes for attestation documents and numbering.
  */

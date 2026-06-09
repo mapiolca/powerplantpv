@@ -8,12 +8,12 @@
  */
 
 /**
- * \file		core/modules/powerplantpv/mod_attestation_standard.php
+ * \file		core/modules/attestation/mod_attestation_standard.php
  * \ingroup		powerplantpv
  * \brief		Standard attestation numbering rule.
  */
 
-dol_include_once('/powerplantpv/core/modules/powerplantpv/modules_attestation.php');
+dol_include_once('/powerplantpv/core/modules/attestation/modules_attestation.php');
 
 /**
  * Standard attestation numbering.

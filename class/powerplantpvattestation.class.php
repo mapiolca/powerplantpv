@@ -433,7 +433,7 @@ class PowerPlantPVAttestation extends CommonObject
 			$modele = !empty($this->model_pdf) ? $this->model_pdf : getDolGlobalString('POWERPLANTPV_ATTESTATION_ADDON_PDF', 'attestation_bridage_dynamique');
 		}
 
-		$result = $this->commonGenerateDocument('core/modules/powerplantpv/doc/', $modele, $outputlangs, $hidedetails, $hidedesc, $hideref, $moreparams);
+		$result = $this->commonGenerateDocument('core/modules/attestation/doc/', $modele, $outputlangs, $hidedetails, $hidedesc, $hideref, $moreparams);
 		if ($result > 0) {
 			global $user;
 			$this->callAttestationTrigger('GENERATEPDF', $user);
@@ -460,7 +460,7 @@ class PowerPlantPVAttestation extends CommonObject
 		$file = $moduleName.'.php';
 		$loaded = false;
 		foreach (array_merge(array('/'), (array) $conf->modules_parts['models']) as $reldir) {
-			$dir = dol_buildpath($reldir.'core/modules/powerplantpv/');
+			$dir = dol_buildpath($reldir.'core/modules/attestation/');
 			$loaded = $loaded || @include_once $dir.$file;
 		}
 

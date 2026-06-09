@@ -11,6 +11,8 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - triggers Agenda et Notifications natifs pour création, validation, génération PDF, envoi en signature, signature, annulation et suppression ;
 - correction des contrôles d'accès aux attestations : la création utilise le droit d'écriture, les pages partagent le même helper de droits et l'administration signale les tables ou droits manquants après un déploiement incomplet ;
 - les données de lieu et d'installateur des attestations sont désormais préremplies depuis les informations société Dolibarr de l'entité (`MAIN_INFO_*`) et ne sont plus ressaisies dans les réglages PowerPlantPV ;
+- la fonction du rédacteur des attestations est désormais préremplie depuis le champ natif utilisateur `Poste/fonction`, sans réglage PowerPlantPV dédié ;
+- les modèles core des attestations sont isolés dans `core/modules/attestation` et les pages liste/fiche journalisent désormais les sorties précoces pour diagnostiquer les erreurs 500 ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0

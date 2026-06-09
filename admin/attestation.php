@@ -69,7 +69,6 @@ if ($action == 'save') {
 	}
 
 	$settings = array(
-		'POWERPLANTPV_ATTESTATION_WRITER_FUNCTION' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_WRITER_FUNCTION', 'alphanohtml')),
 		'POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ' => array('type' => 'chaine', 'value' => price2num(GETPOST('POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ', 'alphanohtml'), 'MU')),
 		'POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER' => array('type' => 'chaine', 'value' => price2num(GETPOST('POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER', 'alphanohtml'), 'MU')),
 		'POWERPLANTPV_ATTESTATION_BRIDAGE_DYNAMIQUE_MODEL' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_BRIDAGE_DYNAMIQUE_MODEL', 'aZ09')),
@@ -151,7 +150,6 @@ print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('AttestationSettings').'</td></tr>';
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('AttestationEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_ATTESTATION_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
 $fields = array(
-	'POWERPLANTPV_ATTESTATION_WRITER_FUNCTION' => 'AttestationWriterFunction',
 	'POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ' => 'AttestationDefaultMaxFrequencyHz',
 	'POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER' => 'AttestationDefaultBridagePower',
 );

@@ -92,7 +92,7 @@ Using your browser:
 
 ## Attestations
 
-The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include the writer function, frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. The default place and installer snapshot fields come from the Dolibarr MyCompany information of the current entity.
+The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. The default place and installer snapshot fields come from the Dolibarr MyCompany information of the current entity, while the writer function is copied from the native Dolibarr user job field.
 
 Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The V1 signature flow is internal to Dolibarr and is not a qualified external e-signature provider workflow.
 

@@ -109,7 +109,7 @@ function powerplantpvAttestationGetInstallationIssues()
 	$tables = array('powerplantpv_attestation', 'powerplantpv_attestation_equipment');
 	foreach ($tables as $table) {
 		$fullTable = $db->prefix().$table;
-		if (empty($db->DDLInfoTable($fullTable))) {
+		if (!powerplantpvDatabaseTableExists($fullTable)) {
 			$issues['tables'][] = $fullTable;
 		}
 	}
@@ -135,6 +135,37 @@ function powerplantpvAttestationGetInstallationIssues()
 	}
 
 	return $issues;
+}
+
+/**
+ * Check if a database table exists.
+ *
+ * @param	string	$table	Full table name with prefix
+ * @return	bool			True if table exists
+ */
+function powerplantpvDatabaseTableExists($table)
+{
+	global $db;
+
+	$safeTable = preg_replace('/[^a-z0-9_]/i', '', (string) $table);
+	if ($safeTable === '') {
+		return false;
+	}
+
+	$sql = "SHOW TABLES LIKE '".$db->escape($safeTable)."'";
+	$resql = $db->query($sql);
+	if ($resql) {
+		$exists = ($db->num_rows($resql) > 0);
+		$db->free($resql);
+
+		return $exists;
+	}
+
+	dol_syslog(__METHOD__.' table lookup failed for '.$safeTable.': '.$db->lasterror(), LOG_WARNING);
+
+	$columns = $db->DDLInfoTable($safeTable);
+
+	return is_array($columns) && count($columns) > 0;
 }
 
 /**

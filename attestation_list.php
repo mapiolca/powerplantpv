@@ -33,10 +33,12 @@ dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'companies', 'projects'));
 
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
+	dol_syslog('PowerPlantPV attestation list forbidden: module or attestation feature disabled', LOG_WARNING);
 	accessforbidden();
 }
 
 if (!class_exists('PowerPlantPVAttestation') || !class_exists('PowerPlantPVAttestationTypes') || !function_exists('powerplantpvAttestationUserHasRight')) {
+	dol_syslog('PowerPlantPV attestation list unavailable: missing class or permission helper', LOG_ERR);
 	llxHeader('', $langs->trans('Attestations'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-list');
 	print '<div class="error">'.$langs->trans('AttestationInstallationIncomplete').'</div>';
 	llxFooter();
@@ -48,12 +50,17 @@ $permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
 $permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
 $permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
 if (!$permissiontoread) {
+	dol_syslog('PowerPlantPV attestation list forbidden: missing read right for user '.$user->id, LOG_WARNING);
 	accessforbidden();
 }
 
 if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
 	$attestationInstallationIssues = powerplantpvAttestationGetInstallationIssues();
 	if (!empty($attestationInstallationIssues['tables'])) {
+		dol_syslog(
+			'PowerPlantPV attestation list unavailable: missing tables '.implode(', ', $attestationInstallationIssues['tables']),
+			LOG_ERR
+		);
 		llxHeader('', $langs->trans('Attestations'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-list');
 		powerplantpvAttestationPrintInstallationWarnings();
 		llxFooter();
