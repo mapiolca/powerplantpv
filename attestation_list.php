@@ -27,13 +27,17 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'companies', 'projects'));
 
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	accessforbidden();
 }
-if (!$user->hasRight('powerplantpv', 'attestation', 'read')) {
+$permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
+$permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
+$permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
+if (!$permissiontoread) {
 	accessforbidden();
 }
 
@@ -82,7 +86,7 @@ foreach (explode(',', $entityScope) as $entityId) {
 }
 $showEnvironment = count($availableEntities) > 1;
 
-if ($massaction == 'delete' && $confirm == 'yes' && $user->hasRight('powerplantpv', 'attestation', 'delete')) {
+if ($massaction == 'delete' && $confirm == 'yes' && $permissiontodelete) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
@@ -190,7 +194,7 @@ $resql = $db->query($sql);
 
 llxHeader('', $langs->trans('Attestations'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-list');
 
-$newcardbutton = dolGetButtonTitle($langs->trans('New_Attestation'), '', 'fa fa-plus-circle', dol_buildpath('/powerplantpv/attestation_card.php', 1).'?action=create', '', $user->hasRight('powerplantpv', 'attestation', 'write'));
+$newcardbutton = dolGetButtonTitle($langs->trans('New_Attestation'), '', 'fa fa-plus-circle', dol_buildpath('/powerplantpv/attestation_card.php', 1).'?action=create', '', $permissiontoadd);
 print_barre_liste($langs->trans('Attestations'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-file-signature', 0, $newcardbutton, '', $limit);
 
 print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
@@ -264,7 +268,7 @@ if ($resql) {
 
 print '</table>';
 print '</div>';
-if ($user->hasRight('powerplantpv', 'attestation', 'delete')) {
+if ($permissiontodelete) {
 	print '<div class="tabsAction">';
 	print '<input type="hidden" name="massaction" value="delete">';
 	print '<input type="hidden" name="confirm" value="yes">';

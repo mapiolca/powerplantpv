@@ -53,26 +53,23 @@ if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_
 }
 
 $object = new PowerPlantPVAttestation($db);
-$result = 0;
+$permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
+$permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
+$permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
+$permissiontovalidate = powerplantpvAttestationUserHasRight($user, 'validate');
+$permissiontosign = powerplantpvAttestationUserHasRight($user, 'sign');
+$permissiontocancel = powerplantpvAttestationUserHasRight($user, 'cancel');
+
+$isCreateAccess = ($id <= 0 && in_array($action, array('create', 'add'), true));
+if (($isCreateAccess && !$permissiontoadd) || (!$isCreateAccess && !$permissiontoread)) {
+	accessforbidden();
+}
+
 if ($id > 0) {
 	$result = $object->fetch($id);
 	if ($result <= 0) {
 		accessforbidden();
 	}
-}
-
-$permissiontoread = $user->hasRight('powerplantpv', 'attestation', 'read');
-$permissiontoadd = $user->hasRight('powerplantpv', 'attestation', 'write');
-$permissiontodelete = $user->hasRight('powerplantpv', 'attestation', 'delete');
-$permissiontovalidate = $user->hasRight('powerplantpv', 'attestation', 'validate');
-$permissiontosign = $user->hasRight('powerplantpv', 'attestation', 'sign');
-$permissiontocancel = $user->hasRight('powerplantpv', 'attestation', 'cancel');
-
-if (!$permissiontoread) {
-	accessforbidden();
-}
-
-if ($id > 0) {
 	$isdraft = ((int) $object->status === PowerPlantPVAttestation::STATUS_DRAFT ? 1 : 0);
 	restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
 }

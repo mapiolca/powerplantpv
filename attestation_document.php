@@ -45,18 +45,17 @@ if (!$sortorder) {
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	accessforbidden();
 }
+if (!powerplantpvAttestationUserHasRight($user, 'read')) {
+	accessforbidden();
+}
 
 $object = new PowerPlantPVAttestation($db);
 if ($id <= 0 || $object->fetch($id) <= 0) {
 	accessforbidden();
 }
 
-$permissiontoread = $user->hasRight('powerplantpv', 'attestation', 'read');
-$permissiontoadd = $user->hasRight('powerplantpv', 'attestation', 'write') && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED;
-$permissiontodelete = $user->hasRight('powerplantpv', 'attestation', 'delete') && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED;
-if (!$permissiontoread) {
-	accessforbidden();
-}
+$permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write') && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED;
+$permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete') && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED;
 restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', 0);
 
 $upload_dir = powerplantpvAttestationGetDocumentUploadDir($object);

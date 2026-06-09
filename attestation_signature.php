@@ -37,7 +37,7 @@ $action = GETPOST('action', 'aZ09');
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	accessforbidden();
 }
-if (!$user->hasRight('powerplantpv', 'attestation', 'sign')) {
+if (!powerplantpvAttestationUserHasRight($user, 'sign')) {
 	accessforbidden();
 }
 

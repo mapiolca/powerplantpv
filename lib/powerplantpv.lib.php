@@ -97,6 +97,92 @@ function powerplantpvAdminPrepareHead()
 }
 
 /**
+ * Return missing attestation installation pieces for the current entity.
+ *
+ * @return	array{tables:array<int,string>,rights:array<int,string>}	Missing tables and rights
+ */
+function powerplantpvAttestationGetInstallationIssues()
+{
+	global $db, $conf;
+
+	$issues = array('tables' => array(), 'rights' => array());
+	$tables = array('powerplantpv_attestation', 'powerplantpv_attestation_equipment');
+	foreach ($tables as $table) {
+		$fullTable = $db->prefix().$table;
+		if (empty($db->DDLInfoTable($fullTable))) {
+			$issues['tables'][] = $fullTable;
+		}
+	}
+
+	$expectedRights = array('read', 'write', 'delete', 'validate', 'sign', 'cancel', 'setup');
+	$foundRights = array();
+	$sql = "SELECT subperms";
+	$sql .= " FROM ".$db->prefix()."rights_def";
+	$sql .= " WHERE module = 'powerplantpv'";
+	$sql .= " AND perms = 'attestation'";
+	$sql .= " AND entity IN (0, ".((int) $conf->entity).")";
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$foundRights[(string) $obj->subperms] = 1;
+		}
+		$db->free($resql);
+	}
+	foreach ($expectedRights as $right) {
+		if (empty($foundRights[$right])) {
+			$issues['rights'][] = $right;
+		}
+	}
+
+	return $issues;
+}
+
+/**
+ * Return translated attestation installation warnings for admins.
+ *
+ * @return	array<int,string>	Warnings
+ */
+function powerplantpvAttestationGetInstallationWarnings()
+{
+	global $langs;
+
+	$issues = powerplantpvAttestationGetInstallationIssues();
+	$warnings = array();
+	if (!empty($issues['tables'])) {
+		$warnings[] = $langs->trans('AttestationInstallMissingTables', implode(', ', $issues['tables']));
+	}
+	if (!empty($issues['rights'])) {
+		$warnings[] = $langs->trans('AttestationInstallMissingRights', implode(', ', $issues['rights']));
+	}
+
+	return $warnings;
+}
+
+/**
+ * Print attestation installation warnings.
+ *
+ * @return	void
+ */
+function powerplantpvAttestationPrintInstallationWarnings()
+{
+	global $langs;
+
+	$warnings = powerplantpvAttestationGetInstallationWarnings();
+	if (empty($warnings)) {
+		return;
+	}
+
+	print '<div class="warning">';
+	print img_warning().' '.$langs->trans('AttestationInstallationIncomplete');
+	print '<ul class="marginbottomonly">';
+	foreach ($warnings as $warning) {
+		print '<li>'.dol_escape_htmltag($warning).'</li>';
+	}
+	print '</ul>';
+	print '</div>';
+}
+
+/**
  * Normalize a Dolibarr element type to the value stored in llx_element_element.
  *
  * @param	string	$elementtype	Element type

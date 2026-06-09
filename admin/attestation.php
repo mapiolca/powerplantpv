@@ -54,7 +54,7 @@ $langs->loadLangs(array('admin', 'powerplantpv@powerplantpv'));
 $action = GETPOST('action', 'aZ09');
 $error = 0;
 
-$permissiontosetup = $user->admin || $user->hasRight('powerplantpv', 'attestation', 'setup');
+$permissiontosetup = $user->admin || powerplantpvAttestationUserHasRight($user, 'setup');
 if (!$permissiontosetup) {
 	accessforbidden();
 }
@@ -146,6 +146,10 @@ $linkback = '<a href="'.DOL_URL_ROOT.'/admin/modules.php?search_keyword='.urlenc
 print load_fiche_titre($langs->trans('AttestationSettings'), $linkback, 'title_setup');
 $head = powerplantpvAdminPrepareHead();
 print dol_get_fiche_head($head, 'attestation', $langs->trans('ModulePowerPlantPVName'), -1, 'powerplantpv@powerplantpv');
+
+if (getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
+	powerplantpvAttestationPrintInstallationWarnings();
+}
 
 print '<form method="POST" enctype="multipart/form-data" action="'.$_SERVER['PHP_SELF'].'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';

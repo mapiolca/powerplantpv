@@ -34,7 +34,7 @@ $id = GETPOSTINT('id');
 if (!isModEnabled('powerplantpv') || !isModEnabled('agenda') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	accessforbidden();
 }
-if (!$user->hasRight('powerplantpv', 'attestation', 'read')) {
+if (!powerplantpvAttestationUserHasRight($user, 'read')) {
 	accessforbidden();
 }
 

@@ -9,6 +9,7 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - modèles PDF fonctionnels pour les quatre types, prêts pour validation métier des contenus légaux ;
 - droits Dolibarr dédiés, menus internes au module, numérotation native, réglages par entité, partage Multicompany et colonne Environnement en liste lorsque nécessaire ;
 - triggers Agenda et Notifications natifs pour création, validation, génération PDF, envoi en signature, signature, annulation et suppression ;
+- correction des contrôles d'accès aux attestations : la création utilise le droit d'écriture, les pages partagent le même helper de droits et l'administration signale les tables ou droits manquants après un déploiement incomplet ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0

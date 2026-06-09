@@ -25,6 +25,28 @@ dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
 
 /**
+ * Check an attestation permission with Dolibarr v20+ and legacy fallback.
+ *
+ * @param	User	$user	Current user
+ * @param	string	$right	Permission subkey
+ * @return	int<0,1>		1 if allowed, 0 otherwise
+ */
+function powerplantpvAttestationUserHasRight($user, $right)
+{
+	if (!is_object($user) || $right === '') {
+		return 0;
+	}
+	if (method_exists($user, 'hasRight')) {
+		return (int) $user->hasRight('powerplantpv', 'attestation', $right);
+	}
+	if (!empty($user->rights->powerplantpv->attestation->{$right})) {
+		return 1;
+	}
+
+	return 0;
+}
+
+/**
  * Prepare attestation tabs.
  *
  * @param	PowerPlantPVAttestation	$object	Attestation

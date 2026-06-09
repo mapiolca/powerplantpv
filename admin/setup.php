@@ -353,6 +353,10 @@ print dol_get_fiche_head($head, 'settings', $langs->trans($title), -1, 'fa-sun')
 // Setup page goes here
 echo '<span class="opacitymedium">'.$langs->trans("PowerPlantPVSetupPage").'</span><br><br>';
 
+if (getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
+	powerplantpvAttestationPrintInstallationWarnings();
+}
+
 
 /*if ($action == 'edit') {
  print $formSetup->generateOutput(true);
