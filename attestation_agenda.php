@@ -24,7 +24,7 @@ if (!$res) {
 	die("Include of main fails");
 }
 
-require_once DOL_DOCUMENT_ROOT.'/comm/action/class/html.formactions.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.formactions.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 

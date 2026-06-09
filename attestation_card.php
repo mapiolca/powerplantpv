@@ -32,10 +32,12 @@ if (!$res) {
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
-require_once DOL_DOCUMENT_ROOT.'/comm/action/class/html.formactions.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.formactions.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'companies', 'projects', 'other'));
@@ -52,6 +54,14 @@ if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_
 	accessforbidden();
 }
 
+if (!class_exists('PowerPlantPVAttestation') || !class_exists('PowerPlantPVAttestationTypes') || !function_exists('powerplantpvAttestationUserHasRight')) {
+	llxHeader('', $langs->trans('Attestation'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-card');
+	print '<div class="error">'.$langs->trans('AttestationInstallationIncomplete').'</div>';
+	llxFooter();
+	$db->close();
+	exit;
+}
+
 $object = new PowerPlantPVAttestation($db);
 $permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
 $permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
@@ -63,6 +73,17 @@ $permissiontocancel = powerplantpvAttestationUserHasRight($user, 'cancel');
 $isCreateAccess = ($id <= 0 && in_array($action, array('create', 'add'), true));
 if (($isCreateAccess && !$permissiontoadd) || (!$isCreateAccess && !$permissiontoread)) {
 	accessforbidden();
+}
+
+if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
+	$attestationInstallationIssues = powerplantpvAttestationGetInstallationIssues();
+	if (!empty($attestationInstallationIssues['tables'])) {
+		llxHeader('', $langs->trans('Attestation'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-card');
+		powerplantpvAttestationPrintInstallationWarnings();
+		llxFooter();
+		$db->close();
+		exit;
+	}
 }
 
 if ($id > 0) {
@@ -243,6 +264,7 @@ if ($action == 'add' && $permissiontoadd) {
 $form = new Form($db);
 $formfile = new FormFile($db);
 $formactions = new FormActions($db);
+$formproject = new FormProjets($db);
 
 if ($object->id > 0) {
 	$upload_dir = powerplantpvAttestationGetDocumentUploadDir($object);
@@ -307,7 +329,7 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<tr><td>'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), (int) $object->fk_powerplant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	print '<tr><td>'.$langs->trans('ThirdParty').'</td><td>'.$form->select_company($object->fk_soc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300').'</td></tr>';
 	if (isModEnabled('project')) {
-		print '<tr><td>'.$langs->trans('Project').'</td><td>'.$form->select_projects($object->fk_soc, $object->fk_project, 'fk_project', 0, 0, 1, 1, 0, 0, 0, '', 1, 0, 'maxwidth500').'</td></tr>';
+		print '<tr><td>'.$langs->trans('Project').'</td><td>'.$formproject->select_projects($object->fk_soc, $object->fk_project, 'fk_project', 0, 0, 1, 1, 0, 0, 0, '', 1, 0, 'maxwidth500').'</td></tr>';
 	}
 	print '<tr><td>'.$langs->trans('ProjectName').'</td><td><input type="text" class="flat minwidth300" name="project_name" value="'.dol_escape_htmltag($object->project_name).'"></td></tr>';
 	print '<tr><td>'.$langs->trans('Address').'</td><td><input type="text" class="flat minwidth500" name="address" value="'.dol_escape_htmltag($object->address).'"></td></tr>';

@@ -27,6 +27,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'companies', 'projects'));
@@ -34,11 +35,31 @@ $langs->loadLangs(array('powerplantpv@powerplantpv', 'companies', 'projects'));
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	accessforbidden();
 }
+
+if (!class_exists('PowerPlantPVAttestation') || !class_exists('PowerPlantPVAttestationTypes') || !function_exists('powerplantpvAttestationUserHasRight')) {
+	llxHeader('', $langs->trans('Attestations'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-list');
+	print '<div class="error">'.$langs->trans('AttestationInstallationIncomplete').'</div>';
+	llxFooter();
+	$db->close();
+	exit;
+}
+
 $permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
 $permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
 $permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
 if (!$permissiontoread) {
 	accessforbidden();
+}
+
+if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
+	$attestationInstallationIssues = powerplantpvAttestationGetInstallationIssues();
+	if (!empty($attestationInstallationIssues['tables'])) {
+		llxHeader('', $langs->trans('Attestations'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-list');
+		powerplantpvAttestationPrintInstallationWarnings();
+		llxFooter();
+		$db->close();
+		exit;
+	}
 }
 
 $form = new Form($db);
