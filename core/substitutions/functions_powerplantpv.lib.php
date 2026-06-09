@@ -151,17 +151,19 @@ function powerplantpv_completesubstitutionarray(&$substitutionarray, $outputlang
 function powerplantpvCompleteAttestationSubstitutionArray(&$substitutionarray, $outputlangs, $object)
 {
 	dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+	dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 	$type = PowerPlantPVAttestationTypes::getType($object->type_code);
 	$typeLabel = !empty($type['label']) ? $outputlangs->transnoentities($type['label']) : (string) $object->type_code;
+	$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
 
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_ref', (string) $object->ref);
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_type', $typeLabel);
-	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_project_name', (string) $object->project_name);
-	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_address', trim($object->address.' '.$object->zip.' '.$object->town));
-	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_installer_name', (string) $object->installer_name);
-	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_writer_name', (string) $object->writer_name);
-	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_writer_function', (string) $object->writer_function);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_project_name', (string) $derivedData['project_name']);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_address', (string) $derivedData['site_full_address']);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_installer_name', (string) $derivedData['installer_name']);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_writer_name', (string) $derivedData['writer_name']);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_writer_function', (string) $derivedData['writer_function']);
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_date', powerplantpvFormatDateForSubstitution($object->date_attestation, $outputlangs));
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_signature_date', powerplantpvFormatDateForSubstitution($object->date_signature, $outputlangs));
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_url', dol_buildpath('/powerplantpv/attestation_card.php', 2).'?id='.(int) $object->id);

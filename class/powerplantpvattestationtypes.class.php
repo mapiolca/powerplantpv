@@ -44,26 +44,26 @@ class PowerPlantPVAttestationTypes
 				'model_pdf' => 'attestation_bridage_dynamique',
 				'equipment_types' => array('INVERTER'),
 				'bridage_type' => 'DYNAMIC',
-				'required_fields' => array('fk_powerplant', 'project_name', 'address', 'zip', 'town', 'max_export_power_kw', 'installer_name', 'date_attestation', 'place'),
+				'required_fields' => array('fk_powerplant', 'max_export_power_kw', 'date_attestation'),
 			),
 			self::TYPE_BRIDAGE_STATIQUE_ONDULEUR => array(
 				'label' => 'AttestationTypeBridageStatiqueOnduleur',
 				'model_pdf' => 'attestation_bridage_statique',
 				'equipment_types' => array('INVERTER'),
 				'bridage_type' => 'STATIC',
-				'required_fields' => array('fk_powerplant', 'project_name', 'address', 'zip', 'town', 'max_export_power_kw', 'installer_name', 'date_attestation', 'place'),
+				'required_fields' => array('fk_powerplant', 'max_export_power_kw', 'date_attestation'),
 			),
 			self::TYPE_REGLAGE_MAX_FREQ_51_5HZ => array(
 				'label' => 'AttestationTypeReglageMaxFreq515Hz',
 				'model_pdf' => 'attestation_reglage_max_freq',
 				'equipment_types' => array('INVERTER'),
-				'required_fields' => array('fk_powerplant', 'project_name', 'address', 'zip', 'town', 'date_setting', 'max_frequency_hz', 'writer_name', 'writer_function', 'date_attestation', 'place'),
+				'required_fields' => array('fk_powerplant', 'date_setting', 'max_frequency_hz', 'date_attestation'),
 			),
 			self::TYPE_INSTALLATEUR_INF_100KWC => array(
 				'label' => 'AttestationTypeInstallateurInf100kwc',
 				'model_pdf' => 'attestation_installateur_inf100kwc',
 				'equipment_types' => array('MODULE', 'CONNECTOR', 'BOX'),
-				'required_fields' => array('bta_contract_number', 'installer_name', 'installer_address', 'date_completion', 'date_attestation', 'place'),
+				'required_fields' => array('bta_contract_number', 'date_completion', 'date_attestation'),
 			),
 		);
 	}

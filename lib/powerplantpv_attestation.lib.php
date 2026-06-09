@@ -258,20 +258,192 @@ function powerplantpvAttestationBuildBannerMoreHtml($object)
 }
 
 /**
- * Return a MyCompany value with a snapshot fallback.
+ * Return a MyCompany value for an entity.
  *
  * @param	string	$constant	MyCompany constant
  * @param	string	$fallback	Fallback value
+ * @param	int		$entity		Entity id
  * @return	string				Value
  */
-function powerplantpvAttestationGetMyCompanyValue($constant, $fallback = '')
+function powerplantpvAttestationGetMyCompanyValue($constant, $fallback = '', $entity = 0)
 {
-	$value = getDolGlobalString($constant, '');
-	if ($value !== '') {
-		return $value;
+	global $conf, $db;
+
+	$entity = ($entity > 0 ? (int) $entity : (int) $conf->entity);
+	if ($entity === (int) $conf->entity) {
+		$value = getDolGlobalString($constant, '');
+		if ($value !== '') {
+			return $value;
+		}
+	}
+
+	$sql = "SELECT value";
+	$sql .= " FROM ".$db->prefix()."const";
+	$sql .= " WHERE name = '".$db->escape($constant)."'";
+	$sql .= " AND entity = ".$entity;
+	$sql .= " ORDER BY rowid DESC";
+	$resql = $db->query($sql);
+	if ($resql) {
+		$obj = $db->fetch_object($resql);
+		$db->free($resql);
+		if ($obj && (string) $obj->value !== '') {
+			return (string) $obj->value;
+		}
 	}
 
 	return (string) $fallback;
+}
+
+/**
+ * Return MyCompany country id for an entity.
+ *
+ * @param	int	$entity	Entity id
+ * @return	int			Country id
+ */
+function powerplantpvAttestationGetMyCompanyCountryId($entity = 0)
+{
+	global $conf, $mysoc;
+
+	$entity = ($entity > 0 ? (int) $entity : (int) $conf->entity);
+	if ($entity === (int) $conf->entity && is_object($mysoc) && !empty($mysoc->country_id)) {
+		return (int) $mysoc->country_id;
+	}
+
+	foreach (array('MAIN_INFO_SOCIETE_COUNTRY_ID', 'MAIN_INFO_SOCIETE_COUNTRY') as $constant) {
+		$value = powerplantpvAttestationGetMyCompanyValue($constant, '', $entity);
+		if ($value !== '' && ctype_digit((string) $value)) {
+			return (int) $value;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * Return a country label.
+ *
+ * @param	int				$countryId		Country id
+ * @param	Translate|null	$outputlangs	Output language
+ * @return	string							Country label
+ */
+function powerplantpvAttestationGetCountryLabel($countryId, $outputlangs = null)
+{
+	global $langs;
+
+	if (empty($countryId)) {
+		return '';
+	}
+	if (!is_object($outputlangs)) {
+		$outputlangs = $langs;
+	}
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
+	$country = getCountry((int) $countryId, 'all', null, $outputlangs, 0);
+	if (is_array($country)) {
+		return !empty($country['label']) ? (string) $country['label'] : (!empty($country['code']) ? (string) $country['code'] : '');
+	}
+
+	return '';
+}
+
+/**
+ * Return attestation values derived from native Dolibarr sources.
+ *
+ * @param	PowerPlantPVAttestation	$attestation	Attestation
+ * @param	Translate|null			$outputlangs	Output language
+ * @return	array<string,mixed>						Derived data
+ */
+function powerplantpvAttestationGetDerivedData($attestation, $outputlangs = null)
+{
+	global $conf, $db, $langs, $mysoc, $user;
+
+	if (!is_object($outputlangs)) {
+		$outputlangs = $langs;
+	}
+
+	$entity = !empty($attestation->entity) ? (int) $attestation->entity : (int) $conf->entity;
+	$isCurrentEntity = ($entity === (int) $conf->entity);
+	$data = array(
+		'entity' => $entity,
+		'place' => powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_TOWN', ($isCurrentEntity && is_object($mysoc) ? $mysoc->town : ''), $entity),
+		'installer_name' => powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_NOM', ($isCurrentEntity && is_object($mysoc) ? $mysoc->name : ''), $entity),
+		'installer_address' => powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_ADDRESS', ($isCurrentEntity && is_object($mysoc) ? $mysoc->address : ''), $entity),
+		'installer_zip' => powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_ZIP', ($isCurrentEntity && is_object($mysoc) ? $mysoc->zip : ''), $entity),
+		'installer_town' => powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_TOWN', ($isCurrentEntity && is_object($mysoc) ? $mysoc->town : ''), $entity),
+		'installer_siret' => powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SIRET', ($isCurrentEntity && is_object($mysoc) ? $mysoc->idprof2 : ''), $entity),
+		'installer_vat' => powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_TVAINTRA', ($isCurrentEntity && is_object($mysoc) ? $mysoc->tva_intra : ''), $entity),
+		'installer_country_id' => powerplantpvAttestationGetMyCompanyCountryId($entity),
+		'installer_country_label' => '',
+		'writer_id' => !empty($attestation->fk_user_creat) ? (int) $attestation->fk_user_creat : (is_object($user) ? (int) $user->id : 0),
+		'writer_name' => '',
+		'writer_function' => '',
+		'project_name' => '',
+		'site_address' => '',
+		'site_zip' => '',
+		'site_town' => '',
+		'site_country_id' => 0,
+		'site_country_label' => '',
+		'site_full_address' => '',
+	);
+
+	$data['installer_country_label'] = powerplantpvAttestationGetCountryLabel((int) $data['installer_country_id'], $outputlangs);
+
+	if (!empty($attestation->fk_powerplant)) {
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		$powerplant = new PowerPlant($db);
+		if ($powerplant->fetch((int) $attestation->fk_powerplant) > 0) {
+			$data['project_name'] = powerplantpvAttestationResolveProjectName($powerplant);
+			$data['site_address'] = (string) $powerplant->address;
+			$data['site_zip'] = (string) $powerplant->zip;
+			$data['site_town'] = (string) $powerplant->town;
+			$data['site_country_id'] = !empty($powerplant->fk_country) ? (int) $powerplant->fk_country : 0;
+			$data['site_country_label'] = powerplantpvAttestationGetCountryLabel((int) $data['site_country_id'], $outputlangs);
+		}
+	}
+	$data['site_full_address'] = powerplantpvAttestationFormatDerivedAddress($data, 'site', 1);
+
+	if (!empty($data['writer_id'])) {
+		require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+		if (is_object($user) && (int) $user->id === (int) $data['writer_id']) {
+			$writer = $user;
+		} else {
+			$writer = new User($db);
+			if ($writer->fetch((int) $data['writer_id']) <= 0) {
+				$writer = null;
+			}
+		}
+		if (is_object($writer)) {
+			$data['writer_name'] = method_exists($writer, 'getFullName') ? $writer->getFullName($outputlangs) : trim($writer->firstname.' '.$writer->lastname);
+			if ($data['writer_name'] === '' && !empty($writer->login)) {
+				$data['writer_name'] = (string) $writer->login;
+			}
+			$data['writer_function'] = !empty($writer->job) ? (string) $writer->job : '';
+		}
+	}
+
+	return $data;
+}
+
+/**
+ * Format an address from derived attestation data.
+ *
+ * @param	array<string,mixed>	$data			Derived data
+ * @param	string				$prefix			site|installer
+ * @param	int<0,1>			$includeCountry	Include country label
+ * @return	string								Formatted address
+ */
+function powerplantpvAttestationFormatDerivedAddress($data, $prefix = 'site', $includeCountry = 0)
+{
+	$parts = array();
+	foreach (array($prefix.'_address', $prefix.'_zip', $prefix.'_town') as $key) {
+		if (!empty($data[$key])) {
+			$parts[] = (string) $data[$key];
+		}
+	}
+	if ($includeCountry && !empty($data[$prefix.'_country_label'])) {
+		$parts[] = (string) $data[$prefix.'_country_label'];
+	}
+
+	return trim(implode(' ', $parts));
 }
 
 /**
@@ -284,18 +456,8 @@ function powerplantpvAttestationGetMyCompanyValue($constant, $fallback = '')
  */
 function powerplantpvAttestationPrefillFromPowerPlant($attestation, $fkPowerPlant, $user)
 {
-	global $db, $conf, $mysoc;
+	global $db, $conf;
 
-	$attestation->place = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_TOWN', (is_object($mysoc) ? $mysoc->town : ''));
-	$attestation->installer_name = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_NOM', (is_object($mysoc) ? $mysoc->name : ''));
-	$attestation->installer_address = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_ADDRESS', (is_object($mysoc) ? $mysoc->address : ''));
-	$attestation->installer_zip = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_ZIP', (is_object($mysoc) ? $mysoc->zip : ''));
-	$attestation->installer_town = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SOCIETE_TOWN', (is_object($mysoc) ? $mysoc->town : ''));
-	$attestation->installer_siret = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_SIRET', (is_object($mysoc) ? $mysoc->idprof2 : ''));
-	$attestation->installer_vat = powerplantpvAttestationGetMyCompanyValue('MAIN_INFO_TVAINTRA', (is_object($mysoc) ? $mysoc->tva_intra : ''));
-	$attestation->installer_fk_pays = (is_object($mysoc) && !empty($mysoc->country_id) ? (int) $mysoc->country_id : null);
-	$attestation->writer_name = trim($user->firstname.' '.$user->lastname);
-	$attestation->writer_function = !empty($user->job) ? (string) $user->job : '';
 	$attestation->max_frequency_hz = getDolGlobalString('POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ', '51.5');
 	$attestation->max_export_power_kw = getDolGlobalString('POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER', '');
 	$attestation->date_attestation = dol_now();
@@ -317,11 +479,6 @@ function powerplantpvAttestationPrefillFromPowerPlant($attestation, $fkPowerPlan
 	$attestation->fk_soc = !empty($powerplant->fk_soc) ? (int) $powerplant->fk_soc : null;
 	$attestation->socid = $attestation->fk_soc;
 	$attestation->fk_project = !empty($powerplant->fk_project) ? (int) $powerplant->fk_project : null;
-	$attestation->project_name = powerplantpvAttestationResolveProjectName($powerplant);
-	$attestation->address = (string) $powerplant->address;
-	$attestation->zip = (string) $powerplant->zip;
-	$attestation->town = (string) $powerplant->town;
-	$attestation->fk_pays = !empty($powerplant->fk_country) ? (int) $powerplant->fk_country : null;
 	if ($attestation->max_export_power_kw === '' || $attestation->max_export_power_kw === null) {
 		$attestation->max_export_power_kw = !empty($powerplant->connection_contract_power) ? $powerplant->connection_contract_power : $powerplant->installed_power;
 	}

@@ -142,21 +142,6 @@ function powerplantpvAttestationSetFromPost($object)
 	$object->fk_soc = GETPOSTINT('fk_soc') ?: null;
 	$object->socid = $object->fk_soc;
 	$object->fk_project = GETPOSTINT('fk_project') ?: null;
-	$object->project_name = GETPOST('project_name', 'alphanohtml');
-	$object->address = GETPOST('address', 'alphanohtml');
-	$object->zip = GETPOST('zip', 'alphanohtml');
-	$object->town = GETPOST('town', 'alphanohtml');
-	$object->fk_pays = GETPOSTINT('fk_pays') ?: null;
-	$object->installer_name = GETPOST('installer_name', 'alphanohtml');
-	$object->installer_address = GETPOST('installer_address', 'alphanohtml');
-	$object->installer_zip = GETPOST('installer_zip', 'alphanohtml');
-	$object->installer_town = GETPOST('installer_town', 'alphanohtml');
-	$object->installer_fk_pays = GETPOSTINT('installer_fk_pays') ?: null;
-	$object->installer_siret = GETPOST('installer_siret', 'alphanohtml');
-	$object->installer_vat = GETPOST('installer_vat', 'alphanohtml');
-	$object->writer_name = GETPOST('writer_name', 'alphanohtml');
-	$object->writer_function = GETPOST('writer_function', 'alphanohtml');
-	$object->place = GETPOST('place', 'alphanohtml');
 	$object->date_attestation = powerplantpvAttestationGetPostDate('date_attestation');
 	$object->date_setting = powerplantpvAttestationGetPostDate('date_setting');
 	$object->date_completion = powerplantpvAttestationGetPostDate('date_completion');
@@ -347,22 +332,7 @@ if ($action == 'create' && empty($typeCode)) {
 	if (isModEnabled('project')) {
 		print '<tr><td>'.$langs->trans('Project').'</td><td>'.$formproject->select_projects($object->fk_soc, $object->fk_project, 'fk_project', 0, 0, 1, 1, 0, 0, 0, '', 1, 0, 'maxwidth500').'</td></tr>';
 	}
-	print '<tr><td>'.$langs->trans('ProjectName').'</td><td><input type="text" class="flat minwidth300" name="project_name" value="'.dol_escape_htmltag($object->project_name).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('Address').'</td><td><input type="text" class="flat minwidth500" name="address" value="'.dol_escape_htmltag($object->address).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('Zip').'</td><td><input type="text" class="flat maxwidth100" name="zip" value="'.dol_escape_htmltag($object->zip).'"> ';
-	print $langs->trans('Town').' <input type="text" class="flat minwidth200" name="town" value="'.dol_escape_htmltag($object->town).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('Country').'</td><td>'.$form->select_country($object->fk_pays, 'fk_pays').'</td></tr>';
 	print '<tr><td>'.$langs->trans('AttestationDate').'</td><td>'.$form->selectDate($object->date_attestation, 'date_attestation', 0, 0, 0, '', 1, 1).'</td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationPlace').'</td><td><input type="text" class="flat minwidth300" name="place" value="'.dol_escape_htmltag($object->place).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationInstallerName').'</td><td><input type="text" class="flat minwidth300" name="installer_name" value="'.dol_escape_htmltag($object->installer_name).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationInstallerAddress').'</td><td><input type="text" class="flat minwidth500" name="installer_address" value="'.dol_escape_htmltag($object->installer_address).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationInstallerZip').'</td><td><input type="text" class="flat maxwidth100" name="installer_zip" value="'.dol_escape_htmltag($object->installer_zip).'"> ';
-	print $langs->trans('Town').' <input type="text" class="flat minwidth200" name="installer_town" value="'.dol_escape_htmltag($object->installer_town).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationInstallerCountry').'</td><td>'.$form->select_country($object->installer_fk_pays, 'installer_fk_pays').'</td></tr>';
-	print '<tr><td>'.$langs->trans('SIRET').'</td><td><input type="text" class="flat minwidth200" name="installer_siret" value="'.dol_escape_htmltag($object->installer_siret).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('VATIntra').'</td><td><input type="text" class="flat minwidth200" name="installer_vat" value="'.dol_escape_htmltag($object->installer_vat).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationWriterName').'</td><td><input type="text" class="flat minwidth300" name="writer_name" value="'.dol_escape_htmltag($object->writer_name).'"></td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationWriterFunction').'</td><td><input type="text" class="flat minwidth300" name="writer_function" value="'.dol_escape_htmltag($object->writer_function).'"></td></tr>';
 	if (in_array($object->type_code, array(PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR, PowerPlantPVAttestationTypes::TYPE_BRIDAGE_STATIQUE_ONDULEUR), true)) {
 		print '<tr><td>'.$langs->trans('AttestationMaxExportPowerKw').'</td><td><input type="text" class="flat maxwidth100 right" name="max_export_power_kw" value="'.dol_escape_htmltag($object->max_export_power_kw).'"></td></tr>';
 	}
@@ -386,6 +356,7 @@ if ($action == 'create' && empty($typeCode)) {
 	print $form->buttonsSaveCancel();
 	print '</form>';
 } elseif ($object->id > 0) {
+	$derivedData = powerplantpvAttestationGetDerivedData($object, $langs);
 	$head = powerplantpvAttestationPrepareHead($object);
 	print dol_get_fiche_head($head, ($tab == 'notes' ? 'notes' : 'card'), $langs->trans('Attestation'), -1, $object->picto);
 	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object));
@@ -393,11 +364,13 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<table class="border centpercent tableforfield">';
 	print '<tr><td class="titlefield">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
 	print '<tr><td>'.$langs->trans('Status').'</td><td>'.$object->getLibStatut(4).'</td></tr>';
-	print '<tr><td>'.$langs->trans('ProjectName').'</td><td>'.dol_escape_htmltag($object->project_name).'</td></tr>';
-	print '<tr><td>'.$langs->trans('Address').'</td><td>'.dol_escape_htmltag(trim($object->address.' '.$object->zip.' '.$object->town)).'</td></tr>';
+	print '<tr><td>'.$langs->trans('ProjectName').'</td><td>'.dol_escape_htmltag($derivedData['project_name']).'</td></tr>';
+	print '<tr><td>'.$langs->trans('Address').'</td><td>'.dol_escape_htmltag($derivedData['site_full_address']).'</td></tr>';
 	print '<tr><td>'.$langs->trans('AttestationDate').'</td><td>'.dol_print_date($object->date_attestation, 'day').'</td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationInstallerName').'</td><td>'.dol_escape_htmltag($object->installer_name).'</td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationWriterName').'</td><td>'.dol_escape_htmltag($object->writer_name).'</td></tr>';
+	print '<tr><td>'.$langs->trans('AttestationPlace').'</td><td>'.dol_escape_htmltag($derivedData['place']).'</td></tr>';
+	print '<tr><td>'.$langs->trans('AttestationInstallerName').'</td><td>'.dol_escape_htmltag($derivedData['installer_name']).'</td></tr>';
+	print '<tr><td>'.$langs->trans('AttestationWriterName').'</td><td>'.dol_escape_htmltag($derivedData['writer_name']).'</td></tr>';
+	print '<tr><td>'.$langs->trans('AttestationWriterFunction').'</td><td>'.dol_escape_htmltag($derivedData['writer_function']).'</td></tr>';
 	if (!empty($object->date_signature)) {
 		print '<tr><td>'.$langs->trans('AttestationSignatureDate').'</td><td>'.dol_print_date($object->date_signature, 'dayhour').'</td></tr>';
 	}

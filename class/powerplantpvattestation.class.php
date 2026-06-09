@@ -56,22 +56,7 @@ class PowerPlantPVAttestation extends CommonObject
 		'fk_project' => array('type' => 'integer:Project:projet/class/project.class.php:1', 'label' => 'Project', 'picto' => 'project', 'enabled' => "isModEnabled('project')", 'position' => 50, 'notnull' => -1, 'visible' => 1, 'index' => 1, 'css' => 'maxwidth500'),
 		'type_code' => array('type' => 'varchar(64)', 'label' => 'AttestationType', 'enabled' => 1, 'position' => 60, 'notnull' => 1, 'visible' => 1, 'index' => 1, 'arrayofkeyval' => array()),
 		'model_pdf' => array('type' => 'varchar(128)', 'label' => 'ModelPDF', 'enabled' => 1, 'position' => 70, 'notnull' => -1, 'visible' => 0),
-		'project_name' => array('type' => 'varchar(255)', 'label' => 'ProjectName', 'enabled' => 1, 'position' => 80, 'notnull' => 0, 'visible' => 1, 'searchall' => 1, 'css' => 'minwidth300'),
-		'address' => array('type' => 'varchar(255)', 'label' => 'Address', 'enabled' => 1, 'position' => 90, 'notnull' => 0, 'visible' => 3, 'searchall' => 1, 'css' => 'minwidth300'),
-		'zip' => array('type' => 'varchar(25)', 'label' => 'Zip', 'enabled' => 1, 'position' => 100, 'notnull' => 0, 'visible' => 1, 'searchall' => 1, 'csslist' => 'nowraponall'),
-		'town' => array('type' => 'varchar(255)', 'label' => 'Town', 'enabled' => 1, 'position' => 110, 'notnull' => 0, 'visible' => 1, 'searchall' => 1),
-		'fk_pays' => array('type' => 'sellist:c_country:label:rowid::active=1', 'label' => 'Country', 'enabled' => 1, 'position' => 120, 'notnull' => -1, 'visible' => 3, 'index' => 1),
-		'installer_name' => array('type' => 'varchar(255)', 'label' => 'AttestationInstallerName', 'enabled' => 1, 'position' => 130, 'notnull' => 0, 'visible' => 1, 'searchall' => 1),
-		'installer_address' => array('type' => 'varchar(255)', 'label' => 'AttestationInstallerAddress', 'enabled' => 1, 'position' => 140, 'notnull' => 0, 'visible' => 3),
-		'installer_zip' => array('type' => 'varchar(25)', 'label' => 'AttestationInstallerZip', 'enabled' => 1, 'position' => 150, 'notnull' => 0, 'visible' => 3),
-		'installer_town' => array('type' => 'varchar(255)', 'label' => 'AttestationInstallerTown', 'enabled' => 1, 'position' => 160, 'notnull' => 0, 'visible' => 3),
-		'installer_fk_pays' => array('type' => 'sellist:c_country:label:rowid::active=1', 'label' => 'AttestationInstallerCountry', 'enabled' => 1, 'position' => 170, 'notnull' => -1, 'visible' => 3),
-		'installer_siret' => array('type' => 'varchar(64)', 'label' => 'SIRET', 'enabled' => 1, 'position' => 180, 'notnull' => 0, 'visible' => 3),
-		'installer_vat' => array('type' => 'varchar(64)', 'label' => 'VATIntra', 'enabled' => 1, 'position' => 190, 'notnull' => 0, 'visible' => 3),
-		'writer_name' => array('type' => 'varchar(255)', 'label' => 'AttestationWriterName', 'enabled' => 1, 'position' => 200, 'notnull' => 0, 'visible' => 3),
-		'writer_function' => array('type' => 'varchar(255)', 'label' => 'AttestationWriterFunction', 'enabled' => 1, 'position' => 210, 'notnull' => 0, 'visible' => 3),
 		'date_attestation' => array('type' => 'date', 'label' => 'AttestationDate', 'enabled' => 1, 'position' => 220, 'notnull' => 0, 'visible' => 1, 'index' => 1),
-		'place' => array('type' => 'varchar(255)', 'label' => 'AttestationPlace', 'enabled' => 1, 'position' => 230, 'notnull' => 0, 'visible' => 3),
 		'date_setting' => array('type' => 'date', 'label' => 'AttestationSettingDate', 'enabled' => 1, 'position' => 240, 'notnull' => 0, 'visible' => 3),
 		'date_completion' => array('type' => 'date', 'label' => 'AttestationCompletionDate', 'enabled' => 1, 'position' => 250, 'notnull' => 0, 'visible' => 3),
 		'bta_contract_number' => array('type' => 'varchar(128)', 'label' => 'AttestationBtaContractNumber', 'enabled' => 1, 'position' => 260, 'notnull' => 0, 'visible' => 1, 'searchall' => 1),
@@ -105,22 +90,7 @@ class PowerPlantPVAttestation extends CommonObject
 	public $fk_project;
 	public $type_code;
 	public $model_pdf;
-	public $project_name;
-	public $address;
-	public $zip;
-	public $town;
-	public $fk_pays;
-	public $installer_name;
-	public $installer_address;
-	public $installer_zip;
-	public $installer_town;
-	public $installer_fk_pays;
-	public $installer_siret;
-	public $installer_vat;
-	public $writer_name;
-	public $writer_function;
 	public $date_attestation;
-	public $place;
 	public $date_setting;
 	public $date_completion;
 	public $bta_contract_number;
@@ -496,8 +466,14 @@ class PowerPlantPVAttestation extends CommonObject
 		$result = '';
 		$label = '<u>'.$langs->trans('Attestation').'</u>';
 		$label .= '<br><b>'.$langs->trans('Ref').':</b> '.dol_escape_htmltag($this->ref);
-		if (!empty($this->project_name)) {
-			$label .= '<br><b>'.$langs->trans('ProjectName').':</b> '.dol_escape_htmltag($this->project_name);
+		if (!function_exists('powerplantpvAttestationGetDerivedData')) {
+			dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
+		}
+		if (function_exists('powerplantpvAttestationGetDerivedData')) {
+			$derived = powerplantpvAttestationGetDerivedData($this);
+			if (!empty($derived['project_name'])) {
+				$label .= '<br><b>'.$langs->trans('ProjectName').':</b> '.dol_escape_htmltag($derived['project_name']);
+			}
 		}
 
 		$url = dol_buildpath('/powerplantpv/attestation_card.php', 1).'?id='.(int) $this->id;
@@ -573,14 +549,6 @@ class PowerPlantPVAttestation extends CommonObject
 		$this->entity = 1;
 		$this->type_code = PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR;
 		$this->model_pdf = PowerPlantPVAttestationTypes::getModelForType($this->type_code);
-		$this->project_name = 'Projet photovoltaïque exemple';
-		$this->address = '1 rue du Soleil';
-		$this->zip = '75000';
-		$this->town = 'Paris';
-		$this->installer_name = 'Installateur exemple';
-		$this->writer_name = 'Rédacteur exemple';
-		$this->writer_function = 'Responsable technique';
-		$this->place = 'Paris';
 		$this->date_attestation = dol_now();
 		$this->max_export_power_kw = 36;
 		$this->max_frequency_hz = 51.5;
@@ -756,7 +724,8 @@ class PowerPlantPVAttestation extends CommonObject
 	 */
 	protected function checkBusinessRequirements()
 	{
-		if (!PowerPlantPVAttestationTypes::isValidType($this->type_code)) {
+		$type = PowerPlantPVAttestationTypes::getType($this->type_code);
+		if (empty($type)) {
 			$this->error = 'AttestationInvalidType';
 			return -1;
 		}
@@ -766,7 +735,37 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
-		if (empty($this->address) || empty($this->zip) || empty($this->town) || empty($this->installer_name) || empty($this->writer_name)) {
+		foreach (!empty($type['required_fields']) ? (array) $type['required_fields'] : array() as $field) {
+			$value = isset($this->{$field}) ? $this->{$field} : null;
+			if ($field === 'fk_powerplant' && empty($value)) {
+				$this->error = 'AttestationPowerPlantRequired';
+				return -1;
+			}
+			if (in_array($field, array('max_export_power_kw', 'max_frequency_hz'), true) && price2num($value, 'MU') <= 0) {
+				$this->error = 'AttestationSnapshotDataRequired';
+				return -1;
+			}
+			if ($value === null || $value === '') {
+				$this->error = 'AttestationSnapshotDataRequired';
+				return -1;
+			}
+		}
+
+		if (!function_exists('powerplantpvAttestationGetDerivedData')) {
+			dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
+		}
+		$derived = function_exists('powerplantpvAttestationGetDerivedData') ? powerplantpvAttestationGetDerivedData($this) : array();
+		if (empty($derived['place']) || empty($derived['installer_name']) || empty($derived['writer_name'])) {
+			$this->error = 'AttestationSnapshotDataRequired';
+			return -1;
+		}
+
+		if ($this->type_code !== PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC && (empty($derived['site_address']) || empty($derived['site_zip']) || empty($derived['site_town']))) {
+			$this->error = 'AttestationSnapshotDataRequired';
+			return -1;
+		}
+
+		if ($this->type_code === PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC && empty($derived['installer_address'])) {
 			$this->error = 'AttestationSnapshotDataRequired';
 			return -1;
 		}

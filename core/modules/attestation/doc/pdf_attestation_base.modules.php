@@ -168,15 +168,20 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 */
 	protected function renderBody($pdf, $object, $outputlangs, $defaultFontSize)
 	{
+		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
+
 		$pdf->SetFont('', 'B', $defaultFontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationGeneralInformation')), 0, 'L');
 		$pdf->SetFont('', '', $defaultFontSize);
 		$this->renderKeyValue($pdf, $outputlangs, 'AttestationType', $this->translatedType($object, $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'ProjectName', $object->project_name);
-		$this->renderKeyValue($pdf, $outputlangs, 'Address', trim($object->address.' '.$object->zip.' '.$object->town));
+		$this->renderKeyValue($pdf, $outputlangs, 'ProjectName', $derivedData['project_name']);
+		$this->renderKeyValue($pdf, $outputlangs, 'Address', $derivedData['site_full_address']);
 		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDate', !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : '');
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationPlace', $object->place);
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationInstallerName', $object->installer_name);
+		$this->renderKeyValue($pdf, $outputlangs, 'AttestationPlace', $derivedData['place']);
+		$this->renderKeyValue($pdf, $outputlangs, 'AttestationInstallerName', $derivedData['installer_name']);
+		$this->renderKeyValue($pdf, $outputlangs, 'AttestationInstallerAddress', powerplantpvAttestationFormatDerivedAddress($derivedData, 'installer', 1));
+		$this->renderKeyValue($pdf, $outputlangs, 'SIRET', $derivedData['installer_siret']);
+		$this->renderKeyValue($pdf, $outputlangs, 'VATIntra', $derivedData['installer_vat']);
 
 		$pdf->Ln(3);
 		$pdf->SetFont('', 'B', $defaultFontSize + 1);
@@ -266,9 +271,11 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 */
 	protected function renderSignatureBlock($pdf, $object, $outputlangs)
 	{
+		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
+
 		$pdf->Ln(8);
 		$pdf->SetFont('', '', 9);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationWriterSignature', $object->writer_name, $object->writer_function)), 0, 'R');
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationWriterSignature', $derivedData['writer_name'], $derivedData['writer_function'])), 0, 'R');
 
 		$x = $this->page_largeur - $this->marge_droite - 70;
 		$y = $pdf->GetY();

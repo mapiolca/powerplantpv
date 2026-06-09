@@ -168,7 +168,7 @@ if (!empty($user->socid)) {
 	$sqlWhere .= " AND t.fk_soc = ".((int) $user->socid);
 }
 if ($search_all !== '') {
-	$sqlWhere .= natural_search(array('t.ref', 't.project_name', 't.address', 't.town', 't.installer_name', 't.writer_name'), $search_all);
+	$sqlWhere .= natural_search(array('t.ref', 'p.ref', 'p.label', 'p.address', 'p.town', 's.nom', 'pr.ref', 'pr.title'), $search_all);
 }
 if ($search_ref !== '') {
 	$sqlWhere .= natural_search('t.ref', $search_ref);
@@ -214,7 +214,7 @@ if ($resqlCount && ($objCount = $db->fetch_object($resqlCount))) {
 	$num = (int) $objCount->nb;
 }
 
-$sql = "SELECT t.rowid, t.ref, t.entity, t.type_code, t.project_name, t.date_attestation, t.status, t.date_signature, t.fk_powerplant, t.fk_soc, t.fk_project,";
+$sql = "SELECT t.rowid, t.ref, t.entity, t.type_code, t.date_attestation, t.status, t.date_signature, t.fk_powerplant, t.fk_soc, t.fk_project,";
 $sql .= " p.ref as powerplant_ref, p.label as powerplant_label, s.nom as thirdparty_name, pr.ref as project_ref, pr.title as project_title";
 $sql .= $sqlFrom.$sqlWhere.$db->order($sortfield, $sortorder);
 $sql .= $db->plimit($limit + 1, $offset);
@@ -269,7 +269,6 @@ if ($resql) {
 		$tmp->id = (int) $obj->rowid;
 		$tmp->ref = (string) $obj->ref;
 		$tmp->status = (int) $obj->status;
-		$tmp->project_name = (string) $obj->project_name;
 		print '<tr class="oddeven">';
 		print '<td>'.$tmp->getNomUrl(1).'</td>';
 		$type = PowerPlantPVAttestationTypes::getType($obj->type_code);
