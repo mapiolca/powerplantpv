@@ -186,9 +186,27 @@ class modPowerPlantPV extends DolibarrModules
 		//                             2 => array('POWERPLANTPV_MYNEWCONST2', 'chaine', 'myvalue', 'This is another constant to add', 0, 'current', 1)
 		// );
 		$this->const = array();
-		foreach ($this->getPowerPlantActionTriggers() as $trigger) {
+		foreach (array_merge($this->getPowerPlantActionTriggers(), $this->getAttestationActionTriggers()) as $trigger) {
 			$this->const[] = array('MAIN_AGENDA_ACTIONAUTO_'.$trigger['code'], 'chaine', '1', $trigger['description'], 0, 'current');
 		}
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_ENABLE', 'chaine', '1', 'Enable attestations', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_ADDON', 'chaine', 'mod_attestation_standard', 'Default attestation numbering model', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_MASK', 'chaine', 'ATT{yy}{mm}-{0000}', 'Default attestation numbering mask', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_DEFAULT_PLACE', 'chaine', '', 'Default attestation place', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLER_NAME', 'chaine', '', 'Default attestation installer name', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLER_ADDRESS', 'chaine', '', 'Default attestation installer address', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLER_ZIP', 'chaine', '', 'Default attestation installer zip', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLER_TOWN', 'chaine', '', 'Default attestation installer town', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLER_SIRET', 'chaine', '', 'Default attestation installer SIRET', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLER_VAT', 'chaine', '', 'Default attestation installer VAT', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_WRITER_FUNCTION', 'chaine', '', 'Default attestation writer function', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ', 'chaine', '51.5', 'Default attestation maximum frequency', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER', 'chaine', '', 'Default attestation curtailment power', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_COMPANY_STAMP', 'chaine', 'setup/company_stamp.png', 'Default attestation company stamp', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_BRIDAGE_DYNAMIQUE_MODEL', 'chaine', 'attestation_bridage_dynamique', 'Default dynamic curtailment attestation PDF model', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_BRIDAGE_STATIQUE_MODEL', 'chaine', 'attestation_bridage_statique', 'Default static curtailment attestation PDF model', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_REGLAGE_FREQ_MODEL', 'chaine', 'attestation_reglage_max_freq', 'Default max frequency attestation PDF model', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLATEUR_INF100KWC_MODEL', 'chaine', 'attestation_installateur_inf100kwc', 'Default installer under 100 kWc attestation PDF model', 0, 'current');
 
 		// Some keys to add into the overwriting translation tables
 		/*$this->overwrite_translation = array(
@@ -378,6 +396,41 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][4] = 'serialnumber';
 		$this->rights[$r][5] = 'export';
 		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 0 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionRead';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'read';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 1 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionWrite';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'write';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 2 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionDelete';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'delete';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 3 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionValidate';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'validate';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 4 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionSign';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'sign';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 5 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionCancel';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'cancel';
+		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 6 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionSetup';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'setup';
+		$r++;
 
 		/* END MODULEBUILDER PERMISSIONS */
 
@@ -450,6 +503,52 @@ class modPowerPlantPV extends DolibarrModules
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv',
+			'type' => 'left',
+			'titre' => 'Attestations',
+			'prefix' => img_picto('', 'fa-file-signature', 'class="paddingright pictofixedwidth valignmiddle"'),
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'attestation',
+			'url' => '/powerplantpv/attestation_list.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
+			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVAttestation'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=attestation',
+			'type' => 'left',
+			'titre' => 'List_Attestations',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_attestation_list',
+			'url' => '/powerplantpv/attestation_list.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
+			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVAttestation'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=attestation',
+			'type' => 'left',
+			'titre' => 'New_Attestation',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_attestation_new',
+			'url' => '/powerplantpv/attestation_card.php?action=create',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
+			'perms' => '$user->hasRight("powerplantpv", "attestation", "write")',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVAttestation'
 		);
 		/* END MODULEBUILDER LEFTMENU POWERPLANT */
 		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT */
@@ -592,6 +691,10 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		$result = $this->ensurePowerPlantSchema();
+		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->ensureAttestationSchema();
 		if ($result < 0) {
 			return -1;
 		}
@@ -744,6 +847,17 @@ class modPowerPlantPV extends DolibarrModules
 			}
 		}
 
+		$attestationModels = array(
+			'attestation_bridage_dynamique',
+			'attestation_bridage_statique',
+			'attestation_reglage_max_freq',
+			'attestation_installateur_inf100kwc',
+		);
+		foreach ($attestationModels as $attestationModel) {
+			$sql[] = "DELETE FROM ".$this->db->prefix()."document_model WHERE nom = '".$this->db->escape($attestationModel)."' AND type = 'attestation' AND entity = ".((int) $conf->entity);
+			$sql[] = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('".$this->db->escape($attestationModel)."', 'attestation', ".((int) $conf->entity).")";
+		}
+
 		// Migrate legacy agenda links to the canonical Dolibarr element type used by this module.
 		$sqlmigrateagenda = "UPDATE ".$this->db->prefix()."actioncomm";
 		$sqlmigrateagenda .= " SET elementtype = 'powerplant@powerplantpv'";
@@ -752,6 +866,7 @@ class modPowerPlantPV extends DolibarrModules
 		$sql[] = $sqlmigrateagenda;
 
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
+		$sql = array_merge($sql, $this->getAttestationActionTriggerSql());
 
 		$result = $this->_init($sql, $options);
 		if ($result <= 0) {
@@ -878,6 +993,108 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
+	 * Ensure attestation tables contain fields added by V1.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensureAttestationSchema()
+	{
+		$tables = array(
+			$this->db->prefix().'powerplantpv_attestation' => array(
+				'entity' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL DEFAULT 1'),
+				'ref' => array('type' => 'varchar', 'value' => '128', 'null' => 'NOT NULL'),
+				'fk_powerplant' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_soc' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_project' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'type_code' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
+				'model_pdf' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'project_name' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'address' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'zip' => array('type' => 'varchar', 'value' => '25', 'null' => ''),
+				'town' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'fk_pays' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'installer_name' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'installer_address' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'installer_zip' => array('type' => 'varchar', 'value' => '25', 'null' => ''),
+				'installer_town' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'installer_fk_pays' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'installer_siret' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+				'installer_vat' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+				'writer_name' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'writer_function' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'date_attestation' => array('type' => 'date', 'value' => '', 'null' => ''),
+				'place' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'date_setting' => array('type' => 'date', 'value' => '', 'null' => ''),
+				'date_completion' => array('type' => 'date', 'value' => '', 'null' => ''),
+				'bta_contract_number' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'max_export_power_kw' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'max_frequency_hz' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'landscape_integration_prime' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 0'),
+				'fk_user_sign' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'date_signature' => array('type' => 'datetime', 'value' => '', 'null' => ''),
+				'signature_ip' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+				'signature_user_agent' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'signature_hash' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'signature_file' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'signed_pdf_file' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'last_main_doc' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'status' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL DEFAULT 0'),
+			),
+			$this->db->prefix().'powerplantpv_attestation_equipment' => array(
+				'entity' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL DEFAULT 1'),
+				'fk_attestation' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_powerplant_line' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_product' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'equipment_type' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
+				'designation' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'brand' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'model' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'manufacturer' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'serial_number' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'bridage_enabled' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 0'),
+				'bridage_type' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+				'max_power_kw' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'rank' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 0'),
+			),
+		);
+
+		foreach ($tables as $table => $fields) {
+			$sql = "SHOW TABLES LIKE '".$this->db->escape($table)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+			$tableexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if (!$tableexists) {
+				continue;
+			}
+
+			foreach ($fields as $field => $fielddesc) {
+				$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+				$resql = $this->db->query($sql);
+				if (!$resql) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+				$fieldexists = ($this->db->num_rows($resql) > 0);
+				$this->db->free($resql);
+				if ($fieldexists) {
+					continue;
+				}
+				$result = $this->db->DDLAddField($table, $field, $fielddesc);
+				if ($result < 0) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+
+		return 1;
+	}
+
+	/**
 	 * Register this module sharing options in Multicompany external module settings.
 	 *
 	 * @return	int		1 if OK, <0 if KO
@@ -901,18 +1118,8 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	private function unregisterMulticompanyExternalSharing()
 	{
-		$externalmodule = $this->getCurrentMulticompanyExternalSharing();
-		if (!is_array($externalmodule)) {
-			return -1;
-		}
-
-		if (empty($externalmodule['powerplantpv'])) {
-			return 1;
-		}
-
-		unset($externalmodule['powerplantpv']);
-
-		return $this->saveMulticompanyExternalSharing($externalmodule);
+		// Keep Multicompany sharing settings across disable/reactivate cycles.
+		return 1;
 	}
 
 	/**
@@ -1145,6 +1352,24 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
+	 * Return attestation business triggers handled by Agenda auto events and Notifications.
+	 *
+	 * @return	array<int,array<string,int|string>>	Trigger definitions
+	 */
+	private function getAttestationActionTriggers()
+	{
+		return array(
+			array('code' => 'POWERPLANTPV_ATTESTATION_CREATE', 'label' => 'AttestationTriggerCreate', 'description' => 'AttestationTriggerCreateDesc', 'rang' => 45000430),
+			array('code' => 'POWERPLANTPV_ATTESTATION_VALIDATE', 'label' => 'AttestationTriggerValidate', 'description' => 'AttestationTriggerValidateDesc', 'rang' => 45000431),
+			array('code' => 'POWERPLANTPV_ATTESTATION_GENERATEPDF', 'label' => 'AttestationTriggerGeneratePdf', 'description' => 'AttestationTriggerGeneratePdfDesc', 'rang' => 45000432),
+			array('code' => 'POWERPLANTPV_ATTESTATION_SENDSIGN', 'label' => 'AttestationTriggerSendSign', 'description' => 'AttestationTriggerSendSignDesc', 'rang' => 45000433),
+			array('code' => 'POWERPLANTPV_ATTESTATION_SIGN', 'label' => 'AttestationTriggerSign', 'description' => 'AttestationTriggerSignDesc', 'rang' => 45000434),
+			array('code' => 'POWERPLANTPV_ATTESTATION_CANCEL', 'label' => 'AttestationTriggerCancel', 'description' => 'AttestationTriggerCancelDesc', 'rang' => 45000435),
+			array('code' => 'POWERPLANTPV_ATTESTATION_DELETE', 'label' => 'AttestationTriggerDelete', 'description' => 'AttestationTriggerDeleteDesc', 'rang' => 45000436),
+		);
+	}
+
+	/**
 	 * Return SQL statements that register PowerPlantPV business triggers.
 	 *
 	 * @return	string[]	SQL statements
@@ -1160,6 +1385,34 @@ class modPowerPlantPV extends DolibarrModules
 		$elementtype = $this->db->escape('powerplant@powerplantpv');
 
 		foreach ($this->getPowerPlantActionTriggers() as $trigger) {
+			$code = $this->db->escape($trigger['code']);
+			$label = $this->db->escape($langs->transnoentitiesnoconv($trigger['label']));
+			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));
+			$rang = (int) $trigger['rang'];
+
+			$sql[] = "UPDATE ".$table." SET label = '".$label."', description = '".$description."', elementtype = '".$elementtype."', rang = ".$rang." WHERE code = '".$code."'";
+			$sql[] = "INSERT INTO ".$table." (code, label, description, elementtype, rang) SELECT '".$code."', '".$label."', '".$description."', '".$elementtype."', ".$rang." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE code = '".$code."')";
+		}
+
+		return $sql;
+	}
+
+	/**
+	 * Return SQL statements that register attestation business triggers.
+	 *
+	 * @return	string[]	SQL statements
+	 */
+	private function getAttestationActionTriggerSql()
+	{
+		global $langs;
+
+		$langs->load('powerplantpv@powerplantpv');
+
+		$sql = array();
+		$table = $this->db->prefix().'c_action_trigger';
+		$elementtype = $this->db->escape('attestation@powerplantpv');
+
+		foreach ($this->getAttestationActionTriggers() as $trigger) {
 			$code = $this->db->escape($trigger['code']);
 			$label = $this->db->escape($langs->transnoentitiesnoconv($trigger['label']));
 			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));

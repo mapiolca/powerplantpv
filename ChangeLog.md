@@ -1,5 +1,16 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## Unreleased
+
+Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
+- nouvel objet métier `PowerPlantPVAttestation` avec quatre types d'attestations : bridage dynamique onduleur, bridage statique onduleur, réglage fréquence maximale 51,5 Hz et installateur inférieur à 100 kWc ;
+- tables SQL principales et lignes d'équipements, avec `entity`, références, liens centrale/tiers/projet, données gelées, métadonnées de signature et documents ;
+- listes, fiches, onglet documents, onglet agenda et workflow de signature interne avec token, image PNG, tampon d'entreprise, copie PDF signée et empreinte SHA-256 ;
+- modèles PDF fonctionnels pour les quatre types, prêts pour validation métier des contenus légaux ;
+- droits Dolibarr dédiés, menus internes au module, numérotation native, réglages par entité, partage Multicompany et colonne Environnement en liste lorsque nécessaire ;
+- triggers Agenda et Notifications natifs pour création, validation, génération PDF, envoi en signature, signature, annulation et suppression ;
+- traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
+
 ## 1.1.0
 
 Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration Multicompany :

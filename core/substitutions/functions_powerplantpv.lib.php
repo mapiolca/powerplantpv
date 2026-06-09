@@ -42,6 +42,10 @@ function powerplantpv_completesubstitutionarray(&$substitutionarray, $outputlang
 		return;
 	}
 
+	if (!empty($object->element) && $object->element == 'attestation') {
+		powerplantpvCompleteAttestationSubstitutionArray($substitutionarray, $outputlangs, $object);
+	}
+
 	$powerplants = powerplantpvGetLinkedPowerPlants($object);
 	$count = count($powerplants);
 
@@ -134,6 +138,33 @@ function powerplantpv_completesubstitutionarray(&$substitutionarray, $outputlang
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_connection_contract_powers', implode(', ', $connectionpowers));
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_installed_power_total', powerplantpvFormatPowerForSubstitution($totalinstalledpower));
 	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_summary', implode("\n", $summarylines));
+}
+
+/**
+ * Complete substitution array with attestation data.
+ *
+ * @param	array<string,string>	$substitutionarray	Substitution array
+ * @param	Translate			$outputlangs		Output language
+ * @param	CommonObject		$object				Attestation object
+ * @return	void
+ */
+function powerplantpvCompleteAttestationSubstitutionArray(&$substitutionarray, $outputlangs, $object)
+{
+	dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+
+	$type = PowerPlantPVAttestationTypes::getType($object->type_code);
+	$typeLabel = !empty($type['label']) ? $outputlangs->transnoentities($type['label']) : (string) $object->type_code;
+
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_ref', (string) $object->ref);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_type', $typeLabel);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_project_name', (string) $object->project_name);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_address', trim($object->address.' '.$object->zip.' '.$object->town));
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_installer_name', (string) $object->installer_name);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_writer_name', (string) $object->writer_name);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_writer_function', (string) $object->writer_function);
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_date', powerplantpvFormatDateForSubstitution($object->date_attestation, $outputlangs));
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_signature_date', powerplantpvFormatDateForSubstitution($object->date_signature, $outputlangs));
+	powerplantpvSetSubstitution($substitutionarray, 'powerplantpv_attestation_url', dol_buildpath('/powerplantpv/attestation_card.php', 2).'?id='.(int) $object->id);
 }
 
 /**

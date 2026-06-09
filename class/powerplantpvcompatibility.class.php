@@ -132,6 +132,30 @@ class PowerPlantPVCompatibility
 				'available' => $pvfreeavailable,
 				'reason' => ($pvfreeavailable ? '' : 'PVFreeGetURLContentUnavailable'),
 			),
+			'attestation_core' => array(
+				'label' => 'Attestations',
+				'description' => 'AttestationCompatibilityCoreDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable,
+				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
+			'attestation_pdf' => array(
+				'label' => 'AttestationPdfModels',
+				'description' => 'AttestationCompatibilityPdfDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable,
+				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
+			'attestation_internal_signature' => array(
+				'label' => 'AttestationInternalSignature',
+				'description' => 'AttestationCompatibilitySignatureDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable && function_exists('hash_file'),
+				'reason' => ($baseavailable && function_exists('hash_file') ? '' : 'AttestationSignatureHashUnavailable'),
+			),
 		);
 	}
 

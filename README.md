@@ -8,6 +8,8 @@
 - Import CSV/XLSX technical characteristics into existing Dolibarr PV module and inverter products from the detailed characteristics tab, with downloadable templates, preview and source traceability.
 - Import CSV/XLSX serial numbers by composition category, validate product-line associations, and store each serial number against the power plant, composition line, product and PV category.
 - Export recorded serial numbers as CSV or XLSX.
+- Manage PowerPlantPV attestations for dynamic inverter curtailment, static inverter curtailment, maximum frequency 51.5 Hz, and installer under 100 kWc workflows.
+- Generate attestation PDF skeletons from frozen power plant, site, installer, writer and equipment data, then complete an internal authenticated signature with PNG signature image, company stamp, signed PDF copy and SHA-256 hash.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}
@@ -87,6 +89,12 @@ Using your browser:
   - Log into Dolibarr as a super-administrator
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
+
+## Attestations
+
+The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include the default place, installer snapshot defaults, writer function, frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp.
+
+Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The V1 signature flow is internal to Dolibarr and is not a qualified external e-signature provider workflow.
 
 
 
