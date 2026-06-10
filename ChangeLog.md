@@ -27,7 +27,7 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - complétude des traductions pour les événements automatiques, notifications et statuts longs/courts des centrales PV et attestations ;
 - ajout sur l'index PowerPlantPV du tableau natif des dernières attestations modifiées ;
 - refonte du modèle PDF de bridage dynamique onduleur avec contenu métier complet, données centrale/producteur, matériel, contrôles, résultat, signature et cachet ;
-- amélioration du modèle PDF de bridage dynamique onduleur : sections installation et matériel en tableaux, lignes compteur/communication masquées lorsqu'elles sont non renseignées et footer Dolibarr mieux réservé ;
+- amélioration du modèle PDF de bridage dynamique onduleur : section installation en tableau à hauteur de ligne homogène, matériel réparti par ligne en colonnes catégorie/désignation/numéro de série, sans colonne bridage, et footer Dolibarr mieux réservé ;
 - alignement du modèle PDF de bridage statique onduleur : titre d'attestation explicite, tableaux installation/matériel, cachet en case dédiée et pied de page natif Dolibarr ;
 - correction du pied de page natif des PDF d'attestation avec marge basse réservée, et alignement de la signature en ligne sur le process Dolibarr des devis, avec usage de la page core publique si la source attestation est supportée ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.

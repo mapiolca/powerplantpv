@@ -71,18 +71,7 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicEquipmentUsed', $defaultFontSize);
-		$equipmentRows = array(
-			array('AttestationDynamicInverters', $this->formatEquipmentList($this->getEquipmentLinesByType($object, 'INVERTER'), $outputlangs)),
-		);
-		$meteringDevice = $this->formatEquipmentList($this->getMeteringLines($object), $outputlangs);
-		if ($this->isProvidedValue($meteringDevice, $outputlangs)) {
-			$equipmentRows[] = array('AttestationDynamicMeteringDevice', $meteringDevice);
-		}
-		$communication = $this->detectCommunication($object);
-		if ($this->isProvidedValue($communication, $outputlangs)) {
-			$equipmentRows[] = array('AttestationDynamicCommunication', $communication);
-		}
-		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, $equipmentRows);
+		$this->renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicChecksDone', $defaultFontSize);
@@ -201,6 +190,87 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$pdf->SetXY($x, $y);
 		$pdf->SetFont('', '', $fontSize);
 		$pdf->MultiCell($widths[1], $height, $text, 1, 'L', false, 1);
+		$pdf->SetDrawColor(0, 0, 0);
+		$pdf->SetY($y + $height);
+	}
+
+	/**
+	 * Render equipment lines as a table.
+	 *
+	 * @param	TCPDF|TCPDI				$pdf				PDF
+	 * @param	PowerPlantPVAttestation	$object				Attestation
+	 * @param	Translate				$outputlangs		Output lang
+	 * @param	int						$defaultFontSize	Default font size
+	 * @return	void
+	 */
+	protected function renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize)
+	{
+		$tableWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+		$widths = array(42, $tableWidth - 42 - 48, 48);
+		$fontSize = max($defaultFontSize - 1, 7);
+
+		$this->renderEquipmentTableRow($pdf, $outputlangs, $widths, array(
+			$outputlangs->transnoentities('AttestationEquipmentCategory'),
+			$outputlangs->transnoentities('Designation'),
+			$outputlangs->transnoentities('SerialNumber'),
+		), $fontSize, array('B', 'B', 'B'), true);
+
+		if (empty($object->lines)) {
+			$this->renderEquipmentTableRow($pdf, $outputlangs, array($tableWidth), array($outputlangs->transnoentities('None')), $fontSize);
+			$pdf->Ln(2);
+			return;
+		}
+
+		foreach ($object->lines as $line) {
+			$this->renderEquipmentTableRow($pdf, $outputlangs, $widths, array(
+				powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs),
+				(string) $line->designation,
+				(string) $line->serial_number,
+			), $fontSize);
+		}
+		$pdf->Ln(2);
+	}
+
+	/**
+	 * Render a table row with a height based on the tallest cell.
+	 *
+	 * @param	TCPDF|TCPDI			$pdf			PDF
+	 * @param	Translate			$outputlangs	Output lang
+	 * @param	array<int,float>	$widths			Column widths
+	 * @param	array<int,string>	$values			Cell values
+	 * @param	int					$fontSize		Font size
+	 * @param	array<int,string>	$styles			Column font styles
+	 * @param	bool				$fill			Fill row
+	 * @return	void
+	 */
+	protected function renderEquipmentTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles = array(), $fill = false)
+	{
+		$height = 6;
+		foreach ($values as $i => $value) {
+			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
+			$text = $outputlangs->convToOutputCharset((string) $value);
+			if (method_exists($pdf, 'getStringHeight')) {
+				$height = max($height, $pdf->getStringHeight($width, $text) + 2);
+			} else {
+				$height = max($height, 5 * (substr_count((string) $value, "\n") + 1));
+			}
+		}
+		$this->ensureSpace($pdf, $height + 2);
+
+		$x = $this->marge_gauche;
+		$y = $pdf->GetY();
+		$pdf->SetDrawColor(190, 190, 190);
+		if ($fill) {
+			$pdf->SetFillColor(245, 245, 245);
+		}
+
+		foreach ($values as $i => $value) {
+			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
+			$pdf->SetXY($x, $y);
+			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
+			$pdf->MultiCell($width, $height, $outputlangs->convToOutputCharset((string) $value), 1, 'L', $fill, 0);
+			$x += $width;
+		}
 		$pdf->SetDrawColor(0, 0, 0);
 		$pdf->SetY($y + $height);
 	}
@@ -358,140 +428,6 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		}
 
 		return $found ? $total : '';
-	}
-
-	/**
-	 * Get equipment lines by type.
-	 *
-	 * @param	PowerPlantPVAttestation	$object	Attestation
-	 * @param	string					$type	Type
-	 * @return	array<int,PowerPlantPVAttestationEquipmentLine>	Lines
-	 */
-	protected function getEquipmentLinesByType($object, $type)
-	{
-		$lines = array();
-		if (empty($object->lines)) {
-			return $lines;
-		}
-		foreach ($object->lines as $line) {
-			if ((string) $line->equipment_type === $type) {
-				$lines[] = $line;
-			}
-		}
-
-		return $lines;
-	}
-
-	/**
-	 * Get metering equipment candidates.
-	 *
-	 * @param	PowerPlantPVAttestation	$object	Attestation
-	 * @return	array<int,PowerPlantPVAttestationEquipmentLine>	Lines
-	 */
-	protected function getMeteringLines($object)
-	{
-		$lines = array();
-		if (empty($object->lines)) {
-			return $lines;
-		}
-		foreach ($object->lines as $line) {
-			if ((string) $line->equipment_type === 'INVERTER') {
-				continue;
-			}
-			$text = strtoupper((string) $line->equipment_type.' '.(string) $line->designation.' '.(string) $line->model.' '.(string) $line->manufacturer);
-			if (strpos($text, 'COMPTEUR') !== false || strpos($text, 'METER') !== false || strpos($text, 'MESURE') !== false || strpos($text, 'MEASURE') !== false || strpos($text, 'CENTRALE') !== false) {
-				$lines[] = $line;
-			}
-		}
-
-		return $lines;
-	}
-
-	/**
-	 * Format equipment lines for a PDF key/value row.
-	 *
-	 * @param	array<int,PowerPlantPVAttestationEquipmentLine>	$lines			Lines
-	 * @param	Translate										$outputlangs	Output lang
-	 * @return	string															Formatted lines
-	 */
-	protected function formatEquipmentList($lines, $outputlangs)
-	{
-		if (empty($lines)) {
-			return $this->valueOrNotProvided('', $outputlangs);
-		}
-		$formatted = array();
-		foreach ($lines as $line) {
-			$parts = array();
-			if (!empty($line->designation)) {
-				$parts[] = (string) $line->designation;
-			}
-			if (!empty($line->model) && strpos((string) $line->designation, (string) $line->model) === false) {
-				$parts[] = (string) $line->model;
-			}
-			if (!empty($line->serial_number)) {
-				$parts[] = $outputlangs->transnoentities('SerialNumber').': '.(string) $line->serial_number;
-			}
-			if (empty($parts)) {
-				continue;
-			}
-			$formatted[] = '- '.implode(' - ', $parts);
-		}
-		if (empty($formatted)) {
-			return $this->valueOrNotProvided('', $outputlangs);
-		}
-
-		return implode("\n", $formatted);
-	}
-
-	/**
-	 * Detect communication protocol names from equipment data.
-	 *
-	 * @param	PowerPlantPVAttestation	$object	Attestation
-	 * @return	string							Protocol list
-	 */
-	protected function detectCommunication($object)
-	{
-		if (empty($object->lines)) {
-			return '';
-		}
-		$protocols = array();
-		foreach ($object->lines as $line) {
-			$text = strtoupper((string) $line->designation.' '.(string) $line->model.' '.(string) $line->manufacturer);
-			foreach (array('MODBUS' => 'Modbus', 'RS485' => 'RS485', 'RS-485' => 'RS485', 'ETHERNET' => 'Ethernet') as $needle => $label) {
-				if (strpos($text, $needle) !== false) {
-					$protocols[$label] = $label;
-				}
-			}
-		}
-
-		return implode(' / ', $protocols);
-	}
-
-	/**
-	 * Test if a printable value contains business data.
-	 *
-	 * @param	string		$value			Value
-	 * @param	Translate	$outputlangs	Output lang
-	 * @return	bool						True if value must be shown
-	 */
-	protected function isProvidedValue($value, $outputlangs)
-	{
-		$value = trim((string) $value);
-		if ($value === '') {
-			return false;
-		}
-
-		$fallbacks = array(
-			$outputlangs->transnoentities('AttestationDynamicNotProvided'),
-			$outputlangs->transnoentities('AttestationNotProvided'),
-			'Non renseigné',
-			'Not provided',
-			'No proporcionado',
-			'Non indicato',
-			'Nicht angegeben',
-		);
-
-		return !in_array($value, $fallbacks, true);
 	}
 
 	/**
