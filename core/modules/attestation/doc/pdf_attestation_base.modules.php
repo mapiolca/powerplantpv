@@ -36,7 +36,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	protected $titleKey = 'Attestation';
 	protected $validationWarningKey = '';
 	protected $heightforfooter = 0;
-	protected $footerContentClearance = 12;
+	protected $footerContentClearance = 24;
 	public $watermark = '';
 	protected $currentObject;
 	protected $currentOutputLangs;
