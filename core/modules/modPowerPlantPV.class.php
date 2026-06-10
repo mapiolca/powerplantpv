@@ -1013,6 +1013,7 @@ class modPowerPlantPV extends DolibarrModules
 				'date_signature' => array('type' => 'datetime', 'value' => '', 'null' => ''),
 				'signature_ip' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
 				'signature_user_agent' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'online_sign_name' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'signature_hash' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
 				'signature_token_hash' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
 				'signature_token_date' => array('type' => 'datetime', 'value' => '', 'null' => ''),
@@ -1027,6 +1028,9 @@ class modPowerPlantPV extends DolibarrModules
 				'fk_attestation' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'fk_powerplant_line' => array('type' => 'integer', 'value' => '', 'null' => ''),
 				'fk_product' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_categorie' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'category_code' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+				'category_label' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'equipment_type' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
 				'designation' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'brand' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
@@ -1076,6 +1080,14 @@ class modPowerPlantPV extends DolibarrModules
 				$indexes = array(
 					'idx_powerplantpv_attestation_signature_token_hash' => 'signature_token_hash',
 				);
+			} elseif ($table === $this->db->prefix().'powerplantpv_attestation_equipment') {
+				$indexes = array(
+					'idx_powerplantpv_attestation_equipment_categorie' => 'fk_categorie',
+				);
+			} else {
+				$indexes = array();
+			}
+			if (!empty($indexes)) {
 				foreach ($indexes as $indexname => $fieldname) {
 					$sql = "SHOW INDEX FROM ".$this->db->sanitize($table)." WHERE Key_name = '".$this->db->escape($indexname)."'";
 					$resql = $this->db->query($sql);

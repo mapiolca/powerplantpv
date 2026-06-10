@@ -25,6 +25,7 @@ CREATE TABLE llx_powerplantpv_attestation(
 	date_signature datetime,
 	signature_ip varchar(64),
 	signature_user_agent varchar(255),
+	online_sign_name varchar(255),
 	signature_hash varchar(128),
 	signature_token_hash varchar(128),
 	signature_token_date datetime,

@@ -515,12 +515,12 @@ if ($action == 'create' && empty($typeCode)) {
 	print '</table>';
 	print load_fiche_titre($langs->trans('AttestationEquipment'), '', 'fa-cubes');
 	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
-	print '<tr class="liste_titre"><td>'.$langs->trans('Type').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('Model').'</td><td>'.$langs->trans('SerialNumber').'</td><td>'.$langs->trans('AttestationBridage').'</td></tr>';
+	print '<tr class="liste_titre"><td>'.$langs->trans('AttestationEquipmentCategory').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('SerialNumber').'</td><td>'.$langs->trans('AttestationBridage').'</td></tr>';
 	if (empty($object->lines)) {
-		print '<tr class="oddeven"><td colspan="5"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 	} else {
 		foreach ($object->lines as $line) {
-			print '<tr class="oddeven"><td>'.dol_escape_htmltag($line->equipment_type).'</td><td>'.dol_escape_htmltag($line->designation).'</td><td>'.dol_escape_htmltag($line->model).'</td><td>'.dol_escape_htmltag($line->serial_number).'</td><td>'.yn($line->bridage_enabled).'</td></tr>';
+			print '<tr class="oddeven"><td>'.dol_escape_htmltag(powerplantpvAttestationEquipmentCategoryLabel($line, $langs)).'</td><td>'.dol_escape_htmltag($line->designation).'</td><td>'.dol_escape_htmltag($line->serial_number).'</td><td>'.yn($line->bridage_enabled).'</td></tr>';
 		}
 	}
 	print '</table></div>';
@@ -560,7 +560,9 @@ if ($action == 'create' && empty($typeCode)) {
 	print '</div>';
 	print '<div class="fichehalfright">';
 	if (isModEnabled('agenda')) {
-		$formactions->showactions($object, 'attestation@powerplantpv', $object->fk_soc, 1);
+		$MAXEVENT = getDolGlobalInt('MAIN_SIZE_SHORTLIST_LIMIT', 10);
+		$morehtmlcenter = dolGetButtonTitle($langs->trans('SeeAll'), '', 'fa fa-bars imgforviewmode', dol_buildpath('/powerplantpv/attestation_agenda.php', 1).'?id='.(int) $object->id);
+		$formactions->showactions($object, 'attestation@powerplantpv', $object->fk_soc, 1, '', $MAXEVENT, '', $morehtmlcenter);
 	}
 	print '</div>';
 	print '</div>';

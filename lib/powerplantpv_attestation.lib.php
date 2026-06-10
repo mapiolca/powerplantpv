@@ -121,6 +121,92 @@ function powerplantpvAttestationGetDocumentGenerationModulePart()
 }
 
 /**
+ * Return the online signature source key used by the attestation public page.
+ *
+ * @return	string	Source key
+ */
+function powerplantpvAttestationGetOnlineSignatureSource()
+{
+	return 'powerplantpv_attestation';
+}
+
+/**
+ * Return the online signature security seed.
+ *
+ * @return	string	Security seed
+ */
+function powerplantpvAttestationGetOnlineSignatureSecuritySeed()
+{
+	global $dolibarr_main_instance_unique_id;
+
+	$seed = getDolGlobalString('POWERPLANTPV_ATTESTATION_ONLINE_SIGNATURE_SECURITY_TOKEN');
+	if ($seed !== '') {
+		return $seed;
+	}
+
+	return substr(dol_hash('dolibarr'.(string) $dolibarr_main_instance_unique_id, 'sha256'), 0, 32);
+}
+
+/**
+ * Return a public online signature URL for an attestation.
+ *
+ * @param	int<0,1>					$mode				0=real URL, 1=template URL
+ * @param	PowerPlantPVAttestation	$object				Attestation
+ * @param	int<0,1>					$localorexternal	0=current root, 1=external root
+ * @return	string										URL
+ */
+function powerplantpvAttestationGetOnlineSignatureUrl($mode, $object, $localorexternal = 1)
+{
+	global $dolibarr_main_url_root;
+
+	if (!is_object($object) || empty($object->ref)) {
+		return '';
+	}
+
+	$urlwithouturlroot = preg_replace('/'.preg_quote(DOL_URL_ROOT, '/').'$/i', '', trim($dolibarr_main_url_root));
+	$urlwithroot = $urlwithouturlroot.DOL_URL_ROOT;
+	$urltouse = $localorexternal ? $urlwithroot : DOL_MAIN_URL_ROOT;
+	$type = powerplantpvAttestationGetOnlineSignatureSource();
+	$ref = (string) $object->ref;
+	$entity = !empty($object->entity) ? (int) $object->entity : 1;
+	$seed = powerplantpvAttestationGetOnlineSignatureSecuritySeed();
+
+	$out = $urltouse.'/custom/powerplantpv/attestation_signature.php?source='.$type.'&ref=';
+	if ($mode == 1) {
+		$out .= 'attestation_ref';
+		$out .= '&securekey=hash(\''.$seed.'\' + \''.$type.'\' + attestation_ref)';
+	} else {
+		$out .= urlencode($ref);
+		$out .= '&securekey='.urlencode(dol_hash($seed.$type.$ref.(isModEnabled('multicompany') ? $entity : ''), '0'));
+	}
+	if (isModEnabled('multicompany')) {
+		$out .= '&entity='.$entity;
+	}
+
+	return $out;
+}
+
+/**
+ * Check the public online signature secure key.
+ *
+ * @param	PowerPlantPVAttestation	$object		Attestation
+ * @param	string					$securekey	Submitted secure key
+ * @return	int<0,1>							1 if valid
+ */
+function powerplantpvAttestationVerifyOnlineSignatureSecureKey($object, $securekey)
+{
+	if (!is_object($object) || empty($object->ref) || $securekey === '') {
+		return 0;
+	}
+
+	$type = powerplantpvAttestationGetOnlineSignatureSource();
+	$entity = !empty($object->entity) ? (int) $object->entity : 1;
+	$payload = powerplantpvAttestationGetOnlineSignatureSecuritySeed().$type.(string) $object->ref.(isModEnabled('multicompany') ? $entity : '');
+
+	return (int) dol_verifyHash($payload, $securekey, '0');
+}
+
+/**
  * Return relative document path.
  *
  * @param	PowerPlantPVAttestation	$object	Attestation
@@ -568,16 +654,6 @@ function powerplantpvAttestationPrefillFromPowerPlant($attestation, $fkPowerPlan
  */
 function powerplantpvAttestationResolveProjectName($powerplant)
 {
-	global $db;
-
-	if (!empty($powerplant->fk_project) && isModEnabled('project')) {
-		require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
-		$project = new Project($db);
-		if ($project->fetch((int) $powerplant->fk_project) > 0) {
-			return trim($project->ref.' - '.$project->title);
-		}
-	}
-
 	return trim($powerplant->ref.' - '.$powerplant->label);
 }
 
@@ -638,6 +714,9 @@ function powerplantpvAttestationBuildEquipmentSnapshot($powerplant, $typeCode)
 		$line->entity = $entity;
 		$line->fk_powerplant_line = (int) $obj->fk_powerplant_line;
 		$line->fk_product = (int) $obj->fk_product;
+		$line->fk_categorie = !empty($obj->categorie_photovoltaique) ? (int) $obj->categorie_photovoltaique : null;
+		$line->category_code = (string) $obj->category_code;
+		$line->category_label = (string) $obj->category_label;
 		$line->equipment_type = $equipmentType;
 		$line->designation = trim($obj->product_ref.' - '.$obj->product_label);
 		$line->brand = '';
@@ -675,6 +754,68 @@ function powerplantpvAttestationGuessEquipmentType($obj)
 	}
 
 	return 'MODULE';
+}
+
+/**
+ * Return photovoltaic category label for an attestation equipment snapshot line.
+ *
+ * @param	PowerPlantPVAttestationEquipmentLine	$line			Equipment line
+ * @param	Translate|null						$outputlangs	Output language
+ * @return	string											Category label
+ */
+function powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs = null)
+{
+	global $db, $langs;
+
+	if (!is_object($outputlangs)) {
+		$outputlangs = $langs;
+	}
+	if (!empty($line->category_label)) {
+		return (string) $line->category_label;
+	}
+	if (!empty($line->category_code)) {
+		return (string) $line->category_code;
+	}
+
+	static $cache = array();
+	$cachekey = ((int) $line->fk_categorie).'|'.((int) $line->fk_powerplant_line).'|'.((int) $line->fk_product);
+	if (array_key_exists($cachekey, $cache)) {
+		return $cache[$cachekey];
+	}
+
+	$sql = "SELECT cpv.code, cpv.label";
+	$sql .= " FROM ".$db->prefix()."c_powerplantpv_categorypv as cpv";
+	if (!empty($line->fk_categorie)) {
+		$sql .= " WHERE cpv.rowid = ".((int) $line->fk_categorie);
+	} else {
+		$sql .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.categorie_photovoltaique = cpv.rowid";
+		if (!empty($line->fk_powerplant_line)) {
+			$sql .= " INNER JOIN ".$db->prefix()."powerplantpv_powerplantcomp as c ON c.fk_product = pe.fk_object";
+			$sql .= " WHERE c.rowid = ".((int) $line->fk_powerplant_line);
+		} elseif (!empty($line->fk_product)) {
+			$sql .= " WHERE pe.fk_object = ".((int) $line->fk_product);
+		} else {
+			$cache[$cachekey] = '';
+			return '';
+		}
+	}
+	$sql .= " LIMIT 1";
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		$cache[$cachekey] = '';
+		return '';
+	}
+	$obj = $db->fetch_object($resql);
+	$db->free($resql);
+	if (!$obj) {
+		$cache[$cachekey] = '';
+		return '';
+	}
+
+	$cache[$cachekey] = !empty($obj->label) ? (string) $obj->label : (string) $obj->code;
+
+	return $cache[$cachekey];
 }
 
 /**

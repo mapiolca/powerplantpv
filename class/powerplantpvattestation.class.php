@@ -67,6 +67,7 @@ class PowerPlantPVAttestation extends CommonObject
 		'date_signature' => array('type' => 'datetime', 'label' => 'AttestationSignatureDate', 'enabled' => 1, 'position' => 310, 'notnull' => 0, 'visible' => 1, 'index' => 1),
 		'signature_ip' => array('type' => 'varchar(64)', 'label' => 'IPAddress', 'enabled' => 1, 'position' => 320, 'notnull' => 0, 'visible' => 0),
 		'signature_user_agent' => array('type' => 'varchar(255)', 'label' => 'UserAgent', 'enabled' => 1, 'position' => 330, 'notnull' => 0, 'visible' => 0),
+		'online_sign_name' => array('type' => 'varchar(255)', 'label' => 'AttestationOnlineSignName', 'enabled' => 1, 'position' => 335, 'notnull' => 0, 'visible' => 0),
 		'signature_hash' => array('type' => 'varchar(128)', 'label' => 'AttestationSignatureHash', 'enabled' => 1, 'position' => 340, 'notnull' => 0, 'visible' => 0),
 		'signature_token_hash' => array('type' => 'varchar(128)', 'label' => 'AttestationSignatureTokenHash', 'enabled' => 1, 'position' => 345, 'notnull' => 0, 'visible' => 0, 'index' => 1),
 		'signature_token_date' => array('type' => 'datetime', 'label' => 'AttestationSignatureTokenDate', 'enabled' => 1, 'position' => 346, 'notnull' => 0, 'visible' => 0),
@@ -104,6 +105,7 @@ class PowerPlantPVAttestation extends CommonObject
 	public $date_signature;
 	public $signature_ip;
 	public $signature_user_agent;
+	public $online_sign_name;
 	public $signature_hash;
 	public $signature_token_hash;
 	public $signature_token_date;
@@ -490,9 +492,10 @@ class PowerPlantPVAttestation extends CommonObject
 	 * @param	string	$signatureFile		Relative signature file
 	 * @param	string	$signedPdfFile		Relative signed PDF file
 	 * @param	string	$signatureHash		Signed PDF hash
+	 * @param	string	$onlineSignName		Online signer name
 	 * @return	int<-1,1>					>0 if OK
 	 */
-	public function sign(User $user, $signatureFile, $signedPdfFile, $signatureHash)
+	public function sign(User $user, $signatureFile, $signedPdfFile, $signatureHash, $onlineSignName = '')
 	{
 		if (!in_array((int) $this->status, array(self::STATUS_VALIDATED, self::STATUS_PENDING_SIGNATURE), true)) {
 			$this->error = 'AttestationMustBeValidatedBeforeSignature';
@@ -509,9 +512,11 @@ class PowerPlantPVAttestation extends CommonObject
 		$sql .= ", date_signature = '".$this->db->idate(dol_now())."'";
 		$sql .= ", signature_ip = '".$this->db->escape($remoteAddr)."'";
 		$sql .= ", signature_user_agent = '".$this->db->escape($userAgent)."'";
+		$sql .= ", online_sign_name = '".$this->db->escape((string) $onlineSignName)."'";
 		$sql .= ", signature_file = '".$this->db->escape($signatureFile)."'";
 		$sql .= ", signed_pdf_file = '".$this->db->escape($signedPdfFile)."'";
 		$sql .= ", signature_hash = '".$this->db->escape($signatureHash)."'";
+		$sql .= ", last_main_doc = '".$this->db->escape($signedPdfFile)."'";
 		$sql .= ", signature_token_hash = NULL";
 		$sql .= ", signature_token_date = NULL";
 		$sql .= ", signature_token_expiry = NULL";
@@ -528,9 +533,11 @@ class PowerPlantPVAttestation extends CommonObject
 		$this->status = self::STATUS_SIGNED;
 		$this->fk_user_sign = $signUserId > 0 ? $signUserId : null;
 		$this->date_signature = dol_now();
+		$this->online_sign_name = (string) $onlineSignName;
 		$this->signature_file = $signatureFile;
 		$this->signed_pdf_file = $signedPdfFile;
 		$this->signature_hash = $signatureHash;
+		$this->last_main_doc = $signedPdfFile;
 		$this->signature_token_hash = null;
 		$this->signature_token_date = null;
 		$this->signature_token_expiry = null;
@@ -637,7 +644,7 @@ class PowerPlantPVAttestation extends CommonObject
 		if (function_exists('powerplantpvAttestationGetDerivedData')) {
 			$derived = powerplantpvAttestationGetDerivedData($this);
 			if (!empty($derived['project_name'])) {
-				$label .= '<br><b>'.$langs->trans('ProjectName').':</b> '.dol_escape_htmltag($derived['project_name']);
+				$label .= '<br><b>'.$langs->trans('PowerPlant').':</b> '.dol_escape_htmltag($derived['project_name']);
 			}
 		}
 
@@ -728,6 +735,7 @@ class PowerPlantPVAttestation extends CommonObject
 		$this->lines = array(
 			PowerPlantPVAttestationEquipmentLine::fromArray(array(
 				'equipment_type' => 'INVERTER',
+				'category_label' => 'Onduleur',
 				'designation' => 'Onduleur exemple',
 				'brand' => 'Marque',
 				'model' => 'Modèle',
@@ -752,7 +760,7 @@ class PowerPlantPVAttestation extends CommonObject
 			return 0;
 		}
 
-		$sql = "SELECT rowid, entity, fk_attestation, fk_powerplant_line, fk_product, equipment_type, designation, brand, model, manufacturer, serial_number, bridage_enabled, bridage_type, max_power_kw, rank";
+		$sql = "SELECT rowid, entity, fk_attestation, fk_powerplant_line, fk_product, fk_categorie, category_code, category_label, equipment_type, designation, brand, model, manufacturer, serial_number, bridage_enabled, bridage_type, max_power_kw, rank";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_attestation_equipment";
 		$sql .= " WHERE fk_attestation = ".((int) $this->id);
 		$sql .= " AND entity = ".((int) $this->entity);
@@ -983,6 +991,9 @@ class PowerPlantPVAttestationEquipmentLine
 	public $fk_attestation;
 	public $fk_powerplant_line;
 	public $fk_product;
+	public $fk_categorie;
+	public $category_code;
+	public $category_label;
 	public $equipment_type;
 	public $designation;
 	public $brand;
@@ -1036,12 +1047,15 @@ class PowerPlantPVAttestationEquipmentLine
 	public function insert($db)
 	{
 		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_attestation_equipment (";
-		$sql .= "entity, fk_attestation, fk_powerplant_line, fk_product, equipment_type, designation, brand, model, manufacturer, serial_number, bridage_enabled, bridage_type, max_power_kw, rank";
+		$sql .= "entity, fk_attestation, fk_powerplant_line, fk_product, fk_categorie, category_code, category_label, equipment_type, designation, brand, model, manufacturer, serial_number, bridage_enabled, bridage_type, max_power_kw, rank";
 		$sql .= ") VALUES (";
 		$sql .= ((int) $this->entity);
 		$sql .= ", ".((int) $this->fk_attestation);
 		$sql .= ", ".($this->fk_powerplant_line > 0 ? ((int) $this->fk_powerplant_line) : 'NULL');
 		$sql .= ", ".($this->fk_product > 0 ? ((int) $this->fk_product) : 'NULL');
+		$sql .= ", ".($this->fk_categorie > 0 ? ((int) $this->fk_categorie) : 'NULL');
+		$sql .= ", '".$db->escape((string) $this->category_code)."'";
+		$sql .= ", '".$db->escape((string) $this->category_label)."'";
 		$sql .= ", '".$db->escape((string) $this->equipment_type)."'";
 		$sql .= ", '".$db->escape((string) $this->designation)."'";
 		$sql .= ", '".$db->escape((string) $this->brand)."'";

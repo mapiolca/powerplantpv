@@ -154,12 +154,23 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$pdf->Image($logo, $this->marge_gauche, $y, 35);
 		}
 
+		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
+		$title = $outputlangs->transnoentities('AttestationDocumentTitle', $outputlangs->transnoentities($this->titleKey));
+
 		$pdf->SetXY($this->marge_gauche + 45, $y);
 		$pdf->SetFont('', 'B', 14);
-		$pdf->MultiCell(0, 7, $outputlangs->convToOutputCharset($outputlangs->transnoentities($this->titleKey)), 0, 'R');
+		$pdf->MultiCell(0, 7, $outputlangs->convToOutputCharset($title), 0, 'R');
 		$pdf->SetFont('', '', 9);
 		$pdf->SetX($this->marge_gauche + 45);
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($object->ref), 0, 'R');
+		if (!empty($object->date_attestation)) {
+			$pdf->SetX($this->marge_gauche + 45);
+			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationDate').' : '.dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs)), 0, 'R');
+		}
+		if (!empty($derivedData['project_name'])) {
+			$pdf->SetX($this->marge_gauche + 45);
+			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('PowerPlant').' : '.$derivedData['project_name']), 0, 'R');
+		}
 		$pdf->Ln(12);
 	}
 
@@ -180,7 +191,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationGeneralInformation')), 0, 'L');
 		$pdf->SetFont('', '', $defaultFontSize);
 		$this->renderKeyValue($pdf, $outputlangs, 'AttestationType', $this->translatedType($object, $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'ProjectName', $derivedData['project_name']);
+		$this->renderKeyValue($pdf, $outputlangs, 'PowerPlant', $derivedData['project_name']);
 		$this->renderKeyValue($pdf, $outputlangs, 'Address', $derivedData['site_full_address']);
 		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDate', !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : '');
 		$this->renderKeyValue($pdf, $outputlangs, 'AttestationPlace', $derivedData['place']);
@@ -248,8 +259,8 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->SetFont('', 'B', $defaultFontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationEquipment')), 0, 'L');
 		$pdf->SetFont('', 'B', $defaultFontSize - 1);
-		$widths = array(28, 62, 32, 38, 22);
-		$headers = array('Type', 'Designation', 'Model', 'SerialNumber', 'AttestationBridage');
+		$widths = array(42, 76, 48, 24);
+		$headers = array('AttestationEquipmentCategory', 'Designation', 'SerialNumber', 'AttestationBridage');
 		foreach ($headers as $i => $key) {
 			$pdf->Cell($widths[$i], 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 1, 0, 'L');
 		}
@@ -261,11 +272,10 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		foreach ($object->lines as $line) {
 			$this->ensureSpace($pdf, 7);
-			$pdf->Cell($widths[0], 6, $outputlangs->convToOutputCharset((string) $line->equipment_type), 1, 0, 'L');
+			$pdf->Cell($widths[0], 6, $outputlangs->convToOutputCharset(dol_trunc(powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs), 28)), 1, 0, 'L');
 			$pdf->Cell($widths[1], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->designation, 45)), 1, 0, 'L');
-			$pdf->Cell($widths[2], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->model, 22)), 1, 0, 'L');
-			$pdf->Cell($widths[3], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->serial_number, 28)), 1, 0, 'L');
-			$pdf->Cell($widths[4], 6, $outputlangs->convToOutputCharset(!empty($line->bridage_enabled) ? $outputlangs->transnoentities('Yes') : $outputlangs->transnoentities('No')), 1, 1, 'L');
+			$pdf->Cell($widths[2], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->serial_number, 34)), 1, 0, 'L');
+			$pdf->Cell($widths[3], 6, $outputlangs->convToOutputCharset(!empty($line->bridage_enabled) ? $outputlangs->transnoentities('Yes') : $outputlangs->transnoentities('No')), 1, 1, 'L');
 		}
 	}
 

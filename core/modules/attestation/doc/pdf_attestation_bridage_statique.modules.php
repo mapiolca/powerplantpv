@@ -25,22 +25,7 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 	 */
 	protected function renderHeader($pdf, $object, $outputlangs)
 	{
-		global $conf;
-
-		$y = $this->marge_haute;
-		$logo = $conf->mycompany->dir_output.'/logos/'.$this->emetteur->logo;
-		if (!empty($this->emetteur->logo) && file_exists($logo)) {
-			$pdf->Image($logo, $this->marge_gauche, $y, 35);
-		}
-
-		$title = $outputlangs->transnoentities('AttestationDocumentTitle', $outputlangs->transnoentities($this->titleKey));
-		$pdf->SetXY($this->marge_gauche + 45, $y);
-		$pdf->SetFont('', 'B', 14);
-		$pdf->MultiCell(0, 7, $outputlangs->convToOutputCharset($title), 0, 'R');
-		$pdf->SetFont('', '', 9);
-		$pdf->SetX($this->marge_gauche + 45);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($object->ref), 0, 'R');
-		$pdf->Ln(12);
+		parent::renderHeader($pdf, $object, $outputlangs);
 	}
 
 	/**
@@ -60,17 +45,14 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationPhotovoltaicInstallation', $defaultFontSize);
 		$this->renderInstallationTable($pdf, $object, $outputlangs, $defaultFontSize, array(
-			array('AttestationType', $this->translatedType($object, $outputlangs)),
 			array('AttestationDynamicProducer', $this->valueOrNotProvided($producerName, $outputlangs)),
-			array('ProjectName', $this->valueOrNotProvided($derivedData['project_name'], $outputlangs)),
+			array('PowerPlant', $this->valueOrNotProvided($derivedData['project_name'], $outputlangs)),
 			array('AttestationDynamicSiteAddress', $this->valueOrNotProvided($derivedData['site_full_address'], $outputlangs)),
 			array('AttestationDynamicPrmPdlReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'prm_pdl_number'), $outputlangs)),
 			array('AttestationDynamicConnectionRequestReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'connection_request_number'), $outputlangs)),
 			array('AttestationDynamicInstalledPower', $this->valueOrNotProvided($this->formatPower($this->getPowerPlantValue($powerplant, 'installed_power'), 'kWc'), $outputlangs)),
 			array('AttestationMaxExportPowerKw', $this->valueOrNotProvided($this->formatPower($object->max_export_power_kw, 'kW'), $outputlangs)),
 			array('AttestationDate', !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : $this->valueOrNotProvided('', $outputlangs)),
-			array('AttestationInstallerName', $this->valueOrNotProvided($derivedData['installer_name'], $outputlangs)),
-			array('SIRET', $this->valueOrNotProvided($derivedData['installer_siret'], $outputlangs)),
 		));
 
 		$this->renderStaticEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
@@ -127,8 +109,8 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 	{
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationMaterialUsed', $defaultFontSize);
 
-		$widths = array(27, 68, 32, 40, 22);
-		$headers = array('Type', 'Designation', 'Model', 'SerialNumber', 'AttestationBridage');
+		$widths = array(42, 76, 48, 24);
+		$headers = array('AttestationEquipmentCategory', 'Designation', 'SerialNumber', 'AttestationBridage');
 		$headerValues = array();
 		foreach ($headers as $key) {
 			$headerValues[] = $outputlangs->transnoentities($key);
@@ -144,9 +126,8 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 
 		foreach ($object->lines as $line) {
 			$this->renderTableRow($pdf, $outputlangs, $widths, array(
-				(string) $line->equipment_type,
+				powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs),
 				(string) $line->designation,
-				(string) $line->model,
 				(string) $line->serial_number,
 				!empty($line->bridage_enabled) ? $outputlangs->transnoentities('Yes') : $outputlangs->transnoentities('No'),
 			), $defaultFontSize - 1);
