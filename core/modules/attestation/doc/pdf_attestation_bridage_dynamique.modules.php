@@ -140,11 +140,16 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	{
 		$label = $outputlangs->convToOutputCharset($outputlangs->transnoentities($labelKey));
 		$text = $outputlangs->convToOutputCharset((string) $value);
+		$lineHeight = 4;
+		$cellPadding = 2;
 		$height = 6;
 		if (method_exists($pdf, 'getStringHeight')) {
-			$height = max($height, $pdf->getStringHeight($widths[0], $label) + 2, $pdf->getStringHeight($widths[1], $text) + 2);
+			$pdf->SetFont('', 'B', $fontSize);
+			$height = max($height, $pdf->getStringHeight(max($widths[0] - $cellPadding, 1), $label) + $cellPadding);
+			$pdf->SetFont('', '', $fontSize);
+			$height = max($height, $pdf->getStringHeight(max($widths[1] - $cellPadding, 1), $text) + $cellPadding);
 		} else {
-			$height = max($height, 5 * (max(substr_count((string) $label, "\n"), substr_count((string) $value, "\n")) + 1));
+			$height = max($height, $lineHeight * (max(substr_count((string) $label, "\n"), substr_count((string) $value, "\n")) + 1) + $cellPadding);
 		}
 		$this->ensureSpace($pdf, $height + 2);
 
@@ -152,15 +157,17 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$y = $pdf->GetY();
 		$pdf->SetDrawColor(190, 190, 190);
 		$pdf->SetFillColor(245, 245, 245);
+		$pdf->Rect($x, $y, $widths[0], $height, 'DF');
+		$pdf->Rect($x + $widths[0], $y, $widths[1], $height, 'D');
 
-		$pdf->SetXY($x, $y);
+		$pdf->SetXY($x + 1, $y + 1);
 		$pdf->SetFont('', 'B', $fontSize);
-		$pdf->MultiCell($widths[0], $height, $label, 1, 'L', true, 0);
+		$pdf->MultiCell($widths[0] - 2, $lineHeight, $label, 0, 'L', false, 0);
 		$x += $widths[0];
 
-		$pdf->SetXY($x, $y);
+		$pdf->SetXY($x + 1, $y + 1);
 		$pdf->SetFont('', '', $fontSize);
-		$pdf->MultiCell($widths[1], $height, $text, 1, 'L', false, 1);
+		$pdf->MultiCell($widths[1] - 2, $lineHeight, $text, 0, 'L', false, 0);
 		$pdf->SetDrawColor(0, 0, 0);
 		$pdf->SetY($y + $height);
 	}
@@ -216,14 +223,17 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	 */
 	protected function renderEquipmentTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles = array(), $fill = false)
 	{
+		$lineHeight = 4;
+		$cellPadding = 2;
 		$height = 6;
 		foreach ($values as $i => $value) {
 			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
 			$text = $outputlangs->convToOutputCharset((string) $value);
+			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
 			if (method_exists($pdf, 'getStringHeight')) {
-				$height = max($height, $pdf->getStringHeight($width, $text) + 2);
+				$height = max($height, $pdf->getStringHeight(max($width - $cellPadding, 1), $text) + $cellPadding);
 			} else {
-				$height = max($height, 5 * (substr_count((string) $value, "\n") + 1));
+				$height = max($height, $lineHeight * (substr_count((string) $value, "\n") + 1) + $cellPadding);
 			}
 		}
 		$this->ensureSpace($pdf, $height + 2);
@@ -237,9 +247,10 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 
 		foreach ($values as $i => $value) {
 			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
-			$pdf->SetXY($x, $y);
+			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
+			$pdf->SetXY($x + 1, $y + 1);
 			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
-			$pdf->MultiCell($width, $height, $outputlangs->convToOutputCharset((string) $value), 1, 'L', $fill, 0);
+			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
 			$x += $width;
 		}
 		$pdf->SetDrawColor(0, 0, 0);

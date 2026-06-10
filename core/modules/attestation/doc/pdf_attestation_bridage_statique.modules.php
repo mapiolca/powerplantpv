@@ -152,14 +152,17 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 		if (!is_array($widths)) {
 			$widths = array($widths);
 		}
+		$lineHeight = 4;
+		$cellPadding = 2;
 		$height = 6;
 		foreach ($values as $i => $value) {
 			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
 			$text = $outputlangs->convToOutputCharset((string) $value);
+			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
 			if (method_exists($pdf, 'getStringHeight')) {
-				$height = max($height, $pdf->getStringHeight($width, $text) + 2);
+				$height = max($height, $pdf->getStringHeight(max($width - $cellPadding, 1), $text) + $cellPadding);
 			} else {
-				$height = max($height, 5 * (substr_count((string) $value, "\n") + 1));
+				$height = max($height, $lineHeight * (substr_count((string) $value, "\n") + 1) + $cellPadding);
 			}
 		}
 		$this->ensureSpace($pdf, $height + 2);
@@ -172,9 +175,10 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 		$pdf->SetDrawColor(190, 190, 190);
 		foreach ($values as $i => $value) {
 			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
-			$pdf->SetXY($x, $y);
+			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
+			$pdf->SetXY($x + 1, $y + 1);
 			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
-			$pdf->MultiCell($width, $height, $outputlangs->convToOutputCharset((string) $value), 1, 'L', $fill, 0);
+			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
 			$x += $width;
 		}
 		$pdf->SetDrawColor(0, 0, 0);
