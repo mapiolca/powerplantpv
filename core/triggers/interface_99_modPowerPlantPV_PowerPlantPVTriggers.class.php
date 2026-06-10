@@ -460,7 +460,7 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		$actioncomm->datep = dol_now();
 		$actioncomm->datef = dol_now();
 		$actioncomm->percentage = -1;
-		$actioncomm->userownerid = (int) $user->id;
+		$actioncomm->userownerid = !empty($user->id) ? (int) $user->id : (!empty($object->fk_user_creat) ? (int) $object->fk_user_creat : 0);
 		$actioncomm->fk_element = (int) $object->id;
 		$actioncomm->elementtype = 'attestation@powerplantpv';
 		if (!empty($object->fk_soc)) {

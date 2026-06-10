@@ -118,7 +118,7 @@ if (getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)
 	$permissiontoreadattestation = powerplantpvAttestationUserHasRight($user, 'read');
 	if ($permissiontoreadattestation && function_exists('powerplantpvAttestationGetInstallationIssues')) {
 		$attestationissues = powerplantpvAttestationGetInstallationIssues();
-		$attestationtablesok = empty($attestationissues['tables']);
+		$attestationtablesok = empty($attestationissues['tables']) && empty($attestationissues['columns']);
 	}
 	if ($permissiontoreadattestation && $attestationtablesok) {
 		$attestationstatic = new PowerPlantPVAttestation($db);

@@ -78,20 +78,6 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 	}
 
 	/**
-	 * Render native Dolibarr footer.
-	 *
-	 * @param	TCPDF|TCPDI				$pdf			PDF
-	 * @param	PowerPlantPVAttestation	$object			Attestation
-	 * @param	Translate				$outputlangs	Output lang
-	 * @return	int<0,1>								Footer height
-	 */
-	protected function renderFooter($pdf, $object, $outputlangs)
-	{
-		$showdetails = !getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 0 : getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS');
-		return pdf_pagefoot($pdf, $outputlangs, 'POWERPLANTPV_FREE_TEXT', $this->emetteur, $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object, $showdetails, 0);
-	}
-
-	/**
 	 * Render a section title.
 	 *
 	 * @param	TCPDF|TCPDI	$pdf			PDF
@@ -195,6 +181,7 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 				$height = max($height, 5 * (substr_count((string) $value, "\n") + 1));
 			}
 		}
+		$this->ensureSpace($pdf, $height + 2);
 
 		$x = $this->marge_gauche;
 		$y = $pdf->GetY();
@@ -226,6 +213,7 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 	{
 		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
 
+		$this->ensureSpace($pdf, 52);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationSignerNameFunction', $defaultFontSize);
 		$pdf->SetFont('', '', $defaultFontSize);
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($this->formatSigner($derivedData, $outputlangs)), 0, 'L');

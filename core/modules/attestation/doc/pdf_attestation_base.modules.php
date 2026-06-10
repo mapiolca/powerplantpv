@@ -35,6 +35,10 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	public $emetteur;
 	protected $titleKey = 'Attestation';
 	protected $validationWarningKey = '';
+	protected $footerRaise = 8;
+	protected $footerReservedBottom = 28;
+	protected $currentObject;
+	protected $currentOutputLangs;
 
 	/**
 	 * Constructor.
@@ -90,6 +94,8 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		if (method_exists($object, 'fetchEquipmentLines')) {
 			$object->fetchEquipmentLines();
 		}
+		$this->currentObject = $object;
+		$this->currentOutputLangs = $outputlangs;
 
 		$dir = powerplantpvAttestationGetDocumentUploadDir($object);
 		if (!file_exists($dir) && dol_mkdir($dir) < 0) {
@@ -107,7 +113,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		$pdf->SetFont(pdf_getPDFFont($outputlangs), '', $defaultFontSize);
 		$pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
-		$pdf->SetAutoPageBreak(true, $this->marge_basse + 10);
+		$pdf->SetAutoPageBreak(true, $this->getReservedBottomMargin());
 		$pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
 		$pdf->SetCreator('Dolibarr '.DOL_VERSION);
 		$pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
@@ -238,6 +244,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	protected function renderEquipment($pdf, $object, $outputlangs, $defaultFontSize)
 	{
 		$pdf->Ln(5);
+		$this->ensureSpace($pdf, 22);
 		$pdf->SetFont('', 'B', $defaultFontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationEquipment')), 0, 'L');
 		$pdf->SetFont('', 'B', $defaultFontSize - 1);
@@ -253,6 +260,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			return;
 		}
 		foreach ($object->lines as $line) {
+			$this->ensureSpace($pdf, 7);
 			$pdf->Cell($widths[0], 6, $outputlangs->convToOutputCharset((string) $line->equipment_type), 1, 0, 'L');
 			$pdf->Cell($widths[1], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->designation, 45)), 1, 0, 'L');
 			$pdf->Cell($widths[2], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->model, 22)), 1, 0, 'L');
@@ -274,6 +282,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
 
 		$pdf->Ln(8);
+		$this->ensureSpace($pdf, 45);
 		$pdf->SetFont('', '', 9);
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationWriterSignature', $derivedData['writer_name'], $derivedData['writer_function'])), 0, 'R');
 
@@ -305,9 +314,50 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 */
 	protected function renderFooter($pdf, $object, $outputlangs)
 	{
-		$pdf->SetY(-15);
-		$pdf->SetFont('', '', 7);
-		$pdf->Cell(0, 5, $outputlangs->convToOutputCharset($this->emetteur->name.' - '.$object->ref), 0, 0, 'C');
+		$showdetails = !getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 0 : getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS');
+		return pdf_pagefoot($pdf, $outputlangs, 'POWERPLANTPV_FREE_TEXT', $this->emetteur, $this->marge_basse + $this->footerRaise, $this->marge_gauche, $this->page_hauteur - $this->footerRaise, $object, $showdetails, 0);
+	}
+
+	/**
+	 * Return reserved bottom margin for footer and generated content.
+	 *
+	 * @return	int		Bottom margin in millimeters
+	 */
+	protected function getReservedBottomMargin()
+	{
+		return max($this->marge_basse + $this->footerReservedBottom, 34);
+	}
+
+	/**
+	 * Return the maximum Y available for content.
+	 *
+	 * @return	int		Bottom Y
+	 */
+	protected function getContentBottomY()
+	{
+		return $this->page_hauteur - $this->getReservedBottomMargin();
+	}
+
+	/**
+	 * Add a page before a block that would collide with the reserved footer area.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf		PDF
+	 * @param	float		$height		Required block height
+	 * @return	void
+	 */
+	protected function ensureSpace($pdf, $height)
+	{
+		if (($pdf->GetY() + $height) <= $this->getContentBottomY()) {
+			return;
+		}
+
+		if (is_object($this->currentObject) && is_object($this->currentOutputLangs)) {
+			$this->renderFooter($pdf, $this->currentObject, $this->currentOutputLangs);
+		}
+		$pdf->AddPage();
+		if (is_object($this->currentObject) && is_object($this->currentOutputLangs)) {
+			$this->renderHeader($pdf, $this->currentObject, $this->currentOutputLangs);
+		}
 	}
 
 	/**

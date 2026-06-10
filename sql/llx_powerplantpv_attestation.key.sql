@@ -8,4 +8,5 @@ ALTER TABLE llx_powerplantpv_attestation ADD INDEX idx_powerplantpv_attestation_
 ALTER TABLE llx_powerplantpv_attestation ADD INDEX idx_powerplantpv_attestation_type (type_code);
 ALTER TABLE llx_powerplantpv_attestation ADD INDEX idx_powerplantpv_attestation_status (status);
 ALTER TABLE llx_powerplantpv_attestation ADD INDEX idx_powerplantpv_attestation_date_signature (date_signature);
+ALTER TABLE llx_powerplantpv_attestation ADD INDEX idx_powerplantpv_attestation_signature_token_hash (signature_token_hash);
 ALTER TABLE llx_powerplantpv_attestation ADD INDEX idx_powerplantpv_attestation_date_attestation (date_attestation);

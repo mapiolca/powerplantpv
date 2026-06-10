@@ -145,6 +145,7 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	protected function renderDynamicSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize)
 	{
 		$pdf->Ln(6);
+		$this->ensureSpace($pdf, 45);
 		$gap = 8;
 		$boxHeight = 32;
 		$boxWidth = ($this->page_largeur - $this->marge_gauche - $this->marge_droite - $gap) / 2;

@@ -35,6 +35,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 include_once DOL_DOCUMENT_ROOT.'/core/lib/functions2.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'other', 'agenda'));
@@ -81,6 +82,12 @@ if (!isModEnabled('powerplantpv') || !isModEnabled('agenda') || !getDolGlobalInt
 }
 if (!powerplantpvAttestationUserHasRight($user, 'read')) {
 	accessforbidden();
+}
+if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
+	$attestationInstallationIssues = powerplantpvAttestationGetInstallationIssues();
+	if (!empty($attestationInstallationIssues['tables']) || !empty($attestationInstallationIssues['columns'])) {
+		accessforbidden($langs->trans('AttestationInstallationIncomplete'));
+	}
 }
 
 $object = new PowerPlantPVAttestation($db);

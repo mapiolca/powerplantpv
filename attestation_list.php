@@ -56,9 +56,9 @@ if (!$permissiontoread) {
 
 if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
 	$attestationInstallationIssues = powerplantpvAttestationGetInstallationIssues();
-	if (!empty($attestationInstallationIssues['tables'])) {
+	if (!empty($attestationInstallationIssues['tables']) || !empty($attestationInstallationIssues['columns'])) {
 		dol_syslog(
-			'PowerPlantPV attestation list unavailable: missing tables '.implode(', ', $attestationInstallationIssues['tables']),
+			'PowerPlantPV attestation list unavailable: missing tables '.implode(', ', $attestationInstallationIssues['tables']).' columns '.implode(', ', $attestationInstallationIssues['columns']),
 			LOG_ERR
 		);
 		llxHeader('', $langs->trans('Attestations'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-list');

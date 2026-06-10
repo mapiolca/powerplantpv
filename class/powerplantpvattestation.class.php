@@ -68,6 +68,9 @@ class PowerPlantPVAttestation extends CommonObject
 		'signature_ip' => array('type' => 'varchar(64)', 'label' => 'IPAddress', 'enabled' => 1, 'position' => 320, 'notnull' => 0, 'visible' => 0),
 		'signature_user_agent' => array('type' => 'varchar(255)', 'label' => 'UserAgent', 'enabled' => 1, 'position' => 330, 'notnull' => 0, 'visible' => 0),
 		'signature_hash' => array('type' => 'varchar(128)', 'label' => 'AttestationSignatureHash', 'enabled' => 1, 'position' => 340, 'notnull' => 0, 'visible' => 0),
+		'signature_token_hash' => array('type' => 'varchar(128)', 'label' => 'AttestationSignatureTokenHash', 'enabled' => 1, 'position' => 345, 'notnull' => 0, 'visible' => 0, 'index' => 1),
+		'signature_token_date' => array('type' => 'datetime', 'label' => 'AttestationSignatureTokenDate', 'enabled' => 1, 'position' => 346, 'notnull' => 0, 'visible' => 0),
+		'signature_token_expiry' => array('type' => 'datetime', 'label' => 'AttestationSignatureTokenExpiry', 'enabled' => 1, 'position' => 347, 'notnull' => 0, 'visible' => 0),
 		'signature_file' => array('type' => 'varchar(255)', 'label' => 'AttestationSignatureFile', 'enabled' => 1, 'position' => 350, 'notnull' => 0, 'visible' => 0),
 		'signed_pdf_file' => array('type' => 'varchar(255)', 'label' => 'AttestationSignedPdfFile', 'enabled' => 1, 'position' => 360, 'notnull' => 0, 'visible' => 0),
 		'note_public' => array('type' => 'html', 'label' => 'NotePublic', 'enabled' => 1, 'position' => 400, 'notnull' => 0, 'visible' => 0),
@@ -102,6 +105,9 @@ class PowerPlantPVAttestation extends CommonObject
 	public $signature_ip;
 	public $signature_user_agent;
 	public $signature_hash;
+	public $signature_token_hash;
+	public $signature_token_date;
+	public $signature_token_expiry;
 	public $signature_file;
 	public $signed_pdf_file;
 	public $note_public;
@@ -310,6 +316,152 @@ class PowerPlantPVAttestation extends CommonObject
 	}
 
 	/**
+	 * Generate or regenerate a public signature token and move attestation to pending signature.
+	 *
+	 * The raw token is returned once to the caller. Only its SHA-256 hash is stored.
+	 *
+	 * @param	User		$user		User requesting the link
+	 * @param	int<0,1>	$notrigger	1 disables triggers
+	 * @return	string					Raw token, empty string on error
+	 */
+	public function generateSignatureToken(User $user, $notrigger = 0)
+	{
+		if (!in_array((int) $this->status, array(self::STATUS_VALIDATED, self::STATUS_PENDING_SIGNATURE), true)) {
+			$this->error = 'AttestationMustBeValidatedBeforeSignature';
+			return '';
+		}
+
+		try {
+			$token = bin2hex(random_bytes(32));
+		} catch (Exception $e) {
+			$this->error = 'AttestationSignatureTokenGenerationFailed';
+			return '';
+		}
+
+		$now = dol_now();
+		$validityDays = getDolGlobalInt('POWERPLANTPV_ATTESTATION_SIGNATURE_TOKEN_VALIDITY_DAYS', 30);
+		if ($validityDays <= 0) {
+			$validityDays = 30;
+		}
+		$expiry = $now + ($validityDays * 86400);
+		$previousStatus = (int) $this->status;
+		$previousTokenHash = $this->signature_token_hash;
+		$previousTokenDate = $this->signature_token_date;
+		$previousTokenExpiry = $this->signature_token_expiry;
+		$signUserId = !empty($user->id) ? (int) $user->id : 0;
+
+		$this->db->begin();
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET status = ".self::STATUS_PENDING_SIGNATURE;
+		$sql .= ", signature_token_hash = '".$this->db->escape(hash('sha256', $token))."'";
+		$sql .= ", signature_token_date = '".$this->db->idate($now)."'";
+		$sql .= ", signature_token_expiry = '".$this->db->idate($expiry)."'";
+		$sql .= ", fk_user_modif = ".($signUserId > 0 ? $signUserId : "NULL");
+		$sql .= " WHERE rowid = ".((int) $this->id);
+		$sql .= " AND entity = ".((int) $this->entity);
+
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return '';
+		}
+
+		$this->status = self::STATUS_PENDING_SIGNATURE;
+		$this->signature_token_hash = hash('sha256', $token);
+		$this->signature_token_date = $now;
+		$this->signature_token_expiry = $expiry;
+		$this->fk_user_modif = $signUserId;
+
+		if (!$notrigger && $this->callAttestationTrigger('SENDSIGN', $user) < 0) {
+			$this->db->rollback();
+			$this->status = $previousStatus;
+			$this->signature_token_hash = $previousTokenHash;
+			$this->signature_token_date = $previousTokenDate;
+			$this->signature_token_expiry = $previousTokenExpiry;
+			return '';
+		}
+
+		$this->db->commit();
+
+		return $token;
+	}
+
+	/**
+	 * Build public signature URL for a raw token.
+	 *
+	 * @param	string	$token	Raw token
+	 * @return	string			Public URL
+	 */
+	public function getPublicSignatureUrl($token)
+	{
+		return dol_buildpath('/powerplantpv/attestation_signature.php', 2).'?id='.(int) $this->id.'&signature_token='.urlencode($token);
+	}
+
+	/**
+	 * Check a public signature token.
+	 *
+	 * @param	string	$token	Raw token
+	 * @return	int<-1,1>		1 if valid, <0 otherwise
+	 */
+	public function validateSignatureToken($token)
+	{
+		$token = trim((string) $token);
+		if ($token === '' || empty($this->signature_token_hash)) {
+			$this->error = 'AttestationSignatureLinkInvalid';
+			return -1;
+		}
+		if (!in_array((int) $this->status, array(self::STATUS_VALIDATED, self::STATUS_PENDING_SIGNATURE), true)) {
+			$this->error = 'AttestationSignatureLinkUnavailable';
+			return -1;
+		}
+
+		$hash = hash('sha256', $token);
+		$matches = function_exists('hash_equals') ? hash_equals((string) $this->signature_token_hash, $hash) : ((string) $this->signature_token_hash === $hash);
+		if (!$matches) {
+			$this->error = 'AttestationSignatureLinkInvalid';
+			return -1;
+		}
+
+		$expiry = 0;
+		if (!empty($this->signature_token_expiry)) {
+			$expiry = is_numeric($this->signature_token_expiry) ? (int) $this->signature_token_expiry : (int) $this->db->jdate($this->signature_token_expiry);
+		}
+		if ($expiry > 0 && dol_now() > $expiry) {
+			$this->error = 'AttestationSignatureLinkExpired';
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Clear public signature token fields.
+	 *
+	 * @param	User	$user	User
+	 * @return	int<-1,1>		1 if OK
+	 */
+	public function clearSignatureToken(User $user)
+	{
+		$userId = !empty($user->id) ? (int) $user->id : 0;
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET signature_token_hash = NULL";
+		$sql .= ", signature_token_date = NULL";
+		$sql .= ", signature_token_expiry = NULL";
+		$sql .= ", fk_user_modif = ".($userId > 0 ? $userId : "NULL");
+		$sql .= " WHERE rowid = ".((int) $this->id);
+		$sql .= " AND entity = ".((int) $this->entity);
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		$this->signature_token_hash = null;
+		$this->signature_token_date = null;
+		$this->signature_token_expiry = null;
+
+		return 1;
+	}
+
+	/**
 	 * Cancel attestation.
 	 *
 	 * @param	User		$user		User
@@ -323,7 +475,12 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
-		return $this->setStatusCommon($user, self::STATUS_CANCELED, $notrigger, $this->TRIGGER_PREFIX.'_CANCEL');
+		$result = $this->setStatusCommon($user, self::STATUS_CANCELED, $notrigger, $this->TRIGGER_PREFIX.'_CANCEL');
+		if ($result > 0) {
+			$this->clearSignatureToken($user);
+		}
+
+		return $result;
 	}
 
 	/**
@@ -347,14 +504,18 @@ class PowerPlantPVAttestation extends CommonObject
 		$userAgent = !empty($_SERVER['HTTP_USER_AGENT']) ? substr((string) $_SERVER['HTTP_USER_AGENT'], 0, 255) : '';
 		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
 		$sql .= " SET status = ".self::STATUS_SIGNED;
-		$sql .= ", fk_user_sign = ".((int) $user->id);
+		$signUserId = !empty($user->id) ? (int) $user->id : 0;
+		$sql .= ", fk_user_sign = ".($signUserId > 0 ? $signUserId : "NULL");
 		$sql .= ", date_signature = '".$this->db->idate(dol_now())."'";
 		$sql .= ", signature_ip = '".$this->db->escape($remoteAddr)."'";
 		$sql .= ", signature_user_agent = '".$this->db->escape($userAgent)."'";
 		$sql .= ", signature_file = '".$this->db->escape($signatureFile)."'";
 		$sql .= ", signed_pdf_file = '".$this->db->escape($signedPdfFile)."'";
 		$sql .= ", signature_hash = '".$this->db->escape($signatureHash)."'";
-		$sql .= ", fk_user_modif = ".((int) $user->id);
+		$sql .= ", signature_token_hash = NULL";
+		$sql .= ", signature_token_date = NULL";
+		$sql .= ", signature_token_expiry = NULL";
+		$sql .= ", fk_user_modif = ".($signUserId > 0 ? $signUserId : "NULL");
 		$sql .= " WHERE rowid = ".((int) $this->id);
 		$sql .= " AND entity = ".((int) $this->entity);
 
@@ -365,11 +526,14 @@ class PowerPlantPVAttestation extends CommonObject
 		}
 
 		$this->status = self::STATUS_SIGNED;
-		$this->fk_user_sign = (int) $user->id;
+		$this->fk_user_sign = $signUserId > 0 ? $signUserId : null;
 		$this->date_signature = dol_now();
 		$this->signature_file = $signatureFile;
 		$this->signed_pdf_file = $signedPdfFile;
 		$this->signature_hash = $signatureHash;
+		$this->signature_token_hash = null;
+		$this->signature_token_date = null;
+		$this->signature_token_expiry = null;
 
 		if ($this->callAttestationTrigger('SIGN', $user) < 0) {
 			$this->db->rollback();
