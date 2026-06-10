@@ -24,6 +24,7 @@ if (!$res) {
 	die("Include of main fails");
 }
 
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
@@ -33,6 +34,7 @@ $langs->loadLangs(array('powerplantpv@powerplantpv', 'mails', 'other'));
 
 $id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
+$confirm = GETPOST('confirm', 'alpha');
 $sortfield = GETPOST('sortfield', 'aZ09comma');
 $sortorder = GETPOST('sortorder', 'aZ09comma');
 if (!$sortfield) {
@@ -63,6 +65,7 @@ include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 $upload_dir = powerplantpvAttestationGetDocumentRootDir(!empty($object->entity) ? $object->entity : $conf->entity);
 include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
 
+$form = new Form($db);
 $formfile = new FormFile($db);
 
 llxHeader('', $langs->trans('Attestation').' - '.$langs->trans('Documents'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-document');
@@ -88,7 +91,14 @@ print '</div>';
 print dol_get_fiche_end();
 
 powerplantpvAttestationPrintDocumentGenerationForm($object, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $permissiontoadd, $object->model_pdf, 0, '', $langs->defaultlang);
-$formfile->showdocuments(powerplantpvAttestationGetDocumentModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $upload_dir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, 0, $permissiontodelete, $object->model_pdf, 1, 0, 0, 28, 0, '', 'none', '', $langs->defaultlang, '', $object);
+
+$modulepart = powerplantpvAttestationGetDocumentModulePart();
+$relativepathwithnofile = powerplantpvAttestationGetDocumentRelativePath($object);
+$param = '&id='.(int) $object->id;
+$permission = $permissiontoadd;
+$permtoedit = $permissiontoadd;
+
+include DOL_DOCUMENT_ROOT.'/core/tpl/document_actions_post_headers.tpl.php';
 
 llxFooter();
 $db->close();

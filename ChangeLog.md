@@ -18,6 +18,7 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - l'onglet de réglages Attestations expose désormais les blocs natifs Dolibarr de numérotation et de modèles de documents pour l'objet `attestation` ;
 - la validation des attestations indique désormais le champ ou la source native manquante, et la fiche affiche les champs métier conditionnels utiles à la validation ;
 - la puissance maximale injectée des attestations de bridage dynamique est obligatoire mais peut désormais valoir `0`, tandis que le bridage statique exige toujours une valeur strictement positive ;
+- la fiche et l'onglet Fichiers joints des attestations affichent désormais les fichiers générés avec les blocs natifs Dolibarr ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0
