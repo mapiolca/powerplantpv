@@ -78,7 +78,7 @@ class PowerPlantPVAttestation extends CommonObject
 		'fk_user_modif' => array('type' => 'integer:User:user/class/user.class.php', 'label' => 'UserModif', 'picto' => 'user', 'enabled' => 1, 'position' => 530, 'notnull' => -1, 'visible' => -2),
 		'last_main_doc' => array('type' => 'varchar(255)', 'label' => 'LastMainDoc', 'enabled' => 1, 'position' => 540, 'notnull' => 0, 'visible' => 0),
 		'import_key' => array('type' => 'varchar(14)', 'label' => 'ImportId', 'enabled' => 1, 'position' => 550, 'notnull' => -1, 'visible' => -2),
-		'status' => array('type' => 'integer', 'label' => 'Status', 'enabled' => 1, 'position' => 600, 'notnull' => 1, 'visible' => 1, 'default' => self::STATUS_DRAFT, 'index' => 1, 'arrayofkeyval' => array(self::STATUS_DRAFT => 'Draft', self::STATUS_VALIDATED => 'Validated', self::STATUS_PENDING_SIGNATURE => 'AttestationPendingSignature', self::STATUS_SIGNED => 'AttestationSigned', self::STATUS_CANCELED => 'Canceled')),
+		'status' => array('type' => 'integer', 'label' => 'Status', 'enabled' => 1, 'position' => 600, 'notnull' => 1, 'visible' => 1, 'default' => self::STATUS_DRAFT, 'index' => 1, 'arrayofkeyval' => array(self::STATUS_DRAFT => 'AttestationStatusDraft', self::STATUS_VALIDATED => 'AttestationStatusValidated', self::STATUS_PENDING_SIGNATURE => 'AttestationStatusPendingSignature', self::STATUS_SIGNED => 'AttestationStatusSigned', self::STATUS_CANCELED => 'AttestationStatusCanceled')),
 	);
 
 	public $rowid;
@@ -521,11 +521,18 @@ class PowerPlantPVAttestation extends CommonObject
 		global $langs;
 
 		$labels = array(
-			self::STATUS_DRAFT => 'Draft',
-			self::STATUS_VALIDATED => 'Validated',
-			self::STATUS_PENDING_SIGNATURE => 'AttestationPendingSignature',
-			self::STATUS_SIGNED => 'AttestationSigned',
-			self::STATUS_CANCELED => 'Canceled',
+			self::STATUS_DRAFT => 'AttestationStatusDraft',
+			self::STATUS_VALIDATED => 'AttestationStatusValidated',
+			self::STATUS_PENDING_SIGNATURE => 'AttestationStatusPendingSignature',
+			self::STATUS_SIGNED => 'AttestationStatusSigned',
+			self::STATUS_CANCELED => 'AttestationStatusCanceled',
+		);
+		$labelsShort = array(
+			self::STATUS_DRAFT => 'AttestationStatusDraftShort',
+			self::STATUS_VALIDATED => 'AttestationStatusValidatedShort',
+			self::STATUS_PENDING_SIGNATURE => 'AttestationStatusPendingSignatureShort',
+			self::STATUS_SIGNED => 'AttestationStatusSignedShort',
+			self::STATUS_CANCELED => 'AttestationStatusCanceledShort',
 		);
 		$statusType = array(
 			self::STATUS_DRAFT => 'status0',
@@ -535,7 +542,7 @@ class PowerPlantPVAttestation extends CommonObject
 			self::STATUS_CANCELED => 'status9',
 		);
 
-		return dolGetStatus($langs->trans(isset($labels[$status]) ? $labels[$status] : 'Unknown'), '', '', isset($statusType[$status]) ? $statusType[$status] : 'status0', $mode);
+		return dolGetStatus($langs->trans(isset($labels[$status]) ? $labels[$status] : 'Unknown'), $langs->trans(isset($labelsShort[$status]) ? $labelsShort[$status] : 'Unknown'), '', isset($statusType[$status]) ? $statusType[$status] : 'status0', $mode);
 	}
 
 	/**

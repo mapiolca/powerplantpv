@@ -43,7 +43,7 @@ $id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
 $cancel = GETPOST('cancel', 'alpha');
 $socid = GETPOSTINT('socid');
-$contextpage = GETPOST('contextpage', 'aZ') ? GETPOST('contextpage', 'aZ') : getDolDefaultContextPage(__FILE__);
+$contextpage = GETPOST('contextpage', 'aZ09') ? GETPOST('contextpage', 'aZ09') : getDolDefaultContextPage(__FILE__);
 $backtopage = GETPOST('backtopage', 'alpha');
 
 if (GETPOST('actioncode', 'array')) {
@@ -56,6 +56,8 @@ if (GETPOST('actioncode', 'array')) {
 }
 $search_rowid = GETPOST('search_rowid');
 $search_agenda_label = GETPOST('search_agenda_label');
+$search_complete = GETPOST('search_complete', 'alpha');
+$search_filtert = GETPOSTINT('search_filtert');
 
 $limit = GETPOSTINT('limit') ? GETPOSTINT('limit') : $conf->liste_limit;
 $sortfield = GETPOST('sortfield', 'aZ09comma');
@@ -71,7 +73,7 @@ if (!$sortfield) {
 	$sortfield = 'a.datep,a.id';
 }
 if (!$sortorder) {
-	$sortorder = 'DESC,DESC';
+	$sortorder = 'DESC';
 }
 
 if (!isModEnabled('powerplantpv') || !isModEnabled('agenda') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
@@ -86,6 +88,10 @@ $hookmanager->initHooks(array($object->element.'agenda', 'globalcard'));
 if ($id <= 0 || $object->fetch($id) <= 0) {
 	accessforbidden();
 }
+if (method_exists($object, 'fetch_thirdparty')) {
+	$object->fetch_thirdparty();
+}
+$object->info($object->id);
 
 if ($user->socid > 0) {
 	$socid = $user->socid;
@@ -110,7 +116,10 @@ if (empty($reshook)) {
 
 	if (GETPOST('button_removefilter_x', 'alpha') || GETPOST('button_removefilter.x', 'alpha') || GETPOST('button_removefilter', 'alpha')) {
 		$actioncode = '';
+		$search_rowid = '';
 		$search_agenda_label = '';
+		$search_complete = '';
+		$search_filtert = '';
 	}
 }
 
@@ -119,8 +128,10 @@ if (empty($reshook)) {
  */
 
 $form = new Form($db);
+$agenda = (isModEnabled('agenda') && ($user->hasRight('agenda', 'myactions', 'read') || $user->hasRight('agenda', 'allactions', 'read'))) ? '/'.$langs->trans('Agenda') : '';
+$title = $langs->trans('Events').$agenda.' - '.$object->ref;
 
-llxHeader('', $langs->trans('Attestation').' - '.$langs->trans('EventsAgenda'), 'EN:Module_Agenda_En|DE:Modul_Terminplanung', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-agenda');
+llxHeader('', $title, 'EN:Module_Agenda_En|DE:Modul_Terminplanung', '', 0, 0, '', '', '', 'mod-powerplantpv page-card_agenda page-attestation-agenda');
 
 if (isModEnabled('notification')) {
 	$langs->load('mails');
@@ -132,7 +143,9 @@ dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object)
 
 print '<div class="fichecenter">';
 print '<div class="underbanner clearboth"></div>';
+dol_print_object_info($object, 1);
 print '</div>';
+print '<div class="clearboth"></div>';
 print dol_get_fiche_end();
 
 $out = '&origin='.urlencode('attestation@powerplantpv').'&originid='.urlencode((string) $object->id);
@@ -159,15 +172,41 @@ if ($user->hasRight('agenda', 'myactions', 'read') || $user->hasRight('agenda', 
 	if ($limit > 0 && $limit != $conf->liste_limit) {
 		$param .= '&limit='.((int) $limit);
 	}
+	if ($search_rowid) {
+		$param .= '&search_rowid='.urlencode($search_rowid);
+	}
+	if ($actioncode !== '' && $actioncode !== '-1') {
+		if (is_array($actioncode)) {
+			foreach ($actioncode as $tmpactioncode) {
+				$param .= '&actioncode[]='.urlencode($tmpactioncode);
+			}
+		} else {
+			$param .= '&actioncode='.urlencode($actioncode);
+		}
+	}
+	if ($search_agenda_label) {
+		$param .= '&search_agenda_label='.urlencode($search_agenda_label);
+	}
+	if ($search_complete != '') {
+		$param .= '&search_complete='.urlencode($search_complete);
+	}
+	if ($search_filtert != '') {
+		$param .= '&search_filtert='.urlencode((string) $search_filtert);
+	}
 
 	$nbEvent = powerplantpvAttestationCountAgendaEvents($object);
-	$titlelist = $langs->trans('Actions').(is_numeric($nbEvent) ? '<span class="opacitymedium colorblack paddingleft">('.$nbEvent.')</span>' : '');
+	$titlelist = $langs->trans('ActionsOnAttestation').(is_numeric($nbEvent) ? '<span class="opacitymedium colorblack paddingleft">('.$nbEvent.')</span>' : '');
+	if (!empty($conf->dol_optimize_smallscreen)) {
+		$titlelist = $langs->trans('Actions').(is_numeric($nbEvent) ? '<span class="opacitymedium colorblack paddingleft">('.$nbEvent.')</span>' : '');
+	}
 
-	print_barre_liste($titlelist, 0, $_SERVER['PHP_SELF'], '', $sortfield, $sortorder, '', 0, -1, '', 0, $morehtmlright, '', 0, 1, 0);
+	print_barre_liste($titlelist, 0, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', 0, -1, '', 0, $morehtmlright, '', 0, 1, 0);
 
 	$filters = array(
 		'search_agenda_label' => $search_agenda_label,
 		'search_rowid' => $search_rowid,
+		'search_complete' => $search_complete,
+		'search_filtert' => $search_filtert,
 	);
 
 	show_actions_done($conf, $langs, $db, $object, null, 0, $actioncode, '', $filters, $sortfield, $sortorder, $object->module);
