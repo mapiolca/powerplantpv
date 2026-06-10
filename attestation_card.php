@@ -363,9 +363,6 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<div class="fichecenter"><div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfield">';
 	print '<tr><td class="titlefield">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
-	print '<tr><td>'.$langs->trans('Status').'</td><td>'.$object->getLibStatut(4).'</td></tr>';
-	print '<tr><td>'.$langs->trans('ProjectName').'</td><td>'.dol_escape_htmltag($derivedData['project_name']).'</td></tr>';
-	print '<tr><td>'.$langs->trans('Address').'</td><td>'.dol_escape_htmltag($derivedData['site_full_address']).'</td></tr>';
 	print '<tr><td>'.$langs->trans('AttestationDate').'</td><td>'.dol_print_date($object->date_attestation, 'day').'</td></tr>';
 	if (in_array($object->type_code, array(PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR, PowerPlantPVAttestationTypes::TYPE_BRIDAGE_STATIQUE_ONDULEUR), true)) {
 		print '<tr><td>'.$langs->trans('AttestationMaxExportPowerKw').'</td><td>'.($object->max_export_power_kw !== null && $object->max_export_power_kw !== '' ? price($object->max_export_power_kw) : '').'</td></tr>';
@@ -379,10 +376,15 @@ if ($action == 'create' && empty($typeCode)) {
 		print '<tr><td>'.$langs->trans('AttestationCompletionDate').'</td><td>'.(!empty($object->date_completion) ? dol_print_date($object->date_completion, 'day') : '').'</td></tr>';
 		print '<tr><td>'.$langs->trans('AttestationLandscapeIntegrationPrime').'</td><td>'.yn((int) $object->landscape_integration_prime).'</td></tr>';
 	}
-	print '<tr><td>'.$langs->trans('AttestationPlace').'</td><td>'.dol_escape_htmltag($derivedData['place']).'</td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationInstallerName').'</td><td>'.dol_escape_htmltag($derivedData['installer_name']).'</td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationWriterName').'</td><td>'.dol_escape_htmltag($derivedData['writer_name']).'</td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationWriterFunction').'</td><td>'.dol_escape_htmltag($derivedData['writer_function']).'</td></tr>';
+	$writerHtml = dol_escape_htmltag($derivedData['writer_name']);
+	if (!empty($derivedData['writer_id'])) {
+		require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+		$writer = new User($db);
+		if ($writer->fetch((int) $derivedData['writer_id']) > 0) {
+			$writerHtml = $writer->getNomUrl(1);
+		}
+	}
+	print '<tr><td>'.$langs->trans('AttestationWriterName').'</td><td>'.$writerHtml.'</td></tr>';
 	if (!empty($object->date_signature)) {
 		print '<tr><td>'.$langs->trans('AttestationSignatureDate').'</td><td>'.dol_print_date($object->date_signature, 'dayhour').'</td></tr>';
 	}
