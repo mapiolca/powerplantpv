@@ -85,12 +85,7 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 			$this->valueOrNotProvided($attestationDate, $outputlangs)
 		)), 0, 'L');
 
-		$pdf->Ln(3);
-		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicSignerNameFunction', $defaultFontSize);
-		$pdf->SetFont('', '', $defaultFontSize);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($this->formatSigner($derivedData, $outputlangs)), 0, 'L');
-
-		$this->renderDynamicSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize);
+		$this->renderDynamicSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize, $derivedData);
 	}
 
 	/**
@@ -258,14 +253,15 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	 * @param	PowerPlantPVAttestation	$object				Attestation
 	 * @param	Translate				$outputlangs		Output lang
 	 * @param	int						$defaultFontSize	Default font size
+	 * @param	array<string,mixed>		$derivedData		Derived data
 	 * @return	void
 	 */
-	protected function renderDynamicSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize)
+	protected function renderDynamicSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize, $derivedData)
 	{
 		$pdf->Ln(6);
-		$this->ensureSpace($pdf, 45);
+		$this->ensureSpace($pdf, 56);
 		$gap = 8;
-		$boxHeight = 32;
+		$boxHeight = 44;
 		$boxWidth = ($this->page_largeur - $this->marge_gauche - $this->marge_droite - $gap) / 2;
 		$leftX = $this->marge_gauche;
 		$rightX = $leftX + $boxWidth + $gap;
@@ -280,10 +276,18 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$pdf->Rect($leftX, $boxY, $boxWidth, $boxHeight);
 		$pdf->Rect($rightX, $boxY, $boxWidth, $boxHeight);
 
+		$pdf->SetXY($leftX + 4, $boxY + 4);
+		$pdf->SetFont('', 'B', max($defaultFontSize - 1, 7));
+		$pdf->MultiCell($boxWidth - 8, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationDynamicSignerNameFunction')), 0, 'L');
+		$pdf->SetX($leftX + 4);
+		$pdf->SetFont('', '', max($defaultFontSize - 1, 7));
+		$pdf->MultiCell($boxWidth - 8, 5, $outputlangs->convToOutputCharset($this->formatSigner($derivedData, $outputlangs)), 0, 'L');
+		$signatureY = max($pdf->GetY() + 2, $boxY + 20);
+
 		if (!empty($object->signature_file)) {
 			$signature = powerplantpvAttestationGetDocumentRootDir($object->entity).'/'.$object->signature_file;
 			if (file_exists($signature)) {
-				$pdf->Image($signature, $leftX + 4, $boxY + 4, 45, 0, 'PNG');
+				$pdf->Image($signature, $leftX + 4, $signatureY, 45, 0, 'PNG');
 			}
 		}
 
