@@ -34,6 +34,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formactions.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
@@ -71,7 +72,9 @@ if (!class_exists('PowerPlantPVAttestation') || !class_exists('PowerPlantPVAttes
 }
 
 $object = new PowerPlantPVAttestation($db);
+$extrafields = new ExtraFields($db);
 $hookmanager->initHooks(array($object->element.'card', 'globalcard'));
+$extrafields->fetch_name_optionals_label($object->table_element);
 $permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
 $permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
 $permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
@@ -112,6 +115,9 @@ if ($id > 0) {
 	$result = $object->fetch($id);
 	if ($result <= 0) {
 		accessforbidden();
+	}
+	if (!empty($object->isextrafieldmanaged) && method_exists($object, 'fetch_optionals')) {
+		$object->fetch_optionals();
 	}
 	$isdraft = ((int) $object->status === PowerPlantPVAttestation::STATUS_DRAFT ? 1 : 0);
 	restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
@@ -483,11 +489,7 @@ if ($action == 'create' && empty($typeCode)) {
 		print '<tr><td>'.$langs->trans('AttestationSignatureDate').'</td><td>'.dol_print_date($object->date_signature, 'dayhour').'</td></tr>';
 	}
 	$parameters = array('socid' => $object->fk_soc);
-	$reshook = $hookmanager->executeHooks('formObjectOptions', $parameters, $object, $action);
-	print $hookmanager->resPrint;
-	if ($reshook < 0) {
-		setEventMessages($hookmanager->error, $hookmanager->errors, 'errors');
-	}
+	include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_view.tpl.php';
 	print '</table>';
 	print load_fiche_titre($langs->trans('AttestationEquipment'), '', 'fa-cubes');
 	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
