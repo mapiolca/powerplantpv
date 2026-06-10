@@ -13,7 +13,6 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 		parent::__construct($db);
 		$this->name = 'attestation_bridage_statique';
 		$this->titleKey = 'AttestationTypeBridageStatiqueOnduleur';
-		$this->validationWarningKey = 'AttestationStaticBridageTemplateToValidate';
 	}
 
 	/**
@@ -74,7 +73,6 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 			array('SIRET', $this->valueOrNotProvided($derivedData['installer_siret'], $outputlangs)),
 		));
 
-		$this->renderLegalText($pdf, $object, $outputlangs);
 		$this->renderStaticEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
 		$this->renderSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize);
 	}
