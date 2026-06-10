@@ -73,6 +73,7 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicEquipmentUsed', $defaultFontSize);
 		$this->renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
 
+		$this->ensureSpace($pdf, $this->getFinalResultSignatureBlockHeight($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, $attestationDate));
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicResult', $defaultFontSize);
 		$pdf->SetFont('', '', $defaultFontSize);
@@ -102,6 +103,48 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$pdf->SetFont('', 'B', $fontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 0, 'L');
 		$pdf->SetFont('', '', $fontSize);
+	}
+
+	/**
+	 * Return the height required to keep result, date/place and signature boxes on one page.
+	 *
+	 * @param	TCPDF|TCPDI					$pdf				PDF
+	 * @param	PowerPlantPVAttestation		$object				Attestation
+	 * @param	Translate					$outputlangs		Output lang
+	 * @param	int							$defaultFontSize	Default font size
+	 * @param	array<string,mixed>			$derivedData		Derived data
+	 * @param	string						$attestationDate	Attestation date
+	 * @return	float											Required height
+	 */
+	protected function getFinalResultSignatureBlockHeight($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, $attestationDate)
+	{
+		$contentWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+		$height = 4 + 6; // Spacing and result title.
+
+		$resultText = $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationDynamicResultText'));
+		$doneAtText = $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+			'AttestationDynamicDoneAt',
+			$this->valueOrNotProvided($derivedData['place'], $outputlangs),
+			$this->valueOrNotProvided($attestationDate, $outputlangs)
+		));
+
+		$pdf->SetFont('', '', $defaultFontSize);
+		if (method_exists($pdf, 'getStringHeight')) {
+			$height += max(5, $pdf->getStringHeight($contentWidth, $resultText));
+			$height += 5;
+			$height += max(5, $pdf->getStringHeight($contentWidth, $doneAtText));
+		} else {
+			$height += 5 * (substr_count($resultText, "\n") + 1);
+			$height += 5;
+			$height += 5 * (substr_count($doneAtText, "\n") + 1);
+		}
+
+		$height += 6 + 5 + 44 + 2; // Signature block spacing, labels, boxes and trailing spacing.
+		if (!empty($object->date_signature)) {
+			$height += 5;
+		}
+
+		return $height + 4;
 	}
 
 	/**
