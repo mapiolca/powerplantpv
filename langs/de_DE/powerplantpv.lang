@@ -691,6 +691,7 @@ AttestationSignatureHash = SHA-256-Prüfsumme
 AttestationSignatureFile = Signaturdatei
 AttestationSignedPdfFile = Signiertes PDF
 AttestationPdfModels = PDF-Modelle für Bescheinigungen
+AttestationPdfModelsByType = PDF-Modelle nach Bescheinigungsart
 PowerPlantPVAttestationPdfModel = PowerPlantPV-PDF-Modell für Bescheinigungen
 AttestationCompanyStamp = Firmenstempel
 AttestationCompanyStampPng = PNG-Stempel

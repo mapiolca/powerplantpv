@@ -691,6 +691,7 @@ AttestationSignatureHash = Hash SHA-256
 AttestationSignatureFile = File firma
 AttestationSignedPdfFile = PDF firmato
 AttestationPdfModels = Modelli PDF attestazioni
+AttestationPdfModelsByType = Modelli PDF per tipo di attestazione
 PowerPlantPVAttestationPdfModel = Modello PDF attestazione PowerPlantPV
 AttestationCompanyStamp = Timbro aziendale
 AttestationCompanyStampPng = Timbro PNG
