@@ -170,6 +170,7 @@ PowerPlantTriggerOutOfServiceDesc = Eseguito quando un impianto viene messo fuor
 UNVALIDATEInDolibarr = %s riportato in bozza
 INSERVICEInDolibarr = %s messo in servizio
 OUTOFSERVICEInDolibarr = %s messo fuori servizio
+GENERATEPDFInDolibarr = %s: PDF generato in Dolibarr
 PowerPlantCompTriggerModify = Composizione impianto modificata
 PowerPlantCompTriggerModifyDesc = Eseguito quando viene modificato un elemento della composizione di un impianto
 PowerPlantCompTriggerReplace = Apparecchiatura impianto sostituita

@@ -131,6 +131,7 @@ class modPowerPlantPV extends DolibarrModules
 					'publicnewticketcard',
 					'category',
 					'elementproperties',
+					'usernavhistorydao',
 					'notification',
 					'multicompanyexternalmodulesharing',
 					'multicompanyexternalmodules',

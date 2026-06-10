@@ -216,6 +216,7 @@ PowerPlantTriggerOutOfServiceDesc = Executed when a power plant is set out of se
 UNVALIDATEInDolibarr = %s set back to draft
 INSERVICEInDolibarr = %s set in service
 OUTOFSERVICEInDolibarr = %s set out of service
+GENERATEPDFInDolibarr = %s PDF generated in Dolibarr
 PowerPlantCompTriggerModify = Power plant equipment modified
 PowerPlantCompTriggerModifyDesc = Executed when a power plant equipment item is modified
 PowerPlantCompTriggerReplace = Power plant equipment replaced

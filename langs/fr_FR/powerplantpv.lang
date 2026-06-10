@@ -216,6 +216,7 @@ PowerPlantTriggerOutOfServiceDesc = Exécuté lorsqu'une centrale est mise hors 
 UNVALIDATEInDolibarr = %s remise en brouillon
 INSERVICEInDolibarr = %s mise en service
 OUTOFSERVICEInDolibarr = %s mise hors service
+GENERATEPDFInDolibarr = %s : PDF généré dans Dolibarr
 PowerPlantCompTriggerModify = Matériel de centrale modifié
 PowerPlantCompTriggerModifyDesc = Exécuté lorsqu'un équipement de centrale est modifié
 PowerPlantCompTriggerReplace = Matériel de centrale remplacé

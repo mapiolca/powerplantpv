@@ -245,7 +245,15 @@ function powerplantpvAttestationGetCreateSourceErrors($typeCode, $fkPowerPlant)
  * Actions
  */
 
-if ($action == 'add' && $permissiontoadd) {
+$parameters = array('id' => $id);
+$reshook = $hookmanager->executeHooks('doActions', $parameters, $object, $action);
+if ($reshook < 0) {
+	setEventMessages($hookmanager->error, $hookmanager->errors, 'errors');
+}
+
+if (!empty($reshook)) {
+	// Hook handled or replaced standard actions.
+} elseif ($action == 'add' && $permissiontoadd) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
@@ -355,7 +363,7 @@ $formfile = new FormFile($db);
 $formactions = new FormActions($db);
 $formproject = new FormProjets($db);
 
-if ($object->id > 0) {
+if (empty($reshook) && $object->id > 0) {
 	$upload_dir = powerplantpvAttestationGetDocumentUploadDir($object);
 	include DOL_DOCUMENT_ROOT.'/core/actions_dellink.inc.php';
 	include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';

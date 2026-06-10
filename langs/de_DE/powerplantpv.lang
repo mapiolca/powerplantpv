@@ -170,6 +170,7 @@ PowerPlantTriggerOutOfServiceDesc = Ausgefuehrt, wenn ein Kraftwerk ausser Betri
 UNVALIDATEInDolibarr = %s in Entwurf zurueckgesetzt
 INSERVICEInDolibarr = %s in Betrieb gesetzt
 OUTOFSERVICEInDolibarr = %s ausser Betrieb gesetzt
+GENERATEPDFInDolibarr = %s: PDF in Dolibarr erzeugt
 PowerPlantCompTriggerModify = Kraftwerk-Zusammensetzung geaendert
 PowerPlantCompTriggerModifyDesc = Ausgefuehrt, wenn ein Element der Kraftwerk-Zusammensetzung geaendert wird
 PowerPlantCompTriggerReplace = Kraftwerk-Geraet ersetzt
