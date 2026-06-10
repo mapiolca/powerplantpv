@@ -331,6 +331,10 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 */
 	protected function renderFooter($pdf, $object, $outputlangs)
 	{
+		if (method_exists($pdf, 'setPageOrientation')) {
+			$pdf->setPageOrientation('', true, 0);
+		}
+
 		return $this->_pagefoot($pdf, $object, $outputlangs);
 	}
 
