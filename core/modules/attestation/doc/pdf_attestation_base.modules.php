@@ -36,6 +36,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	protected $titleKey = 'Attestation';
 	protected $validationWarningKey = '';
 	protected $heightforfooter = 0;
+	protected $footerContentClearance = 12;
 	public $watermark = '';
 	protected $currentObject;
 	protected $currentOutputLangs;
@@ -113,7 +114,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		$pdf->SetFont(pdf_getPDFFont($outputlangs), '', $defaultFontSize);
 		$pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
-		$this->heightforfooter = $this->marge_basse + (getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 22 : 12);
+		$this->heightforfooter = $this->marge_basse + (getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 22 : 12) + $this->footerContentClearance;
 		if (method_exists($pdf, 'setAutoPageBreak')) {
 			$pdf->setAutoPageBreak(true, 0);
 		} else {
