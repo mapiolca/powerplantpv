@@ -87,7 +87,8 @@ print '</table>';
 print '</div>';
 print dol_get_fiche_end();
 
-$formfile->showdocuments(powerplantpvAttestationGetDocumentModulePart().':PowerPlantPVAttestation', powerplantpvAttestationGetDocumentRelativePath($object), $upload_dir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $permissiontoadd, $permissiontodelete, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
+powerplantpvAttestationPrintDocumentGenerationForm($object, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $permissiontoadd, $object->model_pdf, 0, '', $langs->defaultlang);
+$formfile->showdocuments(powerplantpvAttestationGetDocumentModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $upload_dir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, 0, $permissiontodelete, $object->model_pdf, 1, 0, 0, 28, 0, '', 'none', '', $langs->defaultlang, '', $object);
 
 llxFooter();
 $db->close();

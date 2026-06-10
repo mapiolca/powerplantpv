@@ -14,6 +14,7 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - la fonction du rédacteur des attestations est désormais préremplie depuis le champ natif utilisateur `Poste/fonction`, sans réglage PowerPlantPV dédié ;
 - les champs de lieu, installateur, site et rédacteur des attestations ne sont plus stockés sur l'objet attestation : ils sont résolus depuis l'entité Dolibarr, la centrale PV liée et l'utilisateur auteur `fk_user_creat` ;
 - les modèles core des attestations sont isolés dans `core/modules/attestation` et les pages liste/fiche journalisent désormais les sorties précoces pour diagnostiquer les erreurs 500 ;
+- correction du bloc documents des attestations : la génération utilise les modèles de `core/modules/attestation` sans demander à `FormFile::showdocuments()` une classe PDF sous `core/modules/powerplantpv` ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0

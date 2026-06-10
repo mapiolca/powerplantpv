@@ -165,6 +165,112 @@ function powerplantpvAttestationGetDocumentUploadDir($object)
 }
 
 /**
+ * Print attestation document generation form.
+ *
+ * Attestation generated files are stored under the powerplantpv modulepart, but their PDF models
+ * live in core/modules/attestation. Keep generation separate from FormFile::showdocuments() so
+ * Dolibarr does not try to resolve a PDF class under core/modules/powerplantpv.
+ *
+ * @param	PowerPlantPVAttestation	$object				Attestation
+ * @param	string					$urlsource			Target URL
+ * @param	int<0,1>				$genallowed			Generation permission
+ * @param	string					$modelselected		Model selected by default
+ * @param	int<0,1>				$forcenomultilang	Force no multilang selector
+ * @param	string					$buttonlabel		Button label
+ * @param	string					$codelang			Default language code
+ * @return	void
+ */
+function powerplantpvAttestationPrintDocumentGenerationForm($object, $urlsource, $genallowed, $modelselected = '', $forcenomultilang = 0, $buttonlabel = '', $codelang = '')
+{
+	global $conf, $db, $langs;
+
+	if (empty($genallowed)) {
+		return;
+	}
+
+	require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+	dol_include_once('/powerplantpv/core/modules/attestation/modules_attestation.php');
+
+	if (!class_exists('ModelePDFAttestation')) {
+		dol_syslog('PowerPlantPV attestation document generation unavailable: ModelePDFAttestation class not found', LOG_ERR);
+		print '<div class="error">'.$langs->trans('AttestationInstallationIncomplete').'</div>';
+		return;
+	}
+
+	$form = new Form($db);
+	$modellist = ModelePDFAttestation::liste_modeles($db);
+	if (!is_array($modellist)) {
+		$modellist = array();
+	}
+	if (empty($modellist)) {
+		$langs->load('errors');
+	}
+	if ($modelselected === '' && !empty($object->model_pdf)) {
+		$modelselected = $object->model_pdf;
+	}
+	if (count($modellist) == 1) {
+		$arraykeys = array_keys($modellist);
+		$modelselected = (string) $arraykeys[0];
+	}
+	if (empty($buttonlabel)) {
+		$buttonlabel = $langs->trans('Generate');
+	}
+	asort($modellist);
+
+	if (!empty($conf->browser->layout) && $conf->browser->layout == 'phone') {
+		$urlsource .= '#builddoc_attestation_form';
+	}
+
+	print load_fiche_titre($langs->trans('Documents'), '', '');
+	print '<form action="'.dol_escape_htmltag($urlsource).'" id="builddoc_attestation_form" method="post">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="action" value="builddoc">';
+	print '<input type="hidden" name="page_y" value="">';
+	print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+	if (empty($modellist) && $modelselected !== '') {
+		print '<input type="hidden" name="model" value="'.dol_escape_htmltag($modelselected).'">';
+	}
+
+	print '<div class="div-table-responsive-no-min">';
+	print '<table class="liste formdoc noborder centpercent">';
+	print '<tr class="liste_titre">';
+	print '<th class="formdoc liste_titre maxwidthonsmartphone center">';
+	if (!empty($modellist)) {
+		print '<span class="hideonsmartphone">'.$langs->trans('Model').' </span>';
+		$morecss = 'minwidth75 maxwidth200';
+		if (!empty($conf->browser->layout) && $conf->browser->layout == 'phone') {
+			$morecss = 'maxwidth100';
+		}
+		print $form->selectarray('model', $modellist, $modelselected, 0, 0, 0, '', 0, 0, 0, '', $morecss, 1, '', 0, 0);
+		if (!empty($conf->use_javascript_ajax)) {
+			print ajax_combobox('model');
+		}
+	} else {
+		print '<span class="opacitymedium">'.$langs->trans('WarningNoDocumentModelActivated').'</span>';
+	}
+
+	if (getDolGlobalInt('MAIN_MULTILANGS') && !$forcenomultilang && (!empty($modellist) || $modelselected !== '')) {
+		require_once DOL_DOCUMENT_ROOT.'/core/class/html.formadmin.class.php';
+		$formadmin = new FormAdmin($db);
+		$defaultlang = ($codelang && $codelang != 'auto') ? $codelang : $langs->getDefaultLang();
+		$morecss = (!empty($conf->browser->layout) && $conf->browser->layout == 'phone') ? 'maxwidth100' : 'maxwidth150';
+		print ' '.$formadmin->select_language($defaultlang, 'lang_id', 0, array(), 0, 0, 0, $morecss);
+	} else {
+		print ' ';
+	}
+
+	print '<input class="button buttongen reposition nomargintop nomarginbottom" id="builddoc_attestation_generatebutton" name="builddoc_attestation_generatebutton" type="submit" value="'.dol_escape_htmltag($buttonlabel).'">';
+	if (empty($modellist) && empty($conf->dol_no_mouse_hover)) {
+		print ' '.img_warning($langs->transnoentitiesnoconv('WarningNoDocumentModelActivated'));
+	}
+	print '</th>';
+	print '</tr>';
+	print '</table>';
+	print '</div>';
+	print '</form>';
+}
+
+/**
  * Count attached files and external links.
  *
  * @param	PowerPlantPVAttestation	$object	Attestation
