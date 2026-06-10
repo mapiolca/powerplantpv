@@ -146,6 +146,7 @@ PowerPlantStatsByStatus = Statistiche - Stato degli impianti
 PowerPlantStatsByCategories = Statistiche - Categorie degli impianti
 PowerPlantLatestCreated = Ultimi %s impianti creati
 PowerPlantLatestModified = Ultimi %s impianti modificati
+AttestationLatestModified = Ultime %s attestazioni modificate
 PowerPlantTriggerCreate = Impianto creato
 PowerPlantTriggerCreateDesc = Eseguito quando viene creato un impianto
 PowerPlantTriggerModify = Impianto modificato

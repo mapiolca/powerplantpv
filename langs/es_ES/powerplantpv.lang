@@ -146,6 +146,7 @@ PowerPlantStatsByStatus = Estadisticas - Estado de las plantas
 PowerPlantStatsByCategories = Estadisticas - Categorias de las plantas
 PowerPlantLatestCreated = Las ultimas %s plantas creadas
 PowerPlantLatestModified = Las ultimas %s plantas modificadas
+AttestationLatestModified = Los últimos %s certificados modificados
 PowerPlantTriggerCreate = Planta creada
 PowerPlantTriggerCreateDesc = Ejecutado cuando se crea una planta
 PowerPlantTriggerModify = Planta modificada

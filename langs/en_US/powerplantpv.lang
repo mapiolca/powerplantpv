@@ -192,6 +192,7 @@ PowerPlantStatsByStatus = Statistics - Power plant status
 PowerPlantStatsByCategories = Statistics - Power plant categories
 PowerPlantLatestCreated = Latest %s created power plants
 PowerPlantLatestModified = Latest %s modified power plants
+AttestationLatestModified = Latest %s modified attestations
 PowerPlantTriggerCreate = Power plant created
 PowerPlantTriggerCreateDesc = Executed when a power plant is created
 PowerPlantTriggerModify = Power plant modified
