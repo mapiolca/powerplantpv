@@ -35,8 +35,8 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	public $emetteur;
 	protected $titleKey = 'Attestation';
 	protected $validationWarningKey = '';
-	protected $footerRaise = 10;
-	protected $footerReservedBottom = 38;
+	protected $heightforfooter = 0;
+	protected $watermark = '';
 	protected $currentObject;
 	protected $currentOutputLangs;
 
@@ -113,10 +113,11 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		$pdf->SetFont(pdf_getPDFFont($outputlangs), '', $defaultFontSize);
 		$pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
+		$this->heightforfooter = $this->marge_basse + (getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 22 : 12);
 		if (method_exists($pdf, 'setAutoPageBreak')) {
-			$pdf->setAutoPageBreak(false, 0);
+			$pdf->setAutoPageBreak(true, 0);
 		} else {
-			$pdf->SetAutoPageBreak(false, 0);
+			$pdf->SetAutoPageBreak(true, 0);
 		}
 		$pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
 		$pdf->SetCreator('Dolibarr '.DOL_VERSION);
@@ -126,6 +127,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 
 		$pdf->AddPage();
+		$this->reserveFooterSpace($pdf);
 		$this->renderHeader($pdf, $object, $outputlangs);
 		$this->renderBody($pdf, $object, $outputlangs, $defaultFontSize);
 		$this->renderFooter($pdf, $object, $outputlangs);
@@ -264,7 +266,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationEquipment')), 0, 'L');
 		$pdf->SetFont('', 'B', $defaultFontSize - 1);
 		$widths = array(42, 76, 48, 24);
-		$headers = array('AttestationEquipmentCategory', 'Designation', 'SerialNumber', 'AttestationBridage');
+		$headers = array('AttestationEquipmentCategory', 'Designation', 'PowerPlantSerialNumber', 'AttestationBridage');
 		foreach ($headers as $i => $key) {
 			$pdf->Cell($widths[$i], 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 1, 0, 'L');
 		}
@@ -324,22 +326,40 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 * @param	TCPDF|TCPDI				$pdf			PDF
 	 * @param	PowerPlantPVAttestation	$object			Attestation
 	 * @param	Translate				$outputlangs	Output lang
-	 * @return	void
+	 * @return	int								Footer height
 	 */
 	protected function renderFooter($pdf, $object, $outputlangs)
 	{
-		$showdetails = !getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 0 : getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS');
-		return pdf_pagefoot($pdf, $outputlangs, 'POWERPLANTPV_FREE_TEXT', $this->emetteur, $this->marge_basse + $this->footerRaise, $this->marge_gauche, $this->page_hauteur - $this->footerRaise, $object, $showdetails, 0);
+		return $this->_pagefoot($pdf, $object, $outputlangs);
 	}
 
 	/**
-	 * Return reserved bottom margin for footer and generated content.
+	 * Render native Dolibarr footer.
 	 *
-	 * @return	int		Bottom margin in millimeters
+	 * @param	TCPDF|TCPDI				$pdf			PDF
+	 * @param	PowerPlantPVAttestation	$object			Attestation
+	 * @param	Translate				$outputlangs	Output lang
+	 * @param	int<0,1>				$hidefreetext	Hide free text
+	 * @return	int										Footer height
 	 */
-	protected function getReservedBottomMargin()
+	protected function _pagefoot(&$pdf, $object, $outputlangs, $hidefreetext = 0)
 	{
-		return max($this->marge_basse + $this->footerReservedBottom, 34);
+		$showdetails = !getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 0 : getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS');
+
+		return pdf_pagefoot($pdf, $outputlangs, 'POWERPLANTPV_FREE_TEXT', $this->emetteur, $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object, $showdetails, $hidefreetext, $this->page_largeur, $this->watermark);
+	}
+
+	/**
+	 * Reserve the bottom area used by the native footer.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf	PDF
+	 * @return	void
+	 */
+	protected function reserveFooterSpace($pdf)
+	{
+		if (method_exists($pdf, 'setPageOrientation')) {
+			$pdf->setPageOrientation('', true, $this->heightforfooter);
+		}
 	}
 
 	/**
@@ -349,7 +369,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 */
 	protected function getContentBottomY()
 	{
-		return $this->page_hauteur - $this->getReservedBottomMargin();
+		return $this->page_hauteur - $this->heightforfooter;
 	}
 
 	/**
@@ -369,6 +389,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$this->renderFooter($pdf, $this->currentObject, $this->currentOutputLangs);
 		}
 		$pdf->AddPage();
+		$this->reserveFooterSpace($pdf);
 		if (is_object($this->currentObject) && is_object($this->currentOutputLangs)) {
 			$this->renderHeader($pdf, $this->currentObject, $this->currentOutputLangs);
 		}

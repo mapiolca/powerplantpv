@@ -38,6 +38,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvcompatibility.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
@@ -489,7 +490,7 @@ if ($action == 'create' && empty($typeCode)) {
 	print '</table>';
 	print load_fiche_titre($langs->trans('AttestationEquipment'), '', 'fa-cubes');
 	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
-	print '<tr class="liste_titre"><td>'.$langs->trans('AttestationEquipmentCategory').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('SerialNumber').'</td><td>'.$langs->trans('AttestationBridage').'</td></tr>';
+	print '<tr class="liste_titre"><td>'.$langs->trans('AttestationEquipmentCategory').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('AttestationBridage').'</td></tr>';
 	if (empty($object->lines)) {
 		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 	} else {
@@ -523,7 +524,7 @@ if ($action == 'create' && empty($typeCode)) {
 	$genallowed = ($permissiontoadd && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
 	$delallowed = ($permissiontodelete && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
 	print $formfile->showdocuments(powerplantpvAttestationGetDocumentGenerationModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $uploadDir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
-	if ($permissiontosign && getDolGlobalInt('POWERPLANTPV_ATTESTATION_ALLOW_ONLINESIGN', 1) && in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE), true)) {
+	if ($permissiontosign && PowerPlantPVCompatibility::isFeatureAvailable('attestation_online_signature') && in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE), true)) {
 		print '<br>';
 		print powerplantpvAttestationShowOnlineSignatureUrl($object);
 		print '<br>';

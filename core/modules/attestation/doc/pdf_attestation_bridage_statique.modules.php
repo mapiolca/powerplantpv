@@ -110,7 +110,7 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationMaterialUsed', $defaultFontSize);
 
 		$widths = array(42, 76, 48, 24);
-		$headers = array('AttestationEquipmentCategory', 'Designation', 'SerialNumber', 'AttestationBridage');
+		$headers = array('AttestationEquipmentCategory', 'Designation', 'PowerPlantSerialNumber', 'AttestationBridage');
 		$headerValues = array();
 		foreach ($headers as $key) {
 			$headerValues[] = $outputlangs->transnoentities($key);

@@ -212,7 +212,7 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$this->renderEquipmentTableRow($pdf, $outputlangs, $widths, array(
 			$outputlangs->transnoentities('AttestationEquipmentCategory'),
 			$outputlangs->transnoentities('Designation'),
-			$outputlangs->transnoentities('SerialNumber'),
+			$outputlangs->transnoentities('PowerPlantSerialNumber'),
 		), $fontSize, array('B', 'B', 'B'), true);
 
 		if (empty($object->lines)) {

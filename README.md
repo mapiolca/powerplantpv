@@ -9,7 +9,7 @@
 - Import CSV/XLSX serial numbers by composition category, validate product-line associations, and store each serial number against the power plant, composition line, product and PV category.
 - Export recorded serial numbers as CSV or XLSX.
 - Manage PowerPlantPV attestations for dynamic inverter curtailment, static inverter curtailment, maximum frequency 51.5 Hz, and installer under 100 kWc workflows.
-- Generate attestation PDF skeletons from power plant, site, installer, writer and equipment data, then complete an online signature compatible with Dolibarr's native `source/ref/securekey` process, with PNG signature image, company stamp, signed PDF copy and SHA-256 hash.
+- Generate attestation PDF skeletons from power plant, site, installer, writer and equipment data. Online signature is exposed only through Dolibarr's native `/public/onlinesign/newonlinesign.php` page when the installed core explicitly supports the `powerplantpv_attestation` source.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}
@@ -94,7 +94,7 @@ Using your browser:
 
 The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. Every attestation must be linked to a PV power plant. Place and installer data are read from the Dolibarr MyCompany information of the attestation entity, site data is read from the linked PV power plant, and writer data is read from the native author user (`fk_user_creat`).
 
-Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The signature link follows Dolibarr's online signature URL pattern. The core page `/public/onlinesign/newonlinesign.php` is used only when the installed Dolibarr version explicitly supports the custom attestation source; otherwise the module endpoint provides the same native-compatible flow without patching core. It is not a qualified external e-signature provider workflow.
+Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The signature link follows Dolibarr's native online signature URL pattern and is shown only when the installed core supports the `powerplantpv_attestation` source in `/public/onlinesign/newonlinesign.php` and `/core/ajax/onlineSign.php`. When the core does not support this source, the feature is reported as unavailable in the Compatibility tab. It is not a qualified external e-signature provider workflow.
 
 
 
