@@ -92,7 +92,7 @@ Using your browser:
 
 ## Attestations
 
-The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. Place and installer data are read from the Dolibarr MyCompany information of the attestation entity, site data is read from the linked PV power plant, and writer data is read from the native author user (`fk_user_creat`).
+The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. Every attestation must be linked to a PV power plant. Place and installer data are read from the Dolibarr MyCompany information of the attestation entity, site data is read from the linked PV power plant, and writer data is read from the native author user (`fk_user_creat`).
 
 Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The V1 signature flow is internal to Dolibarr and is not a qualified external e-signature provider workflow.
 

@@ -515,21 +515,6 @@ class modPowerPlantPV extends DolibarrModules
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=attestation',
 			'type' => 'left',
-			'titre' => 'List_Attestations',
-			'mainmenu' => 'powerplantpv',
-			'leftmenu' => 'powerplantpv_attestation_list',
-			'url' => '/powerplantpv/attestation_list.php',
-			'langs' => 'powerplantpv@powerplantpv',
-			'position' => 1000 + $r,
-			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
-			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
-			'target' => '',
-			'user' => 2,
-			'object' => 'PowerPlantPVAttestation'
-		);
-		$this->menu[$r++] = array(
-			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=attestation',
-			'type' => 'left',
 			'titre' => 'New_Attestation',
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplantpv_attestation_new',
@@ -538,6 +523,21 @@ class modPowerPlantPV extends DolibarrModules
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
 			'perms' => '$user->hasRight("powerplantpv", "attestation", "write")',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVAttestation'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=attestation',
+			'type' => 'left',
+			'titre' => 'List_Attestations',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_attestation_list',
+			'url' => '/powerplantpv/attestation_list.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
+			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'

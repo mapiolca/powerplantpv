@@ -65,6 +65,15 @@ function powerplantpvAttestationPrepareHead($object)
 	$head[$h][2] = 'card';
 	$h++;
 
+	$nbNote = (!empty($object->note_private) ? 1 : 0) + (!empty($object->note_public) ? 1 : 0);
+	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/attestation_note.php', 1), array('id' => $object->id));
+	$head[$h][1] = $langs->trans('Notes');
+	if ($nbNote > 0) {
+		$head[$h][1] .= '<span class="badge marginleftonlyshort">'.$nbNote.'</span>';
+	}
+	$head[$h][2] = 'note';
+	$h++;
+
 	$nbFiles = powerplantpvAttestationCountAttachedFilesAndLinks($object);
 	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/attestation_document.php', 1), array('id' => $object->id));
 	$head[$h][1] = $langs->trans('Documents');
@@ -84,15 +93,6 @@ function powerplantpvAttestationPrepareHead($object)
 		$head[$h][2] = 'agenda';
 		$h++;
 	}
-
-	$nbNote = (!empty($object->note_private) ? 1 : 0) + (!empty($object->note_public) ? 1 : 0);
-	$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/attestation_card.php', 1), array('id' => $object->id, 'tab' => 'notes'));
-	$head[$h][1] = $langs->trans('Notes');
-	if ($nbNote > 0) {
-		$head[$h][1] .= '<span class="badge marginleftonlyshort">'.$nbNote.'</span>';
-	}
-	$head[$h][2] = 'notes';
-	$h++;
 
 	complete_head_from_modules($conf, $langs, $object, $head, $h, 'attestation@powerplantpv');
 	complete_head_from_modules($conf, $langs, $object, $head, $h, 'attestation@powerplantpv', 'remove');

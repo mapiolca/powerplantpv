@@ -710,6 +710,7 @@ AttestationSignedCannotBeModified = Eine signierte Bescheinigung kann nicht geä
 AttestationSignedCannotBeCanceled = Eine signierte Bescheinigung kann nicht storniert werden
 AttestationOnlyDraftOrCanceledCanBeDeleted = Nur Entwurfs- oder stornierte Bescheinigungen können gelöscht werden
 AttestationInvalidType = Ungültiger Bescheinigungstyp
+AttestationTypeRequired = Der Bescheinigungstyp ist erforderlich
 AttestationPowerPlantRequired = Für diesen Bescheinigungstyp ist eine PV-Anlage erforderlich
 AttestationSnapshotDataRequired = Erforderliche native Bescheinigungsquellen sind unvollständig
 AttestationMaxExportPowerRequired = Die maximale Einspeiseleistung ist erforderlich

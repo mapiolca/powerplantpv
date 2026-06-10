@@ -731,7 +731,7 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
-		if ($this->type_code !== PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC && empty($this->fk_powerplant)) {
+		if (empty($this->fk_powerplant)) {
 			$this->error = 'AttestationPowerPlantRequired';
 			return -1;
 		}
@@ -787,7 +787,7 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
-		if ($this->type_code !== PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC && (empty($derived['site_address']) || empty($derived['site_zip']) || empty($derived['site_town']))) {
+		if (empty($derived['site_address']) || empty($derived['site_zip']) || empty($derived['site_town'])) {
 			$this->error = 'AttestationSiteAddressRequired';
 			return -1;
 		}

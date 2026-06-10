@@ -63,7 +63,7 @@ class PowerPlantPVAttestationTypes
 				'label' => 'AttestationTypeInstallateurInf100kwc',
 				'model_pdf' => 'attestation_installateur_inf100kwc',
 				'equipment_types' => array('MODULE', 'CONNECTOR', 'BOX'),
-				'required_fields' => array('bta_contract_number', 'date_completion', 'date_attestation'),
+				'required_fields' => array('fk_powerplant', 'bta_contract_number', 'date_completion', 'date_attestation'),
 			),
 		);
 	}

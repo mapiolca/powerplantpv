@@ -21,6 +21,7 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - la fiche et l'onglet Fichiers joints des attestations affichent désormais les fichiers générés avec les blocs natifs Dolibarr ;
 - correction du rendu documentaire des attestations : la génération et les fichiers de la fiche utilisent le même tableau natif Dolibarr, les aperçus pointent vers `powerplantpv/attestation/<ref>/<ref>.pdf` et les anciens fichiers générés un niveau trop haut sont déplacés sans écrasement ;
 - alignement du calcul du répertoire documentaire des attestations sur celui des centrales PV, avec récupération des anciens fichiers générés dans `powerplantpv/<ref>` ou `powerplantpv/<ref>/attestation/<ref>` ;
+- alignement natif des attestations : menu `Nouvelle attestation` avant la liste, type et centrale obligatoires à la création, onglets `Notes`, `Fichiers joints`, `Événements/Agenda` réordonnés, notes gérées par le template Dolibarr avec WYSIWYG et fiche déclarée dans `usernavhistory` via le hook `globalcard` ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0

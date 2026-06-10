@@ -786,6 +786,7 @@ AttestationSignedCannotBeModified = A signed attestation cannot be modified
 AttestationSignedCannotBeCanceled = A signed attestation cannot be canceled
 AttestationOnlyDraftOrCanceledCanBeDeleted = Only draft or canceled attestations can be deleted
 AttestationInvalidType = Invalid attestation type
+AttestationTypeRequired = Attestation type is required
 AttestationPowerPlantRequired = A PV power plant is required for this attestation type
 AttestationSnapshotDataRequired = Required native attestation sources are incomplete
 AttestationMaxExportPowerRequired = Maximum export power is required

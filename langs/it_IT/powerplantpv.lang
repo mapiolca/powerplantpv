@@ -710,6 +710,7 @@ AttestationSignedCannotBeModified = Un'attestazione firmata non può essere modi
 AttestationSignedCannotBeCanceled = Un'attestazione firmata non può essere annullata
 AttestationOnlyDraftOrCanceledCanBeDeleted = Solo le attestazioni in bozza o annullate possono essere eliminate
 AttestationInvalidType = Tipo di attestazione non valido
+AttestationTypeRequired = Il tipo di attestazione è obbligatorio
 AttestationPowerPlantRequired = Una centrale FV è obbligatoria per questo tipo di attestazione
 AttestationSnapshotDataRequired = Le fonti native obbligatorie dell'attestazione sono incomplete
 AttestationMaxExportPowerRequired = La potenza massima immessa è obbligatoria

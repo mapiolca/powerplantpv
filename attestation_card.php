@@ -71,6 +71,7 @@ if (!class_exists('PowerPlantPVAttestation') || !class_exists('PowerPlantPVAttes
 }
 
 $object = new PowerPlantPVAttestation($db);
+$hookmanager->initHooks(array($object->element.'card', 'globalcard'));
 $permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
 $permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
 $permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
@@ -100,6 +101,11 @@ if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
 		$db->close();
 		exit;
 	}
+}
+
+if ($tab === 'notes' && $id > 0) {
+	header('Location: '.dol_buildpath('/powerplantpv/attestation_note.php', 1).'?id='.(int) $id);
+	exit;
 }
 
 if ($id > 0) {
@@ -193,6 +199,42 @@ function powerplantpvAttestationPowerPlantOptions()
 	return $options;
 }
 
+/**
+ * Return source errors that block attestation creation.
+ *
+ * @param	string	$typeCode		Type code
+ * @param	int		$fkPowerPlant	Power plant id
+ * @return	string[]				Translation keys
+ */
+function powerplantpvAttestationGetCreateSourceErrors($typeCode, $fkPowerPlant)
+{
+	global $db;
+
+	$errors = array();
+
+	if ($typeCode === '') {
+		$errors[] = 'AttestationTypeRequired';
+	} elseif (!PowerPlantPVAttestationTypes::isValidType($typeCode)) {
+		$errors[] = 'AttestationInvalidType';
+	}
+	if ($fkPowerPlant <= 0) {
+		$errors[] = 'AttestationPowerPlantRequired';
+	} else {
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		$powerplant = new PowerPlant($db);
+		if ($powerplant->fetch((int) $fkPowerPlant) <= 0) {
+			$errors[] = 'AttestationPowerPlantRequired';
+		} else {
+			$entityScope = array_map('intval', explode(',', getEntity('powerplant')));
+			if (!in_array((int) $powerplant->entity, $entityScope, true)) {
+				$errors[] = 'AttestationPowerPlantRequired';
+			}
+		}
+	}
+
+	return $errors;
+}
+
 /*
  * Actions
  */
@@ -204,7 +246,16 @@ if ($action == 'add' && $permissiontoadd) {
 	$object = new PowerPlantPVAttestation($db);
 	$object->type_code = GETPOST('type_code', 'alphanohtml');
 	$fkPowerPlant = GETPOSTINT('fk_powerplant');
-	$result = powerplantpvAttestationPrefillFromPowerPlant($object, $fkPowerPlant, $user);
+	$sourceErrors = powerplantpvAttestationGetCreateSourceErrors($object->type_code, $fkPowerPlant);
+	if (!empty($sourceErrors)) {
+		foreach ($sourceErrors as $sourceError) {
+			$object->errors[] = $langs->trans($sourceError);
+		}
+		$object->error = $object->errors[0];
+		$result = -1;
+	} else {
+		$result = powerplantpvAttestationPrefillFromPowerPlant($object, $fkPowerPlant, $user);
+	}
 	if ($result >= 0) {
 		powerplantpvAttestationSetFromPost($object);
 		if ($object->type_code === PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR && $object->max_export_power_kw === null) {
@@ -226,7 +277,17 @@ if ($action == 'add' && $permissiontoadd) {
 		accessforbidden('Bad token');
 	}
 	powerplantpvAttestationSetFromPost($object);
-	$result = $object->update($user);
+	$sourceErrors = powerplantpvAttestationGetCreateSourceErrors($object->type_code, (int) $object->fk_powerplant);
+	if (!empty($sourceErrors)) {
+		$object->errors = array();
+		foreach ($sourceErrors as $sourceError) {
+			$object->errors[] = $langs->trans($sourceError);
+		}
+		$object->error = $object->errors[0];
+		$result = -1;
+	} else {
+		$result = $object->update($user);
+	}
 	if ($result > 0) {
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
 		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $object->id);
@@ -296,6 +357,18 @@ if ($object->id > 0) {
 	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
 }
 
+if ($action == 'create' && (GETPOSTISSET('type_code') || GETPOSTISSET('fk_powerplant'))) {
+	$sourceErrors = powerplantpvAttestationGetCreateSourceErrors($typeCode, $fkPowerPlant);
+	if (!empty($sourceErrors)) {
+		$translatedErrors = array();
+		foreach ($sourceErrors as $sourceError) {
+			$translatedErrors[] = $langs->trans($sourceError);
+		}
+		setEventMessages('', $translatedErrors, 'errors');
+		$typeCode = '';
+	}
+}
+
 /*
  * View
  */
@@ -318,8 +391,8 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
 	print '<input type="hidden" name="action" value="create">';
 	print '<table class="border centpercent tableforfieldedit">';
-	print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.$form->selectarray('type_code', PowerPlantPVAttestationTypes::getTypeLabels($langs), '', 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
-	print '<tr><td>'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), $fkPowerPlant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+	print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.$form->selectarray('type_code', PowerPlantPVAttestationTypes::getTypeLabels($langs), $typeCode, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+	print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), $fkPowerPlant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	print '</table>';
 	print '<div class="center"><input type="submit" class="button" value="'.$langs->trans('Next').'"></div>';
 	print '</form>';
@@ -348,7 +421,7 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<div class="fichecenter"><div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfieldedit">';
 	print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
-	print '<tr><td>'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), (int) $object->fk_powerplant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+	print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), (int) $object->fk_powerplant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	print '<tr><td>'.$langs->trans('ThirdParty').'</td><td>'.$form->select_company($object->fk_soc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300').'</td></tr>';
 	if (isModEnabled('project')) {
 		print '<tr><td>'.$langs->trans('Project').'</td><td>'.$formproject->select_projects($object->fk_soc, $object->fk_project, 'fk_project', 0, 0, 1, 1, 0, 0, 0, '', 1, 0, 'maxwidth500').'</td></tr>';
@@ -379,7 +452,7 @@ if ($action == 'create' && empty($typeCode)) {
 } elseif ($object->id > 0) {
 	$derivedData = powerplantpvAttestationGetDerivedData($object, $langs);
 	$head = powerplantpvAttestationPrepareHead($object);
-	print dol_get_fiche_head($head, ($tab == 'notes' ? 'notes' : 'card'), $langs->trans('Attestation'), -1, $object->picto);
+	print dol_get_fiche_head($head, 'card', $langs->trans('Attestation'), -1, $object->picto);
 	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object));
 	print '<div class="fichecenter"><div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfield">';
@@ -408,6 +481,12 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<tr><td>'.$langs->trans('AttestationWriterName').'</td><td>'.$writerHtml.'</td></tr>';
 	if (!empty($object->date_signature)) {
 		print '<tr><td>'.$langs->trans('AttestationSignatureDate').'</td><td>'.dol_print_date($object->date_signature, 'dayhour').'</td></tr>';
+	}
+	$parameters = array('socid' => $object->fk_soc);
+	$reshook = $hookmanager->executeHooks('formObjectOptions', $parameters, $object, $action);
+	print $hookmanager->resPrint;
+	if ($reshook < 0) {
+		setEventMessages($hookmanager->error, $hookmanager->errors, 'errors');
 	}
 	print '</table>';
 	print load_fiche_titre($langs->trans('AttestationEquipment'), '', 'fa-cubes');
