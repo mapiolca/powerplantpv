@@ -182,7 +182,7 @@ class PowerPlantPVAttestation extends CommonObject
 		}
 
 		if ($this->ref === '(PROV)') {
-			$refresult = $this->assignFinalReference($user);
+			$refresult = $this->assignProvisionalReference();
 			if ($refresult < 0) {
 				$this->db->rollback();
 				return -1;
@@ -297,7 +297,55 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
-		return $this->setStatusCommon($user, self::STATUS_VALIDATED, $notrigger, $this->TRIGGER_PREFIX.'_VALIDATE');
+		$oldref = (string) $this->ref;
+		$oldstatus = (int) $this->status;
+
+		$this->db->begin();
+
+		if ($this->isProvisionalReference($oldref) || $oldref === '') {
+			$result = $this->assignFinalReference($user);
+			if ($result < 0) {
+				$this->db->rollback();
+				return -1;
+			}
+		}
+
+		$newref = (string) $this->ref;
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET status = ".self::STATUS_VALIDATED;
+		$sql .= ", ref = '".$this->db->escape($newref)."'";
+		$sql .= ", fk_user_modif = ".((int) $user->id);
+		$sql .= " WHERE rowid = ".((int) $this->id);
+		$sql .= " AND entity = ".((int) $this->entity);
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			$this->ref = $oldref;
+			$this->status = $oldstatus;
+			$this->db->rollback();
+			return -1;
+		}
+
+		$this->status = self::STATUS_VALIDATED;
+		if (!$notrigger && $this->callAttestationTrigger('VALIDATE', $user) < 0) {
+			$this->ref = $oldref;
+			$this->status = $oldstatus;
+			$this->db->rollback();
+			return -1;
+		}
+
+		if ($this->isProvisionalReference($oldref) && $newref !== '' && $newref !== $oldref) {
+			$result = $this->renameDocumentDirectoryAfterValidation($oldref, $newref);
+			if ($result < 0) {
+				$this->ref = $oldref;
+				$this->status = $oldstatus;
+				$this->db->rollback();
+				return -1;
+			}
+		}
+
+		$this->db->commit();
+
+		return 1;
 	}
 
 	/**
@@ -838,6 +886,36 @@ class PowerPlantPVAttestation extends CommonObject
 	}
 
 	/**
+	 * Assign a Dolibarr provisional reference after createCommon().
+	 *
+	 * @return	int<-1,1>	>0 if OK
+	 */
+	protected function assignProvisionalReference()
+	{
+		$id = !empty($this->id) ? (int) $this->id : (!empty($this->rowid) ? (int) $this->rowid : 0);
+		if ($id <= 0) {
+			$this->error = 'ErrorRecordNotFound';
+			return -1;
+		}
+
+		$provisionalRef = '(PROV'.$id.')';
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET ref = '".$this->db->escape($provisionalRef)."'";
+		$sql .= " WHERE rowid = ".$id;
+		$sql .= " AND entity = ".((int) $this->entity);
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$this->id = $id;
+		$this->rowid = $id;
+		$this->ref = $provisionalRef;
+
+		return 1;
+	}
+
+	/**
 	 * Assign final reference.
 	 *
 	 * @param	User	$user	User
@@ -862,6 +940,194 @@ class PowerPlantPVAttestation extends CommonObject
 		$this->ref = $nextref;
 
 		return 1;
+	}
+
+	/**
+	 * Check if a reference is provisional.
+	 *
+	 * @param	string	$ref	Reference
+	 * @return	bool			True if provisional
+	 */
+	protected function isProvisionalReference($ref)
+	{
+		return (bool) preg_match('/^[\(]?PROV/i', trim((string) $ref));
+	}
+
+	/**
+	 * Rename document directory and ECM index after validation.
+	 *
+	 * @param	string	$oldref	Old provisional ref
+	 * @param	string	$newref	New final ref
+	 * @return	int<-1,1>		>0 if OK
+	 */
+	protected function renameDocumentDirectoryAfterValidation($oldref, $newref)
+	{
+		global $conf;
+
+		require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+		if (!function_exists('powerplantpvAttestationGetDocumentRootDir')) {
+			dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
+		}
+
+		$oldref = (string) $oldref;
+		$newref = (string) $newref;
+		if ($oldref === '' || $newref === '' || $oldref === $newref) {
+			return 1;
+		}
+
+		$oldrefsan = dol_sanitizeFileName($oldref);
+		$newrefsan = dol_sanitizeFileName($newref);
+		$oldrelative = 'attestation/'.$oldrefsan;
+		$newrelative = 'attestation/'.$newrefsan;
+		$entity = !empty($this->entity) ? (int) $this->entity : (int) $conf->entity;
+
+		$sql = "UPDATE ".$this->db->prefix()."ecm_files";
+		$sql .= " SET filename = CONCAT('".$this->db->escape($newrefsan)."', SUBSTR(filename, ".(strlen($oldrefsan) + 1)."))";
+		$sql .= ", filepath = '".$this->db->escape($newrelative)."'";
+		$sql .= " WHERE filename LIKE '".$this->db->escape($oldrefsan)."%'";
+		$sql .= " AND filepath = '".$this->db->escape($oldrelative)."'";
+		$sql .= " AND entity = ".$entity;
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$sql = "UPDATE ".$this->db->prefix()."ecm_files";
+		$sql .= " SET filepath = '".$this->db->escape($newrelative)."'";
+		$sql .= " WHERE filepath = '".$this->db->escape($oldrelative)."'";
+		$sql .= " AND entity = ".$entity;
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		if ($this->renameLastMainDocumentReference($oldrefsan, $newrefsan, $oldrelative, $newrelative) < 0) {
+			return -1;
+		}
+
+		$rootdir = '';
+		if (function_exists('powerplantpvAttestationGetDocumentRootDir')) {
+			$rootdir = powerplantpvAttestationGetDocumentRootDir($entity);
+		}
+		if ($rootdir === '') {
+			$rootdir = !empty($conf->powerplantpv->multidir_output[$entity]) ? $conf->powerplantpv->multidir_output[$entity] : $conf->powerplantpv->dir_output;
+		}
+
+		$dirsource = $rootdir.'/'.$oldrelative;
+		$dirdest = $rootdir.'/'.$newrelative;
+		if (!is_dir($dirsource)) {
+			return 1;
+		}
+
+		if (!is_dir(dirname($dirdest))) {
+			dol_mkdir(dirname($dirdest));
+		}
+
+		if (!file_exists($dirdest)) {
+			dol_syslog(__METHOD__.' rename dir '.$dirsource.' into '.$dirdest, LOG_DEBUG);
+			if (!@rename($dirsource, $dirdest)) {
+				$this->error = 'ErrorFailedToRenameDir';
+				return -1;
+			}
+		} else {
+			$this->moveDocumentFilesWithoutOverwrite($dirsource, $dirdest, $oldrefsan, $newrefsan);
+		}
+
+		$this->renameDocumentFilesInDirectory($dirdest, $oldrefsan, $newrefsan);
+
+		return 1;
+	}
+
+	/**
+	 * Update last_main_doc after document path renaming.
+	 *
+	 * @param	string	$oldrefsan		Old sanitized ref
+	 * @param	string	$newrefsan		New sanitized ref
+	 * @param	string	$oldrelative	Old relative path
+	 * @param	string	$newrelative	New relative path
+	 * @return	int<-1,1>		>0 if OK
+	 */
+	protected function renameLastMainDocumentReference($oldrefsan, $newrefsan, $oldrelative, $newrelative)
+	{
+		if (empty($this->last_main_doc)) {
+			return 1;
+		}
+
+		$oldprefix = $oldrelative.'/';
+		$newprefix = $newrelative.'/';
+		$lastMainDoc = (string) $this->last_main_doc;
+		if (strpos($lastMainDoc, $oldprefix) !== 0) {
+			return 1;
+		}
+
+		$filename = substr($lastMainDoc, strlen($oldprefix));
+		if (strpos($filename, $oldrefsan) === 0) {
+			$filename = $newrefsan.substr($filename, strlen($oldrefsan));
+		}
+
+		$newLastMainDoc = $newprefix.$filename;
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET last_main_doc = '".$this->db->escape($newLastMainDoc)."'";
+		$sql .= " WHERE rowid = ".((int) $this->id);
+		$sql .= " AND entity = ".((int) $this->entity);
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		$this->last_main_doc = $newLastMainDoc;
+
+		return 1;
+	}
+
+	/**
+	 * Move files from an existing provisional directory to an existing final directory without overwriting.
+	 *
+	 * @param	string	$dirsource	Source directory
+	 * @param	string	$dirdest	Destination directory
+	 * @param	string	$oldrefsan	Old sanitized ref
+	 * @param	string	$newrefsan	New sanitized ref
+	 * @return	void
+	 */
+	protected function moveDocumentFilesWithoutOverwrite($dirsource, $dirdest, $oldrefsan, $newrefsan)
+	{
+		$listoffiles = dol_dir_list($dirsource, 'files', 1);
+		foreach ($listoffiles as $fileentry) {
+			$relative = substr($fileentry['path'], strlen($dirsource));
+			$targetdir = $dirdest.$relative;
+			if (!is_dir($targetdir)) {
+				dol_mkdir($targetdir);
+			}
+			$targetname = $fileentry['name'];
+			if (strpos($targetname, $oldrefsan) === 0) {
+				$targetname = $newrefsan.substr($targetname, strlen($oldrefsan));
+			}
+			$target = $targetdir.'/'.$targetname;
+			if (!file_exists($target)) {
+				$source = !empty($fileentry['fullname']) ? $fileentry['fullname'] : $fileentry['path'].'/'.$fileentry['name'];
+				@rename($source, $target);
+			}
+		}
+	}
+
+	/**
+	 * Rename files starting with the provisional reference in a document directory.
+	 *
+	 * @param	string	$directory	Directory
+	 * @param	string	$oldrefsan	Old sanitized ref
+	 * @param	string	$newrefsan	New sanitized ref
+	 * @return	void
+	 */
+	protected function renameDocumentFilesInDirectory($directory, $oldrefsan, $newrefsan)
+	{
+		$listoffiles = dol_dir_list($directory, 'files', 1, '^'.preg_quote($oldrefsan, '/'));
+		foreach ($listoffiles as $fileentry) {
+			$targetname = $newrefsan.substr($fileentry['name'], strlen($oldrefsan));
+			$target = $fileentry['path'].'/'.$targetname;
+			if (!file_exists($target)) {
+				$source = !empty($fileentry['fullname']) ? $fileentry['fullname'] : $fileentry['path'].'/'.$fileentry['name'];
+				@rename($source, $target);
+			}
+		}
 	}
 
 	/**
