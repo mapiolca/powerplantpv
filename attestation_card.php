@@ -367,6 +367,18 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<tr><td>'.$langs->trans('ProjectName').'</td><td>'.dol_escape_htmltag($derivedData['project_name']).'</td></tr>';
 	print '<tr><td>'.$langs->trans('Address').'</td><td>'.dol_escape_htmltag($derivedData['site_full_address']).'</td></tr>';
 	print '<tr><td>'.$langs->trans('AttestationDate').'</td><td>'.dol_print_date($object->date_attestation, 'day').'</td></tr>';
+	if (in_array($object->type_code, array(PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR, PowerPlantPVAttestationTypes::TYPE_BRIDAGE_STATIQUE_ONDULEUR), true)) {
+		print '<tr><td>'.$langs->trans('AttestationMaxExportPowerKw').'</td><td>'.($object->max_export_power_kw !== null && $object->max_export_power_kw !== '' ? price($object->max_export_power_kw) : '').'</td></tr>';
+	}
+	if ($object->type_code == PowerPlantPVAttestationTypes::TYPE_REGLAGE_MAX_FREQ_51_5HZ) {
+		print '<tr><td>'.$langs->trans('AttestationMaxFrequencyHz').'</td><td>'.($object->max_frequency_hz !== null && $object->max_frequency_hz !== '' ? price($object->max_frequency_hz) : '').'</td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationSettingDate').'</td><td>'.(!empty($object->date_setting) ? dol_print_date($object->date_setting, 'day') : '').'</td></tr>';
+	}
+	if ($object->type_code == PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC) {
+		print '<tr><td>'.$langs->trans('AttestationBtaContractNumber').'</td><td>'.dol_escape_htmltag($object->bta_contract_number).'</td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationCompletionDate').'</td><td>'.(!empty($object->date_completion) ? dol_print_date($object->date_completion, 'day') : '').'</td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationLandscapeIntegrationPrime').'</td><td>'.yn((int) $object->landscape_integration_prime).'</td></tr>';
+	}
 	print '<tr><td>'.$langs->trans('AttestationPlace').'</td><td>'.dol_escape_htmltag($derivedData['place']).'</td></tr>';
 	print '<tr><td>'.$langs->trans('AttestationInstallerName').'</td><td>'.dol_escape_htmltag($derivedData['installer_name']).'</td></tr>';
 	print '<tr><td>'.$langs->trans('AttestationWriterName').'</td><td>'.dol_escape_htmltag($derivedData['writer_name']).'</td></tr>';

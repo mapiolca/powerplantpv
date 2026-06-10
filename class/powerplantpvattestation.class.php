@@ -735,6 +735,15 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
+		$requiredFieldErrors = array(
+			'date_attestation' => 'AttestationDateRequired',
+			'date_setting' => 'AttestationSettingDateRequired',
+			'date_completion' => 'AttestationCompletionDateRequired',
+			'bta_contract_number' => 'AttestationBtaContractNumberRequired',
+			'max_export_power_kw' => 'AttestationMaxExportPowerRequired',
+			'max_frequency_hz' => 'AttestationMaxFrequencyRequired',
+		);
+
 		foreach (!empty($type['required_fields']) ? (array) $type['required_fields'] : array() as $field) {
 			$value = isset($this->{$field}) ? $this->{$field} : null;
 			if ($field === 'fk_powerplant' && empty($value)) {
@@ -742,11 +751,15 @@ class PowerPlantPVAttestation extends CommonObject
 				return -1;
 			}
 			if (in_array($field, array('max_export_power_kw', 'max_frequency_hz'), true) && price2num($value, 'MU') <= 0) {
-				$this->error = 'AttestationSnapshotDataRequired';
+				$this->error = !empty($requiredFieldErrors[$field]) ? $requiredFieldErrors[$field] : 'AttestationSnapshotDataRequired';
+				return -1;
+			}
+			if (in_array($field, array('date_attestation', 'date_setting', 'date_completion'), true) && empty($value)) {
+				$this->error = !empty($requiredFieldErrors[$field]) ? $requiredFieldErrors[$field] : 'AttestationSnapshotDataRequired';
 				return -1;
 			}
 			if ($value === null || $value === '') {
-				$this->error = 'AttestationSnapshotDataRequired';
+				$this->error = !empty($requiredFieldErrors[$field]) ? $requiredFieldErrors[$field] : 'AttestationSnapshotDataRequired';
 				return -1;
 			}
 		}
@@ -755,18 +768,23 @@ class PowerPlantPVAttestation extends CommonObject
 			dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 		}
 		$derived = function_exists('powerplantpvAttestationGetDerivedData') ? powerplantpvAttestationGetDerivedData($this) : array();
-		if (empty($derived['place']) || empty($derived['installer_name']) || empty($derived['writer_name'])) {
-			$this->error = 'AttestationSnapshotDataRequired';
+		if (empty($derived['place']) || empty($derived['installer_name'])) {
+			$this->error = 'AttestationMyCompanyDataRequired';
+			return -1;
+		}
+
+		if (empty($derived['writer_name'])) {
+			$this->error = 'AttestationAuthorRequired';
 			return -1;
 		}
 
 		if ($this->type_code !== PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC && (empty($derived['site_address']) || empty($derived['site_zip']) || empty($derived['site_town']))) {
-			$this->error = 'AttestationSnapshotDataRequired';
+			$this->error = 'AttestationSiteAddressRequired';
 			return -1;
 		}
 
 		if ($this->type_code === PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC && empty($derived['installer_address'])) {
-			$this->error = 'AttestationSnapshotDataRequired';
+			$this->error = 'AttestationMyCompanyDataRequired';
 			return -1;
 		}
 

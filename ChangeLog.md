@@ -16,6 +16,7 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - les modèles core des attestations sont isolés dans `core/modules/attestation` et les pages liste/fiche journalisent désormais les sorties précoces pour diagnostiquer les erreurs 500 ;
 - correction du bloc documents des attestations : la génération utilise les modèles de `core/modules/attestation` sans demander à `FormFile::showdocuments()` une classe PDF sous `core/modules/powerplantpv` ;
 - l'onglet de réglages Attestations expose désormais les blocs natifs Dolibarr de numérotation et de modèles de documents pour l'objet `attestation` ;
+- la validation des attestations indique désormais le champ ou la source native manquante, et la fiche affiche les champs métier conditionnels utiles à la validation ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0
