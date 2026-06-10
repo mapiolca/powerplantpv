@@ -180,6 +180,10 @@ class PowerPlantPVAttestation extends CommonObject
 			$this->db->rollback();
 			return $result;
 		}
+		if (empty($this->id) && $result > 0) {
+			$this->id = (int) $result;
+			$this->rowid = (int) $result;
+		}
 
 		if ($this->ref === '(PROV)') {
 			$refresult = $this->assignProvisionalReference();
