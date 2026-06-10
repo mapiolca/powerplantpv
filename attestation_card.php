@@ -446,8 +446,10 @@ if ($action == 'create' && empty($typeCode)) {
 	print '<div class="fichecenter">';
 	print '<div class="fichehalfleft">';
 	$uploadDir = powerplantpvAttestationGetDocumentUploadDir($object);
-	powerplantpvAttestationPrintDocumentGenerationForm($object, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $permissiontoadd, $object->model_pdf, 0, '', $langs->defaultlang);
-	print $formfile->showdocuments(powerplantpvAttestationGetDocumentModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $uploadDir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, 0, $permissiontodelete, $object->model_pdf, 1, 0, 0, 28, 0, '', 'none', '', $langs->defaultlang, '', $object);
+	powerplantpvAttestationNormalizeDocumentDirectory($object);
+	$genallowed = ($permissiontoadd && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
+	$delallowed = ($permissiontodelete && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
+	print $formfile->showdocuments(powerplantpvAttestationGetDocumentGenerationModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $uploadDir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
 	if (method_exists($form, 'showLinkedObjectBlock')) {
 		$form->showLinkedObjectBlock($object);
 	}

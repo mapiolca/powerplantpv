@@ -113,6 +113,7 @@ class PowerPlantPVAttestation extends CommonObject
 	public $last_main_doc;
 	public $import_key;
 	public $status;
+	public $trackid;
 
 	/**
 	 * @var PowerPlantPVAttestationEquipmentLine[]

@@ -60,6 +60,7 @@ $permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write') && (int) 
 $permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete') && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED;
 restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', 0);
 
+powerplantpvAttestationNormalizeDocumentDirectory($object);
 $upload_dir = powerplantpvAttestationGetDocumentUploadDir($object);
 include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 $upload_dir = powerplantpvAttestationGetDocumentRootDir(!empty($object->entity) ? $object->entity : $conf->entity);
@@ -90,10 +91,8 @@ print '</table>';
 print '</div>';
 print dol_get_fiche_end();
 
-powerplantpvAttestationPrintDocumentGenerationForm($object, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $permissiontoadd, $object->model_pdf, 0, '', $langs->defaultlang);
-
 $modulepart = powerplantpvAttestationGetDocumentModulePart();
-$relativepathwithnofile = powerplantpvAttestationGetDocumentRelativePath($object);
+$relativepathwithnofile = powerplantpvAttestationGetDocumentRelativePath($object).'/';
 $param = '&id='.(int) $object->id;
 $permission = $permissiontoadd;
 $permtoedit = $permissiontoadd;
