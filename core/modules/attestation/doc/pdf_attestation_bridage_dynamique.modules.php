@@ -74,15 +74,6 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$this->renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
 
 		$pdf->Ln(4);
-		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicChecksDone', $defaultFontSize);
-		$this->renderBulletList($pdf, $outputlangs, array(
-			'AttestationDynamicCheckMeasureDirection',
-			'AttestationDynamicCheckInverterCommunication',
-			'AttestationDynamicCheckInjectionLimit',
-			'AttestationDynamicCheckDynamicBridageTest',
-		));
-
-		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicResult', $defaultFontSize);
 		$pdf->SetFont('', '', $defaultFontSize);
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationDynamicResultText')), 0, 'L');
@@ -116,21 +107,6 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$pdf->SetFont('', 'B', $fontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 0, 'L');
 		$pdf->SetFont('', '', $fontSize);
-	}
-
-	/**
-	 * Render a translated bullet list.
-	 *
-	 * @param	TCPDF|TCPDI			$pdf			PDF
-	 * @param	Translate			$outputlangs	Output lang
-	 * @param	array<int,string>	$keys			Translation keys
-	 * @return	void
-	 */
-	protected function renderBulletList($pdf, $outputlangs, $keys)
-	{
-		foreach ($keys as $key) {
-			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset('- '.$outputlangs->transnoentities($key)), 0, 'L');
-		}
 	}
 
 	/**
