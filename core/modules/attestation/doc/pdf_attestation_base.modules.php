@@ -35,8 +35,8 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	public $emetteur;
 	protected $titleKey = 'Attestation';
 	protected $validationWarningKey = '';
-	protected $footerRaise = 8;
-	protected $footerReservedBottom = 28;
+	protected $footerRaise = 10;
+	protected $footerReservedBottom = 38;
 	protected $currentObject;
 	protected $currentOutputLangs;
 
@@ -114,6 +114,9 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->SetFont(pdf_getPDFFont($outputlangs), '', $defaultFontSize);
 		$pdf->SetMargins($this->marge_gauche, $this->marge_haute, $this->marge_droite);
 		$pdf->SetAutoPageBreak(true, $this->getReservedBottomMargin());
+		if (method_exists($pdf, 'setPageOrientation')) {
+			$pdf->setPageOrientation('', true, $this->getReservedBottomMargin());
+		}
 		$pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
 		$pdf->SetCreator('Dolibarr '.DOL_VERSION);
 		$pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
@@ -324,6 +327,9 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 */
 	protected function renderFooter($pdf, $object, $outputlangs)
 	{
+		if (method_exists($pdf, 'setPageOrientation')) {
+			$pdf->setPageOrientation('', true, $this->getReservedBottomMargin());
+		}
 		$showdetails = !getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 0 : getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS');
 		return pdf_pagefoot($pdf, $outputlangs, 'POWERPLANTPV_FREE_TEXT', $this->emetteur, $this->marge_basse + $this->footerRaise, $this->marge_gauche, $this->page_hauteur - $this->footerRaise, $object, $showdetails, 0);
 	}
@@ -365,6 +371,9 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$this->renderFooter($pdf, $this->currentObject, $this->currentOutputLangs);
 		}
 		$pdf->AddPage();
+		if (method_exists($pdf, 'setPageOrientation')) {
+			$pdf->setPageOrientation('', true, $this->getReservedBottomMargin());
+		}
 		if (is_object($this->currentObject) && is_object($this->currentOutputLangs)) {
 			$this->renderHeader($pdf, $this->currentObject, $this->currentOutputLangs);
 		}

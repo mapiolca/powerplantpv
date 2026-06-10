@@ -344,19 +344,6 @@ if (!empty($reshook)) {
 		exit;
 	}
 	setEventMessages($object->error, $object->errors, 'errors');
-} elseif ($action == 'sendsign' && $permissiontosign && $object->id > 0) {
-	if (function_exists('checkToken') && !checkToken()) {
-		accessforbidden('Bad token');
-	}
-	$signatureToken = $object->generateSignatureToken($user);
-	if ($signatureToken !== '') {
-		$_SESSION['POWERPLANTPV_ATTESTATION_SIGNATURE_URL_'.((int) $object->id)] = $object->getPublicSignatureUrl($signatureToken);
-		setEventMessages($langs->trans('AttestationSignatureLinkGenerated'), null, 'mesgs');
-	} else {
-		setEventMessages($object->error, $object->errors, 'errors');
-	}
-	header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $object->id);
-	exit;
 }
 
 $form = new Form($db);
@@ -469,19 +456,6 @@ if ($action == 'create' && empty($typeCode)) {
 	$head = powerplantpvAttestationPrepareHead($object);
 	print dol_get_fiche_head($head, 'card', $langs->trans('Attestation'), -1, $object->picto);
 	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object));
-	$signatureUrlSessionKey = 'POWERPLANTPV_ATTESTATION_SIGNATURE_URL_'.((int) $object->id);
-	if (!empty($_SESSION[$signatureUrlSessionKey])) {
-		$signatureUrl = (string) $_SESSION[$signatureUrlSessionKey];
-		unset($_SESSION[$signatureUrlSessionKey]);
-		print '<div class="info">';
-		print '<strong>'.$langs->trans('AttestationSignaturePublicLink').'</strong><br>';
-		print $langs->trans('AttestationSignatureLinkOnlyShownOnce').'<br>';
-		print '<input type="text" class="flat minwidth500 maxwidthonsmartphone" readonly="readonly" onclick="this.select();" value="'.dol_escape_htmltag($signatureUrl).'">';
-		if (!empty($object->signature_token_expiry)) {
-			print '<br><span class="opacitymedium">'.$langs->trans('AttestationSignatureLinkExpiresOn').' : '.dol_print_date($object->signature_token_expiry, 'dayhour').'</span>';
-		}
-		print '</div>';
-	}
 	print '<div class="fichecenter"><div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfield">';
 	print '<tr><td class="titlefield">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
@@ -534,11 +508,6 @@ if ($action == 'create' && empty($typeCode)) {
 	if ($permissiontovalidate && $object->status == PowerPlantPVAttestation::STATUS_DRAFT) {
 		print dolGetButtonAction($langs->trans('Validate'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=validate&token='.newToken(), '', true);
 	}
-	if ($permissiontosign && in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE), true)) {
-		$signatureLinkLabel = ((int) $object->status === PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE ? 'AttestationRegenerateSignatureLink' : 'AttestationSendToSignature');
-		print dolGetButtonAction($langs->trans($signatureLinkLabel), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=sendsign&token='.newToken(), '', true);
-		print dolGetButtonAction($langs->trans('Sign'), '', 'default', dol_buildpath('/powerplantpv/attestation_signature.php', 1).'?id='.(int) $object->id, '', true);
-	}
 	if ($permissiontocancel && !in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_SIGNED, PowerPlantPVAttestation::STATUS_CANCELED), true)) {
 		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=cancel&token='.newToken(), '', true);
 	}
@@ -554,6 +523,11 @@ if ($action == 'create' && empty($typeCode)) {
 	$genallowed = ($permissiontoadd && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
 	$delallowed = ($permissiontodelete && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
 	print $formfile->showdocuments(powerplantpvAttestationGetDocumentGenerationModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $uploadDir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
+	if ($permissiontosign && getDolGlobalInt('POWERPLANTPV_ATTESTATION_ALLOW_ONLINESIGN', 1) && in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE), true)) {
+		print '<br>';
+		print powerplantpvAttestationShowOnlineSignatureUrl($object);
+		print '<br>';
+	}
 	if (method_exists($form, 'showLinkedObjectBlock')) {
 		$form->showLinkedObjectBlock($object);
 	}

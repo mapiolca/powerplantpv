@@ -148,8 +148,8 @@ class PowerPlantPVCompatibility
 				'available' => $baseavailable,
 				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
 			),
-			'attestation_internal_signature' => array(
-				'label' => 'AttestationInternalSignature',
+			'attestation_online_signature' => array(
+				'label' => 'AttestationOnlineSignature',
 				'description' => 'AttestationCompatibilitySignatureDescription',
 				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
 				'min_php' => self::MIN_PHP_VERSION,

@@ -30,7 +30,7 @@ Dolibarr v20.0.
 | Import XLSX des caractéristiques produit | v20.0 + lecteur XLSX disponible | L'analyse XLSX utilise d'abord une lecture ZIP/XML native, puis PhpSpreadsheet si disponible. | Si aucun lecteur XLSX n'est disponible, l'import CSV reste disponible et l'onglet Compatibilité indique l'indisponibilité XLSX. |
 | Attestations PowerPlantPV | v20.0 | L'objet, les listes, les documents, les triggers, les notifications et les réglages utilisent les APIs Dolibarr disponibles en v20. | La fonctionnalité est masquée si le module est désactivé ou si les droits dédiés sont absents. |
 | Modèles PDF d'attestation | v20.0 | Les modèles héritent du générateur PDF Dolibarr et écrivent dans le répertoire documentaire Multicompany de l'objet. | Les modèles V1 restent des squelettes fonctionnels à valider métier avant usage contractuel. |
-| Signature interne d'attestation | v20.0 + `hash_file()` disponible | La signature stocke une image PNG, régénère une copie PDF signée et calcule une empreinte SHA-256. | Si `hash_file()` est indisponible, l'onglet Compatibilité signale l'indisponibilité de la signature interne. |
+| Signature en ligne d'attestation | v20.0 + `hash_file()` disponible | La signature suit le schéma Dolibarr `source/ref/securekey`, stocke une image PNG, régénère une copie PDF signée et calcule une empreinte SHA-256. La page core `/public/onlinesign/newonlinesign.php` est utilisée seulement si elle supporte explicitement la source attestation. | Si `hash_file()` est indisponible, l'onglet Compatibilité signale l'indisponibilité de la signature en ligne. |
 
 ## Fonctionnalités avec rétrocompatibilité
 

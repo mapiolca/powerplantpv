@@ -43,13 +43,15 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicInstallationTitle', $defaultFontSize);
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicProducer', $this->valueOrNotProvided($producerName, $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicSiteAddress', $this->valueOrNotProvided($derivedData['site_full_address'], $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicPrmPdlReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'prm_pdl_number'), $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicConnectionRequestReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'connection_request_number'), $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicInstalledPower', $this->valueOrNotProvided($this->formatPower($this->getPowerPlantValue($powerplant, 'installed_power'), 'kWc'), $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicInverterPower', $this->valueOrNotProvided($inverterPower, $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicAuthorizedMaxInjectionPower', $this->valueOrNotProvided($maxExportPower, $outputlangs));
+		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, array(
+			array('AttestationDynamicProducer', $this->valueOrNotProvided($producerName, $outputlangs)),
+			array('AttestationDynamicSiteAddress', $this->valueOrNotProvided($derivedData['site_full_address'], $outputlangs)),
+			array('AttestationDynamicPrmPdlReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'prm_pdl_number'), $outputlangs)),
+			array('AttestationDynamicConnectionRequestReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'connection_request_number'), $outputlangs)),
+			array('AttestationDynamicInstalledPower', $this->valueOrNotProvided($this->formatPower($this->getPowerPlantValue($powerplant, 'installed_power'), 'kWc'), $outputlangs)),
+			array('AttestationDynamicInverterPower', $this->valueOrNotProvided($inverterPower, $outputlangs)),
+			array('AttestationDynamicAuthorizedMaxInjectionPower', $this->valueOrNotProvided($maxExportPower, $outputlangs)),
+		));
 
 		$pdf->Ln(4);
 		$pdf->SetFont('', '', $defaultFontSize);
@@ -69,9 +71,18 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicEquipmentUsed', $defaultFontSize);
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicInverters', $this->formatEquipmentList($this->getEquipmentLinesByType($object, 'INVERTER'), $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicMeteringDevice', $this->formatEquipmentList($this->getMeteringLines($object), $outputlangs));
-		$this->renderKeyValue($pdf, $outputlangs, 'AttestationDynamicCommunication', $this->valueOrNotProvided($this->detectCommunication($object), $outputlangs));
+		$equipmentRows = array(
+			array('AttestationDynamicInverters', $this->formatEquipmentList($this->getEquipmentLinesByType($object, 'INVERTER'), $outputlangs)),
+		);
+		$meteringDevice = $this->formatEquipmentList($this->getMeteringLines($object), $outputlangs);
+		if ($this->isProvidedValue($meteringDevice, $outputlangs)) {
+			$equipmentRows[] = array('AttestationDynamicMeteringDevice', $meteringDevice);
+		}
+		$communication = $this->detectCommunication($object);
+		if ($this->isProvidedValue($communication, $outputlangs)) {
+			$equipmentRows[] = array('AttestationDynamicCommunication', $communication);
+		}
+		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, $equipmentRows);
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicChecksDone', $defaultFontSize);
@@ -131,6 +142,67 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		foreach ($keys as $key) {
 			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset('- '.$outputlangs->transnoentities($key)), 0, 'L');
 		}
+	}
+
+	/**
+	 * Render section rows as a native-looking PDF table.
+	 *
+	 * @param	TCPDF|TCPDI							$pdf				PDF
+	 * @param	Translate							$outputlangs		Output lang
+	 * @param	int									$defaultFontSize	Default font size
+	 * @param	array<int,array{0:string,1:string}>	$rows				Rows
+	 * @return	void
+	 */
+	protected function renderInfoTable($pdf, $outputlangs, $defaultFontSize, $rows)
+	{
+		$labelWidth = 62;
+		$valueWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite - $labelWidth;
+		$fontSize = max($defaultFontSize - 1, 7);
+
+		foreach ($rows as $row) {
+			$this->renderInfoTableRow($pdf, $outputlangs, array($labelWidth, $valueWidth), $row[0], $row[1], $fontSize);
+		}
+		$pdf->Ln(2);
+	}
+
+	/**
+	 * Render a multiline table row.
+	 *
+	 * @param	TCPDF|TCPDI			$pdf			PDF
+	 * @param	Translate			$outputlangs	Output lang
+	 * @param	array<int,float>	$widths			Column widths
+	 * @param	string				$labelKey		Translation key
+	 * @param	string				$value			Value
+	 * @param	int					$fontSize		Font size
+	 * @return	void
+	 */
+	protected function renderInfoTableRow($pdf, $outputlangs, $widths, $labelKey, $value, $fontSize)
+	{
+		$label = $outputlangs->convToOutputCharset($outputlangs->transnoentities($labelKey));
+		$text = $outputlangs->convToOutputCharset((string) $value);
+		$height = 6;
+		if (method_exists($pdf, 'getStringHeight')) {
+			$height = max($height, $pdf->getStringHeight($widths[0], $label) + 2, $pdf->getStringHeight($widths[1], $text) + 2);
+		} else {
+			$height = max($height, 5 * (max(substr_count((string) $label, "\n"), substr_count((string) $value, "\n")) + 1));
+		}
+		$this->ensureSpace($pdf, $height + 2);
+
+		$x = $this->marge_gauche;
+		$y = $pdf->GetY();
+		$pdf->SetDrawColor(190, 190, 190);
+		$pdf->SetFillColor(245, 245, 245);
+
+		$pdf->SetXY($x, $y);
+		$pdf->SetFont('', 'B', $fontSize);
+		$pdf->MultiCell($widths[0], $height, $label, 1, 'L', true, 0);
+		$x += $widths[0];
+
+		$pdf->SetXY($x, $y);
+		$pdf->SetFont('', '', $fontSize);
+		$pdf->MultiCell($widths[1], $height, $text, 1, 'L', false, 1);
+		$pdf->SetDrawColor(0, 0, 0);
+		$pdf->SetY($y + $height);
 	}
 
 	/**
@@ -393,6 +465,33 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		}
 
 		return implode(' / ', $protocols);
+	}
+
+	/**
+	 * Test if a printable value contains business data.
+	 *
+	 * @param	string		$value			Value
+	 * @param	Translate	$outputlangs	Output lang
+	 * @return	bool						True if value must be shown
+	 */
+	protected function isProvidedValue($value, $outputlangs)
+	{
+		$value = trim((string) $value);
+		if ($value === '') {
+			return false;
+		}
+
+		$fallbacks = array(
+			$outputlangs->transnoentities('AttestationDynamicNotProvided'),
+			$outputlangs->transnoentities('AttestationNotProvided'),
+			'Non renseigné',
+			'Not provided',
+			'No proporcionado',
+			'Non indicato',
+			'Nicht angegeben',
+		);
+
+		return !in_array($value, $fallbacks, true);
 	}
 
 	/**

@@ -148,6 +148,48 @@ function powerplantpvAttestationGetOnlineSignatureSecuritySeed()
 }
 
 /**
+ * Check if the Dolibarr core online signature page can handle the attestation source.
+ *
+ * Core v20/v23 rejects unsupported custom sources before module hooks can load the object,
+ * so the module endpoint is kept as a native-compatible fallback.
+ *
+ * @return	int<0,1>	1 if core public page explicitly supports attestations
+ */
+function powerplantpvAttestationCanUseCoreOnlineSignaturePage()
+{
+	static $canusecore = null;
+
+	if ($canusecore !== null) {
+		return $canusecore;
+	}
+
+	$canusecore = 0;
+	$corefile = DOL_DOCUMENT_ROOT.'/public/onlinesign/newonlinesign.php';
+	if (is_readable($corefile)) {
+		$content = file_get_contents($corefile, false, null, 0, 65536);
+		if (is_string($content) && strpos($content, powerplantpvAttestationGetOnlineSignatureSource()) !== false) {
+			$canusecore = 1;
+		}
+	}
+
+	return $canusecore;
+}
+
+/**
+ * Return the public online signature endpoint.
+ *
+ * @return	string	URL path from Dolibarr root
+ */
+function powerplantpvAttestationGetOnlineSignatureEndpoint()
+{
+	if (powerplantpvAttestationCanUseCoreOnlineSignaturePage()) {
+		return '/public/onlinesign/newonlinesign.php';
+	}
+
+	return '/custom/powerplantpv/attestation_signature.php';
+}
+
+/**
  * Return a public online signature URL for an attestation.
  *
  * @param	int<0,1>					$mode				0=real URL, 1=template URL
@@ -171,7 +213,7 @@ function powerplantpvAttestationGetOnlineSignatureUrl($mode, $object, $localorex
 	$entity = !empty($object->entity) ? (int) $object->entity : 1;
 	$seed = powerplantpvAttestationGetOnlineSignatureSecuritySeed();
 
-	$out = $urltouse.'/custom/powerplantpv/attestation_signature.php?source='.$type.'&ref=';
+	$out = $urltouse.powerplantpvAttestationGetOnlineSignatureEndpoint().'?source='.$type.'&ref=';
 	if ($mode == 1) {
 		$out .= 'attestation_ref';
 		$out .= '&securekey=hash(\''.$seed.'\' + \''.$type.'\' + attestation_ref)';
@@ -181,6 +223,39 @@ function powerplantpvAttestationGetOnlineSignatureUrl($mode, $object, $localorex
 	}
 	if (isModEnabled('multicompany')) {
 		$out .= '&entity='.$entity;
+	}
+
+	return $out;
+}
+
+/**
+ * Return a native-like online signature link block for an attestation.
+ *
+ * @param	PowerPlantPVAttestation	$object	Attestation
+ * @param	string					$mode	Display mode
+ * @return	string							HTML
+ */
+function powerplantpvAttestationShowOnlineSignatureUrl($object, $mode = '')
+{
+	global $langs;
+
+	$langs->loadLangs(array('payment', 'stripe', 'powerplantpv@powerplantpv'));
+
+	$servicename = 'Online';
+	$out = '';
+	if ($mode !== 'short') {
+		$out .= img_picto('', 'globe', 'class="pictofixedwidth"');
+	}
+	$out .= $langs->trans('ToOfferALinkForOnlineSignature', $servicename).'<br>';
+	$url = powerplantpvAttestationGetOnlineSignatureUrl(0, $object, 1);
+	if ($url === '') {
+		$out .= $langs->trans('FeatureOnlineSignDisabled');
+	} else {
+		$out .= '<input type="text" id="onlinesignatureurl" class="quatrevingtpercentminusx" readonly="readonly" value="'.dol_escape_htmltag($url).'">';
+		$out .= ' <a href="'.$url.'" target="_blank" rel="noopener noreferrer">'.img_picto('', 'globe', 'class="paddingleft"').'</a>';
+		if (function_exists('ajax_autoselect')) {
+			$out .= '<br>'.ajax_autoselect('onlinesignatureurl', '');
+		}
 	}
 
 	return $out;
@@ -203,7 +278,12 @@ function powerplantpvAttestationVerifyOnlineSignatureSecureKey($object, $securek
 	$entity = !empty($object->entity) ? (int) $object->entity : 1;
 	$payload = powerplantpvAttestationGetOnlineSignatureSecuritySeed().$type.(string) $object->ref.(isModEnabled('multicompany') ? $entity : '');
 
-	return (int) dol_verifyHash($payload, $securekey, '0');
+	if (function_exists('dol_verifyHash')) {
+		return (int) dol_verifyHash($payload, $securekey, '0');
+	}
+
+	$expected = dol_hash($payload, '0');
+	return (int) (function_exists('hash_equals') ? hash_equals($expected, $securekey) : ($expected === $securekey));
 }
 
 /**
@@ -885,6 +965,10 @@ function powerplantpvAttestationStoreSignatureImage($object, $dataUrl)
 {
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 
+	$dataUrl = trim((string) $dataUrl);
+	if (strpos($dataUrl, 'image/png;base64,') === 0) {
+		$dataUrl = 'data:'.$dataUrl;
+	}
 	if (!preg_match('#^data:image/png;base64,#', $dataUrl)) {
 		$object->error = 'AttestationSignatureMustBePng';
 		return '';
@@ -898,12 +982,16 @@ function powerplantpvAttestationStoreSignatureImage($object, $dataUrl)
 
 	$uploadDir = powerplantpvAttestationGetDocumentUploadDir($object);
 	dol_mkdir($uploadDir);
-	$relative = powerplantpvAttestationGetDocumentRelativePath($object).'/signature.png';
+	$date = dol_print_date(dol_now(), '%Y%m%d%H%M%S');
+	$relative = powerplantpvAttestationGetDocumentRelativePath($object).'/signatures/'.$date.'_signature.png';
 	$target = powerplantpvAttestationGetDocumentRootDir($object->entity).'/'.$relative;
 	dol_mkdir(dirname($target));
 	if (file_put_contents($target, $raw) === false) {
 		$object->error = 'ErrorFailedToSaveFile';
 		return '';
+	}
+	if (function_exists('dolChmod')) {
+		dolChmod($target);
 	}
 
 	return $relative;

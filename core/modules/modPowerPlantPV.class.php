@@ -195,7 +195,8 @@ class modPowerPlantPV extends DolibarrModules
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_MASK', 'chaine', 'ATT{yy}{mm}-{0000}', 'Default attestation numbering mask', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_DEFAULT_MAX_FREQUENCY_HZ', 'chaine', '51.5', 'Default attestation maximum frequency', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_DEFAULT_BRIDAGE_POWER', 'chaine', '', 'Default attestation curtailment power', 0, 'current');
-		$this->const[] = array('POWERPLANTPV_ATTESTATION_SIGNATURE_TOKEN_VALIDITY_DAYS', 'chaine', '30', 'Default attestation public signature link validity in days', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_ALLOW_ONLINESIGN', 'chaine', '1', 'Allow native-compatible online signature for attestations', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_ATTESTATION_ONLINE_SIGNATURE_SECURITY_TOKEN', 'chaine', '', 'Attestation online signature security seed', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_COMPANY_STAMP', 'chaine', 'setup/company_stamp.png', 'Default attestation company stamp', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_BRIDAGE_DYNAMIQUE_MODEL', 'chaine', 'attestation_bridage_dynamique', 'Default dynamic curtailment attestation PDF model', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_BRIDAGE_STATIQUE_MODEL', 'chaine', 'attestation_bridage_statique', 'Default static curtailment attestation PDF model', 0, 'current');
@@ -1015,9 +1016,6 @@ class modPowerPlantPV extends DolibarrModules
 				'signature_user_agent' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'online_sign_name' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'signature_hash' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
-				'signature_token_hash' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
-				'signature_token_date' => array('type' => 'datetime', 'value' => '', 'null' => ''),
-				'signature_token_expiry' => array('type' => 'datetime', 'value' => '', 'null' => ''),
 				'signature_file' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'signed_pdf_file' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'last_main_doc' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
@@ -1076,11 +1074,7 @@ class modPowerPlantPV extends DolibarrModules
 				}
 			}
 
-			if ($table === $this->db->prefix().'powerplantpv_attestation') {
-				$indexes = array(
-					'idx_powerplantpv_attestation_signature_token_hash' => 'signature_token_hash',
-				);
-			} elseif ($table === $this->db->prefix().'powerplantpv_attestation_equipment') {
+			if ($table === $this->db->prefix().'powerplantpv_attestation_equipment') {
 				$indexes = array(
 					'idx_powerplantpv_attestation_equipment_categorie' => 'fk_categorie',
 				);

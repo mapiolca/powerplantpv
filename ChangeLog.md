@@ -5,7 +5,7 @@
 Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - nouvel objet métier `PowerPlantPVAttestation` avec quatre types d'attestations : bridage dynamique onduleur, bridage statique onduleur, réglage fréquence maximale 51,5 Hz et installateur inférieur à 100 kWc ;
 - tables SQL principales et lignes d'équipements, avec `entity`, références, liens centrale/tiers/projet, données gelées, métadonnées de signature et documents ;
-- listes, fiches, onglet documents, onglet agenda et workflow de signature interne avec token, image PNG, tampon d'entreprise, copie PDF signée et empreinte SHA-256 ;
+- listes, fiches, onglet documents, onglet agenda et signature en ligne compatible Dolibarr avec URL `source/ref/securekey`, image PNG, tampon d'entreprise, copie PDF signée et empreinte SHA-256 ;
 - modèles PDF fonctionnels pour les quatre types, prêts pour validation métier des contenus légaux ;
 - droits Dolibarr dédiés, menus internes au module, numérotation native, réglages par entité, partage Multicompany et colonne Environnement en liste lorsque nécessaire ;
 - triggers Agenda et Notifications natifs pour création, validation, génération PDF, envoi en signature, signature, annulation et suppression ;
@@ -27,8 +27,9 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - complétude des traductions pour les événements automatiques, notifications et statuts longs/courts des centrales PV et attestations ;
 - ajout sur l'index PowerPlantPV du tableau natif des dernières attestations modifiées ;
 - refonte du modèle PDF de bridage dynamique onduleur avec contenu métier complet, données centrale/producteur, matériel, contrôles, résultat, signature et cachet ;
+- amélioration du modèle PDF de bridage dynamique onduleur : sections installation et matériel en tableaux, lignes compteur/communication masquées lorsqu'elles sont non renseignées et footer Dolibarr mieux réservé ;
 - alignement du modèle PDF de bridage statique onduleur : titre d'attestation explicite, tableaux installation/matériel, cachet en case dédiée et pied de page natif Dolibarr ;
-- correction du pied de page natif des PDF d'attestation avec marge basse réservée, et ajout d'un lien public sécurisé par jeton pour la signature en ligne sans compte Dolibarr ;
+- correction du pied de page natif des PDF d'attestation avec marge basse réservée, et alignement de la signature en ligne sur le process Dolibarr des devis, avec usage de la page core publique si la source attestation est supportée ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0

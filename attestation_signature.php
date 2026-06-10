@@ -1,25 +1,47 @@
 <?php
-/* Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr> */
-
-/**
- * \file		attestation_signature.php
- * \ingroup		powerplantpv
- * \brief		Internal and public-token attestation signature page.
+/* Copyright (C) 2026  Pierre Ardoin <developpeur@lesmetiersdubatiment.fr>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
-$publicSignatureBoot = !empty($_GET['signature_token']) || !empty($_POST['signature_token']) || !empty($_GET['signature_done']);
-if ($publicSignatureBoot && !defined('NOREQUIREUSER')) {
-	define('NOREQUIREUSER', '1');
+/**
+ * \file       htdocs/custom/powerplantpv/attestation_signature.php
+ * \ingroup    powerplantpv
+ * \brief      Public online signature page for PowerPlantPV attestations
+ */
+
+$ispublicsignature = (!empty($_GET['securekey']) || !empty($_POST['securekey']) || !empty($_GET['message']));
+if ($ispublicsignature) {
+	if (!defined('NOLOGIN')) {
+		define('NOLOGIN', 1);
+	}
+	if (!defined('NOCSRFCHECK')) {
+		define('NOCSRFCHECK', 1);
+	}
+	if (!defined('NOIPCHECK')) {
+		define('NOIPCHECK', 1);
+	}
+	if (!defined('NOBROWSERNOTIF')) {
+		define('NOBROWSERNOTIF', 1);
+	}
+	if (!defined('NOREQUIREMENU')) {
+		define('NOREQUIREMENU', 1);
+	}
+	$entityforpublic = isset($_GET['entity']) ? $_GET['entity'] : (isset($_POST['entity']) ? $_POST['entity'] : 1);
+	if (is_numeric($entityforpublic) && !defined('DOLENTITY')) {
+		define('DOLENTITY', (int) $entityforpublic);
+	}
 }
-if ($publicSignatureBoot && !defined('NOREQUIREMENU')) {
-	define('NOREQUIREMENU', '1');
-}
-$nologin = $publicSignatureBoot ? 1 : 0;
 
 $res = 0;
-if (!$res && !empty($_SERVER["CONTEXT_DOCUMENT_ROOT"])) {
-	$res = @include str_replace("..", "", $_SERVER["CONTEXT_DOCUMENT_ROOT"])."/main.inc.php";
-}
 if (!$res && file_exists("../main.inc.php")) {
 	$res = @include "../main.inc.php";
 }
@@ -34,205 +56,322 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/functions2.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
-$langs->loadLangs(array('powerplantpv@powerplantpv', 'other'));
+global $conf, $db, $langs, $mysoc, $user;
 
-if (empty($user) || !is_object($user)) {
-	$user = new User($db);
-	$user->id = 0;
-}
+$langs->loadLangs(array('main', 'companies', 'other', 'bills', 'orders', 'propal', 'errors', 'powerplantpv@powerplantpv'));
 
-$id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
-$signatureToken = GETPOST('signature_token', 'alphanohtml');
-$publicMode = ($signatureToken !== '');
-
-if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
-	accessforbidden();
+$source = GETPOST('source', 'alpha');
+$ref = GETPOST('ref', 'alphanohtml');
+$securekey = GETPOST('securekey', 'restricthtml');
+$message = GETPOST('message', 'aZ09');
+$signaturedata = GETPOST('signature_data', 'restricthtml');
+$signername = GETPOST('signer_name', 'nohtml');
+$entity = GETPOSTINT('entity');
+if (empty($entity)) {
+	$entity = (int) $conf->entity;
 }
 
-if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
-	$attestationInstallationIssues = powerplantpvAttestationGetInstallationIssues();
-	if (!empty($attestationInstallationIssues['tables']) || !empty($attestationInstallationIssues['columns'])) {
-		dol_syslog(
-			'PowerPlantPV attestation signature unavailable: missing tables '.implode(', ', $attestationInstallationIssues['tables']).' columns '.implode(', ', $attestationInstallationIssues['columns']).' id='.$id,
-			LOG_ERR
-		);
-		accessforbidden($langs->trans('AttestationInstallationIncomplete'));
+/**
+ * Return a forbidden response suitable for the public online signature page.
+ *
+ * @param string $message Error message
+ * @return void
+ */
+function powerplantpvAttestationOnlineAccessForbidden($message = '')
+{
+	if (function_exists('httponly_accessforbidden')) {
+		httponly_accessforbidden($message);
+		return;
 	}
+	accessforbidden($message);
 }
 
-if (GETPOSTINT('signature_done')) {
-	llxHeader('', $langs->trans('AttestationOnlineSignature'), '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-signature page-attestation-public-signature');
-	print load_fiche_titre($langs->trans('AttestationOnlineSignature'), '', 'fa-file-signature');
-	print '<div class="ok">'.$langs->trans('AttestationSignaturePublicSuccess').'</div>';
-	llxFooter();
-	$db->close();
-	exit;
+/**
+ * Fetch an attestation by reference and entity for public signature.
+ *
+ * @param DoliDB $db     Database handler
+ * @param string $ref    Attestation reference
+ * @param int    $entity Entity id
+ * @return PowerPlantPVAttestation|null
+ */
+function powerplantpvAttestationFetchByRefForOnlineSignature($db, $ref, $entity)
+{
+	$sql = "SELECT rowid";
+	$sql .= " FROM ".MAIN_DB_PREFIX."powerplantpv_attestation";
+	$sql .= " WHERE ref = '".$db->escape($ref)."'";
+	$sql .= " AND entity = ".((int) $entity);
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__METHOD__.' sql error '.$db->lasterror(), LOG_ERR);
+		return null;
+	}
+
+	$obj = $db->fetch_object($resql);
+	$db->free($resql);
+	if (!$obj) {
+		return null;
+	}
+
+	$attestation = new PowerPlantPVAttestation($db);
+	if ($attestation->fetch((int) $obj->rowid) <= 0) {
+		return null;
+	}
+
+	return $attestation;
 }
 
-$object = new PowerPlantPVAttestation($db);
-if ($id <= 0 || $object->fetch($id) <= 0) {
-	accessforbidden();
+/**
+ * Build the current signature URL parameters.
+ *
+ * @param string $source    Online signature source
+ * @param string $ref       Object reference
+ * @param string $securekey Secure key
+ * @param int    $entity    Entity id
+ * @param string $message   Optional message
+ * @return string
+ */
+function powerplantpvAttestationOnlineSignatureParam($source, $ref, $securekey, $entity, $message = '')
+{
+	$param = 'source='.urlencode($source);
+	$param .= '&ref='.urlencode($ref);
+	$param .= '&securekey='.urlencode($securekey);
+	$param .= '&entity='.((int) $entity);
+	if ($message !== '') {
+		$param .= '&message='.urlencode($message);
+	}
+	return $param;
 }
 
-if ($publicMode) {
-	if ($object->validateSignatureToken($signatureToken) < 0) {
-		accessforbidden($langs->trans($object->error));
-	}
-} else {
-	if (empty($user->id) || !powerplantpvAttestationUserHasRight($user, 'sign')) {
-		accessforbidden();
-	}
-	restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', 0);
+if (!isModEnabled('powerplantpv')) {
+	powerplantpvAttestationOnlineAccessForbidden();
+}
+if (function_exists('powerplantpvIsAttestationEnabled') && !powerplantpvIsAttestationEnabled()) {
+	powerplantpvAttestationOnlineAccessForbidden();
+}
+if (!getDolGlobalInt('POWERPLANTPV_ATTESTATION_ALLOW_ONLINESIGN', 1)) {
+	powerplantpvAttestationOnlineAccessForbidden();
+}
+if ($source !== powerplantpvAttestationGetOnlineSignatureSource() || $ref === '' || $securekey === '') {
+	powerplantpvAttestationOnlineAccessForbidden();
 }
 
-if (!in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE), true)) {
-	accessforbidden($langs->trans('AttestationMustBeValidatedBeforeSignature'));
+$object = powerplantpvAttestationFetchByRefForOnlineSignature($db, $ref, $entity);
+if (!is_object($object)) {
+	powerplantpvAttestationOnlineAccessForbidden($langs->trans('ErrorRecordNotFound'));
 }
 
-if ($action == 'sign') {
-	if (function_exists('checkToken') && !checkToken()) {
-		accessforbidden('Bad token');
-	}
-	if ($publicMode && $object->validateSignatureToken($signatureToken) < 0) {
-		accessforbidden($langs->trans($object->error));
-	}
+if (!powerplantpvAttestationVerifyOnlineSignatureSecureKey($object, $securekey)) {
+	powerplantpvAttestationOnlineAccessForbidden();
+}
 
-	$signatureData = GETPOST('signature_data', 'restricthtml');
-	$signatureFile = powerplantpvAttestationStoreSignatureImage($object, $signatureData);
-	if ($signatureFile === '') {
-		setEventMessages($langs->trans($object->error), null, 'errors');
-	} else {
-		$previousStatus = (int) $object->status;
-		$object->signature_file = $signatureFile;
-		$object->date_signature = dol_now();
-		$object->status = PowerPlantPVAttestation::STATUS_SIGNED;
-		$result = $object->generateDocument($object->model_pdf, $langs);
-		$object->status = $previousStatus;
-		if ($result <= 0 || empty($object->last_main_doc)) {
-			setEventMessages($object->error, $object->errors, 'errors');
-		} else {
-			$root = powerplantpvAttestationGetDocumentRootDir($object->entity);
-			$source = $root.'/'.$object->last_main_doc;
-			$signedRelative = powerplantpvAttestationGetDocumentRelativePath($object).'/'.dol_sanitizeFileName($object->ref).'_signed.pdf';
-			$signedFile = $root.'/'.$signedRelative;
-			$result = dol_copy($source, $signedFile, 0, 0);
-			if ($result < 0) {
-				setEventMessages($langs->trans('ErrorFailedToSaveFile'), null, 'errors');
-			} else {
-				$hash = hash_file('sha256', $signedFile);
-				$result = $object->sign($user, $signatureFile, $signedRelative, $hash);
-				if ($result > 0) {
-					if ($publicMode) {
-						header('Location: '.dol_buildpath('/powerplantpv/attestation_signature.php', 1).'?signature_done=1');
-						exit;
-					}
-					setEventMessages($langs->trans('AttestationSigned'), null, 'mesgs');
-					header('Location: '.dol_buildpath('/powerplantpv/attestation_card.php', 1).'?id='.(int) $object->id);
-					exit;
-				}
-				setEventMessages($object->error, $object->errors, 'errors');
-			}
-		}
-	}
+if (!in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE, PowerPlantPVAttestation::STATUS_SIGNED), true)) {
+	powerplantpvAttestationOnlineAccessForbidden($langs->trans('AttestationSignatureNotAllowed'));
+}
+
+if (method_exists($object, 'fetch_thirdparty')) {
+	$object->fetch_thirdparty();
 }
 
 $form = new Form($db);
+$error = 0;
 
-llxHeader('', $langs->trans('Sign').' - '.$object->ref, '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-signature'.($publicMode ? ' page-attestation-public-signature' : ''));
-
-if ($publicMode) {
-	print load_fiche_titre($langs->trans('AttestationOnlineSignature'), '', 'fa-file-signature');
-	print '<div class="fichecenter">';
-	print '<div class="underbanner clearboth"></div>';
-	print '<table class="border centpercent tableforfield">';
-	print '<tr><td class="titlefield">'.$langs->trans('Ref').'</td><td>'.dol_escape_htmltag($object->ref).'</td></tr>';
-	print '<tr><td>'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
-	if (!empty($object->signature_token_expiry)) {
-		print '<tr><td>'.$langs->trans('AttestationSignatureLinkExpiresOn').'</td><td>'.dol_print_date($object->signature_token_expiry, 'dayhour').'</td></tr>';
+if ($action === 'dosign' && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED) {
+	$signaturefile = powerplantpvAttestationStoreSignatureImage($object, $signaturedata);
+	if (empty($signaturefile)) {
+		$error++;
+		setEventMessages($langs->trans('AttestationSignatureRequired'), null, 'errors');
 	}
-	print '</table>';
+
+	$signuser = new User($db);
+	$signuser->id = 0;
+
+	if (!$error) {
+		$oldstatus = $object->status;
+		$object->status = PowerPlantPVAttestation::STATUS_SIGNED;
+		$object->date_signature = dol_now();
+		$object->signature_file = $signaturefile;
+		if ($signername !== '') {
+			$object->online_sign_name = $signername;
+		}
+
+		$model = !empty($object->model_pdf) ? $object->model_pdf : '';
+		$result = $object->generateDocument($model, $langs);
+		$object->status = $oldstatus;
+		if ($result < 0) {
+			$error++;
+			setEventMessages($object->error, $object->errors, 'errors');
+		}
+	}
+
+	if (!$error) {
+		$rootdir = powerplantpvAttestationGetDocumentRootDir((int) $object->entity);
+		$sourcefile = '';
+		if (!empty($object->last_main_doc)) {
+			$sourcefile = $rootdir.'/'.$object->last_main_doc;
+		}
+		if (empty($sourcefile) || !dol_is_file($sourcefile)) {
+			$sourcefile = powerplantpvAttestationGetDocumentUploadDir($object).'/'.dol_sanitizeFileName($object->ref).'.pdf';
+		}
+		if (!dol_is_file($sourcefile)) {
+			$error++;
+			setEventMessages($langs->trans('FileNotFound'), null, 'errors');
+		}
+	}
+
+	if (!$error) {
+		$datekey = dol_print_date(dol_now(), '%Y%m%d%H%M%S');
+		$relativepath = powerplantpvAttestationGetDocumentRelativePath($object);
+		$signedrelative = $relativepath.'/'.dol_sanitizeFileName($object->ref).'_signed-'.$datekey.'.pdf';
+		$signedfile = $rootdir.'/'.$signedrelative;
+		dol_mkdir(dirname($signedfile));
+
+		if (!dol_copy($sourcefile, $signedfile, 0, 0)) {
+			$error++;
+			setEventMessages($langs->trans('ErrorFailToCopyFile'), null, 'errors');
+		}
+	}
+
+	if (!$error) {
+		$signaturehash = hash_file('sha256', $signedfile);
+		if (method_exists($object, 'indexFile')) {
+			$object->indexFile($signedfile, 1);
+		}
+		$result = $object->sign($signuser, $signaturefile, $signedrelative, $signaturehash, $signername);
+		if ($result <= 0) {
+			$error++;
+			setEventMessages($object->error, $object->errors, 'errors');
+		}
+	}
+
+	if (!$error) {
+		$url = $_SERVER['PHP_SELF'].'?'.powerplantpvAttestationOnlineSignatureParam($source, $ref, $securekey, $entity, 'signed');
+		header('Location: '.$url);
+		exit;
+	}
+}
+
+$conf->dol_hide_topmenu = 1;
+$conf->dol_hide_leftmenu = 1;
+
+$head = '';
+if (getDolGlobalString('MAIN_SIGN_CSS_URL')) {
+	$head .= '<link rel="stylesheet" type="text/css" href="'.getDolGlobalString('MAIN_SIGN_CSS_URL').'">'."\n";
+}
+$head .= '<script src="'.DOL_URL_ROOT.'/includes/jquery/plugins/jSignature/jSignature.min.js"></script>'."\n";
+
+llxHeader($head, $langs->trans('OnlineSignature'), '', '', 0, 0, array(), array(), '', 'onlinepaymentbody');
+
+if (function_exists('htmlPrintOnlineHeader')) {
+	htmlPrintOnlineHeader($mysoc, $langs, 1, '', 'ONLINE_SIGN_IMAGE_PUBLIC_INTERFACE', 'ONLINE_SIGN_LOGO', 'ONLINE_SIGN_LOGO');
+}
+
+print '<div class="center">';
+print '<div class="inline-block login_vertical_align_top onlinepaymentbody">';
+print '<div class="tagtable centpercent">';
+
+print '<div class="tagtr">';
+print '<div class="tagtd minwidth150 right">'.$langs->trans('Creditor').'</div>';
+print '<div class="tagtd left"><strong>'.dol_escape_htmltag($mysoc->name).'</strong></div>';
+print '</div>';
+
+if (!empty($object->thirdparty) && is_object($object->thirdparty)) {
+	print '<div class="tagtr">';
+	print '<div class="tagtd minwidth150 right">'.$langs->trans('ThirdParty').'</div>';
+	print '<div class="tagtd left"><strong>'.dol_escape_htmltag($object->thirdparty->name).'</strong></div>';
+	print '</div>';
+}
+
+print '<div class="tagtr">';
+print '<div class="tagtd minwidth150 right">'.$langs->trans('Reference').'</div>';
+print '<div class="tagtd left"><strong>'.dol_escape_htmltag($object->ref).'</strong></div>';
+print '</div>';
+
+print '<div class="tagtr">';
+print '<div class="tagtd minwidth150 right">'.$langs->trans('Designation').'</div>';
+print '<div class="tagtd left">'.$langs->trans('SignaturePowerplantpvAttestationRef', dol_escape_htmltag($object->ref)).'</div>';
+print '</div>';
+
+if (method_exists($object, 'getLastMainDocLink')) {
+	$doclink = $object->getLastMainDocLink(powerplantpvAttestationGetDocumentModulePart());
+	if (!empty($doclink)) {
+		print '<div class="tagtr">';
+		print '<div class="tagtd minwidth150 right">'.$langs->trans('Document').'</div>';
+		print '<div class="tagtd left">'.$doclink.'</div>';
+		print '</div>';
+	}
+}
+
+print '</div>';
+
+if ($message === 'signed' || (int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED) {
+	print '<br><div class="ok maxwidth750 center">'.$langs->trans('AttestationOnlineSignatureDone').'</div>';
 } else {
-	$head = powerplantpvAttestationPrepareHead($object);
-	print dol_get_fiche_head($head, 'card', $langs->trans('Attestation'), -1, $object->picto);
-	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object));
-	print '<div class="fichecenter">';
-	print '<div class="underbanner clearboth"></div>';
-}
+	print '<br><form method="POST" id="attestation-sign-form" action="'.$_SERVER['PHP_SELF'].'">';
+	print '<input type="hidden" name="action" value="dosign">';
+	print '<input type="hidden" name="source" value="'.dol_escape_htmltag($source).'">';
+	print '<input type="hidden" name="ref" value="'.dol_escape_htmltag($ref).'">';
+	print '<input type="hidden" name="securekey" value="'.dol_escape_htmltag($securekey).'">';
+	print '<input type="hidden" name="entity" value="'.((int) $entity).'">';
+	print '<input type="hidden" name="signature_data" id="signature_data" value="">';
 
-$formAction = $_SERVER['PHP_SELF'].'?id='.(int) $object->id;
-$signerName = $publicMode ? $langs->trans('AttestationPublicSigner') : $user->getFullName($langs);
-print '<form method="POST" action="'.$formAction.'" id="attestation-sign-form">';
-print '<input type="hidden" name="token" value="'.newToken().'">';
-print '<input type="hidden" name="action" value="sign">';
-if ($publicMode) {
-	print '<input type="hidden" name="signature_token" value="'.dol_escape_htmltag($signatureToken).'">';
-}
-print '<input type="hidden" name="signature_data" id="signature_data" value="">';
-print '<table class="border centpercent tableforfield">';
-print '<tr><td class="titlefield">'.$langs->trans('AttestationSigner').'</td><td>'.dol_escape_htmltag($signerName).'</td></tr>';
-print '<tr><td>'.$langs->trans('AttestationSignature').'</td><td><canvas id="signature-pad" width="620" height="180" style="border:1px solid #999; max-width:100%; touch-action:none;"></canvas></td></tr>';
-print '</table>';
-print '<div class="tabsAction">';
-print '<button type="button" class="butAction" id="signature-clear">'.$langs->trans('Clear').'</button>';
-print '<button type="submit" class="butAction" id="signature-submit">'.$langs->trans('Sign').'</button>';
-print '</div>';
-print '</form>';
-print '</div>';
-if (!$publicMode) {
-	print dol_get_fiche_end();
-}
+	print '<div class="tagtable centpercent">';
+	print '<div class="tagtr">';
+	print '<div class="tagtd minwidth150 right">'.$langs->trans('Name').'</div>';
+	print '<div class="tagtd left"><input type="text" class="flat minwidth300" name="signer_name" value="'.dol_escape_htmltag($signername).'"></div>';
+	print '</div>';
+	print '</div>';
 
-print '<script nonce="'.getNonce().'">
-jQuery(function() {
-	var canvas = document.getElementById("signature-pad");
-	var ctx = canvas.getContext("2d");
-	var drawing = false;
-	ctx.lineWidth = 2;
-	ctx.lineCap = "round";
-	function pos(e) {
-		var rect = canvas.getBoundingClientRect();
-		var point = e.touches && e.touches.length ? e.touches[0] : e;
-		return {x: (point.clientX - rect.left) * (canvas.width / rect.width), y: (point.clientY - rect.top) * (canvas.height / rect.height)};
-	}
-	function start(e) {
-		drawing = true;
-		var p = pos(e);
-		ctx.beginPath();
-		ctx.moveTo(p.x, p.y);
-		e.preventDefault();
-	}
-	function move(e) {
-		if (!drawing) return;
-		var p = pos(e);
-		ctx.lineTo(p.x, p.y);
-		ctx.stroke();
-		e.preventDefault();
-	}
-	function end(e) {
-		drawing = false;
-		e.preventDefault();
-	}
-	canvas.addEventListener("mousedown", start);
-	canvas.addEventListener("mousemove", move);
-	canvas.addEventListener("mouseup", end);
-	canvas.addEventListener("mouseleave", end);
-	canvas.addEventListener("touchstart", start, {passive:false});
-	canvas.addEventListener("touchmove", move, {passive:false});
-	canvas.addEventListener("touchend", end, {passive:false});
-	jQuery("#signature-clear").on("click", function() { ctx.clearRect(0, 0, canvas.width, canvas.height); });
-	jQuery("#attestation-sign-form").on("submit", function() {
-		jQuery("#signature_data").val(canvas.toDataURL("image/png"));
+	print '<br><div class="center">';
+	print '<div id="signature" class="signature-zone" style="background:#fff;border:1px solid #bbb;height:180px;max-width:650px;margin:0 auto;"></div>';
+	print '</div>';
+	print '<br><div class="center">';
+	print '<input type="button" class="button button-cancel" id="signature-clear" value="'.$langs->trans('Clear').'">';
+	print ' ';
+	print '<input type="submit" class="button button-save" value="'.$langs->trans('Sign').'">';
+	print '</div>';
+	print '</form>';
+
+	print '<script>
+	jQuery(function() {
+		var signature = jQuery("#signature");
+		if (typeof signature.jSignature === "function") {
+			signature.jSignature({height: 180, width: "100%"});
+		}
+		jQuery("#signature-clear").on("click", function() {
+			if (typeof signature.jSignature === "function") {
+				signature.jSignature("reset");
+			}
+		});
+		jQuery("#attestation-sign-form").on("submit", function() {
+			if (typeof signature.jSignature !== "function") {
+				return false;
+			}
+			var data = signature.jSignature("getData", "image");
+			jQuery("#signature_data").val(data[0] + "," + data[1]);
+			return true;
+		});
 	});
-});
-</script>';
+	</script>';
+}
 
-llxFooter();
+print '</div>';
+print '</div>';
+
+if (function_exists('htmlPrintOnlineFooter')) {
+	htmlPrintOnlineFooter($mysoc, $langs);
+}
+
+llxFooter('', 'public');
 $db->close();
