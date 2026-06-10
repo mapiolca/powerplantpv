@@ -750,7 +750,15 @@ class PowerPlantPVAttestation extends CommonObject
 				$this->error = 'AttestationPowerPlantRequired';
 				return -1;
 			}
-			if (in_array($field, array('max_export_power_kw', 'max_frequency_hz'), true) && price2num($value, 'MU') <= 0) {
+			if ($field === 'max_export_power_kw' && ($value === null || $value === '')) {
+				$this->error = !empty($requiredFieldErrors[$field]) ? $requiredFieldErrors[$field] : 'AttestationSnapshotDataRequired';
+				return -1;
+			}
+			if ($field === 'max_export_power_kw' && $this->type_code === PowerPlantPVAttestationTypes::TYPE_BRIDAGE_STATIQUE_ONDULEUR && price2num($value, 'MU') <= 0) {
+				$this->error = 'AttestationMaxExportPowerPositiveRequired';
+				return -1;
+			}
+			if ($field === 'max_frequency_hz' && price2num($value, 'MU') <= 0) {
 				$this->error = !empty($requiredFieldErrors[$field]) ? $requiredFieldErrors[$field] : 'AttestationSnapshotDataRequired';
 				return -1;
 			}

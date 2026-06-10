@@ -130,6 +130,22 @@ function powerplantpvAttestationGetPostDate($prefix)
 }
 
 /**
+ * Return a POSTed decimal value while preserving empty values as null.
+ *
+ * @param	string	$key	Input name
+ * @return	float|int|string|null	Parsed value or null when empty
+ */
+function powerplantpvAttestationGetPostDecimalOrNull($key)
+{
+	$value = trim((string) GETPOST($key, 'alphanohtml'));
+	if ($value === '') {
+		return null;
+	}
+
+	return price2num($value, 'MU');
+}
+
+/**
  * Set attestation fields from POST.
  *
  * @param	PowerPlantPVAttestation	$object	Attestation
@@ -146,8 +162,8 @@ function powerplantpvAttestationSetFromPost($object)
 	$object->date_setting = powerplantpvAttestationGetPostDate('date_setting');
 	$object->date_completion = powerplantpvAttestationGetPostDate('date_completion');
 	$object->bta_contract_number = GETPOST('bta_contract_number', 'alphanohtml');
-	$object->max_export_power_kw = price2num(GETPOST('max_export_power_kw', 'alphanohtml'), 'MU');
-	$object->max_frequency_hz = price2num(GETPOST('max_frequency_hz', 'alphanohtml'), 'MU');
+	$object->max_export_power_kw = powerplantpvAttestationGetPostDecimalOrNull('max_export_power_kw');
+	$object->max_frequency_hz = powerplantpvAttestationGetPostDecimalOrNull('max_frequency_hz');
 	$object->landscape_integration_prime = GETPOSTINT('landscape_integration_prime');
 	$object->note_public = GETPOST('note_public', 'restricthtml');
 	$object->note_private = GETPOST('note_private', 'restricthtml');
@@ -191,7 +207,12 @@ if ($action == 'add' && $permissiontoadd) {
 	$result = powerplantpvAttestationPrefillFromPowerPlant($object, $fkPowerPlant, $user);
 	if ($result >= 0) {
 		powerplantpvAttestationSetFromPost($object);
-		$result = $object->create($user);
+		if ($object->type_code === PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR && $object->max_export_power_kw === null) {
+			$object->error = 'AttestationMaxExportPowerRequired';
+			$result = -1;
+		} else {
+			$result = $object->create($user);
+		}
 	}
 	if ($result > 0) {
 		setEventMessages($langs->trans('RecordCreated'), null, 'mesgs');

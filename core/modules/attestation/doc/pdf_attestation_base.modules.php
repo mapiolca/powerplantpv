@@ -187,7 +187,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->SetFont('', 'B', $defaultFontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationSpecificData')), 0, 'L');
 		$pdf->SetFont('', '', $defaultFontSize);
-		if (!empty($object->max_export_power_kw)) {
+		if ($object->max_export_power_kw !== null && $object->max_export_power_kw !== '') {
 			$this->renderKeyValue($pdf, $outputlangs, 'AttestationMaxExportPowerKw', price($object->max_export_power_kw).' kW');
 		}
 		if (!empty($object->max_frequency_hz)) {
