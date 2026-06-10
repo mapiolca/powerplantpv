@@ -161,31 +161,10 @@ function powerplantpvAttestationGetDocumentUploadDir($object)
 {
 	global $conf;
 
-	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
-	$relativePath = powerplantpvAttestationGetDocumentRelativePath($object);
-	$sanitizedRef = dol_sanitizeFileName($object->ref);
-
-	if (function_exists('getMultidirOutput')) {
-		$uploadDir = getMultidirOutput($object, 'powerplantpv', 1);
-		if (!empty($uploadDir)) {
-			$uploadDir = rtrim($uploadDir, '/\\');
-			$normalizedUploadDir = str_replace('\\', '/', $uploadDir);
-			$normalizedRelativePath = str_replace('\\', '/', $relativePath);
-
-			if (preg_match('#(^|/)'.preg_quote($normalizedRelativePath, '#').'$#', $normalizedUploadDir)) {
-				return $uploadDir;
-			}
-			if ($sanitizedRef !== '' && preg_match('#(^|/)attestation$#', $normalizedUploadDir)) {
-				return $uploadDir.'/'.$sanitizedRef;
-			}
-
-			return $uploadDir.'/'.$relativePath;
-		}
-	}
-
 	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+	$diroutput = powerplantpvAttestationGetDocumentRootDir($entity);
 
-	return powerplantpvAttestationGetDocumentRootDir($entity).'/'.$relativePath;
+	return $diroutput.'/'.powerplantpvAttestationGetDocumentRelativePath($object);
 }
 
 /**
@@ -205,21 +184,9 @@ function powerplantpvAttestationNormalizeDocumentDirectory($object)
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 
 	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+	$sanitizedRef = dol_sanitizeFileName($object->ref);
 	$rootDir = rtrim(powerplantpvAttestationGetDocumentRootDir($entity), '/\\');
 	$targetDir = rtrim(powerplantpvAttestationGetDocumentUploadDir($object), '/\\');
-	$legacyDir = $rootDir.'/attestation';
-	$normalizedTargetDir = str_replace('\\', '/', $targetDir);
-	$normalizedLegacyDir = str_replace('\\', '/', rtrim($legacyDir, '/\\'));
-
-	if ($normalizedTargetDir === $normalizedLegacyDir || !is_dir($legacyDir)) {
-		return 0;
-	}
-
-	$sanitizedRef = dol_sanitizeFileName($object->ref);
-	$legacyFiles = dol_dir_list($legacyDir, 'files', 0, '^'.preg_quote($sanitizedRef, '/').'($|[._-])', '', 'name', SORT_ASC, 0);
-	if (empty($legacyFiles)) {
-		return 0;
-	}
 
 	if (!is_dir($targetDir) && dol_mkdir($targetDir) < 0) {
 		dol_syslog('PowerPlantPV attestation document normalization failed: cannot create '.$targetDir, LOG_ERR);
@@ -228,18 +195,36 @@ function powerplantpvAttestationNormalizeDocumentDirectory($object)
 
 	$moved = 0;
 	$error = 0;
-	foreach ($legacyFiles as $file) {
-		$source = $legacyDir.'/'.$file['name'];
-		$target = $targetDir.'/'.$file['name'];
-		if (file_exists($target)) {
+	$legacyDirs = array(
+		$rootDir.'/'.$sanitizedRef,
+		$rootDir.'/'.$sanitizedRef.'/attestation/'.$sanitizedRef,
+		$rootDir.'/attestation',
+	);
+	$processedDirs = array();
+	foreach ($legacyDirs as $legacyDir) {
+		$legacyDir = rtrim($legacyDir, '/\\');
+		$normalizedLegacyDir = str_replace('\\', '/', $legacyDir);
+		$normalizedTargetDir = str_replace('\\', '/', $targetDir);
+		if ($normalizedLegacyDir === $normalizedTargetDir || isset($processedDirs[$normalizedLegacyDir]) || !is_dir($legacyDir)) {
 			continue;
 		}
-		$result = dol_move($source, $target, '0', 0, 0, 0, array(), $entity);
-		if ($result > 0) {
-			$moved++;
-		} else {
-			$error++;
-			dol_syslog('PowerPlantPV attestation document normalization failed moving '.$source.' to '.$target, LOG_WARNING);
+		$processedDirs[$normalizedLegacyDir] = true;
+
+		$legacyFiles = dol_dir_list($legacyDir, 'files', 0, '^'.preg_quote($sanitizedRef, '/').'($|[._-])', '', 'name', SORT_ASC, 0);
+		foreach ($legacyFiles as $file) {
+			$source = $legacyDir.'/'.$file['name'];
+			$target = $targetDir.'/'.$file['name'];
+			if (file_exists($target)) {
+				continue;
+			}
+			$result = dol_move($source, $target, '0', 0, 0, 0, array(), $entity);
+			if ($result > 0) {
+				$moved++;
+				dol_syslog('PowerPlantPV attestation document normalized from '.$source.' to '.$target, LOG_INFO);
+			} else {
+				$error++;
+				dol_syslog('PowerPlantPV attestation document normalization failed moving '.$source.' to '.$target, LOG_WARNING);
+			}
 		}
 	}
 
