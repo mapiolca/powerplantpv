@@ -145,8 +145,7 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	{
 		$groups = $this->buildGroupedEquipmentRows($object, $outputlangs);
 		$tableWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
-		$categoryWidth = 42;
-		$widths = array($categoryWidth, $tableWidth - $categoryWidth);
+		$widths = array(42, 42, 48, $tableWidth - 42 - 42 - 48);
 		$fontSize = max($defaultFontSize - 1, 7);
 
 		if (empty(array_filter($groups))) {
@@ -158,17 +157,42 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 			return;
 		}
 
+		$headerValues = array(
+			$outputlangs->transnoentities('AttestationInstallerInf100EquipmentCategory'),
+			$outputlangs->transnoentities('AttestationInstallerInf100EquipmentBrand'),
+			$outputlangs->transnoentities('AttestationInstallerInf100EquipmentReference'),
+			$outputlangs->transnoentities('AttestationInstallerInf100EquipmentManufacturer'),
+		);
+		$headerStyles = array('B', 'B', 'B', 'B');
+		$bodyRows = array();
 		foreach ($this->getInstallerEquipmentCategoryOrder($outputlangs) as $categoryCode => $categoryLabel) {
 			if (empty($groups[$categoryCode])) {
 				continue;
 			}
-			$first = true;
 			foreach ($groups[$categoryCode] as $row) {
-				$values = array($first ? $categoryLabel : '', $this->formatGroupedEquipmentRow($row, $outputlangs));
-				$styles = array($first ? 'B' : '', '');
-				$this->renderTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles, false, true);
-				$first = false;
+				$bodyRows[] = array(
+					'category' => $categoryLabel,
+					'brand' => (string) $row['brand'],
+					'product_ref' => (string) $row['product_ref'],
+					'manufacturer' => (string) $row['manufacturer'],
+				);
 			}
+		}
+
+		$headerHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles);
+		$firstRowValues = $this->formatGroupedEquipmentTableRow($bodyRows[0], $outputlangs);
+		$firstRowHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $firstRowValues, $fontSize);
+		$renderHeader = function () use ($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles) {
+			$this->renderTableRow($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles, true);
+		};
+
+		$this->ensureTableHeaderWithFirstRow($pdf, $headerHeight, $firstRowHeight);
+		$renderHeader();
+		foreach ($bodyRows as $row) {
+			$values = $this->formatGroupedEquipmentTableRow($row, $outputlangs);
+			$rowHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $values, $fontSize);
+			$this->repeatTableHeaderIfRowDoesNotFit($pdf, $rowHeight, $headerHeight, $renderHeader);
+			$this->renderTableRow($pdf, $outputlangs, $widths, $values, $fontSize, array(), false, false);
 		}
 		$pdf->Ln(2);
 	}
@@ -199,17 +223,14 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 			}
 
 			$productRef = trim((string) $equipment['product_ref']);
-			$productKey = $productRef !== '' ? $productRef : '#'.((int) (!empty($equipment['fk_product']) ? $equipment['fk_product'] : 0)).'|'.(string) $equipment['designation'];
+			$productKey = $productRef !== '' ? $productRef : '#'.((int) (!empty($equipment['fk_product']) ? $equipment['fk_product'] : 0)).'|'.(string) $equipment['brand'].'|'.(string) $equipment['manufacturer'];
 			if (empty($groups[$categoryCode][$productKey])) {
 				$groups[$categoryCode][$productKey] = array(
 					'product_ref' => $productRef,
-					'designation' => (string) $equipment['designation'],
 					'brand' => (string) $equipment['brand'],
 					'manufacturer' => (string) $equipment['manufacturer'],
-					'qty' => 0,
 				);
 			}
-			$groups[$categoryCode][$productKey]['qty'] += $this->getGroupedEquipmentLineQuantity($line, $equipment);
 		}
 
 		return $groups;
@@ -233,68 +254,20 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	}
 
 	/**
-	 * Return quantity represented by a snapshot equipment line.
-	 *
-	 * @param	PowerPlantPVAttestationEquipmentLine	$line		Equipment line
-	 * @param	array<string,mixed>					$equipment	Resolved equipment
-	 * @return	float											Quantity
-	 */
-	protected function getGroupedEquipmentLineQuantity($line, $equipment)
-	{
-		if (!empty($line->fk_powerplant_serialnumber)) {
-			return 1;
-		}
-		if (isset($equipment['qty']) && $equipment['qty'] !== '' && $equipment['qty'] !== null) {
-			return (float) $equipment['qty'];
-		}
-
-		return 1;
-	}
-
-	/**
-	 * Format a grouped equipment row.
+	 * Format a grouped equipment table row.
 	 *
 	 * @param	array<string,mixed>	$row			Grouped row
 	 * @param	Translate			$outputlangs	Output lang
-	 * @return	string								Formatted line
+	 * @return	string[]							Formatted cells
 	 */
-	protected function formatGroupedEquipmentRow($row, $outputlangs)
+	protected function formatGroupedEquipmentTableRow($row, $outputlangs)
 	{
-		$parts = array();
-		if (!empty($row['product_ref'])) {
-			$parts[] = (string) $row['product_ref'];
-		}
-		if (!empty($row['designation'])) {
-			$parts[] = (string) $row['designation'];
-		}
-		if (!empty($row['brand'])) {
-			$parts[] = $outputlangs->transnoentities('ProductPhotovoltaicBrand').' : '.(string) $row['brand'];
-		}
-		if (!empty($row['manufacturer'])) {
-			$parts[] = $outputlangs->transnoentities('ProductPhotovoltaicManufacturer').' : '.(string) $row['manufacturer'];
-		}
-		if (isset($row['qty']) && $row['qty'] !== '') {
-			$parts[] = $outputlangs->transnoentities('Qty').' : '.$this->formatQuantity($row['qty'], $outputlangs);
-		}
-
-		return implode(' - ', $parts);
-	}
-
-	/**
-	 * Format a quantity.
-	 *
-	 * @param	float|int|string	$qty			Quantity
-	 * @param	Translate		$outputlangs	Output lang
-	 * @return	string							Formatted quantity
-	 */
-	protected function formatQuantity($qty, $outputlangs)
-	{
-		$value = price2num($qty, 'MS');
-		if ((float) $value == (float) ((int) $value)) {
-			return (string) ((int) $value);
-		}
-
-		return price($value, 0, $outputlangs);
+		return array(
+			$this->valueOrNotProvided($row['category'], $outputlangs),
+			$this->valueOrNotProvided($row['brand'], $outputlangs),
+			$this->valueOrNotProvided($row['product_ref'], $outputlangs),
+			$this->valueOrNotProvided($row['manufacturer'], $outputlangs),
+		);
 	}
 
 	/**

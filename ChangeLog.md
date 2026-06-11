@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+Correction du tableau matériel de l'attestation installateur < 100 kWc : colonnes Catégorie, Marque, Référence et Fabricant uniquement, par référence produit.
 Reprise du modèle PDF d'attestation installateur < 100 kWc : numéro de contrat de rachat en en-tête, suppression du tableau d'installation, texte légal mis à jour et matériel regroupé par référence sans numéros de série.
 Amélioration des PDF d'attestation : les valeurs `Non renseigné` sont mises en évidence en rouge gras et les engagements de l'attestation installateur < 100 kWc sont rendus sous forme de paragraphe.
 Ajout dans l'onglet `Fichiers joints` des centrales d'un tableau natif listant les attestations liées, avec date de validation dédiée et colonne Environnement seulement lorsque nécessaire en Multicompany.
