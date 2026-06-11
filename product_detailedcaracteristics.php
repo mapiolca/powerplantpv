@@ -208,10 +208,11 @@ function powerplantpv_collect_post_data(array $fields)
 		if ($spec['type'] === 'bool') {
 			$data[$key] = GETPOSTISSET($key) ? 1 : 0;
 		} elseif ($spec['type'] === 'double') {
-			$data[$key] = price2num(GETPOST($key, 'alpha'), 'MT');
+			$value = GETPOST($key, 'alpha');
+			$data[$key] = (trim((string) $value) === '' ? '' : price2num($value, 'MT'));
 		} elseif ($spec['type'] === 'int') {
 			$value = GETPOST($key, 'alpha');
-			$data[$key] = ($value === '' ? '' : (int) price2num($value, 'MT'));
+			$data[$key] = (trim((string) $value) === '' ? '' : (int) price2num($value, 'MT'));
 		} elseif ($spec['type'] === 'text') {
 			$data[$key] = GETPOST($key, 'restricthtml');
 		} else {
