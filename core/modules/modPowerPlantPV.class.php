@@ -1234,7 +1234,7 @@ class modPowerPlantPV extends DolibarrModules
 			0,
 			0,
 			'',
-			array(),
+			'',
 			1,
 			'',
 			-1,
