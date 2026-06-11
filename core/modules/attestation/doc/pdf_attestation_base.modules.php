@@ -129,7 +129,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 
 		$pdf->AddPage();
 		$this->reserveFooterSpace($pdf);
-		$this->renderHeader($pdf, $object, $outputlangs);
+		$this->renderHeader($pdf, $object, $outputlangs, true);
 		$this->renderBody($pdf, $object, $outputlangs, $defaultFontSize);
 		$this->renderFooter($pdf, $object, $outputlangs);
 
@@ -149,9 +149,10 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	 * @param	TCPDF|TCPDI				$pdf			PDF
 	 * @param	PowerPlantPVAttestation	$object			Attestation
 	 * @param	Translate				$outputlangs	Output lang
+	 * @param	bool					$showIssuer		Show issuer block
 	 * @return	void
 	 */
-	protected function renderHeader($pdf, $object, $outputlangs)
+	protected function renderHeader($pdf, $object, $outputlangs, $showIssuer = true)
 	{
 		global $conf;
 
@@ -217,6 +218,12 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('PowerPlant').' : '.$derivedData['project_name']), 0, 'R');
 		}
 		$titleBottom = $pdf->GetY();
+
+		if (empty($showIssuer)) {
+			$pdf->SetTextColor(0, 0, 0);
+			$pdf->SetY(max($logoBottom, $titleBottom) + 5);
+			return;
+		}
 
 		$thirdparty = null;
 		if (!empty($object->fk_soc)) {
@@ -479,7 +486,11 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		$pdf->AddPage();
 		$this->reserveFooterSpace($pdf);
-		$pdf->SetXY($this->marge_gauche, $this->marge_haute);
+		if (is_object($this->currentObject) && is_object($this->currentOutputLangs)) {
+			$this->renderHeader($pdf, $this->currentObject, $this->currentOutputLangs, false);
+		} else {
+			$pdf->SetXY($this->marge_gauche, $this->marge_haute);
+		}
 	}
 
 	/**

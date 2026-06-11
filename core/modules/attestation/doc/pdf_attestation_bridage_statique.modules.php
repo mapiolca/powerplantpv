@@ -21,11 +21,12 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 	 * @param	TCPDF|TCPDI				$pdf			PDF
 	 * @param	PowerPlantPVAttestation	$object			Attestation
 	 * @param	Translate				$outputlangs	Output lang
+	 * @param	bool					$showIssuer		Show issuer block
 	 * @return	void
 	 */
-	protected function renderHeader($pdf, $object, $outputlangs)
+	protected function renderHeader($pdf, $object, $outputlangs, $showIssuer = true)
 	{
-		parent::renderHeader($pdf, $object, $outputlangs);
+		parent::renderHeader($pdf, $object, $outputlangs, $showIssuer);
 	}
 
 	/**
