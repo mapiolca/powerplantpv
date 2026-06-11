@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Ajout du bloc émetteur natif Dolibarr dans l'entête des PDF d'attestation.
+
 Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - nouvel objet métier `PowerPlantPVAttestation` avec quatre types d'attestations : bridage dynamique onduleur, bridage statique onduleur, réglage fréquence maximale 51,5 Hz et installateur inférieur à 100 kWc ;
 - tables SQL principales et lignes d'équipements, avec `entity`, références, liens centrale/tiers/projet, données gelées, métadonnées de signature et documents ;

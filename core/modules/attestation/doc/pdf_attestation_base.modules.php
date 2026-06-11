@@ -155,19 +155,57 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	{
 		global $conf;
 
-		$y = $this->marge_haute;
-		$logo = $conf->mycompany->dir_output.'/logos/'.$this->emetteur->logo;
-		if (!empty($this->emetteur->logo) && file_exists($logo)) {
-			$pdf->Image($logo, $this->marge_gauche, $y, 35);
+		$outputlangs->loadLangs(array('main', 'companies'));
+
+		$ltrdirection = 'L';
+		if ($outputlangs->trans('DIRECTION') == 'rtl') {
+			$ltrdirection = 'R';
+		}
+
+		$defaultFontSize = pdf_getPDFFontSize($outputlangs);
+		$posy = $this->marge_haute;
+		$logoBottom = $posy;
+
+		if (!getDolGlobalInt('PDF_DISABLE_MYCOMPANY_LOGO')) {
+			if (!empty($this->emetteur->logo)) {
+				$logodir = $conf->mycompany->dir_output;
+				if (!empty(getMultidirOutput($object, 'mycompany'))) {
+					$logodir = getMultidirOutput($object, 'mycompany');
+				}
+				if (!getDolGlobalInt('MAIN_PDF_USE_LARGE_LOGO') && !empty($this->emetteur->logo_small)) {
+					$logo = $logodir.'/logos/thumbs/'.$this->emetteur->logo_small;
+				} else {
+					$logo = $logodir.'/logos/'.$this->emetteur->logo;
+				}
+				if (is_readable($logo)) {
+					$height = pdf_getHeightForLogo($logo);
+					$pdf->Image($logo, $this->marge_gauche, $posy, 0, $height);
+					$logoBottom = $posy + $height;
+				} else {
+					$pdf->SetTextColor(200, 0, 0);
+					$pdf->SetFont('', 'B', $defaultFontSize - 2);
+					$pdf->SetXY($this->marge_gauche, $posy);
+					$pdf->MultiCell(80, 3, $outputlangs->transnoentities('ErrorLogoFileNotFound', $logo), 0, 'L');
+					$pdf->MultiCell(80, 3, $outputlangs->transnoentities('ErrorGoToGlobalSetup'), 0, 'L');
+					$logoBottom = $pdf->GetY();
+				}
+			} elseif (!empty($this->emetteur->name)) {
+				$pdf->SetTextColor(0, 0, 60);
+				$pdf->SetFont('', 'B', $defaultFontSize);
+				$pdf->SetXY($this->marge_gauche, $posy);
+				$pdf->MultiCell(80, 4, $outputlangs->convToOutputCharset($this->emetteur->name), 0, 'L');
+				$logoBottom = $pdf->GetY();
+			}
 		}
 
 		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
 		$title = $outputlangs->transnoentities('AttestationDocumentTitle', $outputlangs->transnoentities($this->titleKey));
 
-		$pdf->SetXY($this->marge_gauche + 45, $y);
-		$pdf->SetFont('', 'B', 14);
+		$pdf->SetXY($this->marge_gauche + 45, $posy);
+		$pdf->SetTextColor(0, 0, 60);
+		$pdf->SetFont('', 'B', $defaultFontSize + 5);
 		$pdf->MultiCell(0, 7, $outputlangs->convToOutputCharset($title), 0, 'R');
-		$pdf->SetFont('', '', 9);
+		$pdf->SetFont('', '', $defaultFontSize);
 		$pdf->SetX($this->marge_gauche + 45);
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($object->ref), 0, 'R');
 		if (!empty($object->date_attestation)) {
@@ -178,7 +216,53 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$pdf->SetX($this->marge_gauche + 45);
 			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('PowerPlant').' : '.$derivedData['project_name']), 0, 'R');
 		}
-		$pdf->Ln(12);
+		$titleBottom = $pdf->GetY();
+
+		$thirdparty = null;
+		if (!empty($object->fk_soc)) {
+			require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+			$thirdparty = new Societe($this->db);
+			if ($thirdparty->fetch((int) $object->fk_soc) <= 0) {
+				$thirdparty = null;
+			}
+		}
+		$caracEmetteur = pdf_build_address($outputlangs, $this->emetteur, $thirdparty, '', 0, 'source', $object);
+
+		$senderY = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 40 : 42;
+		$senderY = max($senderY, $logoBottom + 5);
+		$senderY = max($senderY, $titleBottom + 5);
+		$senderX = $this->marge_gauche;
+		$senderHeight = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 38 : 40;
+		$senderWidth = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 82;
+		if (getDolGlobalInt('MAIN_INVERT_SENDER_RECIPIENT')) {
+			$senderX = $this->page_largeur - $this->marge_droite - $senderWidth;
+		}
+
+		if (!getDolGlobalString('MAIN_PDF_NO_SENDER_FRAME')) {
+			$pdf->SetTextColor(0, 0, 0);
+			$pdf->SetFont('', '', $defaultFontSize - 2);
+			$pdf->SetXY($senderX, $senderY - 5);
+			$pdf->MultiCell($senderWidth, 5, $outputlangs->transnoentities('BillFrom').':', 0, $ltrdirection);
+			$pdf->SetXY($senderX, $senderY);
+			$pdf->SetFillColor(230, 230, 230);
+			$pdf->MultiCell($senderWidth, $senderHeight, '', 0, 'R', true);
+			$pdf->SetTextColor(0, 0, 60);
+		}
+
+		$currentSenderY = $senderY;
+		if (!getDolGlobalString('MAIN_PDF_HIDE_SENDER_NAME')) {
+			$pdf->SetXY($senderX + 2, $currentSenderY + 3);
+			$pdf->SetFont('', 'B', $defaultFontSize);
+			$pdf->MultiCell($senderWidth - 2, 4, $outputlangs->convToOutputCharset($this->emetteur->name), 0, $ltrdirection);
+			$currentSenderY = $pdf->GetY();
+		}
+
+		$pdf->SetXY($senderX + 2, $currentSenderY);
+		$pdf->SetFont('', '', $defaultFontSize - 1);
+		$pdf->MultiCell($senderWidth - 2, 4, $caracEmetteur, 0, $ltrdirection);
+		$pdf->SetTextColor(0, 0, 0);
+
+		$pdf->SetY(max($pdf->GetY(), $senderY + $senderHeight) + 5);
 	}
 
 	/**
