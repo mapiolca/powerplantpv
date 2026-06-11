@@ -36,6 +36,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.formactions.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvcompatibility.class.php');
@@ -494,11 +495,23 @@ if ($action == 'create' && empty($typeCode)) {
 	if (empty($object->lines)) {
 		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 	} else {
+		$productCache = array();
 		foreach ($object->lines as $line) {
 			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $langs);
+			$productRefHtml = dol_escape_htmltag($equipment['product_ref']);
+			$fkProduct = !empty($equipment['fk_product']) ? (int) $equipment['fk_product'] : 0;
+			if ($fkProduct > 0) {
+				if (!array_key_exists($fkProduct, $productCache)) {
+					$product = new Product($db);
+					$productCache[$fkProduct] = ($product->fetch($fkProduct) > 0) ? $product : false;
+				}
+				if (is_object($productCache[$fkProduct])) {
+					$productRefHtml = $productCache[$fkProduct]->getNomUrl(1);
+				}
+			}
 			print '<tr class="oddeven">';
 			print '<td>'.dol_escape_htmltag($equipment['category']).'</td>';
-			print '<td>'.dol_escape_htmltag($equipment['product_ref']).'</td>';
+			print '<td>'.$productRefHtml.'</td>';
 			print '<td>'.dol_escape_htmltag($equipment['designation']).'</td>';
 			print '<td>'.dol_escape_htmltag($equipment['serial_number']).'</td>';
 			print '</tr>';

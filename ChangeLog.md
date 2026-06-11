@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+Ajout d'un lien natif vers la fiche produit sur la référence des équipements affichés dans la fiche attestation.
 Précision des unités attendues sur les caractéristiques détaillées des onduleurs et conservation des champs numériques vides en `NULL` lors de la saisie manuelle, sans convertir les valeurs existantes.
 Correction de compatibilité des lignes d'équipement d'attestation : les anciennes colonnes miroir existantes sont rendues nullable sans jamais être recréées à l'activation.
 Ajout du bloc émetteur dans l'entête des PDF d'attestation, limité à la première page tandis que le bandeau haut reste affiché sur toutes les pages.
