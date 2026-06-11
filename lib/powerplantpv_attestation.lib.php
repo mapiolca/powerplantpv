@@ -1043,9 +1043,9 @@ function powerplantpvAttestationRenderPowerPlantDocumentTabTable($powerplant, $u
 
 	$colspan = $showEnvironment ? 6 : 5;
 	$out = "\n".'<br>';
+	$out .= load_fiche_titre($langs->trans('Attestations'), '', 'fa-file-signature');
 	$out .= '<div class="div-table-responsive-no-min">';
 	$out .= '<table class="noborder centpercent">';
-	$out .= '<tr class="liste_titre"><td colspan="'.$colspan.'">'.$langs->trans('Attestations').'</td></tr>';
 	$out .= '<tr class="liste_titre">';
 	$out .= '<td>'.$langs->trans('Ref').'</td>';
 	$out .= '<td>'.$langs->trans('Label').'</td>';

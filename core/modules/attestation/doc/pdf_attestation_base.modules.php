@@ -356,33 +356,47 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$this->ensureSpace($pdf, 22);
 		$pdf->SetFont('', 'B', $defaultFontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationEquipment')), 0, 'L');
-		$pdf->SetFont('', 'B', $defaultFontSize - 1);
+		$fontSize = $defaultFontSize - 1;
 		$widths = array(38, 34, 70, 48);
 		$headers = array('AttestationEquipmentCategory', 'Ref', 'Designation', 'PowerPlantSerialNumber');
-		foreach ($headers as $i => $key) {
-			$pdf->Cell($widths[$i], 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 1, 0, 'L');
+		$headerValues = array();
+		foreach ($headers as $key) {
+			$headerValues[] = $outputlangs->transnoentities($key);
 		}
-		$pdf->Ln();
-		$pdf->SetFont('', '', $defaultFontSize - 1);
+
+		$bodyRows = array();
 		if (empty($object->lines)) {
-			$pdf->Cell(array_sum($widths), 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('None')), 1, 1, 'L');
-			return;
-		}
-		foreach ($object->lines as $line) {
-			$this->ensureSpace($pdf, 7);
-			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
-			$values = array(
-				$this->valueOrNotProvided($equipment['category'], $outputlangs),
-				$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
-				$this->valueOrNotProvided($equipment['designation'], $outputlangs),
-				$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
+			$bodyRows[] = array(
+				'widths' => array(array_sum($widths)),
+				'values' => array($outputlangs->transnoentities('None')),
 			);
-			$limits = array(26, 22, 42, 34);
-			foreach ($values as $i => $value) {
-				$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $defaultFontSize - 1);
-				$pdf->Cell($widths[$i], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $value, $limits[$i])), 1, ($i === 3 ? 1 : 0), 'L');
-				$this->resetPdfTextStyle($pdf);
+		} else {
+			foreach ($object->lines as $line) {
+				$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
+				$bodyRows[] = array(
+					'widths' => $widths,
+					'values' => array(
+						$this->valueOrNotProvided($equipment['category'], $outputlangs),
+						$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
+						$this->valueOrNotProvided($equipment['designation'], $outputlangs),
+						$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
+					),
+				);
 			}
+		}
+
+		$headerHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $headerValues, $fontSize, array('B', 'B', 'B', 'B'));
+		$firstRowHeight = $this->getTableRowHeight($pdf, $outputlangs, $bodyRows[0]['widths'], $bodyRows[0]['values'], $fontSize);
+		$renderHeader = function () use ($pdf, $outputlangs, $widths, $headerValues, $fontSize) {
+			$this->renderPdfTableRow($pdf, $outputlangs, $widths, $headerValues, $fontSize, array('B', 'B', 'B', 'B'), true);
+		};
+
+		$this->ensureTableHeaderWithFirstRow($pdf, $headerHeight, $firstRowHeight);
+		$renderHeader();
+		foreach ($bodyRows as $row) {
+			$rowHeight = $this->getTableRowHeight($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize);
+			$this->repeatTableHeaderIfRowDoesNotFit($pdf, $rowHeight, $headerHeight, $renderHeader);
+			$this->renderPdfTableRow($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize, array(), false, false);
 		}
 	}
 
@@ -732,6 +746,119 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		} else {
 			$pdf->SetXY($this->marge_gauche, $this->marge_haute);
 		}
+	}
+
+	/**
+	 * Return the height of a table row with multiline cells.
+	 *
+	 * @param	TCPDF|TCPDI					$pdf			PDF
+	 * @param	Translate					$outputlangs	Output lang
+	 * @param	array<int,float>|float		$widths			Column widths
+	 * @param	array<int,string>			$values			Cell values
+	 * @param	int							$fontSize		Font size
+	 * @param	array<int,string>			$styles			Column font styles
+	 * @param	float						$lineHeight		Line height
+	 * @param	float						$cellPadding	Cell padding
+	 * @param	float						$minHeight		Minimum height
+	 * @return	float										Row height
+	 */
+	protected function getTableRowHeight($pdf, $outputlangs, $widths, $values, $fontSize, $styles = array(), $lineHeight = 4, $cellPadding = 2, $minHeight = 6)
+	{
+		if (!is_array($widths)) {
+			$widths = array($widths);
+		}
+
+		$height = $minHeight;
+		$fallbackWidth = count($widths) ? $widths[count($widths) - 1] : 0;
+		foreach ($values as $i => $value) {
+			$width = isset($widths[$i]) ? $widths[$i] : $fallbackWidth;
+			$text = $outputlangs->convToOutputCharset((string) $value);
+			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
+			if (method_exists($pdf, 'getStringHeight')) {
+				$height = max($height, $pdf->getStringHeight(max($width - $cellPadding, 1), $text) + $cellPadding);
+			} else {
+				$height = max($height, $lineHeight * (substr_count((string) $value, "\n") + 1) + $cellPadding);
+			}
+		}
+
+		return $height;
+	}
+
+	/**
+	 * Reserve enough space for a table header and its first body row.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf				PDF
+	 * @param	float		$headerHeight		Header height
+	 * @param	float		$firstRowHeight		First row height
+	 * @return	void
+	 */
+	protected function ensureTableHeaderWithFirstRow($pdf, $headerHeight, $firstRowHeight)
+	{
+		$this->ensureSpace($pdf, $headerHeight + $firstRowHeight + 2);
+	}
+
+	/**
+	 * Add a page and repeat a table header before a row when the row cannot fit.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf					PDF
+	 * @param	float		$rowHeight				Row height
+	 * @param	float		$headerHeight			Header height
+	 * @param	callable	$renderHeaderCallback	Header renderer
+	 * @return	void
+	 */
+	protected function repeatTableHeaderIfRowDoesNotFit($pdf, $rowHeight, $headerHeight, $renderHeaderCallback)
+	{
+		if (($pdf->GetY() + $rowHeight + 2) <= $this->getContentBottomY()) {
+			return;
+		}
+
+		$this->ensureSpace($pdf, $headerHeight + $rowHeight + 2);
+		call_user_func($renderHeaderCallback);
+	}
+
+	/**
+	 * Render a table row with a height based on the tallest cell.
+	 *
+	 * @param	TCPDF|TCPDI					$pdf			PDF
+	 * @param	Translate					$outputlangs	Output lang
+	 * @param	array<int,float>|float		$widths			Column widths
+	 * @param	array<int,string>			$values			Cell values
+	 * @param	int							$fontSize		Font size
+	 * @param	array<int,string>			$styles			Column font styles
+	 * @param	bool						$fill			Fill row
+	 * @param	bool						$checkSpace		Check available space
+	 * @return	void
+	 */
+	protected function renderPdfTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles = array(), $fill = false, $checkSpace = true)
+	{
+		if (!is_array($widths)) {
+			$widths = array($widths);
+		}
+
+		$lineHeight = 4;
+		$height = $this->getTableRowHeight($pdf, $outputlangs, $widths, $values, $fontSize, $styles, $lineHeight, 2, 6);
+		if ($checkSpace) {
+			$this->ensureSpace($pdf, $height + 2);
+		}
+
+		$x = $this->marge_gauche;
+		$y = $pdf->GetY();
+		if ($fill) {
+			$pdf->SetFillColor(245, 245, 245);
+		}
+		$pdf->SetDrawColor(190, 190, 190);
+		$fallbackWidth = count($widths) ? $widths[count($widths) - 1] : 0;
+		foreach ($values as $i => $value) {
+			$width = isset($widths[$i]) ? $widths[$i] : $fallbackWidth;
+			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
+			$pdf->SetXY($x + 1, $y + 1);
+			$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize, isset($styles[$i]) ? $styles[$i] : '');
+			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
+			$this->resetPdfTextStyle($pdf);
+			$x += $width;
+		}
+		$pdf->SetDrawColor(0, 0, 0);
+		$pdf->SetY($y + $height);
 	}
 
 	/**

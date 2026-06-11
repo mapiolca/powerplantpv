@@ -158,31 +158,51 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 		$widths = array(30, 24, 50, 28, 28, $tableWidth - 30 - 24 - 50 - 28 - 28);
 		$fontSize = max($defaultFontSize - 2, 6);
 
-		$this->renderTableRow($pdf, $outputlangs, $widths, array(
+		$headerValues = array(
 			$outputlangs->transnoentities('AttestationEquipmentCategory'),
 			$outputlangs->transnoentities('Ref'),
 			$outputlangs->transnoentities('Designation'),
 			$outputlangs->transnoentities('ProductPhotovoltaicBrand'),
 			$outputlangs->transnoentities('ProductPhotovoltaicManufacturer'),
 			$outputlangs->transnoentities('PowerPlantSerialNumber'),
-		), $fontSize, array('B', 'B', 'B', 'B', 'B', 'B'), true);
+		);
 
+		$bodyRows = array();
 		if (empty($object->lines)) {
-			$this->renderTableRow($pdf, $outputlangs, array($tableWidth), array($outputlangs->transnoentities('None')), $fontSize);
-			$pdf->Ln(2);
-			return;
+			$bodyRows[] = array(
+				'widths' => array($tableWidth),
+				'values' => array($outputlangs->transnoentities('None')),
+			);
+		} else {
+			foreach ($object->lines as $line) {
+				$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
+				$bodyRows[] = array(
+					'widths' => $widths,
+					'values' => array(
+						$this->valueOrNotProvided($equipment['category'], $outputlangs),
+						$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
+						$this->valueOrNotProvided($equipment['designation'], $outputlangs),
+						$this->valueOrNotProvided($equipment['brand'], $outputlangs),
+						$this->valueOrNotProvided($equipment['manufacturer'], $outputlangs),
+						$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
+					),
+				);
+			}
 		}
 
-		foreach ($object->lines as $line) {
-			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
-			$this->renderTableRow($pdf, $outputlangs, $widths, array(
-				$this->valueOrNotProvided($equipment['category'], $outputlangs),
-				$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
-				$this->valueOrNotProvided($equipment['designation'], $outputlangs),
-				$this->valueOrNotProvided($equipment['brand'], $outputlangs),
-				$this->valueOrNotProvided($equipment['manufacturer'], $outputlangs),
-				$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
-			), $fontSize);
+		$headerStyles = array('B', 'B', 'B', 'B', 'B', 'B');
+		$headerHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles);
+		$firstRowHeight = $this->getTableRowHeight($pdf, $outputlangs, $bodyRows[0]['widths'], $bodyRows[0]['values'], $fontSize);
+		$renderHeader = function () use ($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles) {
+			$this->renderTableRow($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles, true);
+		};
+
+		$this->ensureTableHeaderWithFirstRow($pdf, $headerHeight, $firstRowHeight);
+		$renderHeader();
+		foreach ($bodyRows as $row) {
+			$rowHeight = $this->getTableRowHeight($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize);
+			$this->repeatTableHeaderIfRowDoesNotFit($pdf, $rowHeight, $headerHeight, $renderHeader);
+			$this->renderTableRow($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize, array(), false, false);
 		}
 		$pdf->Ln(2);
 	}
@@ -197,46 +217,12 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	 * @param	int							$fontSize		Font size
 	 * @param	array<int,string>			$styles			Column font styles
 	 * @param	bool						$fill			Fill row
+	 * @param	bool						$checkSpace		Check available space
 	 * @return	void
 	 */
-	protected function renderTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles = array(), $fill = false)
+	protected function renderTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles = array(), $fill = false, $checkSpace = true)
 	{
-		if (!is_array($widths)) {
-			$widths = array($widths);
-		}
-
-		$lineHeight = 4;
-		$cellPadding = 2;
-		$height = 6;
-		foreach ($values as $i => $value) {
-			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
-			$text = $outputlangs->convToOutputCharset((string) $value);
-			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
-			if (method_exists($pdf, 'getStringHeight')) {
-				$height = max($height, $pdf->getStringHeight(max($width - $cellPadding, 1), $text) + $cellPadding);
-			} else {
-				$height = max($height, $lineHeight * (substr_count((string) $value, "\n") + 1) + $cellPadding);
-			}
-		}
-		$this->ensureSpace($pdf, $height + 2);
-
-		$x = $this->marge_gauche;
-		$y = $pdf->GetY();
-		if ($fill) {
-			$pdf->SetFillColor(245, 245, 245);
-		}
-		$pdf->SetDrawColor(190, 190, 190);
-		foreach ($values as $i => $value) {
-			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
-			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
-			$pdf->SetXY($x + 1, $y + 1);
-			$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize, isset($styles[$i]) ? $styles[$i] : '');
-			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
-			$this->resetPdfTextStyle($pdf);
-			$x += $width;
-		}
-		$pdf->SetDrawColor(0, 0, 0);
-		$pdf->SetY($y + $height);
+		$this->renderPdfTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles, $fill, $checkSpace);
 	}
 
 	/**
