@@ -217,6 +217,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$pdf->SetX($this->marge_gauche + 45);
 			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('PowerPlant').' : '.$derivedData['project_name']), 0, 'R');
 		}
+		$this->renderAdditionalHeaderLines($pdf, $object, $outputlangs);
 		$titleBottom = $pdf->GetY();
 
 		if (empty($showIssuer)) {
@@ -270,6 +271,18 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->SetTextColor(0, 0, 0);
 
 		$pdf->SetY(max($pdf->GetY(), $senderY + $senderHeight) + 5);
+	}
+
+	/**
+	 * Render document-model specific lines below the standard header references.
+	 *
+	 * @param	TCPDF|TCPDI				$pdf			PDF
+	 * @param	PowerPlantPVAttestation	$object			Attestation
+	 * @param	Translate				$outputlangs	Output lang
+	 * @return	void
+	 */
+	protected function renderAdditionalHeaderLines($pdf, $object, $outputlangs)
+	{
 	}
 
 	/**

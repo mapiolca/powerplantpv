@@ -62,7 +62,7 @@ class PowerPlantPVAttestationTypes
 			self::TYPE_INSTALLATEUR_INF_100KWC => array(
 				'label' => 'AttestationTypeInstallateurInf100kwc',
 				'model_pdf' => 'attestation_installateur_inf100kwc',
-				'equipment_types' => array('MODULE', 'CONNECTOR', 'BOX'),
+				'equipment_types' => array('MODULE', 'INVERTER', 'CONNECTOR', 'BOX'),
 				'required_fields' => array('fk_powerplant', 'bta_contract_number', 'date_completion', 'date_attestation'),
 			),
 		);

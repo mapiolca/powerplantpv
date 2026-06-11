@@ -795,6 +795,7 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 		'manufacturer' => !empty($line->manufacturer) ? (string) $line->manufacturer : '',
 		'max_power_kw' => $legacyMaxPower,
 		'equipment_type' => !empty($line->equipment_type) ? (string) $line->equipment_type : '',
+		'qty' => 1,
 	);
 
 	$fkProduct = !empty($line->fk_product) ? (int) $line->fk_product : 0;
@@ -818,7 +819,7 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 	$sql = "SELECT p.rowid as fk_product, p.ref as product_ref, p.label as product_label,";
 	$sql .= " pe.categorie_photovoltaique, ".$brandSelect.", ".$manufacturerSelect.",";
 	$sql .= " cpv.code as category_code, cpv.label as category_label,";
-	$sql .= " c.serial_number as composition_serial_number,";
+	$sql .= " c.serial_number as composition_serial_number, c.qty as composition_qty,";
 	$sql .= " sn.serial_number as imported_serial_number,";
 	$sql .= " inv.ac_max_power, inv.ac_nominal_power";
 	$sql .= " FROM ".$db->prefix()."product as p";
@@ -867,6 +868,7 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 		'manufacturer' => !empty($obj->product_photovoltaic_manufacturer) ? (string) $obj->product_photovoltaic_manufacturer : $fallback['manufacturer'],
 		'max_power_kw' => ($obj->ac_max_power !== null && $obj->ac_max_power !== '') ? $obj->ac_max_power : (($obj->ac_nominal_power !== null && $obj->ac_nominal_power !== '') ? $obj->ac_nominal_power : $fallback['max_power_kw']),
 		'equipment_type' => '',
+		'qty' => ($obj->composition_qty !== null && $obj->composition_qty !== '') ? $obj->composition_qty : $fallback['qty'],
 	);
 	$resolved['equipment_type'] = powerplantpvAttestationGuessEquipmentType((object) array(
 		'category_code' => $resolved['category_code'],

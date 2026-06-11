@@ -27,48 +27,20 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	protected function renderBody($pdf, $object, $outputlangs, $defaultFontSize)
 	{
 		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
-		$powerplant = $this->fetchPowerPlant($object);
-		$producerName = $this->fetchProducerName($object);
-		$completionDate = !empty($object->date_completion) ? dol_print_date($object->date_completion, 'day', 'tzuser', $outputlangs) : '';
 		$attestationDate = !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : '';
 
 		$pdf->SetFont('', '', $defaultFontSize);
 		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
 			'AttestationInstallerInf100Intro',
-			$this->valueOrNotProvided($derivedData['writer_name'], $outputlangs),
-			$this->valueOrNotProvided($derivedData['installer_name'], $outputlangs),
-			$this->valueOrNotProvided($derivedData['installer_siret'], $outputlangs),
-			$this->valueOrNotProvided($object->bta_contract_number, $outputlangs),
-			$this->valueOrNotProvided($completionDate, $outputlangs)
+			$this->formatInstallerIdentity($derivedData, $outputlangs)
 		), 0, 5, 0, 'L');
 
-		$pdf->Ln(4);
-		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicInstallationTitle', $defaultFontSize);
-		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, array(
-			array('AttestationDynamicProducer', $this->valueOrNotProvided($producerName, $outputlangs)),
-			array('PowerPlant', $this->valueOrNotProvided($derivedData['project_name'], $outputlangs)),
-			array('AttestationDynamicSiteAddress', $this->valueOrNotProvided($derivedData['site_full_address'], $outputlangs)),
-			array('AttestationDynamicPrmPdlReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'prm_pdl_number'), $outputlangs)),
-			array('AttestationDynamicConnectionRequestReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'connection_request_number'), $outputlangs)),
-			array('AttestationDynamicInstalledPower', $this->valueOrNotProvided($this->formatPower($this->getPowerPlantValue($powerplant, 'installed_power'), 'kWc'), $outputlangs)),
-			array('AttestationBtaContractNumber', $this->valueOrNotProvided($object->bta_contract_number, $outputlangs)),
-			array('AttestationCompletionDate', $this->valueOrNotProvided($completionDate, $outputlangs)),
-			array('AttestationLandscapeIntegrationPrime', $outputlangs->transnoentities((int) $object->landscape_integration_prime ? 'Yes' : 'No')),
-		));
-
-		$pdf->Ln(4);
-		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationInstallerInf100Commitments', $defaultFontSize);
-		$this->renderCommitmentsParagraph($pdf, $outputlangs, $defaultFontSize);
-
-		$pdf->Ln(4);
-		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationInstallerInf100InstalledMaterial', $defaultFontSize);
-		$this->renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
+		$pdf->Ln(2);
+		$this->renderInstallerLegalText($pdf, $object, $outputlangs, $defaultFontSize);
 
 		$this->ensureSpace($pdf, $this->getFinalBlockHeight($pdf, $outputlangs, $defaultFontSize, $derivedData, $attestationDate));
 		$pdf->Ln(4);
 		$pdf->SetFont('', '', $defaultFontSize);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationInstallerInf100ForLegalUse')), 0, 'L');
-		$pdf->Ln(5);
 		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
 			'AttestationDynamicDoneAt',
 			$this->valueOrNotProvided($derivedData['place'], $outputlangs),
@@ -79,72 +51,89 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	}
 
 	/**
-	 * Render a section title.
+	 * Render model-specific header lines.
 	 *
-	 * @param	TCPDF|TCPDI	$pdf			PDF
-	 * @param	Translate	$outputlangs	Output lang
-	 * @param	string		$key			Translation key
-	 * @param	int			$fontSize		Font size
+	 * @param	TCPDF|TCPDI				$pdf			PDF
+	 * @param	PowerPlantPVAttestation	$object			Attestation
+	 * @param	Translate				$outputlangs	Output lang
 	 * @return	void
 	 */
-	protected function renderSectionTitle($pdf, $outputlangs, $key, $fontSize)
+	protected function renderAdditionalHeaderLines($pdf, $object, $outputlangs)
 	{
-		$pdf->SetFont('', 'B', $fontSize + 1);
-		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 0, 'L');
-		$pdf->SetFont('', '', $fontSize);
+		$powerplant = $this->fetchPowerPlant($object);
+		$contractNumber = $this->getPowerPlantValue($powerplant, 'buyback_contract_number');
+		$pdf->SetX($this->marge_gauche + 45);
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationContractNumber').' : '.$this->valueOrNotProvided($contractNumber, $outputlangs)), 0, 'R');
 	}
 
 	/**
-	 * Render section rows as a native-looking PDF table.
+	 * Format installer identity for the legal introduction.
 	 *
-	 * @param	TCPDF|TCPDI							$pdf				PDF
-	 * @param	Translate							$outputlangs		Output lang
-	 * @param	int									$defaultFontSize	Default font size
-	 * @param	array<int,array{0:string,1:string}>	$rows				Rows
-	 * @return	void
+	 * @param	array<string,mixed>	$derivedData	Derived data
+	 * @param	Translate			$outputlangs	Output lang
+	 * @return	string							Formatted identity
 	 */
-	protected function renderInfoTable($pdf, $outputlangs, $defaultFontSize, $rows)
+	protected function formatInstallerIdentity($derivedData, $outputlangs)
 	{
-		$labelWidth = 62;
-		$valueWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite - $labelWidth;
-		$fontSize = max($defaultFontSize - 1, 7);
-
-		foreach ($rows as $row) {
-			$this->renderTableRow($pdf, $outputlangs, array($labelWidth, $valueWidth), array($outputlangs->transnoentities($row[0]), $row[1]), $fontSize, array('B', ''));
+		$parts = array();
+		if (!empty($derivedData['writer_name'])) {
+			$parts[] = (string) $derivedData['writer_name'];
 		}
-		$pdf->Ln(2);
+		if (!empty($derivedData['installer_name'])) {
+			$parts[] = (string) $derivedData['installer_name'];
+		}
+		$address = powerplantpvAttestationFormatDerivedAddress($derivedData, 'installer', 1);
+		if ($address !== '') {
+			$parts[] = $address;
+		}
+
+		return $this->valueOrNotProvided(implode(', ', $parts), $outputlangs);
 	}
 
 	/**
-	 * Render installer commitments as paragraphs instead of a table.
+	 * Render installer legal text in the requested order.
 	 *
 	 * @param	TCPDF|TCPDI	$pdf				PDF
+	 * @param	PowerPlantPVAttestation	$object	Attestation
 	 * @param	Translate	$outputlangs		Output lang
 	 * @param	int			$defaultFontSize	Default font size
 	 * @return	void
 	 */
-	protected function renderCommitmentsParagraph($pdf, $outputlangs, $defaultFontSize)
+	protected function renderInstallerLegalText($pdf, $object, $outputlangs, $defaultFontSize)
 	{
-		$pairs = array(
-			array('AttestationInstallerInf100WorksCompliance', 'AttestationInstallerInf100WorksComplianceText'),
-			array('AttestationInstallerInf100ProfessionalQualification', 'AttestationInstallerInf100ProfessionalQualificationText'),
-			array('AttestationInstallerInf100InstalledEquipment', 'AttestationInstallerInf100InstalledEquipmentText'),
-			array('AttestationInstallerInf100LandscapeCriteria', 'AttestationInstallerInf100LandscapeCriteriaText'),
-			array('AttestationInstallerInf100ProofCommitment', 'AttestationInstallerInf100ProofCommitmentText'),
-			array('AttestationInstallerInf100CriminalPenalties', 'AttestationInstallerInf100CriminalPenaltiesText'),
-		);
-		$parts = array();
-		foreach ($pairs as $pair) {
-			$parts[] = $outputlangs->transnoentities($pair[0]).' : '.$outputlangs->transnoentities($pair[1]);
-		}
+		$this->renderBulletParagraph($pdf, $outputlangs, 'AttestationInstallerInf100WorksComplianceText', $defaultFontSize);
+		$this->renderBulletParagraph($pdf, $outputlangs, 'AttestationInstallerInf100ProfessionalQualificationText', $defaultFontSize);
+		$this->renderBulletParagraph($pdf, $outputlangs, 'AttestationInstallerInf100InstalledEquipmentText', $defaultFontSize);
+		$this->renderGroupedEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
+		$this->renderBulletParagraph($pdf, $outputlangs, 'AttestationInstallerInf100LandscapeCriteriaText', $defaultFontSize);
 
+		$this->ensureSpace($pdf, 20);
 		$pdf->SetFont('', '', $defaultFontSize);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset(implode("\n\n", $parts)), 0, 'L');
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationInstallerInf100ProofCommitmentText')), 0, 'L');
 		$pdf->Ln(2);
+		$this->ensureSpace($pdf, 24);
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationInstallerInf100CriminalPenaltiesText')), 0, 'L');
 	}
 
 	/**
-	 * Render equipment lines as a table.
+	 * Render a legal bullet paragraph.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf				PDF
+	 * @param	Translate	$outputlangs		Output lang
+	 * @param	string		$key				Translation key
+	 * @param	int			$defaultFontSize	Default font size
+	 * @return	void
+	 */
+	protected function renderBulletParagraph($pdf, $outputlangs, $key, $defaultFontSize)
+	{
+		$this->ensureSpace($pdf, 14);
+		$pdf->SetFont('', '', $defaultFontSize);
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset('- '.$outputlangs->transnoentities($key)), 0, 'L');
+		$pdf->Ln(1);
+	}
+
+	/**
+	 * Render equipment grouped by photovoltaic category and product reference.
 	 *
 	 * @param	TCPDF|TCPDI				$pdf				PDF
 	 * @param	PowerPlantPVAttestation	$object				Attestation
@@ -152,59 +141,160 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	 * @param	int						$defaultFontSize	Default font size
 	 * @return	void
 	 */
-	protected function renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize)
+	protected function renderGroupedEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize)
 	{
+		$groups = $this->buildGroupedEquipmentRows($object, $outputlangs);
 		$tableWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
-		$widths = array(30, 24, 50, 28, 28, $tableWidth - 30 - 24 - 50 - 28 - 28);
-		$fontSize = max($defaultFontSize - 2, 6);
+		$categoryWidth = 42;
+		$widths = array($categoryWidth, $tableWidth - $categoryWidth);
+		$fontSize = max($defaultFontSize - 1, 7);
 
-		$headerValues = array(
-			$outputlangs->transnoentities('AttestationEquipmentCategory'),
-			$outputlangs->transnoentities('Ref'),
-			$outputlangs->transnoentities('Designation'),
-			$outputlangs->transnoentities('ProductPhotovoltaicBrand'),
-			$outputlangs->transnoentities('ProductPhotovoltaicManufacturer'),
-			$outputlangs->transnoentities('PowerPlantSerialNumber'),
-		);
+		if (empty(array_filter($groups))) {
+			$this->ensureSpace($pdf, 8);
+			$pdf->SetFont('', 'I', $fontSize);
+			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationNotProvided')), 0, 'L');
+			$pdf->SetFont('', '', $fontSize);
+			$pdf->Ln(1);
+			return;
+		}
 
-		$bodyRows = array();
-		if (empty($object->lines)) {
-			$bodyRows[] = array(
-				'widths' => array($tableWidth),
-				'values' => array($outputlangs->transnoentities('None')),
-			);
-		} else {
-			foreach ($object->lines as $line) {
-				$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
-				$bodyRows[] = array(
-					'widths' => $widths,
-					'values' => array(
-						$this->valueOrNotProvided($equipment['category'], $outputlangs),
-						$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
-						$this->valueOrNotProvided($equipment['designation'], $outputlangs),
-						$this->valueOrNotProvided($equipment['brand'], $outputlangs),
-						$this->valueOrNotProvided($equipment['manufacturer'], $outputlangs),
-						$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
-					),
-				);
+		foreach ($this->getInstallerEquipmentCategoryOrder($outputlangs) as $categoryCode => $categoryLabel) {
+			if (empty($groups[$categoryCode])) {
+				continue;
+			}
+			$first = true;
+			foreach ($groups[$categoryCode] as $row) {
+				$values = array($first ? $categoryLabel : '', $this->formatGroupedEquipmentRow($row, $outputlangs));
+				$styles = array($first ? 'B' : '', '');
+				$this->renderTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles, false, true);
+				$first = false;
 			}
 		}
-
-		$headerStyles = array('B', 'B', 'B', 'B', 'B', 'B');
-		$headerHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles);
-		$firstRowHeight = $this->getTableRowHeight($pdf, $outputlangs, $bodyRows[0]['widths'], $bodyRows[0]['values'], $fontSize);
-		$renderHeader = function () use ($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles) {
-			$this->renderTableRow($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles, true);
-		};
-
-		$this->ensureTableHeaderWithFirstRow($pdf, $headerHeight, $firstRowHeight);
-		$renderHeader();
-		foreach ($bodyRows as $row) {
-			$rowHeight = $this->getTableRowHeight($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize);
-			$this->repeatTableHeaderIfRowDoesNotFit($pdf, $rowHeight, $headerHeight, $renderHeader);
-			$this->renderTableRow($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize, array(), false, false);
-		}
 		$pdf->Ln(2);
+	}
+
+	/**
+	 * Build grouped equipment rows.
+	 *
+	 * @param	PowerPlantPVAttestation	$object			Attestation
+	 * @param	Translate				$outputlangs	Output lang
+	 * @return	array<string,array<string,array<string,mixed>>>	Rows by category code and product key
+	 */
+	protected function buildGroupedEquipmentRows($object, $outputlangs)
+	{
+		$groups = array();
+		foreach ($this->getInstallerEquipmentCategoryOrder($outputlangs) as $categoryCode => $categoryLabel) {
+			$groups[$categoryCode] = array();
+		}
+
+		if (empty($object->lines)) {
+			return $groups;
+		}
+
+		foreach ($object->lines as $line) {
+			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
+			$categoryCode = strtoupper(trim((string) $equipment['category_code']));
+			if (!array_key_exists($categoryCode, $groups)) {
+				continue;
+			}
+
+			$productRef = trim((string) $equipment['product_ref']);
+			$productKey = $productRef !== '' ? $productRef : '#'.((int) (!empty($equipment['fk_product']) ? $equipment['fk_product'] : 0)).'|'.(string) $equipment['designation'];
+			if (empty($groups[$categoryCode][$productKey])) {
+				$groups[$categoryCode][$productKey] = array(
+					'product_ref' => $productRef,
+					'designation' => (string) $equipment['designation'],
+					'brand' => (string) $equipment['brand'],
+					'manufacturer' => (string) $equipment['manufacturer'],
+					'qty' => 0,
+				);
+			}
+			$groups[$categoryCode][$productKey]['qty'] += $this->getGroupedEquipmentLineQuantity($line, $equipment);
+		}
+
+		return $groups;
+	}
+
+	/**
+	 * Return installer equipment category order.
+	 *
+	 * @param	Translate	$outputlangs	Output lang
+	 * @return	array<string,string>	Labels by category code
+	 */
+	protected function getInstallerEquipmentCategoryOrder($outputlangs)
+	{
+		return array(
+			'MODULE' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentModules'),
+			'ONDULE' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentInverters'),
+			'COFFAC' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentACBoxes'),
+			'COFFDC' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentDCBoxes'),
+			'SYSINT' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentIntegration'),
+		);
+	}
+
+	/**
+	 * Return quantity represented by a snapshot equipment line.
+	 *
+	 * @param	PowerPlantPVAttestationEquipmentLine	$line		Equipment line
+	 * @param	array<string,mixed>					$equipment	Resolved equipment
+	 * @return	float											Quantity
+	 */
+	protected function getGroupedEquipmentLineQuantity($line, $equipment)
+	{
+		if (!empty($line->fk_powerplant_serialnumber)) {
+			return 1;
+		}
+		if (isset($equipment['qty']) && $equipment['qty'] !== '' && $equipment['qty'] !== null) {
+			return (float) $equipment['qty'];
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Format a grouped equipment row.
+	 *
+	 * @param	array<string,mixed>	$row			Grouped row
+	 * @param	Translate			$outputlangs	Output lang
+	 * @return	string								Formatted line
+	 */
+	protected function formatGroupedEquipmentRow($row, $outputlangs)
+	{
+		$parts = array();
+		if (!empty($row['product_ref'])) {
+			$parts[] = (string) $row['product_ref'];
+		}
+		if (!empty($row['designation'])) {
+			$parts[] = (string) $row['designation'];
+		}
+		if (!empty($row['brand'])) {
+			$parts[] = $outputlangs->transnoentities('ProductPhotovoltaicBrand').' : '.(string) $row['brand'];
+		}
+		if (!empty($row['manufacturer'])) {
+			$parts[] = $outputlangs->transnoentities('ProductPhotovoltaicManufacturer').' : '.(string) $row['manufacturer'];
+		}
+		if (isset($row['qty']) && $row['qty'] !== '') {
+			$parts[] = $outputlangs->transnoentities('Qty').' : '.$this->formatQuantity($row['qty'], $outputlangs);
+		}
+
+		return implode(' - ', $parts);
+	}
+
+	/**
+	 * Format a quantity.
+	 *
+	 * @param	float|int|string	$qty			Quantity
+	 * @param	Translate		$outputlangs	Output lang
+	 * @return	string							Formatted quantity
+	 */
+	protected function formatQuantity($qty, $outputlangs)
+	{
+		$value = price2num($qty, 'MS');
+		if ((float) $value == (float) ((int) $value)) {
+			return (string) ((int) $value);
+		}
+
+		return price($value, 0, $outputlangs);
 	}
 
 	/**
@@ -240,7 +330,6 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 		$contentWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
 		$height = 4;
 		$texts = array(
-			$outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationInstallerInf100ForLegalUse')),
 			$outputlangs->convToOutputCharset($outputlangs->transnoentities(
 				'AttestationDynamicDoneAt',
 				$this->valueOrNotProvided($derivedData['place'], $outputlangs),
