@@ -3,6 +3,7 @@
 ## Unreleased
 
 Ajout du bloc émetteur dans l'entête des PDF d'attestation, limité à la première page tandis que le bandeau haut reste affiché sur toutes les pages.
+Réduction des cases signature/cachet des PDF d'attestation au format compact natif des contrats Dolibarr.
 
 Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - nouvel objet métier `PowerPlantPVAttestation` avec quatre types d'attestations : bridage dynamique onduleur, bridage statique onduleur, réglage fréquence maximale 51,5 Hz et installateur inférieur à 100 kWc ;

@@ -388,28 +388,134 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	protected function renderSignatureBlock($pdf, $object, $outputlangs)
 	{
 		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
+		$defaultFontSize = pdf_getPDFFontSize($outputlangs);
 
 		$pdf->Ln(8);
-		$this->ensureSpace($pdf, 45);
-		$pdf->SetFont('', '', 9);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationWriterSignature', $derivedData['writer_name'], $derivedData['writer_function'])), 0, 'R');
-
-		$x = $this->page_largeur - $this->marge_droite - 70;
-		$y = $pdf->GetY();
-		$stamp = powerplantpvAttestationGetCompanyStampFile($object->entity);
-		if (file_exists($stamp)) {
-			$pdf->Image($stamp, $x, $y, 30);
+		$this->renderNativeSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, 'AttestationCompanySeal');
+		if (!empty($object->date_signature)) {
+			$pdf->SetFont('', '', $defaultFontSize - 1);
+			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationSignedOn', dol_print_date($object->date_signature, 'dayhour', 'tzuser', $outputlangs))), 0, 'L');
 		}
+	}
+
+	/**
+	 * Render compact native-looking signature and stamp boxes.
+	 *
+	 * @param	TCPDF|TCPDI				$pdf				PDF
+	 * @param	PowerPlantPVAttestation	$object				Attestation
+	 * @param	Translate				$outputlangs		Output lang
+	 * @param	int						$defaultFontSize	Default font size
+	 * @param	array<string,mixed>		$derivedData		Derived data
+	 * @param	string					$stampLabelKey		Stamp label translation key
+	 * @return	void
+	 */
+	protected function renderNativeSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, $stampLabelKey)
+	{
+		$this->ensureSpace($pdf, 33);
+		$gap = 10;
+		$boxHeight = 20;
+		$boxWidth = ($this->page_largeur - $this->marge_gauche - $this->marge_droite - $gap) / 2;
+		$leftX = $this->marge_gauche;
+		$rightX = $leftX + $boxWidth + $gap;
+
+		$pdf->SetFont('', 'B', $defaultFontSize);
+		$pdf->Cell($boxWidth, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationSignature')), 0, 0, 'L');
+		$pdf->SetX($rightX);
+		$pdf->Cell($boxWidth, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities($stampLabelKey)), 0, 1, 'L');
+
+		$signerText = $outputlangs->transnoentities('AttestationSignerNameFunction').' : '.$this->formatSigner($derivedData, $outputlangs);
+		$pdf->SetFont('', '', max($defaultFontSize - 2, 6));
+		$pdf->Cell($boxWidth, 4, $outputlangs->convToOutputCharset(dol_trunc($signerText, 90)), 0, 1, 'L');
+
+		$boxY = $pdf->GetY() + 1;
+		$pdf->SetDrawColor(190, 190, 190);
+		$this->renderNativeSignatureFrame($pdf, $leftX, $boxY, $boxWidth, $boxHeight);
+		$this->renderNativeSignatureFrame($pdf, $rightX, $boxY, $boxWidth, $boxHeight);
+
 		if (!empty($object->signature_file)) {
 			$signature = powerplantpvAttestationGetDocumentRootDir($object->entity).'/'.$object->signature_file;
-			if (file_exists($signature)) {
-				$pdf->Image($signature, $x + 35, $y, 35);
-			}
+			$this->renderImageInNativeSignatureBox($pdf, $signature, $leftX, $boxY, $boxWidth, $boxHeight);
 		}
-		if (!empty($object->date_signature)) {
-			$pdf->SetY($y + 25);
-			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationSignedOn', dol_print_date($object->date_signature, 'dayhour', 'tzuser', $outputlangs))), 0, 'R');
+
+		$stamp = powerplantpvAttestationGetCompanyStampFile($object->entity);
+		$this->renderImageInNativeSignatureBox($pdf, $stamp, $rightX, $boxY, $boxWidth, $boxHeight);
+
+		$pdf->SetDrawColor(0, 0, 0);
+		$pdf->SetY($boxY + $boxHeight + 2);
+	}
+
+	/**
+	 * Render a native PDF signature frame.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf	PDF
+	 * @param	float		$x		X
+	 * @param	float		$y		Y
+	 * @param	float		$w		Width
+	 * @param	float		$h		Height
+	 * @return	void
+	 */
+	protected function renderNativeSignatureFrame($pdf, $x, $y, $w, $h)
+	{
+		$radius = (float) getDolGlobalString('MAIN_PDF_FRAME_CORNER_RADIUS');
+		if ($radius > 0 && method_exists($pdf, 'RoundedRect')) {
+			$pdf->RoundedRect($x, $y, $w, $h, $radius, '1111', 'D');
+		} else {
+			$pdf->Rect($x, $y, $w, $h);
 		}
+	}
+
+	/**
+	 * Render an image centered inside a compact signature box.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf	PDF
+	 * @param	string		$file	Image file
+	 * @param	float		$x		Box X
+	 * @param	float		$y		Box Y
+	 * @param	float		$w		Box width
+	 * @param	float		$h		Box height
+	 * @return	void
+	 */
+	protected function renderImageInNativeSignatureBox($pdf, $file, $x, $y, $w, $h)
+	{
+		if (!is_readable($file)) {
+			return;
+		}
+
+		$padding = 2;
+		$maxWidth = $w - (2 * $padding);
+		$maxHeight = $h - (2 * $padding);
+		$imageWidth = 0;
+		$imageHeight = $maxHeight;
+		$size = @getimagesize($file);
+		if (is_array($size) && !empty($size[0]) && !empty($size[1])) {
+			$scale = min($maxWidth / (float) $size[0], $maxHeight / (float) $size[1]);
+			$imageWidth = (float) $size[0] * $scale;
+			$imageHeight = (float) $size[1] * $scale;
+		}
+
+		$imageX = $x + $padding + ($imageWidth > 0 ? (($maxWidth - $imageWidth) / 2) : 0);
+		$imageY = $y + $padding + max(0, ($maxHeight - $imageHeight) / 2);
+		$pdf->Image($file, $imageX, $imageY, $imageWidth, $imageHeight, 'PNG');
+	}
+
+	/**
+	 * Format signer identity.
+	 *
+	 * @param	array<string,mixed>	$derivedData	Derived data
+	 * @param	Translate			$outputlangs	Output lang
+	 * @return	string							Formatted signer
+	 */
+	protected function formatSigner($derivedData, $outputlangs)
+	{
+		$parts = array();
+		if (!empty($derivedData['writer_name'])) {
+			$parts[] = (string) $derivedData['writer_name'];
+		}
+		if (!empty($derivedData['writer_function'])) {
+			$parts[] = (string) $derivedData['writer_function'];
+		}
+
+		return !empty($parts) ? implode(' / ', $parts) : $outputlangs->transnoentities('AttestationNotProvided');
 	}
 
 	/**

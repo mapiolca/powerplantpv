@@ -163,7 +163,7 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 			$height += 5 * (substr_count($doneAtText, "\n") + 1);
 		}
 
-		$height += 6 + 5 + 44 + 2; // Signature block spacing, labels, boxes and trailing spacing.
+		$height += 6 + 5 + 4 + 1 + 20 + 2; // Signature block spacing, labels, signer line, boxes and trailing spacing.
 		if (!empty($object->date_signature)) {
 			$height += 5;
 		}
@@ -337,44 +337,7 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	protected function renderDynamicSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize, $derivedData)
 	{
 		$pdf->Ln(6);
-		$this->ensureSpace($pdf, 56);
-		$gap = 8;
-		$boxHeight = 44;
-		$boxWidth = ($this->page_largeur - $this->marge_gauche - $this->marge_droite - $gap) / 2;
-		$leftX = $this->marge_gauche;
-		$rightX = $leftX + $boxWidth + $gap;
-
-		$pdf->SetFont('', 'B', $defaultFontSize);
-		$pdf->Cell($boxWidth, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationSignature')), 0, 0, 'L');
-		$pdf->SetX($rightX);
-		$pdf->Cell($boxWidth, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationDynamicCompanySeal')), 0, 1, 'L');
-
-		$boxY = $pdf->GetY();
-		$pdf->SetDrawColor(190, 190, 190);
-		$pdf->Rect($leftX, $boxY, $boxWidth, $boxHeight);
-		$pdf->Rect($rightX, $boxY, $boxWidth, $boxHeight);
-
-		$pdf->SetXY($leftX + 4, $boxY + 4);
-		$pdf->SetFont('', 'B', max($defaultFontSize - 1, 7));
-		$pdf->MultiCell($boxWidth - 8, 4, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationDynamicSignerNameFunction')), 0, 'L');
-		$pdf->SetX($leftX + 4);
-		$pdf->SetFont('', '', max($defaultFontSize - 1, 7));
-		$pdf->MultiCell($boxWidth - 8, 5, $outputlangs->convToOutputCharset($this->formatSigner($derivedData, $outputlangs)), 0, 'L');
-		$signatureY = max($pdf->GetY() + 2, $boxY + 20);
-
-		if (!empty($object->signature_file)) {
-			$signature = powerplantpvAttestationGetDocumentRootDir($object->entity).'/'.$object->signature_file;
-			if (file_exists($signature)) {
-				$pdf->Image($signature, $leftX + 4, $signatureY, 45, 0, 'PNG');
-			}
-		}
-
-		$stamp = powerplantpvAttestationGetCompanyStampFile($object->entity);
-		if (file_exists($stamp)) {
-			$pdf->Image($stamp, $rightX + 4, $boxY + 4, 35, 0, 'PNG');
-		}
-		$pdf->SetDrawColor(0, 0, 0);
-		$pdf->SetY($boxY + $boxHeight + 2);
+		$this->renderNativeSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, 'AttestationDynamicCompanySeal');
 
 		if (!empty($object->date_signature)) {
 			$pdf->SetFont('', '', $defaultFontSize - 1);
