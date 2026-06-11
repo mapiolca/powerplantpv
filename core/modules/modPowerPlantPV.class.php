@@ -1103,6 +1103,68 @@ class modPowerPlantPV extends DolibarrModules
 					}
 				}
 			}
+
+			if ($table === $this->db->prefix().'powerplantpv_attestation_equipment') {
+				$result = $this->relaxLegacyAttestationEquipmentMirrorColumns($table);
+				if ($result < 0) {
+					return -1;
+				}
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Relax legacy mirror columns kept on existing attestation equipment tables.
+	 *
+	 * The current model no longer creates or writes those columns. Existing installations
+	 * may still have them as NOT NULL without defaults, which breaks INSERT in strict SQL mode.
+	 *
+	 * @param	string	$table	Full table name
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	private function relaxLegacyAttestationEquipmentMirrorColumns($table)
+	{
+		$legacycolumns = array(
+			'category_code',
+			'category_label',
+			'equipment_type',
+			'designation',
+			'brand',
+			'model',
+			'manufacturer',
+			'serial_number',
+			'bridage_enabled',
+			'bridage_type',
+			'max_power_kw',
+		);
+
+		foreach ($legacycolumns as $field) {
+			$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+
+			$obj = $this->db->fetch_object($resql);
+			$this->db->free($resql);
+			if (!$obj) {
+				continue;
+			}
+
+			if (!empty($obj->Null) && strtoupper((string) $obj->Null) === 'YES') {
+				continue;
+			}
+
+			$fieldtype = !empty($obj->Type) ? (string) $obj->Type : 'varchar(255)';
+			$sql = "ALTER TABLE ".$this->db->sanitize($table)." MODIFY ".$this->db->sanitize($field)." ".$fieldtype." NULL";
+			if (!$this->db->query($sql)) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+			dol_syslog(__METHOD__.' relaxed legacy attestation equipment mirror column '.$field, LOG_INFO);
 		}
 
 		return 1;
