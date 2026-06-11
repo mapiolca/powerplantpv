@@ -193,6 +193,7 @@ PowerPlantStatsByCategories = Statistiques - Catégories des centrales
 PowerPlantLatestCreated = Les %s dernières centrales créées
 PowerPlantLatestModified = Les %s dernières centrales modifiées
 AttestationLatestModified = Les %s dernières attestations modifiées
+AttestationValidationDate = Date de validation
 PowerPlantTriggerCreate = Centrale créée
 PowerPlantTriggerCreateDesc = Exécuté lorsqu'une centrale est créée
 PowerPlantTriggerModify = Centrale modifiée

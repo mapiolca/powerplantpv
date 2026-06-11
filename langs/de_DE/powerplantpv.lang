@@ -147,6 +147,7 @@ PowerPlantStatsByCategories = Statistiken - Kraftwerkskategorien
 PowerPlantLatestCreated = Die letzten %s erstellten Kraftwerke
 PowerPlantLatestModified = Die letzten %s geaenderten Kraftwerke
 AttestationLatestModified = Die letzten %s geänderten Bescheinigungen
+AttestationValidationDate = Validierungsdatum
 PowerPlantTriggerCreate = Kraftwerk erstellt
 PowerPlantTriggerCreateDesc = Ausgefuehrt, wenn ein Kraftwerk erstellt wird
 PowerPlantTriggerModify = Kraftwerk geaendert

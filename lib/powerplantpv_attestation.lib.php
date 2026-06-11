@@ -742,6 +742,33 @@ function powerplantpvAttestationDatabaseColumnExists($table, $column)
 }
 
 /**
+ * Check if a database table exists.
+ *
+ * @param	string	$table	Full table name
+ * @return	bool			True if table exists
+ */
+function powerplantpvAttestationDatabaseTableExists($table)
+{
+	global $db;
+
+	static $cache = array();
+	if (array_key_exists($table, $cache)) {
+		return $cache[$table];
+	}
+
+	$sql = "SHOW TABLES LIKE '".$db->escape($table)."'";
+	$resql = $db->query($sql);
+	if (!$resql) {
+		$cache[$table] = false;
+		return false;
+	}
+	$cache[$table] = ($db->num_rows($resql) > 0);
+	$db->free($resql);
+
+	return $cache[$table];
+}
+
+/**
  * Resolve an attestation equipment line from native referenced data.
  *
  * @param	PowerPlantPVAttestationEquipmentLine	$line			Equipment line
@@ -863,6 +890,210 @@ function powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs = nul
 	$resolved = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
 
 	return !empty($resolved['category']) ? (string) $resolved['category'] : '';
+}
+
+/**
+ * Fetch attestations linked to a power plant for the power plant document tab.
+ *
+ * @param	PowerPlant	$powerplant	Power plant object
+ * @param	User		$user		Current user
+ * @return	PowerPlantPVAttestation[]	Linked attestations
+ */
+function powerplantpvAttestationFetchForPowerPlantDocumentTab($powerplant, $user)
+{
+	global $db;
+
+	if (!is_object($powerplant) || empty($powerplant->id)) {
+		return array();
+	}
+
+	$table = $db->prefix().'powerplantpv_attestation';
+	if (!powerplantpvAttestationDatabaseTableExists($table)) {
+		return array();
+	}
+
+	$hasDateValid = powerplantpvAttestationDatabaseColumnExists($table, 'date_valid');
+	$sql = "SELECT t.rowid, t.ref, t.entity, t.type_code, t.fk_project, t.status";
+	$sql .= $hasDateValid ? ", t.date_valid" : ", NULL as date_valid";
+	$sql .= " FROM ".$db->sanitize($table)." as t";
+	$sql .= " WHERE t.fk_powerplant = ".((int) $powerplant->id);
+	$sql .= " AND t.entity IN (".getEntity('attestation').")";
+	if (!empty($user->socid)) {
+		$sql .= " AND t.fk_soc = ".((int) $user->socid);
+	}
+	$sql .= " ORDER BY ";
+	if ($hasDateValid) {
+		$sql .= "t.date_valid DESC, ";
+	}
+	$sql .= "t.tms DESC, t.rowid DESC";
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__METHOD__.' '.$db->lasterror(), LOG_ERR);
+		return array();
+	}
+
+	$attestations = array();
+	while ($obj = $db->fetch_object($resql)) {
+		$attestation = new PowerPlantPVAttestation($db);
+		$attestation->id = (int) $obj->rowid;
+		$attestation->rowid = (int) $obj->rowid;
+		$attestation->ref = (string) $obj->ref;
+		$attestation->entity = (int) $obj->entity;
+		$attestation->type_code = (string) $obj->type_code;
+		$attestation->fk_project = !empty($obj->fk_project) ? (int) $obj->fk_project : 0;
+		$attestation->status = (int) $obj->status;
+		$attestation->date_valid = !empty($obj->date_valid) ? (string) $obj->date_valid : '';
+		$attestations[] = $attestation;
+	}
+	$db->free($resql);
+
+	return $attestations;
+}
+
+/**
+ * Return entity labels indexed by entity id.
+ *
+ * @param	int[]	$entityIds	Entity ids
+ * @return	array<int,string>	Labels
+ */
+function powerplantpvAttestationGetEntityLabels($entityIds)
+{
+	global $db;
+
+	$entityIds = array_values(array_unique(array_filter(array_map('intval', $entityIds))));
+	if (empty($entityIds)) {
+		return array();
+	}
+
+	$table = $db->prefix().'entity';
+	if (!powerplantpvAttestationDatabaseTableExists($table)) {
+		$labels = array();
+		foreach ($entityIds as $entityId) {
+			$labels[$entityId] = (string) $entityId;
+		}
+
+		return $labels;
+	}
+
+	$labelfield = 'rowid';
+	if (powerplantpvAttestationDatabaseColumnExists($table, 'label')) {
+		$labelfield = 'label';
+	} elseif (powerplantpvAttestationDatabaseColumnExists($table, 'name')) {
+		$labelfield = 'name';
+	}
+
+	$sql = "SELECT rowid, ".$db->sanitize($labelfield)." as entity_label";
+	$sql .= " FROM ".$db->sanitize($table);
+	$sql .= " WHERE rowid IN (".implode(',', $entityIds).")";
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return array();
+	}
+
+	$labels = array();
+	while ($obj = $db->fetch_object($resql)) {
+		$labels[(int) $obj->rowid] = (string) $obj->entity_label;
+	}
+	$db->free($resql);
+	foreach ($entityIds as $entityId) {
+		if (!isset($labels[$entityId])) {
+			$labels[$entityId] = (string) $entityId;
+		}
+	}
+
+	return $labels;
+}
+
+/**
+ * Render linked attestations table on the power plant document tab.
+ *
+ * @param	PowerPlant	$powerplant	Power plant object
+ * @param	User		$user		Current user
+ * @return	string					HTML
+ */
+function powerplantpvAttestationRenderPowerPlantDocumentTabTable($powerplant, $user)
+{
+	global $db, $langs;
+
+	if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
+		return '';
+	}
+	if (!powerplantpvAttestationUserHasRight($user, 'read')) {
+		return '';
+	}
+
+	$attestations = powerplantpvAttestationFetchForPowerPlantDocumentTab($powerplant, $user);
+	$typeLabels = PowerPlantPVAttestationTypes::getTypeLabels($langs);
+	$projectCache = array();
+	$entityIds = array();
+	$showEnvironment = false;
+	$powerplantEntity = !empty($powerplant->entity) ? (int) $powerplant->entity : 0;
+
+	foreach ($attestations as $attestation) {
+		$entityIds[] = (int) $attestation->entity;
+		if ($powerplantEntity > 0 && (int) $attestation->entity !== $powerplantEntity) {
+			$showEnvironment = true;
+		}
+	}
+	$entityLabels = $showEnvironment ? powerplantpvAttestationGetEntityLabels($entityIds) : array();
+	if (isModEnabled('project')) {
+		require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+	}
+
+	$colspan = $showEnvironment ? 6 : 5;
+	$out = "\n".'<br>';
+	$out .= '<div class="div-table-responsive-no-min">';
+	$out .= '<table class="noborder centpercent">';
+	$out .= '<tr class="liste_titre"><td colspan="'.$colspan.'">'.$langs->trans('Attestations').'</td></tr>';
+	$out .= '<tr class="liste_titre">';
+	$out .= '<td>'.$langs->trans('Ref').'</td>';
+	$out .= '<td>'.$langs->trans('Label').'</td>';
+	$out .= '<td>'.$langs->trans('Project').'</td>';
+	$out .= '<td class="center">'.$langs->trans('AttestationValidationDate').'</td>';
+	if ($showEnvironment) {
+		$out .= '<td>'.$langs->trans('PowerPlantEnvironment').'</td>';
+	}
+	$out .= '<td class="center">'.$langs->trans('Status').'</td>';
+	$out .= '</tr>';
+
+	if (empty($attestations)) {
+		$out .= '<tr class="oddeven"><td colspan="'.$colspan.'"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+	} else {
+		foreach ($attestations as $attestation) {
+			$projectHtml = '';
+			if (!empty($attestation->fk_project) && isModEnabled('project')) {
+				if (!array_key_exists((int) $attestation->fk_project, $projectCache)) {
+					$project = new Project($db);
+					$projectCache[(int) $attestation->fk_project] = ($project->fetch((int) $attestation->fk_project) > 0) ? $project : null;
+				}
+				if (is_object($projectCache[(int) $attestation->fk_project])) {
+					$projectHtml = $projectCache[(int) $attestation->fk_project]->getNomUrl(1);
+				}
+			}
+
+			$dateValid = '';
+			if (!empty($attestation->date_valid)) {
+				$dateValid = dol_print_date($db->jdate($attestation->date_valid), 'dayhour', 'tzuserrel');
+			}
+
+			$out .= '<tr class="oddeven">';
+			$out .= '<td class="nowraponall">'.$attestation->getNomUrl(1).'</td>';
+			$out .= '<td>'.dol_escape_htmltag(isset($typeLabels[$attestation->type_code]) ? $typeLabels[$attestation->type_code] : $attestation->type_code).'</td>';
+			$out .= '<td>'.$projectHtml.'</td>';
+			$out .= '<td class="center nowraponall">'.$dateValid.'</td>';
+			if ($showEnvironment) {
+				$out .= '<td>'.dol_escape_htmltag(isset($entityLabels[(int) $attestation->entity]) ? $entityLabels[(int) $attestation->entity] : (string) $attestation->entity).'</td>';
+			}
+			$out .= '<td class="center nowraponall">'.$attestation->getLibStatut(5).'</td>';
+			$out .= '</tr>';
+		}
+	}
+
+	$out .= '</table>';
+	$out .= '</div>';
+
+	return $out;
 }
 
 /**

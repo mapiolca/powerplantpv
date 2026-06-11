@@ -71,12 +71,14 @@ class PowerPlantPVAttestation extends CommonObject
 		'signature_hash' => array('type' => 'varchar(128)', 'label' => 'AttestationSignatureHash', 'enabled' => 1, 'position' => 340, 'notnull' => 0, 'visible' => 0),
 		'signature_file' => array('type' => 'varchar(255)', 'label' => 'AttestationSignatureFile', 'enabled' => 1, 'position' => 350, 'notnull' => 0, 'visible' => 0),
 		'signed_pdf_file' => array('type' => 'varchar(255)', 'label' => 'AttestationSignedPdfFile', 'enabled' => 1, 'position' => 360, 'notnull' => 0, 'visible' => 0),
+		'date_valid' => array('type' => 'datetime', 'label' => 'AttestationValidationDate', 'enabled' => 1, 'position' => 370, 'notnull' => 0, 'visible' => 0, 'index' => 1),
 		'note_public' => array('type' => 'html', 'label' => 'NotePublic', 'enabled' => 1, 'position' => 400, 'notnull' => 0, 'visible' => 0),
 		'note_private' => array('type' => 'html', 'label' => 'NotePrivate', 'enabled' => 1, 'position' => 410, 'notnull' => 0, 'visible' => 0),
 		'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => 1, 'position' => 500, 'notnull' => 1, 'visible' => -2),
 		'tms' => array('type' => 'timestamp', 'label' => 'DateModification', 'enabled' => 1, 'position' => 510, 'notnull' => 0, 'visible' => -2),
 		'fk_user_creat' => array('type' => 'integer:User:user/class/user.class.php', 'label' => 'UserAuthor', 'picto' => 'user', 'enabled' => 1, 'position' => 520, 'notnull' => 1, 'visible' => -2),
 		'fk_user_modif' => array('type' => 'integer:User:user/class/user.class.php', 'label' => 'UserModif', 'picto' => 'user', 'enabled' => 1, 'position' => 530, 'notnull' => -1, 'visible' => -2),
+		'fk_user_valid' => array('type' => 'integer:User:user/class/user.class.php', 'label' => 'UserValidation', 'picto' => 'user', 'enabled' => 1, 'position' => 535, 'notnull' => -1, 'visible' => -2, 'index' => 1),
 		'last_main_doc' => array('type' => 'varchar(255)', 'label' => 'LastMainDoc', 'enabled' => 1, 'position' => 540, 'notnull' => 0, 'visible' => 0),
 		'import_key' => array('type' => 'varchar(14)', 'label' => 'ImportId', 'enabled' => 1, 'position' => 550, 'notnull' => -1, 'visible' => -2),
 		'status' => array('type' => 'integer', 'label' => 'Status', 'enabled' => 1, 'position' => 600, 'notnull' => 1, 'visible' => 1, 'default' => self::STATUS_DRAFT, 'index' => 1, 'arrayofkeyval' => array(self::STATUS_DRAFT => 'AttestationStatusDraft', self::STATUS_VALIDATED => 'AttestationStatusValidated', self::STATUS_PENDING_SIGNATURE => 'AttestationStatusPendingSignature', self::STATUS_SIGNED => 'AttestationStatusSigned', self::STATUS_CANCELED => 'AttestationStatusCanceled')),
@@ -106,12 +108,14 @@ class PowerPlantPVAttestation extends CommonObject
 	public $signature_hash;
 	public $signature_file;
 	public $signed_pdf_file;
+	public $date_valid;
 	public $note_public;
 	public $note_private;
 	public $date_creation;
 	public $tms;
 	public $fk_user_creat;
 	public $fk_user_modif;
+	public $fk_user_valid;
 	public $last_main_doc;
 	public $import_key;
 	public $status;
@@ -297,6 +301,8 @@ class PowerPlantPVAttestation extends CommonObject
 
 		$oldref = (string) $this->ref;
 		$oldstatus = (int) $this->status;
+		$olddatevalid = $this->date_valid;
+		$oldfkuservalid = $this->fk_user_valid;
 
 		$this->db->begin();
 
@@ -309,10 +315,20 @@ class PowerPlantPVAttestation extends CommonObject
 		}
 
 		$newref = (string) $this->ref;
+		$now = dol_now();
+		$hasDateValid = $this->tableColumnExists('date_valid');
+		$hasUserValid = $this->tableColumnExists('fk_user_valid');
+
 		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
 		$sql .= " SET status = ".self::STATUS_VALIDATED;
 		$sql .= ", ref = '".$this->db->escape($newref)."'";
 		$sql .= ", fk_user_modif = ".((int) $user->id);
+		if ($hasDateValid) {
+			$sql .= ", date_valid = '".$this->db->idate($now)."'";
+		}
+		if ($hasUserValid) {
+			$sql .= ", fk_user_valid = ".((int) $user->id);
+		}
 		$sql .= " WHERE rowid = ".((int) $this->id);
 		$sql .= " AND entity = ".((int) $this->entity);
 		if (!$this->db->query($sql)) {
@@ -324,9 +340,17 @@ class PowerPlantPVAttestation extends CommonObject
 		}
 
 		$this->status = self::STATUS_VALIDATED;
+		if ($hasDateValid) {
+			$this->date_valid = $now;
+		}
+		if ($hasUserValid) {
+			$this->fk_user_valid = (int) $user->id;
+		}
 		if (!$notrigger && $this->callAttestationTrigger('VALIDATE', $user) < 0) {
 			$this->ref = $oldref;
 			$this->status = $oldstatus;
+			$this->date_valid = $olddatevalid;
+			$this->fk_user_valid = $oldfkuservalid;
 			$this->db->rollback();
 			return -1;
 		}
@@ -336,6 +360,8 @@ class PowerPlantPVAttestation extends CommonObject
 			if ($result < 0) {
 				$this->ref = $oldref;
 				$this->status = $oldstatus;
+				$this->date_valid = $olddatevalid;
+				$this->fk_user_valid = $oldfkuservalid;
 				$this->db->rollback();
 				return -1;
 			}
@@ -344,6 +370,34 @@ class PowerPlantPVAttestation extends CommonObject
 		$this->db->commit();
 
 		return 1;
+	}
+
+	/**
+	 * Check if a column exists on the attestation table.
+	 *
+	 * @param	string	$column	Column name
+	 * @return	bool			True if column exists
+	 */
+	private function tableColumnExists($column)
+	{
+		static $cache = array();
+
+		$table = $this->db->prefix().$this->table_element;
+		$cachekey = $table.'.'.$column;
+		if (array_key_exists($cachekey, $cache)) {
+			return $cache[$cachekey];
+		}
+
+		$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($column)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$cache[$cachekey] = false;
+			return false;
+		}
+		$cache[$cachekey] = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+
+		return $cache[$cachekey];
 	}
 
 	/**

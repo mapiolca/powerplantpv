@@ -1026,7 +1026,9 @@ class modPowerPlantPV extends DolibarrModules
 				'signature_hash' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
 				'signature_file' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'signed_pdf_file' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'date_valid' => array('type' => 'datetime', 'value' => '', 'null' => ''),
 				'last_main_doc' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'fk_user_valid' => array('type' => 'integer', 'value' => '', 'null' => ''),
 				'status' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL DEFAULT 0'),
 			),
 			$this->db->prefix().'powerplantpv_attestation_equipment' => array(
@@ -1079,6 +1081,11 @@ class modPowerPlantPV extends DolibarrModules
 					'idx_powerplantpv_attestation_equipment_product' => 'fk_product',
 					'idx_powerplantpv_attestation_equipment_categorie' => 'fk_categorie',
 					'idx_powerplantpv_attestation_equipment_serialnumber' => 'fk_powerplant_serialnumber',
+				);
+			} elseif ($table === $this->db->prefix().'powerplantpv_attestation') {
+				$indexes = array(
+					'idx_powerplantpv_attestation_date_valid' => 'date_valid',
+					'idx_powerplantpv_attestation_fk_user_valid' => 'fk_user_valid',
 				);
 			} else {
 				$indexes = array();
