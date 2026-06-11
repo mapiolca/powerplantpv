@@ -789,6 +789,7 @@ AttestationCompatibilitySignatureDescription = Firma online nativa Dolibarr tram
 AttestationGeneralInformation = Informazioni generali
 AttestationSpecificData = Dati specifici
 AttestationDocumentTitle = Attestazione %s
+AttestationIssuer = Emittente
 AttestationPhotovoltaicInstallation = Installazione fotovoltaica
 AttestationMaterialUsed = Materiale utilizzato
 AttestationCompanySeal = Timbro dell'azienda

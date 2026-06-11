@@ -789,6 +789,7 @@ AttestationCompatibilitySignatureDescription = Native Dolibarr-Online-Signatur √
 AttestationGeneralInformation = Allgemeine Informationen
 AttestationSpecificData = Spezifische Daten
 AttestationDocumentTitle = Bescheinigung %s
+AttestationIssuer = Aussteller
 AttestationPhotovoltaicInstallation = Photovoltaikanlage
 AttestationMaterialUsed = Verwendete Ausr√ºstung
 AttestationCompanySeal = Firmenstempel

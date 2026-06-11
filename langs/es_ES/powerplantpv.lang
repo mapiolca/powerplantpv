@@ -789,6 +789,7 @@ AttestationCompatibilitySignatureDescription = Firma en línea nativa de Dolibar
 AttestationGeneralInformation = Información general
 AttestationSpecificData = Datos específicos
 AttestationDocumentTitle = Certificado %s
+AttestationIssuer = Emisor
 AttestationPhotovoltaicInstallation = Instalación fotovoltaica
 AttestationMaterialUsed = Material utilizado
 AttestationCompanySeal = Sello de la empresa

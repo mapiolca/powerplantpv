@@ -865,6 +865,7 @@ AttestationCompatibilitySignatureDescription = Signature en ligne native Dolibar
 AttestationGeneralInformation = Informations générales
 AttestationSpecificData = Données spécifiques
 AttestationDocumentTitle = Attestation %s
+AttestationIssuer = Émetteur
 AttestationPhotovoltaicInstallation = Installation photovoltaïque
 AttestationMaterialUsed = Matériel utilisé
 AttestationCompanySeal = Cachet de l'entreprise

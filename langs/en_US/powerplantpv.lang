@@ -865,6 +865,7 @@ AttestationCompatibilitySignatureDescription = Native Dolibarr online signature 
 AttestationGeneralInformation = General information
 AttestationSpecificData = Specific data
 AttestationDocumentTitle = Attestation %s
+AttestationIssuer = Issuer
 AttestationPhotovoltaicInstallation = Photovoltaic installation
 AttestationMaterialUsed = Equipment used
 AttestationCompanySeal = Company stamp

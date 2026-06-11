@@ -242,7 +242,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$pdf->SetTextColor(0, 0, 0);
 			$pdf->SetFont('', '', $defaultFontSize - 2);
 			$pdf->SetXY($senderX, $senderY - 5);
-			$pdf->MultiCell($senderWidth, 5, $outputlangs->transnoentities('BillFrom').':', 0, $ltrdirection);
+			$pdf->MultiCell($senderWidth, 5, $outputlangs->transnoentities('AttestationIssuer').':', 0, $ltrdirection);
 			$pdf->SetXY($senderX, $senderY);
 			$pdf->SetFillColor(230, 230, 230);
 			$pdf->MultiCell($senderWidth, $senderHeight, '', 0, 'R', true);
@@ -479,9 +479,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		$pdf->AddPage();
 		$this->reserveFooterSpace($pdf);
-		if (is_object($this->currentObject) && is_object($this->currentOutputLangs)) {
-			$this->renderHeader($pdf, $this->currentObject, $this->currentOutputLangs);
-		}
+		$pdf->SetXY($this->marge_gauche, $this->marge_haute);
 	}
 
 	/**
