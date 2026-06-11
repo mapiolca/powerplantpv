@@ -245,6 +245,8 @@ PVSummaryNone = Ninguno
 # Dictionary
 PhotovoltaicCategoryDictionary = Categoría fotovoltaica
 ProductPhotovoltaicCategory = Categoría fotovoltaica
+ProductPhotovoltaicBrand = Marca fotovoltaica
+ProductPhotovoltaicManufacturer = Fabricante fotovoltaico
 
 PowerPlantMaterialComposition = Composición de material
 PowerPlantAutomaticMaterialSummary = Composición de material a crear
@@ -281,6 +283,10 @@ PowerPlantCompositionMassReplaced = Equipos reemplazados para %s
 PowerPlantCompositionMassReplacedDesc = %s equipo(s) reemplazado(s)
 PowerPlantCompositionLineReplaced = Equipo reemplazado para %s
 PowerPlantCompositionLineReplacedDesc = %s reemplazado por %s
+PowerPlantCompositionLineUsedByAttestationDeleteDenied = Esta línea de composición se utiliza en un certificado y no se puede eliminar. Cambie su estado si es necesario.
+PowerPlantCompositionLinesUsedByAttestationDeleteDenied = Al menos una línea de composición seleccionada se utiliza en un certificado y no se puede eliminar. Cambie su estado si es necesario.
+ProductUsedByPowerPlantDeleteDenied = Este producto se utiliza en la composición de una central y no se puede eliminar.
+ProductUsedByAttestationDeleteDenied = Este producto se utiliza en un certificado y no se puede eliminar.
 PowerPlantCompositionCommissioningDateUpdated = Fechas de puesta en servicio de equipos actualizadas para %s
 PowerPlantCompositionCommissioningDateUpdatedDesc = %s equipo(s) actualizado(s) con la fecha %s
 PowerPlantCompositionExistingDatesKept = Fechas existentes conservadas

@@ -251,14 +251,15 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	protected function renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize)
 	{
 		$tableWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
-		$widths = array(42, $tableWidth - 42 - 48, 48);
+		$widths = array(36, 32, $tableWidth - 36 - 32 - 46, 46);
 		$fontSize = max($defaultFontSize - 1, 7);
 
 		$this->renderEquipmentTableRow($pdf, $outputlangs, $widths, array(
 			$outputlangs->transnoentities('AttestationEquipmentCategory'),
+			$outputlangs->transnoentities('Ref'),
 			$outputlangs->transnoentities('Designation'),
 			$outputlangs->transnoentities('PowerPlantSerialNumber'),
-		), $fontSize, array('B', 'B', 'B'), true);
+		), $fontSize, array('B', 'B', 'B', 'B'), true);
 
 		if (empty($object->lines)) {
 			$this->renderEquipmentTableRow($pdf, $outputlangs, array($tableWidth), array($outputlangs->transnoentities('None')), $fontSize);
@@ -267,10 +268,12 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		}
 
 		foreach ($object->lines as $line) {
+			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
 			$this->renderEquipmentTableRow($pdf, $outputlangs, $widths, array(
-				powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs),
-				(string) $line->designation,
-				(string) $line->serial_number,
+				(string) $equipment['category'],
+				(string) $equipment['product_ref'],
+				(string) $equipment['designation'],
+				(string) $equipment['serial_number'],
 			), $fontSize);
 		}
 		$pdf->Ln(2);
@@ -441,10 +444,11 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 			return '';
 		}
 		foreach ($object->lines as $line) {
-			if ((string) $line->equipment_type !== 'INVERTER' || $line->max_power_kw === null || $line->max_power_kw === '') {
+			$equipment = powerplantpvAttestationResolveEquipmentLine($line);
+			if ((string) $equipment['equipment_type'] !== 'INVERTER' || $equipment['max_power_kw'] === null || $equipment['max_power_kw'] === '') {
 				continue;
 			}
-			$total += (float) $line->max_power_kw;
+			$total += (float) $equipment['max_power_kw'];
 			$found = 1;
 		}
 

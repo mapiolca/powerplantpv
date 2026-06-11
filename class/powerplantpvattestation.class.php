@@ -628,8 +628,6 @@ class PowerPlantPVAttestation extends CommonObject
 				'brand' => 'Marque',
 				'model' => 'Modèle',
 				'serial_number' => 'SN-EXAMPLE',
-				'bridage_enabled' => 1,
-				'bridage_type' => 'DYNAMIC',
 				'max_power_kw' => 36,
 				'rank' => 1,
 			)),
@@ -648,7 +646,8 @@ class PowerPlantPVAttestation extends CommonObject
 			return 0;
 		}
 
-		$sql = "SELECT rowid, entity, fk_attestation, fk_powerplant_line, fk_product, fk_categorie, category_code, category_label, equipment_type, designation, brand, model, manufacturer, serial_number, bridage_enabled, bridage_type, max_power_kw, rank";
+		$serialColumn = $this->equipmentTableColumnExists('fk_powerplant_serialnumber') ? 'fk_powerplant_serialnumber' : '0 as fk_powerplant_serialnumber';
+		$sql = "SELECT rowid, entity, fk_attestation, fk_powerplant_line, ".$serialColumn.", fk_product, fk_categorie, rank";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_attestation_equipment";
 		$sql .= " WHERE fk_attestation = ".((int) $this->id);
 		$sql .= " AND entity = ".((int) $this->entity);
@@ -665,6 +664,26 @@ class PowerPlantPVAttestation extends CommonObject
 		$this->db->free($resql);
 
 		return count($this->lines);
+	}
+
+	/**
+	 * Check if an attestation equipment table column exists.
+	 *
+	 * @param	string	$column	Column name
+	 * @return	bool			True if column exists
+	 */
+	protected function equipmentTableColumnExists($column)
+	{
+		$table = $this->db->prefix().'powerplantpv_attestation_equipment';
+		$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($column)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			return false;
+		}
+		$exists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+
+		return $exists;
 	}
 
 	/**
@@ -1096,6 +1115,7 @@ class PowerPlantPVAttestationEquipmentLine
 	public $entity;
 	public $fk_attestation;
 	public $fk_powerplant_line;
+	public $fk_powerplant_serialnumber;
 	public $fk_product;
 	public $fk_categorie;
 	public $category_code;
@@ -1152,25 +1172,22 @@ class PowerPlantPVAttestationEquipmentLine
 	 */
 	public function insert($db)
 	{
+		$hasSerialColumn = $this->tableColumnExists($db, 'fk_powerplant_serialnumber');
 		$sql = "INSERT INTO ".$db->prefix()."powerplantpv_attestation_equipment (";
-		$sql .= "entity, fk_attestation, fk_powerplant_line, fk_product, fk_categorie, category_code, category_label, equipment_type, designation, brand, model, manufacturer, serial_number, bridage_enabled, bridage_type, max_power_kw, rank";
+		$sql .= "entity, fk_attestation, fk_powerplant_line";
+		if ($hasSerialColumn) {
+			$sql .= ", fk_powerplant_serialnumber";
+		}
+		$sql .= ", fk_product, fk_categorie, rank";
 		$sql .= ") VALUES (";
 		$sql .= ((int) $this->entity);
 		$sql .= ", ".((int) $this->fk_attestation);
 		$sql .= ", ".($this->fk_powerplant_line > 0 ? ((int) $this->fk_powerplant_line) : 'NULL');
+		if ($hasSerialColumn) {
+			$sql .= ", ".($this->fk_powerplant_serialnumber > 0 ? ((int) $this->fk_powerplant_serialnumber) : 'NULL');
+		}
 		$sql .= ", ".($this->fk_product > 0 ? ((int) $this->fk_product) : 'NULL');
 		$sql .= ", ".($this->fk_categorie > 0 ? ((int) $this->fk_categorie) : 'NULL');
-		$sql .= ", '".$db->escape((string) $this->category_code)."'";
-		$sql .= ", '".$db->escape((string) $this->category_label)."'";
-		$sql .= ", '".$db->escape((string) $this->equipment_type)."'";
-		$sql .= ", '".$db->escape((string) $this->designation)."'";
-		$sql .= ", '".$db->escape((string) $this->brand)."'";
-		$sql .= ", '".$db->escape((string) $this->model)."'";
-		$sql .= ", '".$db->escape((string) $this->manufacturer)."'";
-		$sql .= ", '".$db->escape((string) $this->serial_number)."'";
-		$sql .= ", ".((int) $this->bridage_enabled);
-		$sql .= ", '".$db->escape((string) $this->bridage_type)."'";
-		$sql .= ", ".($this->max_power_kw !== null && $this->max_power_kw !== '' ? price2num($this->max_power_kw, 'MU') : 'NULL');
 		$sql .= ", ".((int) $this->rank);
 		$sql .= ")";
 
@@ -1182,5 +1199,26 @@ class PowerPlantPVAttestationEquipmentLine
 		$this->rowid = $this->id;
 
 		return $this->id;
+	}
+
+	/**
+	 * Check if an equipment table column exists.
+	 *
+	 * @param	DoliDB	$db		Database handler
+	 * @param	string	$column	Column name
+	 * @return	bool			True if column exists
+	 */
+	private function tableColumnExists($db, $column)
+	{
+		$table = $db->prefix()."powerplantpv_attestation_equipment";
+		$sql = "SHOW COLUMNS FROM ".$db->sanitize($table)." LIKE '".$db->escape($column)."'";
+		$resql = $db->query($sql);
+		if (!$resql) {
+			return false;
+		}
+		$exists = ($db->num_rows($resql) > 0);
+		$db->free($resql);
+
+		return $exists;
 	}
 }

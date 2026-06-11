@@ -125,7 +125,7 @@ function powerplantpvAttestationGetInstallationIssues()
 	}
 	$equipmentTable = $db->prefix().'powerplantpv_attestation_equipment';
 	if (empty($issues['tables']) && powerplantpvDatabaseTableExists($equipmentTable)) {
-		$expectedColumns = array('fk_categorie', 'category_code', 'category_label');
+		$expectedColumns = array('fk_powerplant_line', 'fk_powerplant_serialnumber', 'fk_product', 'fk_categorie');
 		foreach ($expectedColumns as $column) {
 			if (!powerplantpvDatabaseTableColumnExists($equipmentTable, $column)) {
 				$issues['columns'][] = $equipmentTable.'.'.$column;

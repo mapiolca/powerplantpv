@@ -726,6 +726,15 @@ class modPowerPlantPV extends DolibarrModules
 				return -1;
 			}
 		}
+		foreach (array(
+			'product_photovoltaic_brand' => array('label' => 'ProductPhotovoltaicBrand', 'position' => 201),
+			'product_photovoltaic_manufacturer' => array('label' => 'ProductPhotovoltaicManufacturer', 'position' => 202),
+		) as $attrname => $extrafieldinfo) {
+			$result = $this->ensureProductPhotovoltaicTextExtrafield($extrafields, $attrname, $extrafieldinfo['label'], $extrafieldinfo['position']);
+			if ($result < 0) {
+				return -1;
+			}
+		}
 
 		$result = $this->ensureTicketPowerPlantExtrafield($extrafields);
 		if ($result < 0) {
@@ -1024,19 +1033,9 @@ class modPowerPlantPV extends DolibarrModules
 				'entity' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL DEFAULT 1'),
 				'fk_attestation' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'fk_powerplant_line' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_powerplant_serialnumber' => array('type' => 'integer', 'value' => '', 'null' => ''),
 				'fk_product' => array('type' => 'integer', 'value' => '', 'null' => ''),
 				'fk_categorie' => array('type' => 'integer', 'value' => '', 'null' => ''),
-				'category_code' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
-				'category_label' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
-				'equipment_type' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
-				'designation' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
-				'brand' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
-				'model' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
-				'manufacturer' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
-				'serial_number' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
-				'bridage_enabled' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 0'),
-				'bridage_type' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
-				'max_power_kw' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
 				'rank' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 0'),
 			),
 		);
@@ -1075,7 +1074,11 @@ class modPowerPlantPV extends DolibarrModules
 
 			if ($table === $this->db->prefix().'powerplantpv_attestation_equipment') {
 				$indexes = array(
+					'idx_powerplantpv_attestation_equipment_parent' => 'fk_attestation',
+					'idx_powerplantpv_attestation_equipment_powerplant_line' => 'fk_powerplant_line',
+					'idx_powerplantpv_attestation_equipment_product' => 'fk_product',
 					'idx_powerplantpv_attestation_equipment_categorie' => 'fk_categorie',
+					'idx_powerplantpv_attestation_equipment_serialnumber' => 'fk_powerplant_serialnumber',
 				);
 			} else {
 				$indexes = array();
@@ -1201,6 +1204,52 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		return array();
+	}
+
+	/**
+	 * Create a product text extrafield used by photovoltaic product data.
+	 *
+	 * @param	ExtraFields	$extrafields	Extrafields manager
+	 * @param	string		$attrname		Technical attribute name
+	 * @param	string		$label			Translation key
+	 * @param	int			$position		Position
+	 * @return	int							1 if OK, <0 if KO
+	 */
+	private function ensureProductPhotovoltaicTextExtrafield($extrafields, $attrname, $label, $position)
+	{
+		$elementtype = 'product';
+
+		$extrafields->fetch_name_optionals_label($elementtype);
+		if (!empty($extrafields->attributes[$elementtype]['label'][$attrname])) {
+			return 1;
+		}
+
+		$result = $extrafields->addExtraField(
+			$attrname,
+			$label,
+			'varchar',
+			(int) $position,
+			128,
+			$elementtype,
+			0,
+			0,
+			'',
+			array(),
+			1,
+			'',
+			-1,
+			'',
+			'',
+			'',
+			'powerplantpv@powerplantpv',
+			'isModEnabled("powerplantpv")'
+		);
+		if ($result < 0) {
+			$this->errors[] = $extrafields->error;
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**

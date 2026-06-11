@@ -490,12 +490,18 @@ if ($action == 'create' && empty($typeCode)) {
 	print '</table>';
 	print load_fiche_titre($langs->trans('AttestationEquipment'), '', 'fa-cubes');
 	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
-	print '<tr class="liste_titre"><td>'.$langs->trans('AttestationEquipmentCategory').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('AttestationBridage').'</td></tr>';
+	print '<tr class="liste_titre"><td>'.$langs->trans('AttestationEquipmentCategory').'</td><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td></tr>';
 	if (empty($object->lines)) {
 		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
 	} else {
 		foreach ($object->lines as $line) {
-			print '<tr class="oddeven"><td>'.dol_escape_htmltag(powerplantpvAttestationEquipmentCategoryLabel($line, $langs)).'</td><td>'.dol_escape_htmltag($line->designation).'</td><td>'.dol_escape_htmltag($line->serial_number).'</td><td>'.yn($line->bridage_enabled).'</td></tr>';
+			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $langs);
+			print '<tr class="oddeven">';
+			print '<td>'.dol_escape_htmltag($equipment['category']).'</td>';
+			print '<td>'.dol_escape_htmltag($equipment['product_ref']).'</td>';
+			print '<td>'.dol_escape_htmltag($equipment['designation']).'</td>';
+			print '<td>'.dol_escape_htmltag($equipment['serial_number']).'</td>';
+			print '</tr>';
 		}
 	}
 	print '</table></div>';

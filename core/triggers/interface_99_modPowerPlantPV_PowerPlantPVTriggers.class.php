@@ -58,6 +58,10 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 			return 0;
 		}
 
+		if ($action == 'PRODUCT_DELETE') {
+			return $this->denyProductDeleteIfUsed($object, $langs);
+		}
+
 		$result = $this->recalculateCommercialDocumentPeakPower($action, $object, $user);
 		if ($result < 0) {
 			return -1;
@@ -80,6 +84,86 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Deny product deletion when the product is referenced by power plants or attestations.
+	 *
+	 * @param	CommonObject	$object	Product object
+	 * @param	Translate		$langs	Language object
+	 * @return	int					0 if deletion is allowed, <0 if denied or SQL error
+	 */
+	private function denyProductDeleteIfUsed($object, Translate $langs)
+	{
+		$productid = $this->getObjectId($object);
+		if ($productid <= 0) {
+			return 0;
+		}
+
+		if (!$this->tableExists('powerplantpv_powerplantcomp')) {
+			return 0;
+		}
+		$sql = "SELECT COUNT(c.rowid) as nb";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_powerplantcomp as c";
+		$sql .= " WHERE c.fk_product = ".$productid;
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			$this->errors[] = $this->error;
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!empty($obj->nb)) {
+			$langs->load('powerplantpv@powerplantpv');
+			$this->error = $langs->transnoentities('ProductUsedByPowerPlantDeleteDenied');
+			$this->errors[] = $this->error;
+			return -1;
+		}
+
+		if (!$this->tableExists('powerplantpv_attestation_equipment')) {
+			return 0;
+		}
+		$sql = "SELECT COUNT(ae.rowid) as nb";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_attestation_equipment as ae";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."powerplantpv_powerplantcomp as c ON c.rowid = ae.fk_powerplant_line";
+		$sql .= " WHERE ae.fk_product = ".$productid." OR c.fk_product = ".$productid;
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			$this->errors[] = $this->error;
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!empty($obj->nb)) {
+			$langs->load('powerplantpv@powerplantpv');
+			$this->error = $langs->transnoentities('ProductUsedByAttestationDeleteDenied');
+			$this->errors[] = $this->error;
+			return -1;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Check if a module table exists.
+	 *
+	 * @param	string	$tablename	Table name without prefix
+	 * @return	bool				True if table exists
+	 */
+	private function tableExists($tablename)
+	{
+		$fulltable = $this->db->prefix().$tablename;
+		$sql = "SHOW TABLES LIKE '".$this->db->escape($fulltable)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			return false;
+		}
+		$exists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+
+		return $exists;
 	}
 
 	/**

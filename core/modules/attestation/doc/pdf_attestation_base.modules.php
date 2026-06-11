@@ -357,8 +357,8 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->SetFont('', 'B', $defaultFontSize + 1);
 		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationEquipment')), 0, 'L');
 		$pdf->SetFont('', 'B', $defaultFontSize - 1);
-		$widths = array(42, 76, 48, 24);
-		$headers = array('AttestationEquipmentCategory', 'Designation', 'PowerPlantSerialNumber', 'AttestationBridage');
+		$widths = array(38, 34, 70, 48);
+		$headers = array('AttestationEquipmentCategory', 'Ref', 'Designation', 'PowerPlantSerialNumber');
 		foreach ($headers as $i => $key) {
 			$pdf->Cell($widths[$i], 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 1, 0, 'L');
 		}
@@ -370,10 +370,11 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		foreach ($object->lines as $line) {
 			$this->ensureSpace($pdf, 7);
-			$pdf->Cell($widths[0], 6, $outputlangs->convToOutputCharset(dol_trunc(powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs), 28)), 1, 0, 'L');
-			$pdf->Cell($widths[1], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->designation, 45)), 1, 0, 'L');
-			$pdf->Cell($widths[2], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $line->serial_number, 34)), 1, 0, 'L');
-			$pdf->Cell($widths[3], 6, $outputlangs->convToOutputCharset(!empty($line->bridage_enabled) ? $outputlangs->transnoentities('Yes') : $outputlangs->transnoentities('No')), 1, 1, 'L');
+			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
+			$pdf->Cell($widths[0], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['category'], 26)), 1, 0, 'L');
+			$pdf->Cell($widths[1], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['product_ref'], 22)), 1, 0, 'L');
+			$pdf->Cell($widths[2], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['designation'], 42)), 1, 0, 'L');
+			$pdf->Cell($widths[3], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['serial_number'], 34)), 1, 1, 'L');
 		}
 	}
 

@@ -245,6 +245,8 @@ PVSummaryNone = Keine
 # Dictionary
 PhotovoltaicCategoryDictionary = Photovoltaik-Kategorie
 ProductPhotovoltaicCategory = Photovoltaik-Kategorie
+ProductPhotovoltaicBrand = Photovoltaik-Marke
+ProductPhotovoltaicManufacturer = Photovoltaik-Hersteller
 
 PowerPlantMaterialComposition = Materialzusammensetzung
 PowerPlantAutomaticMaterialSummary = Zu erstellende Materialzusammensetzung
@@ -281,6 +283,10 @@ PowerPlantCompositionMassReplaced = Geraete fuer %s ersetzt
 PowerPlantCompositionMassReplacedDesc = %s Geraet(e) ersetzt
 PowerPlantCompositionLineReplaced = Geraet fuer %s ersetzt
 PowerPlantCompositionLineReplacedDesc = %s ersetzt durch %s
+PowerPlantCompositionLineUsedByAttestationDeleteDenied = Diese Zusammensetzungszeile wird von einer Bescheinigung verwendet und kann nicht gelöscht werden. Ändern Sie bei Bedarf ihren Status.
+PowerPlantCompositionLinesUsedByAttestationDeleteDenied = Mindestens eine ausgewählte Zusammensetzungszeile wird von einer Bescheinigung verwendet und kann nicht gelöscht werden. Ändern Sie bei Bedarf ihren Status.
+ProductUsedByPowerPlantDeleteDenied = Dieses Produkt wird in der Zusammensetzung einer Anlage verwendet und kann nicht gelöscht werden.
+ProductUsedByAttestationDeleteDenied = Dieses Produkt wird von einer Bescheinigung verwendet und kann nicht gelöscht werden.
 PowerPlantCompositionCommissioningDateUpdated = Inbetriebnahmedaten der Geraete fuer %s aktualisiert
 PowerPlantCompositionCommissioningDateUpdatedDesc = %s Geraet(e) mit Datum %s aktualisiert
 PowerPlantCompositionExistingDatesKept = Bestehende Daten beibehalten

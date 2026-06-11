@@ -637,13 +637,12 @@ function powerplantpvAttestationBuildEquipmentSnapshot($powerplant, $typeCode)
 
 	$definition = PowerPlantPVAttestationTypes::getType($typeCode);
 	$allowed = !empty($definition['equipment_types']) ? (array) $definition['equipment_types'] : array();
-	$defaultBridageType = !empty($definition['bridage_type']) ? (string) $definition['bridage_type'] : '';
 	$entity = !empty($powerplant->entity) ? (int) $powerplant->entity : (int) $conf->entity;
 
 	$sql = "SELECT c.rowid as fk_powerplant_line, c.fk_product, c.serial_number as composition_serial_number, p.ref as product_ref, p.label as product_label, p.fk_product_type,";
 	$sql .= " pe.categorie_photovoltaique, cpv.code as category_code, cpv.label as category_label,";
 	$sql .= " inv.ac_max_power, inv.ac_nominal_power, inv.grid_frequency,";
-	$sql .= " sn.serial_number as imported_serial_number";
+	$sql .= " sn.rowid as fk_powerplant_serialnumber, sn.serial_number as imported_serial_number";
 	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
 	$sql .= " INNER JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
 	$sql .= " LEFT JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = p.rowid";
@@ -680,19 +679,9 @@ function powerplantpvAttestationBuildEquipmentSnapshot($powerplant, $typeCode)
 		$line = new PowerPlantPVAttestationEquipmentLine();
 		$line->entity = $entity;
 		$line->fk_powerplant_line = (int) $obj->fk_powerplant_line;
+		$line->fk_powerplant_serialnumber = !empty($obj->fk_powerplant_serialnumber) ? (int) $obj->fk_powerplant_serialnumber : null;
 		$line->fk_product = (int) $obj->fk_product;
 		$line->fk_categorie = !empty($obj->categorie_photovoltaique) ? (int) $obj->categorie_photovoltaique : null;
-		$line->category_code = (string) $obj->category_code;
-		$line->category_label = (string) $obj->category_label;
-		$line->equipment_type = $equipmentType;
-		$line->designation = trim($obj->product_ref.' - '.$obj->product_label);
-		$line->brand = '';
-		$line->model = (string) $obj->product_ref;
-		$line->manufacturer = '';
-		$line->serial_number = $serial;
-		$line->bridage_enabled = ($defaultBridageType !== '' ? 1 : 0);
-		$line->bridage_type = $defaultBridageType;
-		$line->max_power_kw = !empty($obj->ac_max_power) ? $obj->ac_max_power : $obj->ac_nominal_power;
 		$line->rank = $rank;
 		$lines[] = $line;
 	}
@@ -724,6 +713,143 @@ function powerplantpvAttestationGuessEquipmentType($obj)
 }
 
 /**
+ * Check if a database column exists.
+ *
+ * @param	string	$table	Full table name
+ * @param	string	$column	Column name
+ * @return	bool			True if column exists
+ */
+function powerplantpvAttestationDatabaseColumnExists($table, $column)
+{
+	global $db;
+
+	static $cache = array();
+	$cachekey = $table.'.'.$column;
+	if (array_key_exists($cachekey, $cache)) {
+		return $cache[$cachekey];
+	}
+
+	$sql = "SHOW COLUMNS FROM ".$db->sanitize($table)." LIKE '".$db->escape($column)."'";
+	$resql = $db->query($sql);
+	if (!$resql) {
+		$cache[$cachekey] = false;
+		return false;
+	}
+	$cache[$cachekey] = ($db->num_rows($resql) > 0);
+	$db->free($resql);
+
+	return $cache[$cachekey];
+}
+
+/**
+ * Resolve an attestation equipment line from native referenced data.
+ *
+ * @param	PowerPlantPVAttestationEquipmentLine	$line			Equipment line
+ * @param	Translate|null						$outputlangs	Output language
+ * @return	array<string,mixed>									Resolved data
+ */
+function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
+{
+	global $db, $langs;
+
+	if (!is_object($outputlangs)) {
+		$outputlangs = $langs;
+	}
+
+	$legacyMaxPower = (isset($line->max_power_kw) && $line->max_power_kw !== '') ? $line->max_power_kw : null;
+	$fallback = array(
+		'category' => !empty($line->category_label) ? (string) $line->category_label : (!empty($line->category_code) ? (string) $line->category_code : ''),
+		'category_code' => !empty($line->category_code) ? (string) $line->category_code : '',
+		'product_ref' => !empty($line->model) ? (string) $line->model : '',
+		'designation' => !empty($line->designation) ? (string) $line->designation : '',
+		'serial_number' => !empty($line->serial_number) ? (string) $line->serial_number : '',
+		'brand' => !empty($line->brand) ? (string) $line->brand : '',
+		'manufacturer' => !empty($line->manufacturer) ? (string) $line->manufacturer : '',
+		'max_power_kw' => $legacyMaxPower,
+		'equipment_type' => !empty($line->equipment_type) ? (string) $line->equipment_type : '',
+	);
+
+	$fkProduct = !empty($line->fk_product) ? (int) $line->fk_product : 0;
+	$fkPowerplantLine = !empty($line->fk_powerplant_line) ? (int) $line->fk_powerplant_line : 0;
+	$fkSerial = !empty($line->fk_powerplant_serialnumber) ? (int) $line->fk_powerplant_serialnumber : 0;
+	if ($fkProduct <= 0 && $fkPowerplantLine <= 0 && $fkSerial <= 0) {
+		return $fallback;
+	}
+
+	$entity = !empty($line->entity) ? (int) $line->entity : 0;
+	static $cache = array();
+	$cachekey = $entity.'|'.$fkProduct.'|'.$fkPowerplantLine.'|'.$fkSerial.'|'.((int) (!empty($line->fk_categorie) ? $line->fk_categorie : 0));
+	if (array_key_exists($cachekey, $cache)) {
+		return $cache[$cachekey];
+	}
+
+	$productExtrafieldsTable = $db->prefix()."product_extrafields";
+	$brandSelect = powerplantpvAttestationDatabaseColumnExists($productExtrafieldsTable, 'product_photovoltaic_brand') ? "pe.product_photovoltaic_brand" : "'' as product_photovoltaic_brand";
+	$manufacturerSelect = powerplantpvAttestationDatabaseColumnExists($productExtrafieldsTable, 'product_photovoltaic_manufacturer') ? "pe.product_photovoltaic_manufacturer" : "'' as product_photovoltaic_manufacturer";
+
+	$sql = "SELECT p.rowid as fk_product, p.ref as product_ref, p.label as product_label,";
+	$sql .= " pe.categorie_photovoltaique, ".$brandSelect.", ".$manufacturerSelect.",";
+	$sql .= " cpv.code as category_code, cpv.label as category_label,";
+	$sql .= " c.serial_number as composition_serial_number,";
+	$sql .= " sn.serial_number as imported_serial_number,";
+	$sql .= " inv.ac_max_power, inv.ac_nominal_power";
+	$sql .= " FROM ".$db->prefix()."product as p";
+	$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_powerplantcomp as c ON c.rowid = ".$fkPowerplantLine;
+	if ($entity > 0) {
+		$sql .= " AND c.entity = ".$entity;
+	}
+	$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_serialnumber as sn ON sn.rowid = ".$fkSerial;
+	if ($entity > 0) {
+		$sql .= " AND sn.entity = ".$entity;
+	}
+	$sql .= " LEFT JOIN ".$db->prefix()."product_extrafields as pe ON pe.fk_object = p.rowid";
+	$sql .= " LEFT JOIN ".$db->prefix()."c_powerplantpv_categorypv as cpv ON cpv.rowid = ".(!empty($line->fk_categorie) ? ((int) $line->fk_categorie) : "pe.categorie_photovoltaique");
+	$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_product_inverter as inv ON inv.fk_product = p.rowid AND inv.entity IN (".getEntity('product').")";
+	$sql .= " WHERE p.entity IN (".getEntity('product').")";
+	if ($fkProduct > 0) {
+		$sql .= " AND p.rowid = ".$fkProduct;
+	} elseif ($fkSerial > 0) {
+		$sql .= " AND p.rowid = sn.fk_product";
+	} else {
+		$sql .= " AND p.rowid = c.fk_product";
+	}
+	$sql .= " LIMIT 1";
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		$cache[$cachekey] = $fallback;
+		return $fallback;
+	}
+
+	$obj = $db->fetch_object($resql);
+	$db->free($resql);
+	if (!$obj) {
+		$cache[$cachekey] = $fallback;
+		return $fallback;
+	}
+
+	$resolved = array(
+		'category' => !empty($obj->category_label) ? (string) $obj->category_label : (!empty($obj->category_code) ? (string) $obj->category_code : $fallback['category']),
+		'category_code' => !empty($obj->category_code) ? (string) $obj->category_code : $fallback['category_code'],
+		'product_ref' => (string) $obj->product_ref,
+		'designation' => (string) $obj->product_label,
+		'serial_number' => !empty($obj->imported_serial_number) ? (string) $obj->imported_serial_number : (!empty($obj->composition_serial_number) ? (string) $obj->composition_serial_number : $fallback['serial_number']),
+		'brand' => !empty($obj->product_photovoltaic_brand) ? (string) $obj->product_photovoltaic_brand : $fallback['brand'],
+		'manufacturer' => !empty($obj->product_photovoltaic_manufacturer) ? (string) $obj->product_photovoltaic_manufacturer : $fallback['manufacturer'],
+		'max_power_kw' => ($obj->ac_max_power !== null && $obj->ac_max_power !== '') ? $obj->ac_max_power : (($obj->ac_nominal_power !== null && $obj->ac_nominal_power !== '') ? $obj->ac_nominal_power : $fallback['max_power_kw']),
+		'equipment_type' => '',
+	);
+	$resolved['equipment_type'] = powerplantpvAttestationGuessEquipmentType((object) array(
+		'category_code' => $resolved['category_code'],
+		'category_label' => $resolved['category'],
+		'product_label' => $resolved['designation'],
+	));
+
+	$cache[$cachekey] = $resolved;
+	return $resolved;
+}
+
+/**
  * Return photovoltaic category label for an attestation equipment snapshot line.
  *
  * @param	PowerPlantPVAttestationEquipmentLine	$line			Equipment line
@@ -732,57 +858,9 @@ function powerplantpvAttestationGuessEquipmentType($obj)
  */
 function powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs = null)
 {
-	global $db, $langs;
+	$resolved = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
 
-	if (!is_object($outputlangs)) {
-		$outputlangs = $langs;
-	}
-	if (!empty($line->category_label)) {
-		return (string) $line->category_label;
-	}
-	if (!empty($line->category_code)) {
-		return (string) $line->category_code;
-	}
-
-	static $cache = array();
-	$cachekey = ((int) $line->fk_categorie).'|'.((int) $line->fk_powerplant_line).'|'.((int) $line->fk_product);
-	if (array_key_exists($cachekey, $cache)) {
-		return $cache[$cachekey];
-	}
-
-	$sql = "SELECT cpv.code, cpv.label";
-	$sql .= " FROM ".$db->prefix()."c_powerplantpv_categorypv as cpv";
-	if (!empty($line->fk_categorie)) {
-		$sql .= " WHERE cpv.rowid = ".((int) $line->fk_categorie);
-	} else {
-		$sql .= " INNER JOIN ".$db->prefix()."product_extrafields as pe ON pe.categorie_photovoltaique = cpv.rowid";
-		if (!empty($line->fk_powerplant_line)) {
-			$sql .= " INNER JOIN ".$db->prefix()."powerplantpv_powerplantcomp as c ON c.fk_product = pe.fk_object";
-			$sql .= " WHERE c.rowid = ".((int) $line->fk_powerplant_line);
-		} elseif (!empty($line->fk_product)) {
-			$sql .= " WHERE pe.fk_object = ".((int) $line->fk_product);
-		} else {
-			$cache[$cachekey] = '';
-			return '';
-		}
-	}
-	$sql .= " LIMIT 1";
-
-	$resql = $db->query($sql);
-	if (!$resql) {
-		$cache[$cachekey] = '';
-		return '';
-	}
-	$obj = $db->fetch_object($resql);
-	$db->free($resql);
-	if (!$obj) {
-		$cache[$cachekey] = '';
-		return '';
-	}
-
-	$cache[$cachekey] = !empty($obj->label) ? (string) $obj->label : (string) $obj->code;
-
-	return $cache[$cachekey];
+	return !empty($resolved['category']) ? (string) $resolved['category'] : '';
 }
 
 /**

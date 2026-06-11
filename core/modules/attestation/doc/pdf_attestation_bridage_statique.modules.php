@@ -110,13 +110,14 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 	{
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationMaterialUsed', $defaultFontSize);
 
-		$widths = array(42, 76, 48, 24);
-		$headers = array('AttestationEquipmentCategory', 'Designation', 'PowerPlantSerialNumber', 'AttestationBridage');
+		$tableWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+		$widths = array(38, 34, $tableWidth - 38 - 34 - 48, 48);
+		$headers = array('AttestationEquipmentCategory', 'Ref', 'Designation', 'PowerPlantSerialNumber');
 		$headerValues = array();
 		foreach ($headers as $key) {
 			$headerValues[] = $outputlangs->transnoentities($key);
 		}
-		$this->renderTableRow($pdf, $outputlangs, $widths, $headerValues, $defaultFontSize - 1, array('B', 'B', 'B', 'B', 'B'), true);
+		$this->renderTableRow($pdf, $outputlangs, $widths, $headerValues, $defaultFontSize - 1, array('B', 'B', 'B', 'B'), true);
 
 		$pdf->SetFont('', '', $defaultFontSize - 1);
 		if (empty($object->lines)) {
@@ -126,11 +127,12 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 		}
 
 		foreach ($object->lines as $line) {
+			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
 			$this->renderTableRow($pdf, $outputlangs, $widths, array(
-				powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs),
-				(string) $line->designation,
-				(string) $line->serial_number,
-				!empty($line->bridage_enabled) ? $outputlangs->transnoentities('Yes') : $outputlangs->transnoentities('No'),
+				(string) $equipment['category'],
+				(string) $equipment['product_ref'],
+				(string) $equipment['designation'],
+				(string) $equipment['serial_number'],
 			), $defaultFontSize - 1);
 		}
 		$pdf->Ln(2);
