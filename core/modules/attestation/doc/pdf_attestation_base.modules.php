@@ -371,10 +371,18 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		foreach ($object->lines as $line) {
 			$this->ensureSpace($pdf, 7);
 			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
-			$pdf->Cell($widths[0], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['category'], 26)), 1, 0, 'L');
-			$pdf->Cell($widths[1], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['product_ref'], 22)), 1, 0, 'L');
-			$pdf->Cell($widths[2], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['designation'], 42)), 1, 0, 'L');
-			$pdf->Cell($widths[3], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $equipment['serial_number'], 34)), 1, 1, 'L');
+			$values = array(
+				$this->valueOrNotProvided($equipment['category'], $outputlangs),
+				$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
+				$this->valueOrNotProvided($equipment['designation'], $outputlangs),
+				$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
+			);
+			$limits = array(26, 22, 42, 34);
+			foreach ($values as $i => $value) {
+				$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $defaultFontSize - 1);
+				$pdf->Cell($widths[$i], 6, $outputlangs->convToOutputCharset(dol_trunc((string) $value, $limits[$i])), 1, ($i === 3 ? 1 : 0), 'L');
+				$this->resetPdfTextStyle($pdf);
+			}
 		}
 	}
 
@@ -424,9 +432,11 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->SetX($rightX);
 		$pdf->Cell($boxWidth, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities($stampLabelKey)), 0, 1, 'L');
 
-		$signerText = $outputlangs->transnoentities('AttestationSignerNameFunction').' : '.$this->formatSigner($derivedData, $outputlangs);
-		$pdf->SetFont('', '', max($defaultFontSize - 2, 6));
+		$signer = $this->formatSigner($derivedData, $outputlangs);
+		$signerText = $outputlangs->transnoentities('AttestationSignerNameFunction').' : '.$signer;
+		$this->setPdfTextStyleForValue($pdf, $signer, $outputlangs, max($defaultFontSize - 2, 6));
 		$pdf->Cell($boxWidth, 4, $outputlangs->convToOutputCharset(dol_trunc($signerText, 90)), 0, 1, 'L');
+		$this->resetPdfTextStyle($pdf);
 
 		$boxY = $pdf->GetY() + 1;
 		$pdf->SetDrawColor(190, 190, 190);
@@ -517,6 +527,130 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 
 		return !empty($parts) ? implode(' / ', $parts) : $outputlangs->transnoentities('AttestationNotProvided');
+	}
+
+	/**
+	 * Return a printable value or translated fallback.
+	 *
+	 * @param	mixed		$value			Value
+	 * @param	Translate	$outputlangs	Output lang
+	 * @return	string						Printable value
+	 */
+	protected function valueOrNotProvided($value, $outputlangs)
+	{
+		if ($value === null || $value === '') {
+			return $outputlangs->transnoentities('AttestationNotProvided');
+		}
+
+		return (string) $value;
+	}
+
+	/**
+	 * Return translated missing-value labels used by attestation PDF models.
+	 *
+	 * @param	Translate	$outputlangs	Output lang
+	 * @return	string[]					Labels
+	 */
+	protected function getNotProvidedLabels($outputlangs)
+	{
+		return array_values(array_unique(array_filter(array(
+			$outputlangs->transnoentities('AttestationNotProvided'),
+			$outputlangs->transnoentities('AttestationDynamicNotProvided'),
+		))));
+	}
+
+	/**
+	 * Test if a value is the translated missing-value marker.
+	 *
+	 * @param	mixed		$value			Value
+	 * @param	Translate	$outputlangs	Output lang
+	 * @return	bool						True when value is missing marker
+	 */
+	protected function isNotProvidedValue($value, $outputlangs)
+	{
+		$value = trim((string) $value);
+		foreach ($this->getNotProvidedLabels($outputlangs) as $label) {
+			if ($value === trim((string) $label)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Apply PDF font and color for a value, highlighting missing values.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf			PDF
+	 * @param	mixed		$value			Value
+	 * @param	Translate	$outputlangs	Output lang
+	 * @param	int			$fontSize		Font size
+	 * @param	string		$style			Regular style
+	 * @return	void
+	 */
+	protected function setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize, $style = '')
+	{
+		if ($this->isNotProvidedValue($value, $outputlangs)) {
+			$pdf->SetTextColor(200, 0, 0);
+			$pdf->SetFont('', 'B', $fontSize);
+			return;
+		}
+
+		$pdf->SetTextColor(0, 0, 0);
+		$pdf->SetFont('', $style, $fontSize);
+	}
+
+	/**
+	 * Reset PDF text color and style.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf	PDF
+	 * @return	void
+	 */
+	protected function resetPdfTextStyle($pdf)
+	{
+		$pdf->SetTextColor(0, 0, 0);
+		$pdf->SetFont('', '');
+	}
+
+	/**
+	 * Render a paragraph and highlight any translated missing-value marker inside it.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf			PDF
+	 * @param	Translate	$outputlangs	Output lang
+	 * @param	string		$text			Text
+	 * @param	float		$width			Width
+	 * @param	float		$lineHeight		Line height
+	 * @param	int|string	$border			Border
+	 * @param	string		$align			Alignment
+	 * @param	bool		$fill			Fill
+	 * @return	void
+	 */
+	protected function renderParagraphWithStyledNotProvided($pdf, $outputlangs, $text, $width = 0, $lineHeight = 5, $border = 0, $align = 'L', $fill = false)
+	{
+		$plain = (string) $text;
+		$containsNotProvided = false;
+		foreach ($this->getNotProvidedLabels($outputlangs) as $label) {
+			if ($label !== '' && strpos($plain, (string) $label) !== false) {
+				$containsNotProvided = true;
+				break;
+			}
+		}
+
+		if (!$containsNotProvided || !method_exists($pdf, 'writeHTMLCell')) {
+			$pdf->MultiCell($width, $lineHeight, $outputlangs->convToOutputCharset($plain), $border, $align, $fill);
+			return;
+		}
+
+		$html = dol_escape_htmltag($plain);
+		foreach ($this->getNotProvidedLabels($outputlangs) as $label) {
+			if ($label === '') {
+				continue;
+			}
+			$escapedLabel = dol_escape_htmltag($label);
+			$html = str_replace($escapedLabel, '<span style="color:#c00000;font-weight:bold;">'.$escapedLabel.'</span>', $html);
+		}
+		$pdf->writeHTMLCell($width, 0, '', '', $outputlangs->convToOutputCharset($html), $border, 1, $fill, true, $align, true);
+		$this->resetPdfTextStyle($pdf);
 	}
 
 	/**
@@ -616,8 +750,9 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 		$pdf->SetFont('', 'B');
 		$pdf->Cell(48, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 0, 0, 'L');
-		$pdf->SetFont('', '');
+		$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, pdf_getPDFFontSize($outputlangs));
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset((string) $value), 0, 'L');
+		$this->resetPdfTextStyle($pdf);
 	}
 
 	/**

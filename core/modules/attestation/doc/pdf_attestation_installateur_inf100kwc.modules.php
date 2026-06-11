@@ -33,14 +33,14 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 		$attestationDate = !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : '';
 
 		$pdf->SetFont('', '', $defaultFontSize);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
 			'AttestationInstallerInf100Intro',
 			$this->valueOrNotProvided($derivedData['writer_name'], $outputlangs),
 			$this->valueOrNotProvided($derivedData['installer_name'], $outputlangs),
 			$this->valueOrNotProvided($derivedData['installer_siret'], $outputlangs),
 			$this->valueOrNotProvided($object->bta_contract_number, $outputlangs),
 			$this->valueOrNotProvided($completionDate, $outputlangs)
-		)), 0, 'L');
+		), 0, 5, 0, 'L');
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicInstallationTitle', $defaultFontSize);
@@ -58,14 +58,7 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationInstallerInf100Commitments', $defaultFontSize);
-		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, array(
-			array('AttestationInstallerInf100WorksCompliance', $outputlangs->transnoentities('AttestationInstallerInf100WorksComplianceText')),
-			array('AttestationInstallerInf100ProfessionalQualification', $outputlangs->transnoentities('AttestationInstallerInf100ProfessionalQualificationText')),
-			array('AttestationInstallerInf100InstalledEquipment', $outputlangs->transnoentities('AttestationInstallerInf100InstalledEquipmentText')),
-			array('AttestationInstallerInf100LandscapeCriteria', $outputlangs->transnoentities('AttestationInstallerInf100LandscapeCriteriaText')),
-			array('AttestationInstallerInf100ProofCommitment', $outputlangs->transnoentities('AttestationInstallerInf100ProofCommitmentText')),
-			array('AttestationInstallerInf100CriminalPenalties', $outputlangs->transnoentities('AttestationInstallerInf100CriminalPenaltiesText')),
-		));
+		$this->renderCommitmentsParagraph($pdf, $outputlangs, $defaultFontSize);
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationInstallerInf100InstalledMaterial', $defaultFontSize);
@@ -76,11 +69,11 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 		$pdf->SetFont('', '', $defaultFontSize);
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationInstallerInf100ForLegalUse')), 0, 'L');
 		$pdf->Ln(5);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
 			'AttestationDynamicDoneAt',
 			$this->valueOrNotProvided($derivedData['place'], $outputlangs),
 			$this->valueOrNotProvided($attestationDate, $outputlangs)
-		)), 0, 'L');
+		), 0, 5, 0, 'L');
 
 		$this->renderNativeSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, 'AttestationCompanySeal');
 	}
@@ -119,6 +112,34 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 		foreach ($rows as $row) {
 			$this->renderTableRow($pdf, $outputlangs, array($labelWidth, $valueWidth), array($outputlangs->transnoentities($row[0]), $row[1]), $fontSize, array('B', ''));
 		}
+		$pdf->Ln(2);
+	}
+
+	/**
+	 * Render installer commitments as paragraphs instead of a table.
+	 *
+	 * @param	TCPDF|TCPDI	$pdf				PDF
+	 * @param	Translate	$outputlangs		Output lang
+	 * @param	int			$defaultFontSize	Default font size
+	 * @return	void
+	 */
+	protected function renderCommitmentsParagraph($pdf, $outputlangs, $defaultFontSize)
+	{
+		$pairs = array(
+			array('AttestationInstallerInf100WorksCompliance', 'AttestationInstallerInf100WorksComplianceText'),
+			array('AttestationInstallerInf100ProfessionalQualification', 'AttestationInstallerInf100ProfessionalQualificationText'),
+			array('AttestationInstallerInf100InstalledEquipment', 'AttestationInstallerInf100InstalledEquipmentText'),
+			array('AttestationInstallerInf100LandscapeCriteria', 'AttestationInstallerInf100LandscapeCriteriaText'),
+			array('AttestationInstallerInf100ProofCommitment', 'AttestationInstallerInf100ProofCommitmentText'),
+			array('AttestationInstallerInf100CriminalPenalties', 'AttestationInstallerInf100CriminalPenaltiesText'),
+		);
+		$parts = array();
+		foreach ($pairs as $pair) {
+			$parts[] = $outputlangs->transnoentities($pair[0]).' : '.$outputlangs->transnoentities($pair[1]);
+		}
+
+		$pdf->SetFont('', '', $defaultFontSize);
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset(implode("\n\n", $parts)), 0, 'L');
 		$pdf->Ln(2);
 	}
 
@@ -209,8 +230,9 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
 			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
 			$pdf->SetXY($x + 1, $y + 1);
-			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
+			$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize, isset($styles[$i]) ? $styles[$i] : '');
 			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
+			$this->resetPdfTextStyle($pdf);
 			$x += $width;
 		}
 		$pdf->SetDrawColor(0, 0, 0);

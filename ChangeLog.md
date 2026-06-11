@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+Amélioration des PDF d'attestation : les valeurs `Non renseigné` sont mises en évidence en rouge gras et les engagements de l'attestation installateur < 100 kWc sont rendus sous forme de paragraphe.
 Ajout dans l'onglet `Fichiers joints` des centrales d'un tableau natif listant les attestations liées, avec date de validation dédiée et colonne Environnement seulement lorsque nécessaire en Multicompany.
 Refonte du modèle PDF d'attestation installateur inférieure à 100 kWc avec contenu adapté au formulaire source et tableaux structurés.
 Ajout d'un lien natif vers la fiche produit sur la référence des équipements affichés dans la fiche attestation.

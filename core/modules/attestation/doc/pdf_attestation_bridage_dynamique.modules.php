@@ -34,12 +34,12 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$attestationDate = !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : '';
 
 		$pdf->SetFont('', '', $defaultFontSize);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
 			'AttestationDynamicIntro',
 			$this->valueOrNotProvided($derivedData['writer_name'], $outputlangs),
 			$this->valueOrNotProvided($derivedData['installer_name'], $outputlangs),
 			$this->valueOrNotProvided($derivedData['installer_siret'], $outputlangs)
-		)), 0, 'L');
+		), 0, 5, 0, 'L');
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicInstallationTitle', $defaultFontSize);
@@ -60,10 +60,10 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$pdf->SetFillColor(245, 245, 245);
 		$pdf->SetDrawColor(190, 190, 190);
 		$pdf->SetFont('', 'B', $defaultFontSize + 2);
-		$pdf->MultiCell(0, 8, $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
 			'AttestationDynamicMaxInjectedPower',
 			$this->valueOrNotProvided($maxExportPower, $outputlangs)
-		)), 1, 'C', true);
+		), 0, 8, 1, 'C', true);
 		$pdf->SetDrawColor(0, 0, 0);
 		$pdf->SetFont('', '', $defaultFontSize);
 		$pdf->Ln(2);
@@ -89,11 +89,11 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationDynamicResultText')), 0, 'L');
 
 		$pdf->Ln(5);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
 			'AttestationDynamicDoneAt',
 			$this->valueOrNotProvided($derivedData['place'], $outputlangs),
 			$this->valueOrNotProvided($attestationDate, $outputlangs)
-		)), 0, 'L');
+		), 0, 5, 0, 'L');
 
 		$this->renderDynamicSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize, $derivedData);
 	}
@@ -233,8 +233,9 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$x += $widths[0];
 
 		$pdf->SetXY($x + 1, $y + 1);
-		$pdf->SetFont('', '', $fontSize);
+		$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize);
 		$pdf->MultiCell($widths[1] - 2, $lineHeight, $text, 0, 'L', false, 0);
+		$this->resetPdfTextStyle($pdf);
 		$pdf->SetDrawColor(0, 0, 0);
 		$pdf->SetY($y + $height);
 	}
@@ -270,10 +271,10 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		foreach ($object->lines as $line) {
 			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
 			$this->renderEquipmentTableRow($pdf, $outputlangs, $widths, array(
-				(string) $equipment['category'],
-				(string) $equipment['product_ref'],
-				(string) $equipment['designation'],
-				(string) $equipment['serial_number'],
+				$this->valueOrNotProvided($equipment['category'], $outputlangs),
+				$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
+				$this->valueOrNotProvided($equipment['designation'], $outputlangs),
+				$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
 			), $fontSize);
 		}
 		$pdf->Ln(2);
@@ -319,8 +320,9 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
 			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
 			$pdf->SetXY($x + 1, $y + 1);
-			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
+			$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize, isset($styles[$i]) ? $styles[$i] : '');
 			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
+			$this->resetPdfTextStyle($pdf);
 			$x += $width;
 		}
 		$pdf->SetDrawColor(0, 0, 0);

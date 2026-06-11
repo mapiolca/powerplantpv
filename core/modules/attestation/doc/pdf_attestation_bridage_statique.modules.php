@@ -129,10 +129,10 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 		foreach ($object->lines as $line) {
 			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
 			$this->renderTableRow($pdf, $outputlangs, $widths, array(
-				(string) $equipment['category'],
-				(string) $equipment['product_ref'],
-				(string) $equipment['designation'],
-				(string) $equipment['serial_number'],
+				$this->valueOrNotProvided($equipment['category'], $outputlangs),
+				$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
+				$this->valueOrNotProvided($equipment['designation'], $outputlangs),
+				$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
 			), $defaultFontSize - 1);
 		}
 		$pdf->Ln(2);
@@ -180,8 +180,9 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 			$width = isset($widths[$i]) ? $widths[$i] : end($widths);
 			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
 			$pdf->SetXY($x + 1, $y + 1);
-			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
+			$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize, isset($styles[$i]) ? $styles[$i] : '');
 			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
+			$this->resetPdfTextStyle($pdf);
 			$x += $width;
 		}
 		$pdf->SetDrawColor(0, 0, 0);
