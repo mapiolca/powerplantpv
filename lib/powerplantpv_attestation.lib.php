@@ -893,6 +893,80 @@ function powerplantpvAttestationEquipmentCategoryLabel($line, $outputlangs = nul
 }
 
 /**
+ * Return installer attestation photovoltaic category order.
+ *
+ * @param	Translate|null	$outputlangs	Output language
+ * @return	array<string,string>			Labels by category code
+ */
+function powerplantpvAttestationInstallerInf100EquipmentCategoryOrder($outputlangs = null)
+{
+	global $langs;
+
+	if (!is_object($outputlangs)) {
+		$outputlangs = $langs;
+	}
+
+	return array(
+		'MODULE' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentModules'),
+		'ONDULE' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentInverters'),
+		'COFFAC' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentACBoxes'),
+		'COFFDC' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentDCBoxes'),
+		'SYSINT' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentIntegration'),
+	);
+}
+
+/**
+ * Build installer attestation equipment rows grouped by product reference.
+ *
+ * @param	PowerPlantPVAttestation	$object			Attestation
+ * @param	Translate|null			$outputlangs	Output language
+ * @return	array<int,array<string,mixed>>			Rows
+ */
+function powerplantpvAttestationBuildInstallerInf100EquipmentRows($object, $outputlangs = null)
+{
+	$categoryLabels = powerplantpvAttestationInstallerInf100EquipmentCategoryOrder($outputlangs);
+	$groups = array();
+	foreach ($categoryLabels as $categoryCode => $categoryLabel) {
+		$groups[$categoryCode] = array();
+	}
+
+	if (!is_object($object) || empty($object->lines)) {
+		return array();
+	}
+
+	foreach ($object->lines as $line) {
+		$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
+		$categoryCode = strtoupper(trim((string) $equipment['category_code']));
+		if (!array_key_exists($categoryCode, $groups)) {
+			continue;
+		}
+
+		$productRef = trim((string) $equipment['product_ref']);
+		$fkProduct = !empty($equipment['fk_product']) ? (int) $equipment['fk_product'] : 0;
+		$productKey = $productRef !== '' ? $productRef : '#'.$fkProduct.'|'.(string) $equipment['brand'].'|'.(string) $equipment['manufacturer'];
+		if (empty($groups[$categoryCode][$productKey])) {
+			$groups[$categoryCode][$productKey] = array(
+				'category_code' => $categoryCode,
+				'category' => $categoryLabels[$categoryCode],
+				'fk_product' => $fkProduct,
+				'product_ref' => $productRef,
+				'brand' => (string) $equipment['brand'],
+				'manufacturer' => (string) $equipment['manufacturer'],
+			);
+		}
+	}
+
+	$rows = array();
+	foreach ($groups as $categoryRows) {
+		foreach ($categoryRows as $row) {
+			$rows[] = $row;
+		}
+	}
+
+	return $rows;
+}
+
+/**
  * Fetch attestations linked to a power plant for the power plant document tab.
  *
  * @param	PowerPlant	$powerplant	Power plant object

@@ -81,7 +81,7 @@ function powerplantPrepareHead($object)
 
 	$nbFiles = powerplantCountAttachedFilesAndLinks($object);
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/powerplant_document.php", 1), ['id' => $object->id]);
-	$head[$h][1] = $langs->trans('Documents');
+	$head[$h][1] = $langs->trans('PowerPlantDocumentsAttestationsTab');
 	if ($nbFiles > 0) {
 		$head[$h][1] .= '<span class="badge marginleftonlyshort">'.$nbFiles.'</span>';
 	}

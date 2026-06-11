@@ -361,18 +361,6 @@ if (empty($reshook) && $object->id > 0) {
 	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
 }
 
-if ($action == 'create' && (GETPOSTISSET('type_code') || GETPOSTISSET('fk_powerplant'))) {
-	$sourceErrors = powerplantpvAttestationGetCreateSourceErrors($typeCode, $fkPowerPlant);
-	if (!empty($sourceErrors)) {
-		$translatedErrors = array();
-		foreach ($sourceErrors as $sourceError) {
-			$translatedErrors[] = $langs->trans($sourceError);
-		}
-		setEventMessages('', $translatedErrors, 'errors');
-		$typeCode = '';
-	}
-}
-
 /*
  * View
  */
@@ -390,29 +378,29 @@ if ($action == 'cancel' && $object->id > 0) {
 	print $form->formconfirm($_SERVER['PHP_SELF'].'?id='.(int) $object->id, $langs->trans('Cancel'), $langs->trans('ConfirmCancelAttestation', $object->ref), 'confirm_cancel', '', 0, 1);
 }
 
-if ($action == 'create' && empty($typeCode)) {
-	print load_fiche_titre($langs->trans('New_Attestation'), '', 'fa-file-signature');
-	print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
-	print '<input type="hidden" name="action" value="create">';
-	print '<table class="border centpercent tableforfieldedit">';
-	print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.$form->selectarray('type_code', PowerPlantPVAttestationTypes::getTypeLabels($langs), $typeCode, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
-	print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), $fkPowerPlant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
-	print '</table>';
-	print '<div class="center"><input type="submit" class="button" value="'.$langs->trans('Next').'"></div>';
-	print '</form>';
-} elseif ($action == 'create' || $action == 'edit') {
+if ($action == 'create' || $action == 'edit') {
 	if (!$permissiontoadd) {
 		accessforbidden();
 	}
 	if ($action == 'create') {
 		$object = new PowerPlantPVAttestation($db);
-		$object->type_code = $typeCode;
-		powerplantpvAttestationPrefillFromPowerPlant($object, $fkPowerPlant, $user);
+		$object->type_code = PowerPlantPVAttestationTypes::isValidType($typeCode) ? $typeCode : '';
+		if ($object->type_code !== '') {
+			$result = powerplantpvAttestationPrefillFromPowerPlant($object, $fkPowerPlant, $user);
+			if ($result < 0) {
+				setEventMessages($object->error, $object->errors, 'errors');
+			}
+		} else {
+			powerplantpvAttestationPrefillFromPowerPlant($object, 0, $user);
+			$object->fk_powerplant = $fkPowerPlant > 0 ? $fkPowerPlant : null;
+		}
 	}
 
 	$head = ($object->id > 0 ? powerplantpvAttestationPrepareHead($object) : array());
 	if ($object->id > 0) {
 		print dol_get_fiche_head($head, 'card', $langs->trans('Attestation'), -1, $object->picto);
+	} else {
+		print load_fiche_titre($langs->trans('New_Attestation'), '', 'fa-file-signature');
 	}
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -420,11 +408,17 @@ if ($action == 'create' && empty($typeCode)) {
 	if ($object->id > 0) {
 		print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
 	}
-	print '<input type="hidden" name="type_code" value="'.dol_escape_htmltag($object->type_code).'">';
+	if ($object->id > 0) {
+		print '<input type="hidden" name="type_code" value="'.dol_escape_htmltag($object->type_code).'">';
+	}
 
 	print '<div class="fichecenter"><div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfieldedit">';
-	print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
+	if ($object->id > 0) {
+		print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
+	} else {
+		print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.$form->selectarray('type_code', PowerPlantPVAttestationTypes::getTypeLabels($langs), $object->type_code, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+	}
 	print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), (int) $object->fk_powerplant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	print '<tr><td>'.$langs->trans('ThirdParty').'</td><td>'.$form->select_company($object->fk_soc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300').'</td></tr>';
 	if (isModEnabled('project')) {
@@ -453,6 +447,19 @@ if ($action == 'create' && empty($typeCode)) {
 	}
 	print $form->buttonsSaveCancel();
 	print '</form>';
+	if ($action == 'create') {
+		print '<script nonce="'.getNonce().'">';
+		print 'jQuery(function(){';
+		print 'jQuery("#type_code,#fk_powerplant").select2({width:"resolve",minimumResultsForSearch:0});';
+		print 'jQuery("#type_code,#fk_powerplant").on("change",function(){';
+		print 'var url="'.dol_buildpath('/powerplantpv/attestation_card.php', 1).'?action=create";';
+		print 'var typeCode=jQuery("#type_code").val()||"";';
+		print 'var fkPowerplant=jQuery("#fk_powerplant").val()||"";';
+		print 'window.location.href=url+"&type_code="+encodeURIComponent(typeCode)+"&fk_powerplant="+encodeURIComponent(fkPowerplant);';
+		print '});';
+		print '});';
+		print '</script>';
+	}
 } elseif ($object->id > 0) {
 	$derivedData = powerplantpvAttestationGetDerivedData($object, $langs);
 	$head = powerplantpvAttestationPrepareHead($object);
@@ -491,30 +498,59 @@ if ($action == 'create' && empty($typeCode)) {
 	print '</table>';
 	print load_fiche_titre($langs->trans('AttestationEquipment'), '', 'fa-cubes');
 	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
-	print '<tr class="liste_titre"><td>'.$langs->trans('AttestationEquipmentCategory').'</td><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td></tr>';
-	if (empty($object->lines)) {
-		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
-	} else {
-		$productCache = array();
-		foreach ($object->lines as $line) {
-			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $langs);
-			$productRefHtml = dol_escape_htmltag($equipment['product_ref']);
-			$fkProduct = !empty($equipment['fk_product']) ? (int) $equipment['fk_product'] : 0;
-			if ($fkProduct > 0) {
-				if (!array_key_exists($fkProduct, $productCache)) {
-					$product = new Product($db);
-					$productCache[$fkProduct] = ($product->fetch($fkProduct) > 0) ? $product : false;
+	if ($object->type_code == PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC) {
+		print '<tr class="liste_titre"><td>'.$langs->trans('AttestationInstallerInf100EquipmentCategory').'</td><td>'.$langs->trans('AttestationInstallerInf100EquipmentBrand').'</td><td>'.$langs->trans('AttestationInstallerInf100EquipmentReference').'</td><td>'.$langs->trans('AttestationInstallerInf100EquipmentManufacturer').'</td></tr>';
+		$installerEquipmentRows = powerplantpvAttestationBuildInstallerInf100EquipmentRows($object, $langs);
+		if (empty($installerEquipmentRows)) {
+			print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+		} else {
+			$productCache = array();
+			foreach ($installerEquipmentRows as $equipment) {
+				$productRefHtml = $equipment['product_ref'] !== '' ? dol_escape_htmltag($equipment['product_ref']) : '<span class="opacitymedium">'.$langs->trans('AttestationNotProvided').'</span>';
+				$fkProduct = !empty($equipment['fk_product']) ? (int) $equipment['fk_product'] : 0;
+				if ($fkProduct > 0) {
+					if (!array_key_exists($fkProduct, $productCache)) {
+						$product = new Product($db);
+						$productCache[$fkProduct] = ($product->fetch($fkProduct) > 0) ? $product : false;
+					}
+					if (is_object($productCache[$fkProduct])) {
+						$productRefHtml = $productCache[$fkProduct]->getNomUrl(1);
+					}
 				}
-				if (is_object($productCache[$fkProduct])) {
-					$productRefHtml = $productCache[$fkProduct]->getNomUrl(1);
-				}
+				print '<tr class="oddeven">';
+				print '<td>'.dol_escape_htmltag($equipment['category']).'</td>';
+				print '<td>'.dol_escape_htmltag($equipment['brand']).'</td>';
+				print '<td>'.$productRefHtml.'</td>';
+				print '<td>'.dol_escape_htmltag($equipment['manufacturer']).'</td>';
+				print '</tr>';
 			}
-			print '<tr class="oddeven">';
-			print '<td>'.dol_escape_htmltag($equipment['category']).'</td>';
-			print '<td>'.$productRefHtml.'</td>';
-			print '<td>'.dol_escape_htmltag($equipment['designation']).'</td>';
-			print '<td>'.dol_escape_htmltag($equipment['serial_number']).'</td>';
-			print '</tr>';
+		}
+	} else {
+		print '<tr class="liste_titre"><td>'.$langs->trans('AttestationEquipmentCategory').'</td><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('Designation').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td></tr>';
+		if (empty($object->lines)) {
+			print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('None').'</span></td></tr>';
+		} else {
+			$productCache = array();
+			foreach ($object->lines as $line) {
+				$equipment = powerplantpvAttestationResolveEquipmentLine($line, $langs);
+				$productRefHtml = dol_escape_htmltag($equipment['product_ref']);
+				$fkProduct = !empty($equipment['fk_product']) ? (int) $equipment['fk_product'] : 0;
+				if ($fkProduct > 0) {
+					if (!array_key_exists($fkProduct, $productCache)) {
+						$product = new Product($db);
+						$productCache[$fkProduct] = ($product->fetch($fkProduct) > 0) ? $product : false;
+					}
+					if (is_object($productCache[$fkProduct])) {
+						$productRefHtml = $productCache[$fkProduct]->getNomUrl(1);
+					}
+				}
+				print '<tr class="oddeven">';
+				print '<td>'.dol_escape_htmltag($equipment['category']).'</td>';
+				print '<td>'.$productRefHtml.'</td>';
+				print '<td>'.dol_escape_htmltag($equipment['designation']).'</td>';
+				print '<td>'.dol_escape_htmltag($equipment['serial_number']).'</td>';
+				print '</tr>';
+			}
 		}
 	}
 	print '</table></div>';

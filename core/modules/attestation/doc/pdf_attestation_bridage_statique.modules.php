@@ -1,32 +1,18 @@
 <?php
 /* Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr> */
 
-dol_include_once('/powerplantpv/core/modules/attestation/doc/pdf_attestation_base.modules.php');
+dol_include_once('/powerplantpv/core/modules/attestation/doc/pdf_attestation_bridage_dynamique.modules.php');
 
 /**
  * Static inverter bridage attestation PDF.
  */
-class pdf_attestation_bridage_statique extends pdf_attestation_base
+class pdf_attestation_bridage_statique extends pdf_attestation_bridage_dynamique
 {
 	public function __construct($db)
 	{
 		parent::__construct($db);
 		$this->name = 'attestation_bridage_statique';
 		$this->titleKey = 'AttestationTypeBridageStatiqueOnduleur';
-	}
-
-	/**
-	 * Render header.
-	 *
-	 * @param	TCPDF|TCPDI				$pdf			PDF
-	 * @param	PowerPlantPVAttestation	$object			Attestation
-	 * @param	Translate				$outputlangs	Output lang
-	 * @param	bool					$showIssuer		Show issuer block
-	 * @return	void
-	 */
-	protected function renderHeader($pdf, $object, $outputlangs, $showIssuer = true)
-	{
-		parent::renderHeader($pdf, $object, $outputlangs, $showIssuer);
 	}
 
 	/**
@@ -43,137 +29,114 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
 		$powerplant = $this->fetchPowerPlant($object);
 		$producerName = $this->fetchProducerName($object);
+		$maxExportPower = $this->formatPower($object->max_export_power_kw, 'kW');
+		$inverterPower = $this->formatPower($this->getInverterPower($object), 'kVA');
+		$attestationDate = !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : '';
 
-		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationPhotovoltaicInstallation', $defaultFontSize);
-		$this->renderInstallationTable($pdf, $object, $outputlangs, $defaultFontSize, array(
+		$pdf->SetFont('', '', $defaultFontSize);
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
+			'AttestationStaticIntro',
+			$this->valueOrNotProvided($derivedData['writer_name'], $outputlangs),
+			$this->valueOrNotProvided($derivedData['installer_name'], $outputlangs),
+			$this->valueOrNotProvided($derivedData['installer_siret'], $outputlangs)
+		), 0, 5, 0, 'L');
+
+		$pdf->Ln(4);
+		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationDynamicInstallationTitle', $defaultFontSize);
+		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, array(
 			array('AttestationDynamicProducer', $this->valueOrNotProvided($producerName, $outputlangs)),
-			array('PowerPlant', $this->valueOrNotProvided($derivedData['project_name'], $outputlangs)),
 			array('AttestationDynamicSiteAddress', $this->valueOrNotProvided($derivedData['site_full_address'], $outputlangs)),
 			array('AttestationDynamicPrmPdlReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'prm_pdl_number'), $outputlangs)),
 			array('AttestationDynamicConnectionRequestReference', $this->valueOrNotProvided($this->getPowerPlantValue($powerplant, 'connection_request_number'), $outputlangs)),
 			array('AttestationDynamicInstalledPower', $this->valueOrNotProvided($this->formatPower($this->getPowerPlantValue($powerplant, 'installed_power'), 'kWc'), $outputlangs)),
-			array('AttestationMaxExportPowerKw', $this->valueOrNotProvided($this->formatPower($object->max_export_power_kw, 'kW'), $outputlangs)),
-			array('AttestationDate', !empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : $this->valueOrNotProvided('', $outputlangs)),
+			array('AttestationDynamicInverterPower', $this->valueOrNotProvided($inverterPower, $outputlangs)),
+			array('AttestationDynamicAuthorizedMaxInjectionPower', $this->valueOrNotProvided($maxExportPower, $outputlangs)),
 		));
 
-		$this->renderStaticEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
-		$this->renderSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize);
-	}
-
-	/**
-	 * Render a section title.
-	 *
-	 * @param	TCPDF|TCPDI	$pdf			PDF
-	 * @param	Translate	$outputlangs	Output lang
-	 * @param	string		$key			Translation key
-	 * @param	int			$fontSize		Font size
-	 * @return	void
-	 */
-	protected function renderSectionTitle($pdf, $outputlangs, $key, $fontSize)
-	{
-		$pdf->Ln(3);
-		$pdf->SetFont('', 'B', $fontSize + 1);
-		$pdf->MultiCell(0, 6, $outputlangs->convToOutputCharset($outputlangs->transnoentities($key)), 0, 'L');
-		$pdf->SetFont('', '', $fontSize);
-	}
-
-	/**
-	 * Render installation information as a table.
-	 *
-	 * @param	TCPDF|TCPDI				$pdf				PDF
-	 * @param	PowerPlantPVAttestation	$object				Attestation
-	 * @param	Translate				$outputlangs		Output lang
-	 * @param	int						$defaultFontSize	Default font size
-	 * @param	array<int,array{0:string,1:string}>	$rows		Rows
-	 * @return	void
-	 */
-	protected function renderInstallationTable($pdf, $object, $outputlangs, $defaultFontSize, $rows)
-	{
-		$widths = array(62, $this->page_largeur - $this->marge_gauche - $this->marge_droite - 62);
-		$pdf->SetFont('', '', $defaultFontSize - 1);
-		foreach ($rows as $row) {
-			$this->renderTableRow($pdf, $outputlangs, $widths, array($outputlangs->transnoentities($row[0]), $row[1]), $defaultFontSize - 1, array('B', ''));
-		}
+		$pdf->Ln(4);
+		$pdf->SetFont('', '', $defaultFontSize);
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationStaticLimitText')), 0, 'L');
 		$pdf->Ln(2);
+		$pdf->SetFillColor(245, 245, 245);
+		$pdf->SetDrawColor(190, 190, 190);
+		$pdf->SetFont('', 'B', $defaultFontSize + 2);
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
+			'AttestationStaticMaxInjectedPower',
+			$this->valueOrNotProvided($maxExportPower, $outputlangs)
+		), 0, 8, 1, 'C', true);
+		$pdf->SetDrawColor(0, 0, 0);
+		$pdf->SetFont('', '', $defaultFontSize);
+		$pdf->Ln(2);
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationStaticConfigurationText')), 0, 'L');
+
+		$pdf->Ln(4);
+		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationStaticEquipmentUsed', $defaultFontSize);
+		$this->renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
+
+		$pdf->Ln(4);
+		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationStaticChecksDone', $defaultFontSize);
+		$this->renderBulletList($pdf, $outputlangs, array(
+			'AttestationStaticCheckInverterConfiguration',
+			'AttestationStaticCheckInjectionLimit',
+			'AttestationStaticCheckSettingPersistence',
+		));
+
+		$this->ensureSpace($pdf, $this->getStaticFinalResultSignatureBlockHeight($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, $attestationDate));
+		$pdf->Ln(4);
+		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationStaticResult', $defaultFontSize);
+		$pdf->SetFont('', '', $defaultFontSize);
+		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationStaticResultText')), 0, 'L');
+
+		$pdf->Ln(5);
+		$this->renderParagraphWithStyledNotProvided($pdf, $outputlangs, $outputlangs->transnoentities(
+			'AttestationStaticDoneAt',
+			$this->valueOrNotProvided($derivedData['place'], $outputlangs),
+			$this->valueOrNotProvided($attestationDate, $outputlangs)
+		), 0, 5, 0, 'L');
+
+		$this->renderStaticSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize, $derivedData);
 	}
 
 	/**
-	 * Render equipment as a table.
+	 * Return the height required to keep result, date/place and signature boxes on one page.
 	 *
 	 * @param	TCPDF|TCPDI				$pdf				PDF
 	 * @param	PowerPlantPVAttestation	$object				Attestation
 	 * @param	Translate				$outputlangs		Output lang
 	 * @param	int						$defaultFontSize	Default font size
-	 * @return	void
+	 * @param	array<string,mixed>		$derivedData		Derived data
+	 * @param	string					$attestationDate	Attestation date
+	 * @return	float										Required height
 	 */
-	protected function renderStaticEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize)
+	protected function getStaticFinalResultSignatureBlockHeight($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, $attestationDate)
 	{
-		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationMaterialUsed', $defaultFontSize);
+		$contentWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+		$height = 4 + 6;
 
-		$tableWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
-		$widths = array(38, 34, $tableWidth - 38 - 34 - 48, 48);
-		$headers = array('AttestationEquipmentCategory', 'Ref', 'Designation', 'PowerPlantSerialNumber');
-		$headerValues = array();
-		foreach ($headers as $key) {
-			$headerValues[] = $outputlangs->transnoentities($key);
-		}
+		$resultText = $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationStaticResultText'));
+		$doneAtText = $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+			'AttestationStaticDoneAt',
+			$this->valueOrNotProvided($derivedData['place'], $outputlangs),
+			$this->valueOrNotProvided($attestationDate, $outputlangs)
+		));
 
-		$fontSize = $defaultFontSize - 1;
-		$bodyRows = array();
-		$pdf->SetFont('', '', $defaultFontSize - 1);
-		if (empty($object->lines)) {
-			$bodyRows[] = array(
-				'widths' => array(array_sum($widths)),
-				'values' => array($outputlangs->transnoentities('None')),
-			);
+		$pdf->SetFont('', '', $defaultFontSize);
+		if (method_exists($pdf, 'getStringHeight')) {
+			$height += max(5, $pdf->getStringHeight($contentWidth, $resultText));
+			$height += 5;
+			$height += max(5, $pdf->getStringHeight($contentWidth, $doneAtText));
 		} else {
-			foreach ($object->lines as $line) {
-				$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
-				$bodyRows[] = array(
-					'widths' => $widths,
-					'values' => array(
-						$this->valueOrNotProvided($equipment['category'], $outputlangs),
-						$this->valueOrNotProvided($equipment['product_ref'], $outputlangs),
-						$this->valueOrNotProvided($equipment['designation'], $outputlangs),
-						$this->valueOrNotProvided($equipment['serial_number'], $outputlangs),
-					),
-				);
-			}
+			$height += 5 * (substr_count($resultText, "\n") + 1);
+			$height += 5;
+			$height += 5 * (substr_count($doneAtText, "\n") + 1);
 		}
 
-		$headerStyles = array('B', 'B', 'B', 'B');
-		$headerHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles);
-		$firstRowHeight = $this->getTableRowHeight($pdf, $outputlangs, $bodyRows[0]['widths'], $bodyRows[0]['values'], $fontSize);
-		$renderHeader = function () use ($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles) {
-			$this->renderTableRow($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles, true);
-		};
-
-		$this->ensureTableHeaderWithFirstRow($pdf, $headerHeight, $firstRowHeight);
-		$renderHeader();
-		foreach ($bodyRows as $row) {
-			$rowHeight = $this->getTableRowHeight($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize);
-			$this->repeatTableHeaderIfRowDoesNotFit($pdf, $rowHeight, $headerHeight, $renderHeader);
-			$this->renderTableRow($pdf, $outputlangs, $row['widths'], $row['values'], $fontSize, array(), false, false);
+		$height += 6 + 5 + 4 + 1 + 20 + 2;
+		if (!empty($object->date_signature)) {
+			$height += 5;
 		}
-		$pdf->Ln(2);
-	}
 
-	/**
-	 * Render a table row with multiline cells.
-	 *
-	 * @param	TCPDF|TCPDI					$pdf			PDF
-	 * @param	Translate					$outputlangs	Output lang
-	 * @param	array<int,float>|float		$widths			Column widths
-	 * @param	array<int,string>			$values			Cell values
-	 * @param	int							$fontSize		Font size
-	 * @param	array<int,string>			$styles			Column font styles
-	 * @param	bool						$fill			Fill row
-	 * @param	bool						$checkSpace		Check available space
-	 * @return	void
-	 */
-	protected function renderTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles = array(), $fill = false, $checkSpace = true)
-	{
-		$this->renderPdfTableRow($pdf, $outputlangs, $widths, $values, $fontSize, $styles, $fill, $checkSpace);
+		return $height + 4;
 	}
 
 	/**
@@ -183,126 +146,20 @@ class pdf_attestation_bridage_statique extends pdf_attestation_base
 	 * @param	PowerPlantPVAttestation	$object				Attestation
 	 * @param	Translate				$outputlangs		Output lang
 	 * @param	int						$defaultFontSize	Default font size
+	 * @param	array<string,mixed>		$derivedData		Derived data
 	 * @return	void
 	 */
-	protected function renderSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize)
+	protected function renderStaticSignatureBlock($pdf, $object, $outputlangs, $defaultFontSize, $derivedData)
 	{
-		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
+		$pdf->Ln(6);
 		$this->renderNativeSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize, $derivedData, 'AttestationCompanySeal');
-	}
 
-	/**
-	 * Fetch linked power plant.
-	 *
-	 * @param	PowerPlantPVAttestation	$object	Attestation
-	 * @return	PowerPlant|null				Power plant
-	 */
-	protected function fetchPowerPlant($object)
-	{
-		if (empty($object->fk_powerplant)) {
-			return null;
+		if (!empty($object->date_signature)) {
+			$pdf->SetFont('', '', $defaultFontSize - 1);
+			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+				'AttestationSignedOn',
+				dol_print_date($object->date_signature, 'dayhour', 'tzuser', $outputlangs)
+			)), 0, 'L');
 		}
-		dol_include_once('/powerplantpv/class/powerplant.class.php');
-		$powerplant = new PowerPlant($this->db);
-		if ($powerplant->fetch((int) $object->fk_powerplant) <= 0) {
-			return null;
-		}
-
-		return $powerplant;
-	}
-
-	/**
-	 * Fetch linked producer name.
-	 *
-	 * @param	PowerPlantPVAttestation	$object	Attestation
-	 * @return	string							Producer name
-	 */
-	protected function fetchProducerName($object)
-	{
-		if (empty($object->fk_soc)) {
-			return '';
-		}
-		require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
-		$thirdparty = new Societe($this->db);
-		if ($thirdparty->fetch((int) $object->fk_soc) <= 0) {
-			return '';
-		}
-
-		if (!empty($thirdparty->name)) {
-			return (string) $thirdparty->name;
-		}
-		if (!empty($thirdparty->nom)) {
-			return (string) $thirdparty->nom;
-		}
-
-		return '';
-	}
-
-	/**
-	 * Get a power plant property value.
-	 *
-	 * @param	PowerPlant|null	$powerplant	Power plant
-	 * @param	string			$key		Property
-	 * @return	mixed						Value
-	 */
-	protected function getPowerPlantValue($powerplant, $key)
-	{
-		if (!is_object($powerplant) || !isset($powerplant->{$key})) {
-			return '';
-		}
-
-		return $powerplant->{$key};
-	}
-
-	/**
-	 * Format a numeric power value with its unit.
-	 *
-	 * @param	mixed	$value	Value
-	 * @param	string	$unit	Unit
-	 * @return	string			Formatted value
-	 */
-	protected function formatPower($value, $unit)
-	{
-		if ($value === null || $value === '') {
-			return '';
-		}
-
-		return price($value).' '.$unit;
-	}
-
-	/**
-	 * Format signer line.
-	 *
-	 * @param	array<string,mixed>	$derivedData	Derived data
-	 * @param	Translate			$outputlangs	Output lang
-	 * @return	string								Signer
-	 */
-	protected function formatSigner($derivedData, $outputlangs)
-	{
-		$parts = array();
-		if (!empty($derivedData['writer_name'])) {
-			$parts[] = (string) $derivedData['writer_name'];
-		}
-		if (!empty($derivedData['writer_function'])) {
-			$parts[] = (string) $derivedData['writer_function'];
-		}
-
-		return $this->valueOrNotProvided(implode(' / ', $parts), $outputlangs);
-	}
-
-	/**
-	 * Return a printable value or translated fallback.
-	 *
-	 * @param	mixed		$value			Value
-	 * @param	Translate	$outputlangs	Output lang
-	 * @return	string						Printable value
-	 */
-	protected function valueOrNotProvided($value, $outputlangs)
-	{
-		if ($value === null || $value === '') {
-			return $outputlangs->transnoentities('AttestationNotProvided');
-		}
-
-		return (string) $value;
 	}
 }

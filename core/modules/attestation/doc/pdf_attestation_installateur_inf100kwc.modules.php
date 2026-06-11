@@ -16,6 +16,18 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	}
 
 	/**
+	 * Return document title displayed in the PDF header.
+	 *
+	 * @param	PowerPlantPVAttestation	$object			Attestation
+	 * @param	Translate				$outputlangs	Output lang
+	 * @return	string									Title
+	 */
+	protected function getDocumentTitle($object, $outputlangs)
+	{
+		return $outputlangs->transnoentities($this->titleKey);
+	}
+
+	/**
 	 * Render installer under 100 kWc attestation body.
 	 *
 	 * @param	TCPDF|TCPDI				$pdf				PDF
@@ -143,12 +155,12 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	 */
 	protected function renderGroupedEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize)
 	{
-		$groups = $this->buildGroupedEquipmentRows($object, $outputlangs);
+		$bodyRows = powerplantpvAttestationBuildInstallerInf100EquipmentRows($object, $outputlangs);
 		$tableWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
 		$widths = array(42, 42, 48, $tableWidth - 42 - 42 - 48);
 		$fontSize = max($defaultFontSize - 1, 7);
 
-		if (empty(array_filter($groups))) {
+		if (empty($bodyRows)) {
 			$this->ensureSpace($pdf, 8);
 			$pdf->SetFont('', 'I', $fontSize);
 			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities('AttestationNotProvided')), 0, 'L');
@@ -164,20 +176,6 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 			$outputlangs->transnoentities('AttestationInstallerInf100EquipmentManufacturer'),
 		);
 		$headerStyles = array('B', 'B', 'B', 'B');
-		$bodyRows = array();
-		foreach ($this->getInstallerEquipmentCategoryOrder($outputlangs) as $categoryCode => $categoryLabel) {
-			if (empty($groups[$categoryCode])) {
-				continue;
-			}
-			foreach ($groups[$categoryCode] as $row) {
-				$bodyRows[] = array(
-					'category' => $categoryLabel,
-					'brand' => (string) $row['brand'],
-					'product_ref' => (string) $row['product_ref'],
-					'manufacturer' => (string) $row['manufacturer'],
-				);
-			}
-		}
 
 		$headerHeight = $this->getTableRowHeight($pdf, $outputlangs, $widths, $headerValues, $fontSize, $headerStyles);
 		$firstRowValues = $this->formatGroupedEquipmentTableRow($bodyRows[0], $outputlangs);
@@ -195,62 +193,6 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 			$this->renderTableRow($pdf, $outputlangs, $widths, $values, $fontSize, array(), false, false);
 		}
 		$pdf->Ln(2);
-	}
-
-	/**
-	 * Build grouped equipment rows.
-	 *
-	 * @param	PowerPlantPVAttestation	$object			Attestation
-	 * @param	Translate				$outputlangs	Output lang
-	 * @return	array<string,array<string,array<string,mixed>>>	Rows by category code and product key
-	 */
-	protected function buildGroupedEquipmentRows($object, $outputlangs)
-	{
-		$groups = array();
-		foreach ($this->getInstallerEquipmentCategoryOrder($outputlangs) as $categoryCode => $categoryLabel) {
-			$groups[$categoryCode] = array();
-		}
-
-		if (empty($object->lines)) {
-			return $groups;
-		}
-
-		foreach ($object->lines as $line) {
-			$equipment = powerplantpvAttestationResolveEquipmentLine($line, $outputlangs);
-			$categoryCode = strtoupper(trim((string) $equipment['category_code']));
-			if (!array_key_exists($categoryCode, $groups)) {
-				continue;
-			}
-
-			$productRef = trim((string) $equipment['product_ref']);
-			$productKey = $productRef !== '' ? $productRef : '#'.((int) (!empty($equipment['fk_product']) ? $equipment['fk_product'] : 0)).'|'.(string) $equipment['brand'].'|'.(string) $equipment['manufacturer'];
-			if (empty($groups[$categoryCode][$productKey])) {
-				$groups[$categoryCode][$productKey] = array(
-					'product_ref' => $productRef,
-					'brand' => (string) $equipment['brand'],
-					'manufacturer' => (string) $equipment['manufacturer'],
-				);
-			}
-		}
-
-		return $groups;
-	}
-
-	/**
-	 * Return installer equipment category order.
-	 *
-	 * @param	Translate	$outputlangs	Output lang
-	 * @return	array<string,string>	Labels by category code
-	 */
-	protected function getInstallerEquipmentCategoryOrder($outputlangs)
-	{
-		return array(
-			'MODULE' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentModules'),
-			'ONDULE' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentInverters'),
-			'COFFAC' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentACBoxes'),
-			'COFFDC' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentDCBoxes'),
-			'SYSINT' => $outputlangs->transnoentities('AttestationInstallerInf100EquipmentIntegration'),
-		);
 	}
 
 	/**

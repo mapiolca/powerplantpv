@@ -200,7 +200,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		}
 
 		$derivedData = powerplantpvAttestationGetDerivedData($object, $outputlangs);
-		$title = $outputlangs->transnoentities('AttestationDocumentTitle', $outputlangs->transnoentities($this->titleKey));
+		$title = $this->getDocumentTitle($object, $outputlangs);
 
 		$pdf->SetXY($this->marge_gauche + 45, $posy);
 		$pdf->SetTextColor(0, 0, 60);
@@ -271,6 +271,18 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$pdf->SetTextColor(0, 0, 0);
 
 		$pdf->SetY(max($pdf->GetY(), $senderY + $senderHeight) + 5);
+	}
+
+	/**
+	 * Return document title displayed in the PDF header.
+	 *
+	 * @param	PowerPlantPVAttestation	$object			Attestation
+	 * @param	Translate				$outputlangs	Output lang
+	 * @return	string									Title
+	 */
+	protected function getDocumentTitle($object, $outputlangs)
+	{
+		return $outputlangs->transnoentities('AttestationDocumentTitle', $outputlangs->transnoentities($this->titleKey));
 	}
 
 	/**
