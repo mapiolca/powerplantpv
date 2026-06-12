@@ -71,6 +71,10 @@ if (!$res) {
  */
 include_once DOL_DOCUMENT_ROOT.'/core/class/dolgraph.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 // Load translation files required by the page
 $langs->loadLangs(array("powerplantpv@powerplantpv"));
@@ -88,6 +92,9 @@ if (!empty($user->socid) && $user->socid > 0) {
 
 $powerplantstatic = new PowerPlant($db);
 $hookmanager->initHooks(array($powerplantstatic->element.'index', 'globalindex'));
+$attestationstatic = null;
+$permissiontoreadattestation = 0;
+$attestationtablesok = 0;
 
 // Security check (enable the most restrictive one)
 if (!isModEnabled('powerplantpv')) {
@@ -102,6 +109,21 @@ if (!$permissiontoread) {
 	accessforbidden();
 }
 restrictedArea($user, 'powerplantpv', 0, 'powerplantpv_powerplant', 'powerplant', 'fk_soc', 'rowid');
+
+if (getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)
+	&& class_exists('PowerPlantPVAttestation')
+	&& class_exists('PowerPlantPVAttestationTypes')
+	&& function_exists('powerplantpvAttestationUserHasRight')
+) {
+	$permissiontoreadattestation = powerplantpvAttestationUserHasRight($user, 'read');
+	if ($permissiontoreadattestation && function_exists('powerplantpvAttestationGetInstallationIssues')) {
+		$attestationissues = powerplantpvAttestationGetInstallationIssues();
+		$attestationtablesok = empty($attestationissues['tables']) && empty($attestationissues['columns']);
+	}
+	if ($permissiontoreadattestation && $attestationtablesok) {
+		$attestationstatic = new PowerPlantPVAttestation($db);
+	}
+}
 //if (empty($user->admin)) {
 //	accessforbidden('Must be admin');
 //}
@@ -302,6 +324,75 @@ function powerplantpvIndexLatestTable($db, $langs, $powerplantstatic, $field, $t
 	return $out;
 }
 
+/**
+ * Build latest attestation table.
+ *
+ * @param	DoliDB						$db					Database handler
+ * @param	Translate					$langs				Language handler
+ * @param	PowerPlantPVAttestation		$attestationstatic	Attestation static object
+ * @param	int							$max				Max rows
+ * @param	int							$socid				Third party filter
+ * @return	string											HTML table
+ */
+function powerplantpvIndexLatestAttestationTable($db, $langs, $attestationstatic, $max, $socid = 0)
+{
+	if (!is_object($attestationstatic)) {
+		return '';
+	}
+
+	$typeLabels = PowerPlantPVAttestationTypes::getTypeLabels($langs);
+
+	$sql = "SELECT t.rowid, t.ref, t.type_code, t.status, t.tms as datevalue";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_attestation as t";
+	$sql .= " WHERE t.entity IN (".getEntity($attestationstatic->element).")";
+	if ($socid > 0) {
+		$sql .= " AND t.fk_soc = ".((int) $socid);
+	}
+	$sql .= $db->order("t.tms", "DESC");
+	$sql .= $db->plimit($max, 0);
+
+	$out = '<div class="div-table-responsive-no-min">';
+	$out .= '<table class="noborder centpercent">';
+	$out .= '<tr class="liste_titre">';
+	$out .= '<th colspan="4">'.$langs->trans('AttestationLatestModified', $max);
+	$out .= '<a href="'.dol_buildpath('/powerplantpv/attestation_list.php', 1).'?sortfield=t.tms&sortorder=DESC" title="'.$langs->trans('FullList').'">';
+	$out .= '<span class="badge marginleftonlyshort">...</span>';
+	$out .= '</a>';
+	$out .= '</th>';
+	$out .= '</tr>';
+
+	$resql = $db->query($sql);
+	if ($resql) {
+		$num = $db->num_rows($resql);
+		if ($num > 0) {
+			while ($obj = $db->fetch_object($resql)) {
+				$attestationstatic->id = $obj->rowid;
+				$attestationstatic->ref = $obj->ref;
+				$attestationstatic->type_code = $obj->type_code;
+				$attestationstatic->status = $obj->status;
+				$typeLabel = !empty($typeLabels[$obj->type_code]) ? $typeLabels[$obj->type_code] : $obj->type_code;
+
+				$out .= '<tr class="oddeven">';
+				$out .= '<td class="nowraponall">'.$attestationstatic->getNomUrl(1).'</td>';
+				$out .= '<td class="tdoverflowmax200" title="'.dol_escape_htmltag($typeLabel).'">'.dol_escape_htmltag($typeLabel).'</td>';
+				$out .= '<td class="nowraponall">'.dol_print_date($db->jdate($obj->datevalue), 'day', 'tzuserrel').'</td>';
+				$out .= '<td class="right nowraponall">'.$attestationstatic->getLibStatut(5).'</td>';
+				$out .= '</tr>';
+			}
+		} else {
+			$out .= '<tr class="oddeven"><td colspan="4" class="opacitymedium">'.$langs->trans('None').'</td></tr>';
+		}
+		$db->free($resql);
+	} else {
+		dol_print_error($db);
+	}
+
+	$out .= '</table>';
+	$out .= '</div><br>';
+
+	return $out;
+}
+
 
 /*
  * View
@@ -320,6 +411,9 @@ print '</div><div class="fichetwothirdright">';
 
 print powerplantpvIndexLatestTable($db, $langs, $powerplantstatic, 'date_creation', 'PowerPlantLatestCreated', $max, $socid);
 print powerplantpvIndexLatestTable($db, $langs, $powerplantstatic, 'tms', 'PowerPlantLatestModified', $max, $socid);
+if (is_object($attestationstatic)) {
+	print powerplantpvIndexLatestAttestationTable($db, $langs, $attestationstatic, $max, $socid);
+}
 
 print '</div></div>';
 

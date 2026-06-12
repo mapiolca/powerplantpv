@@ -31,7 +31,7 @@
  */
 function powerplantPrepareHead($object)
 {
-	global $db, $langs, $conf;
+	global $db, $langs, $conf, $user;
 
 	$langs->load("powerplantpv@powerplantpv");
 
@@ -80,10 +80,18 @@ function powerplantPrepareHead($object)
 	}
 
 	$nbFiles = powerplantCountAttachedFilesAndLinks($object);
+	$nbAttestations = 0;
+	if (getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
+		dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
+		if (function_exists('powerplantpvAttestationCountForPowerPlantDocumentTab')) {
+			$nbAttestations = powerplantpvAttestationCountForPowerPlantDocumentTab($object, $user);
+		}
+	}
+	$nbDocumentsAndAttestations = $nbFiles + $nbAttestations;
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/powerplant_document.php", 1), ['id' => $object->id]);
-	$head[$h][1] = $langs->trans('Documents');
-	if ($nbFiles > 0) {
-		$head[$h][1] .= '<span class="badge marginleftonlyshort">'.$nbFiles.'</span>';
+	$head[$h][1] = $langs->trans('PowerPlantDocumentsAttestationsTab');
+	if ($nbDocumentsAndAttestations > 0) {
+		$head[$h][1] .= '<span class="badge marginleftonlyshort">'.$nbDocumentsAndAttestations.'</span>';
 	}
 	$head[$h][2] = 'document';
 	$h++;

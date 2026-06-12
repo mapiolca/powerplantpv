@@ -8,6 +8,8 @@
 - Import CSV/XLSX technical characteristics into existing Dolibarr PV module and inverter products from the detailed characteristics tab, with downloadable templates, preview and source traceability.
 - Import CSV/XLSX serial numbers by composition category, validate product-line associations, and store each serial number against the power plant, composition line, product and PV category.
 - Export recorded serial numbers as CSV or XLSX.
+- Manage PowerPlantPV attestations for dynamic inverter curtailment, static inverter curtailment, maximum frequency 51.5 Hz, and installer under 100 kWc workflows.
+- Generate attestation PDF skeletons from power plant, site, installer, writer and equipment data. Online signature uses Dolibarr's native `/public/onlinesign/newonlinesign.php` page when the installed core explicitly supports the `powerplantpv_attestation` source, otherwise it falls back to the module public signature page.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}
@@ -87,6 +89,14 @@ Using your browser:
   - Log into Dolibarr as a super-administrator
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
+
+## Attestations
+
+The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. Every attestation must be linked to a PV power plant. Place and installer data are read from the Dolibarr MyCompany information of the attestation entity, site data is read from the linked PV power plant, and writer data is read from the native author user (`fk_user_creat`).
+
+Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The signature link uses Dolibarr's native online signature URL pattern when the installed core supports the `powerplantpv_attestation` source in `/public/onlinesign/newonlinesign.php` and `/core/ajax/onlineSign.php`. When the core does not support this source, PowerPlantPV exposes its own public fallback page with the same visual and functional flow, secured by `ref`, `entity` and `securekey`. It is not a qualified external e-signature provider workflow.
+
+Signed attestations remain locked for standard write/delete users. Grant the specific `powerplantpv / attestation / manage_signed` right, together with read access, to allow modification, deletion and PDF regeneration of signed attestations.
 
 
 

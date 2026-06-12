@@ -46,6 +46,11 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][2] = 'settings';
 	$h++;
 
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/attestation.php", 1));
+	$head[$h][1] = $langs->trans("Attestations");
+	$head[$h][2] = 'attestation';
+	$h++;
+
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/compatibility.php", 1));
 	$head[$h][1] = $langs->trans("Compatibility");
 	$head[$h][2] = 'compatibility';
@@ -89,6 +94,176 @@ function powerplantpvAdminPrepareHead()
 	complete_head_from_modules($conf, $langs, null, $head, $h, 'powerplantpv@powerplantpv', 'remove');
 
 	return $head;
+}
+
+/**
+ * Return missing attestation installation pieces for the current entity.
+ *
+ * @return	array{tables:array<int,string>,columns:array<int,string>,rights:array<int,string>}	Missing tables, columns and rights
+ */
+function powerplantpvAttestationGetInstallationIssues()
+{
+	global $db, $conf;
+
+	$issues = array('tables' => array(), 'columns' => array(), 'rights' => array());
+	$tables = array('powerplantpv_attestation', 'powerplantpv_attestation_equipment');
+	foreach ($tables as $table) {
+		$fullTable = $db->prefix().$table;
+		if (!powerplantpvDatabaseTableExists($fullTable)) {
+			$issues['tables'][] = $fullTable;
+		}
+	}
+
+	$attestationTable = $db->prefix().'powerplantpv_attestation';
+	if (empty($issues['tables']) && powerplantpvDatabaseTableExists($attestationTable)) {
+		$expectedColumns = array('online_sign_name');
+		foreach ($expectedColumns as $column) {
+			if (!powerplantpvDatabaseTableColumnExists($attestationTable, $column)) {
+				$issues['columns'][] = $attestationTable.'.'.$column;
+			}
+		}
+	}
+	$equipmentTable = $db->prefix().'powerplantpv_attestation_equipment';
+	if (empty($issues['tables']) && powerplantpvDatabaseTableExists($equipmentTable)) {
+		$expectedColumns = array('fk_powerplant_line', 'fk_powerplant_serialnumber', 'fk_product', 'fk_categorie');
+		foreach ($expectedColumns as $column) {
+			if (!powerplantpvDatabaseTableColumnExists($equipmentTable, $column)) {
+				$issues['columns'][] = $equipmentTable.'.'.$column;
+			}
+		}
+	}
+
+	$expectedRights = array('read', 'write', 'delete', 'validate', 'sign', 'cancel', 'setup', 'manage_signed');
+	$foundRights = array();
+	$sql = "SELECT subperms";
+	$sql .= " FROM ".$db->prefix()."rights_def";
+	$sql .= " WHERE module = 'powerplantpv'";
+	$sql .= " AND perms = 'attestation'";
+	$sql .= " AND entity IN (0, ".((int) $conf->entity).")";
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$foundRights[(string) $obj->subperms] = 1;
+		}
+		$db->free($resql);
+	}
+	foreach ($expectedRights as $right) {
+		if (empty($foundRights[$right])) {
+			$issues['rights'][] = $right;
+		}
+	}
+
+	return $issues;
+}
+
+/**
+ * Check if a database table column exists.
+ *
+ * @param	string	$table		Full table name with prefix
+ * @param	string	$column		Column name
+ * @return	bool				True if column exists
+ */
+function powerplantpvDatabaseTableColumnExists($table, $column)
+{
+	global $db;
+
+	$safeTable = preg_replace('/[^a-z0-9_]/i', '', (string) $table);
+	$safeColumn = preg_replace('/[^a-z0-9_]/i', '', (string) $column);
+	if ($safeTable === '' || $safeColumn === '') {
+		return false;
+	}
+
+	$sql = "SHOW COLUMNS FROM ".$db->sanitize($safeTable)." LIKE '".$db->escape($safeColumn)."'";
+	$resql = $db->query($sql);
+	if ($resql) {
+		$exists = ($db->num_rows($resql) > 0);
+		$db->free($resql);
+
+		return $exists;
+	}
+
+	dol_syslog(__METHOD__.' column lookup failed for '.$safeTable.'.'.$safeColumn.': '.$db->lasterror(), LOG_WARNING);
+
+	return false;
+}
+
+/**
+ * Check if a database table exists.
+ *
+ * @param	string	$table	Full table name with prefix
+ * @return	bool			True if table exists
+ */
+function powerplantpvDatabaseTableExists($table)
+{
+	global $db;
+
+	$safeTable = preg_replace('/[^a-z0-9_]/i', '', (string) $table);
+	if ($safeTable === '') {
+		return false;
+	}
+
+	$sql = "SHOW TABLES LIKE '".$db->escape($safeTable)."'";
+	$resql = $db->query($sql);
+	if ($resql) {
+		$exists = ($db->num_rows($resql) > 0);
+		$db->free($resql);
+
+		return $exists;
+	}
+
+	dol_syslog(__METHOD__.' table lookup failed for '.$safeTable.': '.$db->lasterror(), LOG_WARNING);
+
+	$columns = $db->DDLInfoTable($safeTable);
+
+	return is_array($columns) && count($columns) > 0;
+}
+
+/**
+ * Return translated attestation installation warnings for admins.
+ *
+ * @return	array<int,string>	Warnings
+ */
+function powerplantpvAttestationGetInstallationWarnings()
+{
+	global $langs;
+
+	$issues = powerplantpvAttestationGetInstallationIssues();
+	$warnings = array();
+	if (!empty($issues['tables'])) {
+		$warnings[] = $langs->trans('AttestationInstallMissingTables', implode(', ', $issues['tables']));
+	}
+	if (!empty($issues['columns'])) {
+		$warnings[] = $langs->trans('AttestationInstallMissingColumns', implode(', ', $issues['columns']));
+	}
+	if (!empty($issues['rights'])) {
+		$warnings[] = $langs->trans('AttestationInstallMissingRights', implode(', ', $issues['rights']));
+	}
+
+	return $warnings;
+}
+
+/**
+ * Print attestation installation warnings.
+ *
+ * @return	void
+ */
+function powerplantpvAttestationPrintInstallationWarnings()
+{
+	global $langs;
+
+	$warnings = powerplantpvAttestationGetInstallationWarnings();
+	if (empty($warnings)) {
+		return;
+	}
+
+	print '<div class="warning">';
+	print img_warning().' '.$langs->trans('AttestationInstallationIncomplete');
+	print '<ul class="marginbottomonly">';
+	foreach ($warnings as $warning) {
+		print '<li>'.dol_escape_htmltag($warning).'</li>';
+	}
+	print '</ul>';
+	print '</div>';
 }
 
 /**

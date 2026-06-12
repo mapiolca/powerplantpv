@@ -93,6 +93,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/lib/images.lib.php';
 include_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 // Load translation files required by the page
 $langs->loadLangs(array("powerplantpv@powerplantpv", "companies", "other", "mails"));
@@ -235,6 +236,8 @@ $param = '&id='.$object->id;
 $relativepathwithnofile = powerplantGetDocumentRelativePath($object).'/';
 
 include DOL_DOCUMENT_ROOT.'/core/tpl/document_actions_post_headers.tpl.php';
+
+print powerplantpvAttestationRenderPowerPlantDocumentTabTable($object, $user);
 
 // End of page
 llxFooter();

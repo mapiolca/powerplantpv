@@ -138,6 +138,57 @@ if (!function_exists('powerplantCompositionLineLabel')) {
 	}
 }
 
+if (!function_exists('powerplantCompositionCountAttestationReferences')) {
+	/**
+	 * Count attestation equipment rows that reference composition lines.
+	 *
+	 * @param	int[]	$lineids	Composition line ids
+	 * @param	int		$entity		Power plant entity
+	 * @return	int					Reference count, -1 on SQL error
+	 */
+	function powerplantCompositionCountAttestationReferences($lineids, $entity)
+	{
+		global $db;
+
+		$lineids = array_map('intval', (array) $lineids);
+		$lineids = array_values(array_filter($lineids, function ($lineid) {
+			return ($lineid > 0);
+		}));
+		if (empty($lineids)) {
+			return 0;
+		}
+
+		foreach (array('powerplantpv_attestation_equipment', 'powerplantpv_attestation') as $tablename) {
+			$fulltable = $db->prefix().$tablename;
+			$sqltable = "SHOW TABLES LIKE '".$db->escape($fulltable)."'";
+			$resqltable = $db->query($sqltable);
+			if (!$resqltable) {
+				return -1;
+			}
+			$tableexists = ($db->num_rows($resqltable) > 0);
+			$db->free($resqltable);
+			if (!$tableexists) {
+				return 0;
+			}
+		}
+
+		$sql = "SELECT COUNT(ae.rowid) as nb";
+		$sql .= " FROM ".$db->prefix()."powerplantpv_attestation_equipment as ae";
+		$sql .= " INNER JOIN ".$db->prefix()."powerplantpv_attestation as a ON a.rowid = ae.fk_attestation AND a.entity = ae.entity";
+		$sql .= " WHERE ae.fk_powerplant_line IN (".implode(',', $lineids).")";
+		$sql .= " AND ae.entity = ".((int) $entity);
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			return -1;
+		}
+		$obj = $db->fetch_object($resql);
+		$db->free($resql);
+
+		return !empty($obj->nb) ? (int) $obj->nb : 0;
+	}
+}
+
 if (!function_exists('powerplantCompositionDateToSqlDate')) {
 	/**
 	 * Normalize a composition date for comparisons.
@@ -375,14 +426,21 @@ if ($action === 'delcomposition' && $canedit && $lineid > 0) {
 		accessforbidden();
 	}
 
-	$sql = 'DELETE FROM '.$db->prefix().'powerplantpv_powerplantcomp';
-	$sql .= ' WHERE rowid = '.((int) $lineid);
-	$sql .= ' AND fk_powerplant = '.((int) $object->id);
-	$sql .= ' AND entity = '.$powerplantentity;
-	if ($db->query($sql)) {
-		$recalculateinstalledpower = 1;
-	} else {
+	$attestationrefs = powerplantCompositionCountAttestationReferences(array($lineid), $powerplantentity);
+	if ($attestationrefs < 0) {
 		setEventMessages($db->lasterror(), null, 'errors');
+	} elseif ($attestationrefs > 0) {
+		setEventMessages($langs->trans('PowerPlantCompositionLineUsedByAttestationDeleteDenied'), null, 'errors');
+	} else {
+		$sql = 'DELETE FROM '.$db->prefix().'powerplantpv_powerplantcomp';
+		$sql .= ' WHERE rowid = '.((int) $lineid);
+		$sql .= ' AND fk_powerplant = '.((int) $object->id);
+		$sql .= ' AND entity = '.$powerplantentity;
+		if ($db->query($sql)) {
+			$recalculateinstalledpower = 1;
+		} else {
+			setEventMessages($db->lasterror(), null, 'errors');
+		}
 	}
 }
 
@@ -485,14 +543,21 @@ if (GETPOSTINT('confirmmassaction') && GETPOSTINT('massaction_confirmed') && $ma
 		return ($v > 0);
 	});
 	if (!empty($idstodelete)) {
-		$sql = 'DELETE FROM '.$db->prefix().'powerplantpv_powerplantcomp';
-		$sql .= ' WHERE fk_powerplant = '.((int) $object->id);
-		$sql .= ' AND entity = '.$powerplantentity;
-		$sql .= ' AND rowid IN ('.implode(',', $idstodelete).')';
-		if ($db->query($sql)) {
-			$recalculateinstalledpower = 1;
-		} else {
+		$attestationrefs = powerplantCompositionCountAttestationReferences($idstodelete, $powerplantentity);
+		if ($attestationrefs < 0) {
 			setEventMessages($db->lasterror(), null, 'errors');
+		} elseif ($attestationrefs > 0) {
+			setEventMessages($langs->trans('PowerPlantCompositionLinesUsedByAttestationDeleteDenied'), null, 'errors');
+		} else {
+			$sql = 'DELETE FROM '.$db->prefix().'powerplantpv_powerplantcomp';
+			$sql .= ' WHERE fk_powerplant = '.((int) $object->id);
+			$sql .= ' AND entity = '.$powerplantentity;
+			$sql .= ' AND rowid IN ('.implode(',', $idstodelete).')';
+			if ($db->query($sql)) {
+				$recalculateinstalledpower = 1;
+			} else {
+				setEventMessages($db->lasterror(), null, 'errors');
+			}
 		}
 	}
 	$action = 'view';

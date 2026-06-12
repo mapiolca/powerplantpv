@@ -1,5 +1,22 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.0
+
+Cette version ajoute le périmètre des attestations PowerPlantPV :
+- nouvel objet métier `PowerPlantPVAttestation` avec quatre types d'attestations : bridage dynamique onduleur, bridage statique onduleur, réglage fréquence maximale 51,5 Hz et installateur inférieur à 100 kWc ;
+- tables SQL principales et lignes d'équipements, avec `entity`, références, liens centrale/tiers/projet, données gelées, métadonnées de signature et documents ;
+- listes, fiches, onglet documents, onglet agenda et signature en ligne strictement déléguée au process natif Dolibarr lorsque le core supporte la source `powerplantpv_attestation` ;
+- modèles PDF fonctionnels pour les quatre types, prêts pour validation métier des contenus légaux ;
+- droits Dolibarr dédiés, menus internes au module, numérotation native, réglages par entité, partage Multicompany et colonne Environnement en liste lorsque nécessaire ;
+- triggers Agenda et Notifications natifs pour création, validation, génération PDF, envoi en signature, signature, annulation et suppression ;
+- complétude des traductions pour les événements automatiques, notifications et statuts longs/courts des centrales PV et attestations ;
+- traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
+- Ajout du droit spécifique `powerplantpv / attestation / manage_signed` permettant, avec le droit de lecture, de modifier, supprimer et régénérer les PDF des attestations signées.
+- Ajout d'un bouton d'action `Créer une attestation` sur la fiche centrale et affichage du projet lié dans la bannière de la fiche attestation.
+- Ajout d'une signature en ligne alternative pour les attestations lorsque le core Dolibarr ne supporte pas nativement la source `powerplantpv_attestation`, avec page publique module, endpoint Ajax sécurisé et génération du PDF signé via les modèles existants.
+- Ajout dans l'onglet `Fichiers joints` des centrales d'un tableau natif listant les attestations liées, avec date de validation dédiée et colonne Environnement seulement lorsque nécessaire en Multicompany.
+- Précision des unités attendues sur les caractéristiques détaillées des onduleurs et conservation des champs numériques vides en `NULL` lors de la saisie manuelle, sans convertir les valeurs existantes.
+
 ## 1.1.0
 
 Cette version améliore la fiche Centrale PV, le modèle PDF et l'intégration Multicompany :

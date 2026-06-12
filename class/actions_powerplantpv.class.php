@@ -94,10 +94,40 @@ class ActionsPowerplantpv
 							),
 						),
 					),
+					'attestation' => array(
+						'type' => 'element',
+						'icon' => 'file-signature',
+						'lang' => 'powerplantpv@powerplantpv',
+						'tooltip' => 'AttestationSharingInfo',
+						'enable' => '! empty($conf->powerplantpv->enabled)',
+						'input' => array(
+							'global' => array(
+								'showhide' => true,
+								'hide' => true,
+								'del' => true,
+							),
+						),
+					),
+					'attestationnumber' => array(
+						'type' => 'objectnumber',
+						'icon' => 'hashtag',
+						'lang' => 'powerplantpv@powerplantpv',
+						'tooltip' => 'AttestationNumberSharingInfo',
+						'enable' => '! empty($conf->powerplantpv->enabled)',
+						'input' => array(
+							'global' => array(
+								'showhide' => true,
+								'hide' => true,
+								'del' => true,
+							),
+						),
+					),
 				),
 				'sharingmodulename' => array(
 					'powerplant' => 'powerplantpv',
 					'powerplantnumber' => 'powerplantpv',
+					'attestation' => 'powerplantpv',
+					'attestationnumber' => 'powerplantpv',
 				),
 				'dictionary' => array(
 					'c_powerplantpv_categorypv' => array(
@@ -441,6 +471,57 @@ class ActionsPowerplantpv
 	}
 
 	/**
+	 * Map PowerPlantPV objects for UserNavHistory object reload.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success
+	 */
+	public function getObjectByElement($parameters, &$object, &$action, $hookmanager)
+	{
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$contexts = $this->getContexts($parameters, $hookmanager);
+		if (!in_array('usernavhistorydao', $contexts, true)) {
+			return 0;
+		}
+
+		$elementtype = !empty($parameters['elementtype']) ? (string) $parameters['elementtype'] : '';
+		if (in_array($elementtype, array('powerplantpv_attestation', 'attestation@powerplantpv', 'attestation'), true)) {
+			$mapping = array(
+				'module' => 'powerplantpv',
+				'classpath' => 'custom/powerplantpv/class',
+				'classfile' => 'powerplantpvattestation',
+				'classname' => 'PowerPlantPVAttestation',
+			);
+		} elseif (in_array($elementtype, array('powerplantpv_powerplant', 'powerplant@powerplantpv', 'powerplant'), true)) {
+			$mapping = array(
+				'module' => 'powerplantpv',
+				'classpath' => 'custom/powerplantpv/class',
+				'classfile' => 'powerplant',
+				'classname' => 'PowerPlant',
+			);
+		} else {
+			return 0;
+		}
+
+		foreach ($mapping as $key => $value) {
+			if (array_key_exists($key, $parameters)) {
+				$parameters[$key] = $value;
+			}
+		}
+
+		$this->results = array('elementtype' => $elementtype) + $mapping;
+		$hookmanager->resArray = $this->results;
+
+		return 0;
+	}
+
+	/**
 	 * Describe the PowerPlantPV object to Dolibarr generic object APIs.
 	 *
 	 * @param	array<string,mixed>	$parameters		Hook parameters
@@ -453,7 +534,7 @@ class ActionsPowerplantpv
 	{
 		global $conf;
 
-		if (empty($parameters['elementType']) || !in_array($parameters['elementType'], array('powerplantpv_powerplant', 'powerplant@powerplantpv', 'powerplant'))) {
+		if (empty($parameters['elementType']) || !in_array($parameters['elementType'], array('powerplantpv_powerplant', 'powerplant@powerplantpv', 'powerplant', 'powerplantpv_attestation', 'attestation@powerplantpv', 'attestation'))) {
 			return 0;
 		}
 
@@ -462,16 +543,29 @@ class ActionsPowerplantpv
 			$diroutput = $conf->powerplantpv->dir_output;
 		}
 
-		$this->results = array(
-			'module' => 'powerplantpv',
-			'element' => 'powerplant',
-			'table_element' => 'powerplantpv_powerplant',
-			'subelement' => 'powerplant',
-			'classpath' => 'custom/powerplantpv/class',
-			'classfile' => 'powerplant',
-			'classname' => 'PowerPlant',
-			'dir_output' => $diroutput,
-		);
+		if (in_array($parameters['elementType'], array('powerplantpv_attestation', 'attestation@powerplantpv', 'attestation'))) {
+			$this->results = array(
+				'module' => 'powerplantpv',
+				'element' => 'attestation',
+				'table_element' => 'powerplantpv_attestation',
+				'subelement' => 'attestation',
+				'classpath' => 'custom/powerplantpv/class',
+				'classfile' => 'powerplantpvattestation',
+				'classname' => 'PowerPlantPVAttestation',
+				'dir_output' => $diroutput,
+			);
+		} else {
+			$this->results = array(
+				'module' => 'powerplantpv',
+				'element' => 'powerplant',
+				'table_element' => 'powerplantpv_powerplant',
+				'subelement' => 'powerplant',
+				'classpath' => 'custom/powerplantpv/class',
+				'classfile' => 'powerplant',
+				'classname' => 'PowerPlant',
+				'dir_output' => $diroutput,
+			);
+		}
 		$hookmanager->resArray = $this->results;
 
 		return 1;
@@ -544,6 +638,13 @@ class ActionsPowerplantpv
 				'POWERPLANTPV_POWERPLANT_COMP_OUTOFSERVICE',
 				'POWERPLANTPV_POWERPLANT_COMP_SERIAL',
 				'POWERPLANTPV_POWERPLANT_COMP_COMMISSIONING',
+				'POWERPLANTPV_ATTESTATION_CREATE',
+				'POWERPLANTPV_ATTESTATION_VALIDATE',
+				'POWERPLANTPV_ATTESTATION_GENERATEPDF',
+				'POWERPLANTPV_ATTESTATION_SENDSIGN',
+				'POWERPLANTPV_ATTESTATION_SIGN',
+				'POWERPLANTPV_ATTESTATION_CANCEL',
+				'POWERPLANTPV_ATTESTATION_DELETE',
 			),
 		);
 		$hookmanager->resArray = $this->results;

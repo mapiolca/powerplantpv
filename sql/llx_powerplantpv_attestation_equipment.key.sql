@@ -1,0 +1,9 @@
+-- Copyright (C) 2026		Pierre Ardoin				<developpeur@lesmetiersdubatiment.fr>
+
+ALTER TABLE llx_powerplantpv_attestation_equipment ADD INDEX idx_powerplantpv_attestation_equipment_entity (entity);
+ALTER TABLE llx_powerplantpv_attestation_equipment ADD INDEX idx_powerplantpv_attestation_equipment_parent (fk_attestation);
+ALTER TABLE llx_powerplantpv_attestation_equipment ADD INDEX idx_powerplantpv_attestation_equipment_powerplant_line (fk_powerplant_line);
+ALTER TABLE llx_powerplantpv_attestation_equipment ADD INDEX idx_powerplantpv_attestation_equipment_serialnumber (fk_powerplant_serialnumber);
+ALTER TABLE llx_powerplantpv_attestation_equipment ADD INDEX idx_powerplantpv_attestation_equipment_product (fk_product);
+ALTER TABLE llx_powerplantpv_attestation_equipment ADD INDEX idx_powerplantpv_attestation_equipment_categorie (fk_categorie);
+ALTER TABLE llx_powerplantpv_attestation_equipment ADD INDEX idx_powerplantpv_attestation_equipment_rank (fk_attestation, rank);
