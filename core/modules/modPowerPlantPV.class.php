@@ -875,6 +875,7 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
 		$sql = array_merge($sql, $this->getAttestationActionTriggerSql());
+		$sql = array_merge($sql, $this->getAttestationAgendaDuplicateCleanupSql());
 
 		$result = $this->_init($sql, $options);
 		if ($result <= 0) {
@@ -1554,6 +1555,87 @@ class modPowerPlantPV extends DolibarrModules
 
 			$sql[] = "UPDATE ".$table." SET label = '".$label."', description = '".$description."', elementtype = '".$elementtype."', rang = ".$rang." WHERE code = '".$code."'";
 			$sql[] = "INSERT INTO ".$table." (code, label, description, elementtype, rang) SELECT '".$code."', '".$label."', '".$description."', '".$elementtype."', ".$rang." WHERE NOT EXISTS (SELECT 1 FROM ".$table." WHERE code = '".$code."')";
+		}
+
+		return $sql;
+	}
+
+	/**
+	 * Return SQL statements that remove legacy manual attestation Agenda duplicates.
+	 *
+	 * @return	string[]	SQL statements
+	 */
+	private function getAttestationAgendaDuplicateCleanupSql()
+	{
+		$sql = array();
+		$table = $this->db->prefix().'actioncomm';
+		$elementtype = $this->db->escape('attestation@powerplantpv');
+		$legacytype = $this->db->escape('AC_OTH_AUTO');
+
+		$labelsbytrigger = array(
+			'POWERPLANTPV_ATTESTATION_CREATE' => array(
+				'POWERPLANTPV_ATTESTATION_CREATE',
+				'CREATEInDolibarr',
+				'Attestation créée',
+				'Attestation created',
+			),
+			'POWERPLANTPV_ATTESTATION_VALIDATE' => array(
+				'POWERPLANTPV_ATTESTATION_VALIDATE',
+				'VALIDATEInDolibarr',
+				'Attestation validée',
+				'Attestation validated',
+			),
+			'POWERPLANTPV_ATTESTATION_GENERATEPDF' => array(
+				'POWERPLANTPV_ATTESTATION_GENERATEPDF',
+				'GENERATEPDFInDolibarr',
+				'PDF d\'attestation généré',
+				'Attestation PDF generated',
+			),
+			'POWERPLANTPV_ATTESTATION_SENDSIGN' => array(
+				'POWERPLANTPV_ATTESTATION_SENDSIGN',
+				'SENDSIGNInDolibarr',
+				'Attestation envoyée en signature',
+				'Attestation sent for signature',
+			),
+			'POWERPLANTPV_ATTESTATION_SIGN' => array(
+				'POWERPLANTPV_ATTESTATION_SIGN',
+				'SIGNInDolibarr',
+				'Attestation signée',
+				'Attestation signed',
+			),
+			'POWERPLANTPV_ATTESTATION_CANCEL' => array(
+				'POWERPLANTPV_ATTESTATION_CANCEL',
+				'CANCELInDolibarr',
+				'Attestation annulée',
+				'Attestation canceled',
+			),
+			'POWERPLANTPV_ATTESTATION_DELETE' => array(
+				'POWERPLANTPV_ATTESTATION_DELETE',
+				'DELETEInDolibarr',
+				'Attestation supprimée',
+				'Attestation deleted',
+			),
+		);
+
+		foreach ($labelsbytrigger as $triggercode => $labels) {
+			$quotedlabels = array();
+			foreach (array_unique($labels) as $label) {
+				$quotedlabels[] = "'".$this->db->escape($label)."'";
+			}
+
+			$nativecode = $this->db->escape('AC_'.$triggercode);
+			$delete = "DELETE oldevent FROM ".$table." AS oldevent";
+			$delete .= " INNER JOIN ".$table." AS nativeevent";
+			$delete .= " ON nativeevent.fk_element = oldevent.fk_element";
+			$delete .= " AND nativeevent.elementtype = oldevent.elementtype";
+			$delete .= " AND nativeevent.entity = oldevent.entity";
+			$delete .= " AND nativeevent.code = '".$nativecode."'";
+			$delete .= " WHERE oldevent.elementtype = '".$elementtype."'";
+			$delete .= " AND oldevent.code = '".$legacytype."'";
+			$delete .= " AND oldevent.fk_element > 0";
+			$delete .= " AND oldevent.id <> nativeevent.id";
+			$delete .= " AND oldevent.label IN (".implode(', ', $quotedlabels).")";
+			$sql[] = $delete;
 		}
 
 		return $sql;

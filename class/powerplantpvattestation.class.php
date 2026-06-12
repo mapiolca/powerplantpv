@@ -421,7 +421,7 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
-		return $this->setStatusCommon($user, self::STATUS_PENDING_SIGNATURE, $notrigger, $this->TRIGGER_PREFIX.'_SENDSIGN');
+		return $this->setStatusWithAttestationTrigger($user, self::STATUS_PENDING_SIGNATURE, 'SENDSIGN', $notrigger);
 	}
 
 	/**
@@ -438,7 +438,7 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 
-		return $this->setStatusCommon($user, self::STATUS_CANCELED, $notrigger, $this->TRIGGER_PREFIX.'_CANCEL');
+		return $this->setStatusWithAttestationTrigger($user, self::STATUS_CANCELED, 'CANCEL', $notrigger);
 	}
 
 	/**
@@ -1190,13 +1190,107 @@ class PowerPlantPVAttestation extends CommonObject
 	 */
 	protected function callAttestationTrigger($action, User $user)
 	{
+		global $langs;
+
+		$langs->load('powerplantpv@powerplantpv');
 		$triggercode = $this->TRIGGER_PREFIX.'_'.strtoupper($action);
+		$label = $langs->transnoentitiesnoconv($triggercode.'InDolibarr', $this->ref);
+		$message = $label;
+
+		if (!isset($this->context) || !is_array($this->context)) {
+			$this->context = array();
+		}
+
+		$hadContextActionMsg = array_key_exists('actionmsg', $this->context);
+		$hadContextActionMsg2 = array_key_exists('actionmsg2', $this->context);
+		$oldContextActionMsg = ($hadContextActionMsg ? $this->context['actionmsg'] : null);
+		$oldContextActionMsg2 = ($hadContextActionMsg2 ? $this->context['actionmsg2'] : null);
+		$objectvars = get_object_vars($this);
+		$hadActionMsg = array_key_exists('actionmsg', $objectvars);
+		$hadActionMsg2 = array_key_exists('actionmsg2', $objectvars);
+		$hadActionTypeCode = array_key_exists('actiontypecode', $objectvars);
+		$oldActionMsg = ($hadActionMsg ? $this->actionmsg : null);
+		$oldActionMsg2 = ($hadActionMsg2 ? $this->actionmsg2 : null);
+		$oldActionTypeCode = ($hadActionTypeCode ? $this->actiontypecode : null);
+
+		$this->context['actionmsg'] = $message;
+		$this->context['actionmsg2'] = $label;
+		$this->actionmsg = $message;
+		$this->actionmsg2 = $label;
 		$result = $this->call_trigger($triggercode, $user);
+		if (!isset($this->context) || !is_array($this->context)) {
+			$this->context = array();
+		}
+		if ($hadContextActionMsg) {
+			$this->context['actionmsg'] = $oldContextActionMsg;
+		} else {
+			unset($this->context['actionmsg']);
+		}
+		if ($hadContextActionMsg2) {
+			$this->context['actionmsg2'] = $oldContextActionMsg2;
+		} else {
+			unset($this->context['actionmsg2']);
+		}
+		if ($hadActionMsg) {
+			$this->actionmsg = $oldActionMsg;
+		} else {
+			unset($this->actionmsg);
+		}
+		if ($hadActionMsg2) {
+			$this->actionmsg2 = $oldActionMsg2;
+		} else {
+			unset($this->actionmsg2);
+		}
+		if ($hadActionTypeCode) {
+			$this->actiontypecode = $oldActionTypeCode;
+		} else {
+			unset($this->actiontypecode);
+		}
 		if ($result < 0 && empty($this->error)) {
 			$this->error = 'ErrorTriggerFailed';
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Update attestation status and call the central attestation trigger helper.
+	 *
+	 * @param	User		$user		User
+	 * @param	int			$status		New status
+	 * @param	string		$action		Attestation trigger action suffix
+	 * @param	int<0,1>	$notrigger	1 disables triggers
+	 * @return	int<-1,1>				>0 if OK
+	 */
+	protected function setStatusWithAttestationTrigger(User $user, $status, $action, $notrigger = 0)
+	{
+		$this->db->begin();
+
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET status = ".((int) $status);
+		$sql .= ", fk_user_modif = ".(!empty($user->id) ? (int) $user->id : "NULL");
+		$sql .= " WHERE rowid = ".((int) $this->id);
+		$sql .= " AND entity = ".((int) $this->entity);
+
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+
+		$this->oldcopy = clone $this;
+
+		if (!$notrigger && $this->callAttestationTrigger($action, $user) < 0) {
+			$this->db->rollback();
+			return -1;
+		}
+
+		$this->status = (int) $status;
+		$this->fk_user_modif = !empty($user->id) ? (int) $user->id : null;
+
+		$this->db->commit();
+
+		return 1;
 	}
 
 	/**

@@ -80,7 +80,7 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 			$this->normalizeAgendaPowerPlantLink($object);
 		}
 		if (strpos($action, 'POWERPLANTPV_ATTESTATION_') === 0) {
-			return $this->createAttestationAgendaEvent($action, $object, $user, $langs, $conf);
+			return 0;
 		}
 
 		return 0;
@@ -501,66 +501,4 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		return 0;
 	}
 
-	/**
-	 * Create native Agenda event for attestation business triggers.
-	 *
-	 * @param	string					$action		Trigger code
-	 * @param	CommonObject			$object		Attestation
-	 * @param	User					$user		User
-	 * @param	Translate				$langs		Langs
-	 * @param	Conf					$conf		Conf
-	 * @return	int									0 on success, <0 on error
-	 */
-	private function createAttestationAgendaEvent($action, $object, User $user, Translate $langs, Conf $conf)
-	{
-		if (empty($object->id) || empty($conf->global->{'MAIN_AGENDA_ACTIONAUTO_'.$action})) {
-			return 0;
-		}
-		if (!isModEnabled('agenda')) {
-			return 0;
-		}
-
-		$label = !empty($object->actionmsg2) ? (string) $object->actionmsg2 : $langs->transnoentities($action);
-		$message = !empty($object->actionmsg) ? (string) $object->actionmsg : $langs->transnoentities('AttestationAgendaEventMessage', $object->ref);
-
-		$sql = "SELECT id FROM ".$this->db->prefix()."actioncomm";
-		$sql .= " WHERE fk_element = ".((int) $object->id);
-		$sql .= " AND elementtype = 'attestation@powerplantpv'";
-		$sql .= " AND label = '".$this->db->escape($label)."'";
-		$resql = $this->db->query($sql);
-		if ($resql) {
-			if ($this->db->num_rows($resql) > 0) {
-				$this->db->free($resql);
-				return 0;
-			}
-			$this->db->free($resql);
-		}
-
-		require_once DOL_DOCUMENT_ROOT.'/comm/action/class/actioncomm.class.php';
-		$actioncomm = new ActionComm($this->db);
-		$actioncomm->type_code = 'AC_OTH_AUTO';
-		$actioncomm->label = $label;
-		$actioncomm->note_private = $message;
-		$actioncomm->datep = dol_now();
-		$actioncomm->datef = dol_now();
-		$actioncomm->percentage = -1;
-		$actioncomm->userownerid = !empty($user->id) ? (int) $user->id : (!empty($object->fk_user_creat) ? (int) $object->fk_user_creat : 0);
-		$actioncomm->fk_element = (int) $object->id;
-		$actioncomm->elementtype = 'attestation@powerplantpv';
-		if (!empty($object->fk_soc)) {
-			$actioncomm->socid = (int) $object->fk_soc;
-		}
-		if (!empty($object->fk_project)) {
-			$actioncomm->fk_project = (int) $object->fk_project;
-		}
-
-		$result = $actioncomm->create($user);
-		if ($result < 0) {
-			$this->error = $actioncomm->error;
-			$this->errors = $actioncomm->errors;
-			return -1;
-		}
-
-		return 0;
-	}
 }
