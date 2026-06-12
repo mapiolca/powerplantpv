@@ -36,6 +36,9 @@ function powerplantpvAttestationUserHasRight($user, $right)
 	if (!is_object($user) || $right === '') {
 		return 0;
 	}
+	if (!empty($user->admin)) {
+		return 1;
+	}
 	if (method_exists($user, 'hasRight')) {
 		return (int) $user->hasRight('powerplantpv', 'attestation', $right);
 	}
