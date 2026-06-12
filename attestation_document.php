@@ -63,15 +63,26 @@ if ($id <= 0 || $object->fetch($id) <= 0) {
 	accessforbidden();
 }
 
-$permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write') && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED;
-$permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete') && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED;
+$permissiontoadd = powerplantpvAttestationCanGenerateDocument($user, $object);
+$permissiontodelete = powerplantpvAttestationCanDeleteDocument($user, $object);
 restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', 0);
 
 powerplantpvAttestationNormalizeDocumentDirectory($object);
+$permission = $permissiontoadd;
+$permtoedit = $permissiontoadd;
+if ((int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED && $permissiontoadd) {
+	if (!isset($object->context) || !is_array($object->context)) {
+		$object->context = array();
+	}
+	$object->context['allow_signed_generation'] = 1;
+}
 $upload_dir = powerplantpvAttestationGetDocumentUploadDir($object);
 include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 $upload_dir = powerplantpvAttestationGetDocumentRootDir(!empty($object->entity) ? $object->entity : $conf->entity);
 include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
+if (isset($object->context) && is_array($object->context)) {
+	unset($object->context['allow_signed_generation']);
+}
 
 $form = new Form($db);
 $formfile = new FormFile($db);

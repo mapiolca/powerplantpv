@@ -133,7 +133,7 @@ function powerplantpvAttestationGetInstallationIssues()
 		}
 	}
 
-	$expectedRights = array('read', 'write', 'delete', 'validate', 'sign', 'cancel', 'setup');
+	$expectedRights = array('read', 'write', 'delete', 'validate', 'sign', 'cancel', 'setup', 'manage_signed');
 	$foundRights = array();
 	$sql = "SELECT subperms";
 	$sql .= " FROM ".$db->prefix()."rights_def";

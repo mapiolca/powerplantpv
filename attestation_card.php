@@ -83,6 +83,10 @@ $permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
 $permissiontovalidate = powerplantpvAttestationUserHasRight($user, 'validate');
 $permissiontosign = powerplantpvAttestationUserHasRight($user, 'sign');
 $permissiontocancel = powerplantpvAttestationUserHasRight($user, 'cancel');
+$permissiontoedit = $permissiontoadd;
+$permissiontodeleteobject = $permissiontodelete;
+$permissiontogeneratedocument = $permissiontoadd;
+$permissiontodeletedocument = $permissiontodelete;
 
 $isCreateAccess = ($id <= 0 && in_array($action, array('create', 'add'), true));
 if (($isCreateAccess && !$permissiontoadd) || (!$isCreateAccess && !$permissiontoread)) {
@@ -123,6 +127,10 @@ if ($id > 0) {
 	}
 	$isdraft = ((int) $object->status === PowerPlantPVAttestation::STATUS_DRAFT ? 1 : 0);
 	restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+	$permissiontoedit = powerplantpvAttestationCanEdit($user, $object);
+	$permissiontodeleteobject = powerplantpvAttestationCanDelete($user, $object);
+	$permissiontogeneratedocument = powerplantpvAttestationCanGenerateDocument($user, $object);
+	$permissiontodeletedocument = powerplantpvAttestationCanDeleteDocument($user, $object);
 }
 
 /**
@@ -144,6 +152,24 @@ function powerplantpvAttestationGetPostDate($prefix)
 }
 
 /**
+ * Return a POSTed Dolibarr date/time or an empty value.
+ *
+ * @param	string	$prefix	Input prefix
+ * @return	int|string		Timestamp or empty string
+ */
+function powerplantpvAttestationGetPostDateTime($prefix)
+{
+	$year = GETPOSTINT($prefix.'year');
+	$month = GETPOSTINT($prefix.'month');
+	$day = GETPOSTINT($prefix.'day');
+	if (empty($year) || empty($month) || empty($day)) {
+		return '';
+	}
+
+	return dol_mktime(GETPOSTINT($prefix.'hour'), GETPOSTINT($prefix.'min'), 0, $month, $day, $year);
+}
+
+/**
  * Return a POSTed decimal value while preserving empty values as null.
  *
  * @param	string	$key	Input name
@@ -162,10 +188,11 @@ function powerplantpvAttestationGetPostDecimalOrNull($key)
 /**
  * Set attestation fields from POST.
  *
- * @param	PowerPlantPVAttestation	$object	Attestation
+ * @param	PowerPlantPVAttestation	$object					Attestation
+ * @param	int<0,1>					$allowSignatureMetadata	Allow signature metadata edition
  * @return	void
  */
-function powerplantpvAttestationSetFromPost($object)
+function powerplantpvAttestationSetFromPost($object, $allowSignatureMetadata = 0)
 {
 	$object->type_code = GETPOST('type_code', 'alphanohtml');
 	$object->fk_powerplant = GETPOSTINT('fk_powerplant') ?: null;
@@ -183,6 +210,16 @@ function powerplantpvAttestationSetFromPost($object)
 	$object->landscape_integration_prime = GETPOSTINT('landscape_integration_prime');
 	$object->note_public = GETPOST('note_public', 'restricthtml');
 	$object->note_private = GETPOST('note_private', 'restricthtml');
+	if (!empty($allowSignatureMetadata)) {
+		$object->fk_user_sign = GETPOSTINT('fk_user_sign') ?: null;
+		$object->date_signature = powerplantpvAttestationGetPostDateTime('date_signature');
+		$object->signature_ip = GETPOST('signature_ip', 'nohtml');
+		$object->signature_user_agent = GETPOST('signature_user_agent', 'nohtml');
+		$object->online_sign_name = GETPOST('online_sign_name', 'nohtml');
+		$object->signature_hash = GETPOST('signature_hash', 'alphanohtml');
+		$object->signature_file = GETPOST('signature_file', 'nohtml');
+		$object->signed_pdf_file = GETPOST('signed_pdf_file', 'nohtml');
+	}
 }
 
 /**
@@ -290,11 +327,12 @@ if (!empty($reshook)) {
 	}
 	setEventMessages($object->error, $object->errors, 'errors');
 	$action = 'create';
-} elseif ($action == 'update' && $permissiontoadd && $object->id > 0) {
+} elseif ($action == 'update' && $permissiontoedit && $object->id > 0) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
-	powerplantpvAttestationSetFromPost($object);
+	$allowSignedAction = powerplantpvAttestationCanManageSigned($user, $object);
+	powerplantpvAttestationSetFromPost($object, $allowSignedAction);
 	$sourceErrors = powerplantpvAttestationGetCreateSourceErrors($object->type_code, (int) $object->fk_powerplant);
 	if (!empty($sourceErrors)) {
 		$object->errors = array();
@@ -304,7 +342,7 @@ if (!empty($reshook)) {
 		$object->error = $object->errors[0];
 		$result = -1;
 	} else {
-		$result = $object->update($user);
+		$result = $object->update($user, 0, $allowSignedAction);
 	}
 	if ($result > 0) {
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
@@ -337,11 +375,11 @@ if (!empty($reshook)) {
 	}
 	header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $object->id);
 	exit;
-} elseif ($action == 'confirm_delete' && $confirm == 'yes' && $permissiontodelete && $object->id > 0) {
+} elseif ($action == 'confirm_delete' && $confirm == 'yes' && $permissiontodeleteobject && $object->id > 0) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
-	$result = $object->delete($user);
+	$result = $object->delete($user, 0, powerplantpvAttestationCanManageSigned($user, $object));
 	if ($result > 0) {
 		setEventMessages($langs->trans('RecordDeleted'), null, 'mesgs');
 		header('Location: '.dol_buildpath('/powerplantpv/attestation_list.php', 1));
@@ -356,11 +394,40 @@ $formactions = new FormActions($db);
 $formproject = new FormProjets($db);
 
 if (empty($reshook) && $object->id > 0) {
+	$oldpermissiontoadd = $permissiontoadd;
+	$oldpermissiontodelete = $permissiontodelete;
+	$oldpermission = isset($permission) ? $permission : null;
+	$oldpermtoedit = isset($permtoedit) ? $permtoedit : null;
+	$permissiontoadd = $permissiontogeneratedocument;
+	$permissiontodelete = $permissiontodeletedocument;
+	$permission = $permissiontogeneratedocument;
+	$permtoedit = $permissiontogeneratedocument;
+	if ((int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED && $permissiontogeneratedocument) {
+		if (!isset($object->context) || !is_array($object->context)) {
+			$object->context = array();
+		}
+		$object->context['allow_signed_generation'] = 1;
+	}
 	$upload_dir = powerplantpvAttestationGetDocumentUploadDir($object);
 	include DOL_DOCUMENT_ROOT.'/core/actions_dellink.inc.php';
 	include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 	$upload_dir = powerplantpvAttestationGetDocumentRootDir(!empty($object->entity) ? $object->entity : $conf->entity);
 	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
+	$permissiontoadd = $oldpermissiontoadd;
+	$permissiontodelete = $oldpermissiontodelete;
+	if ($oldpermission === null) {
+		unset($permission);
+	} else {
+		$permission = $oldpermission;
+	}
+	if ($oldpermtoedit === null) {
+		unset($permtoedit);
+	} else {
+		$permtoedit = $oldpermtoedit;
+	}
+	if (isset($object->context) && is_array($object->context)) {
+		unset($object->context['allow_signed_generation']);
+	}
 }
 
 /*
@@ -377,7 +444,7 @@ if ($action == 'create' && empty($object->id)) {
 }
 llxHeader('', $title, '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-card');
 
-if ($action == 'delete' && $object->id > 0) {
+if ($action == 'delete' && $object->id > 0 && $permissiontodeleteobject) {
 	print $form->formconfirm($_SERVER['PHP_SELF'].'?id='.(int) $object->id, $langs->trans('Delete'), $langs->trans('ConfirmDeleteObject', $object->ref), 'confirm_delete', '', 0, 1);
 }
 if ($action == 'validate' && $object->id > 0) {
@@ -388,7 +455,7 @@ if ($action == 'cancel' && $object->id > 0) {
 }
 
 if ($action == 'create' || $action == 'edit') {
-	if (!$permissiontoadd) {
+	if (($action == 'create' && !$permissiontoadd) || ($action == 'edit' && !$permissiontoedit)) {
 		accessforbidden();
 	}
 	if ($action == 'create') {
@@ -452,6 +519,16 @@ if ($action == 'create' || $action == 'edit') {
 	if (empty($user->socid)) {
 		print '<tr><td>'.$langs->trans('NotePrivate').'</td><td><textarea class="flat centpercent" rows="3" name="note_private">'.dol_escape_htmltag($object->note_private).'</textarea></td></tr>';
 	}
+	if ($object->id > 0 && (int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED && powerplantpvAttestationCanManageSigned($user, $object)) {
+		print '<tr><td>'.$langs->trans('AttestationSigner').'</td><td>'.$form->select_dolusers($object->fk_user_sign, 'fk_user_sign', 1, null, 0, '', '', '0', 0, 0, '', 0, '', 'maxwidth300').'</td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationSignatureDate').'</td><td>'.$form->selectDate($object->date_signature, 'date_signature', 1, 1, 1, '', 1, 1).'</td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationOnlineSignName').'</td><td><input type="text" class="flat minwidth300" name="online_sign_name" value="'.dol_escape_htmltag($object->online_sign_name).'"></td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationSignatureHash').'</td><td><input type="text" class="flat minwidth500" name="signature_hash" value="'.dol_escape_htmltag($object->signature_hash).'"></td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationSignatureFile').'</td><td><input type="text" class="flat minwidth500" name="signature_file" value="'.dol_escape_htmltag($object->signature_file).'"></td></tr>';
+		print '<tr><td>'.$langs->trans('AttestationSignedPdfFile').'</td><td><input type="text" class="flat minwidth500" name="signed_pdf_file" value="'.dol_escape_htmltag($object->signed_pdf_file).'"></td></tr>';
+		print '<tr><td>'.$langs->trans('IPAddress').'</td><td><input type="text" class="flat minwidth200" name="signature_ip" value="'.dol_escape_htmltag($object->signature_ip).'"></td></tr>';
+		print '<tr><td>'.$langs->trans('UserAgent').'</td><td><input type="text" class="flat minwidth500" name="signature_user_agent" value="'.dol_escape_htmltag($object->signature_user_agent).'"></td></tr>';
+	}
 	print '</table></div>';
 	if ($object->id > 0) {
 		print dol_get_fiche_end();
@@ -475,7 +552,7 @@ if ($action == 'create' || $action == 'edit') {
 	$derivedData = powerplantpvAttestationGetDerivedData($object, $langs);
 	$head = powerplantpvAttestationPrepareHead($object);
 	print dol_get_fiche_head($head, 'card', $langs->trans('Attestation'), -1, $object->picto);
-	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object, $permissiontoadd, $action));
+	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object, $permissiontoedit, $action));
 	print '<div class="fichecenter"><div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfield">';
 	print '<tr><td class="titlefield">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';
@@ -569,7 +646,7 @@ if ($action == 'create' || $action == 'edit') {
 	print dol_get_fiche_end();
 
 	print '<div class="tabsAction">';
-	if ($permissiontoadd && $object->status != PowerPlantPVAttestation::STATUS_SIGNED) {
+	if ($permissiontoedit) {
 		print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=edit&token='.newToken(), '', true);
 	}
 	if ($permissiontovalidate && $object->status == PowerPlantPVAttestation::STATUS_DRAFT) {
@@ -587,7 +664,7 @@ if ($action == 'create' || $action == 'edit') {
 	if ($permissiontocancel && !in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_SIGNED, PowerPlantPVAttestation::STATUS_CANCELED), true)) {
 		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=cancel&token='.newToken(), '', true);
 	}
-	if ($permissiontodelete && in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_DRAFT, PowerPlantPVAttestation::STATUS_CANCELED), true)) {
+	if ($permissiontodeleteobject) {
 		print dolGetButtonAction($langs->trans('Delete'), '', 'delete', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=delete&token='.newToken(), '', true);
 	}
 	print '</div>';
@@ -596,8 +673,8 @@ if ($action == 'create' || $action == 'edit') {
 	print '<div class="fichehalfleft">';
 	$uploadDir = powerplantpvAttestationGetDocumentUploadDir($object);
 	powerplantpvAttestationNormalizeDocumentDirectory($object);
-	$genallowed = ($permissiontoadd && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
-	$delallowed = ($permissiontodelete && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
+	$genallowed = $permissiontogeneratedocument;
+	$delallowed = $permissiontodeletedocument;
 	print $formfile->showdocuments(powerplantpvAttestationGetDocumentGenerationModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $uploadDir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
 	if (method_exists($form, 'showLinkedObjectBlock')) {
 		$form->showLinkedObjectBlock($object);

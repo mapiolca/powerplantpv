@@ -47,6 +47,107 @@ function powerplantpvAttestationUserHasRight($user, $right)
 }
 
 /**
+ * Check if the user can override the signed-attestation lock.
+ *
+ * @param	User					$user	Current user
+ * @param	PowerPlantPVAttestation|null	$object	Attestation
+ * @return	int<0,1>							1 if allowed, 0 otherwise
+ */
+function powerplantpvAttestationCanManageSigned($user, $object = null)
+{
+	if (!powerplantpvAttestationUserHasRight($user, 'read')) {
+		return 0;
+	}
+	if (!powerplantpvAttestationUserHasRight($user, 'manage_signed')) {
+		return 0;
+	}
+	if (is_object($object) && isset($object->status) && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED) {
+		return 0;
+	}
+
+	return 1;
+}
+
+/**
+ * Check if the user can edit an attestation.
+ *
+ * @param	User					$user	Current user
+ * @param	PowerPlantPVAttestation|null	$object	Attestation
+ * @return	int<0,1>							1 if allowed, 0 otherwise
+ */
+function powerplantpvAttestationCanEdit($user, $object = null)
+{
+	if (is_object($object) && isset($object->status) && (int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED) {
+		return powerplantpvAttestationCanManageSigned($user, $object);
+	}
+
+	return powerplantpvAttestationUserHasRight($user, 'write');
+}
+
+/**
+ * Check if the user can edit attestation notes.
+ *
+ * @param	User					$user	Current user
+ * @param	PowerPlantPVAttestation	$object	Attestation
+ * @return	int<0,1>							1 if allowed, 0 otherwise
+ */
+function powerplantpvAttestationCanEditNotes($user, $object)
+{
+	return powerplantpvAttestationCanEdit($user, $object);
+}
+
+/**
+ * Check if the user can delete an attestation.
+ *
+ * @param	User					$user	Current user
+ * @param	PowerPlantPVAttestation	$object	Attestation
+ * @return	int<0,1>							1 if allowed, 0 otherwise
+ */
+function powerplantpvAttestationCanDelete($user, $object)
+{
+	if (!is_object($object) || empty($object->id)) {
+		return 0;
+	}
+	if ((int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED) {
+		return powerplantpvAttestationCanManageSigned($user, $object);
+	}
+
+	return (powerplantpvAttestationUserHasRight($user, 'delete') && in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_DRAFT, PowerPlantPVAttestation::STATUS_CANCELED), true)) ? 1 : 0;
+}
+
+/**
+ * Check if the user can generate an attestation document.
+ *
+ * @param	User					$user	Current user
+ * @param	PowerPlantPVAttestation	$object	Attestation
+ * @return	int<0,1>							1 if allowed, 0 otherwise
+ */
+function powerplantpvAttestationCanGenerateDocument($user, $object)
+{
+	if (is_object($object) && (int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED) {
+		return powerplantpvAttestationCanManageSigned($user, $object);
+	}
+
+	return powerplantpvAttestationUserHasRight($user, 'write');
+}
+
+/**
+ * Check if the user can delete attestation attached documents.
+ *
+ * @param	User					$user	Current user
+ * @param	PowerPlantPVAttestation	$object	Attestation
+ * @return	int<0,1>							1 if allowed, 0 otherwise
+ */
+function powerplantpvAttestationCanDeleteDocument($user, $object)
+{
+	if (is_object($object) && (int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED) {
+		return powerplantpvAttestationCanManageSigned($user, $object);
+	}
+
+	return powerplantpvAttestationUserHasRight($user, 'delete');
+}
+
+/**
  * Prepare attestation tabs.
  *
  * @param	PowerPlantPVAttestation	$object	Attestation
@@ -722,10 +823,7 @@ function powerplantpvAttestationBuildBannerMoreHtml($object, $permissiontoadd = 
 		}
 	}
 	if (isModEnabled('project')) {
-		$caneditproject = ($permissiontoadd
-			&& (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED
-			&& $action !== 'edit'
-		);
+		$caneditproject = ($permissiontoadd && $action !== 'edit');
 		if (!empty($object->fk_project) || $caneditproject) {
 			$html .= '<br>'.$langs->trans('Project');
 			if ($caneditproject) {

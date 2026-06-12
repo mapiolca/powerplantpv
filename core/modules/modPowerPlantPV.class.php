@@ -425,6 +425,11 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'setup';
 		$r++;
+		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 7 + 1);
+		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionManageSigned';
+		$this->rights[$r][4] = 'attestation';
+		$this->rights[$r][5] = 'manage_signed';
+		$r++;
 
 		/* END MODULEBUILDER PERMISSIONS */
 

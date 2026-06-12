@@ -232,11 +232,12 @@ class PowerPlantPVAttestation extends CommonObject
 	 *
 	 * @param	User		$user		User
 	 * @param	int<0,1>	$notrigger	1 disables triggers
+	 * @param	int<0,1>	$allowsigned	1 allows update of signed attestations
 	 * @return	int<-1,1>				>0 if OK
 	 */
-	public function update(User $user, $notrigger = 0)
+	public function update(User $user, $notrigger = 0, $allowsigned = 0)
 	{
-		if ($this->status == self::STATUS_SIGNED) {
+		if ($this->status == self::STATUS_SIGNED && empty($allowsigned)) {
 			$this->error = 'AttestationSignedCannotBeModified';
 			return -1;
 		}
@@ -250,11 +251,17 @@ class PowerPlantPVAttestation extends CommonObject
 	 *
 	 * @param	User		$user		User
 	 * @param	int<0,1>	$notrigger	1 disables triggers
+	 * @param	int<0,1>	$allowsigned	1 allows deletion of signed attestations
 	 * @return	int<-1,1>				>0 if OK
 	 */
-	public function delete(User $user, $notrigger = 0)
+	public function delete(User $user, $notrigger = 0, $allowsigned = 0)
 	{
-		if (!in_array((int) $this->status, array(self::STATUS_DRAFT, self::STATUS_CANCELED), true)) {
+		if ((int) $this->status === self::STATUS_SIGNED) {
+			if (empty($allowsigned)) {
+				$this->error = 'AttestationSignedActionPermissionRequired';
+				return -1;
+			}
+		} elseif (!in_array((int) $this->status, array(self::STATUS_DRAFT, self::STATUS_CANCELED), true)) {
 			$this->error = 'AttestationOnlyDraftOrCanceledCanBeDeleted';
 			return -1;
 		}
@@ -510,6 +517,17 @@ class PowerPlantPVAttestation extends CommonObject
 		global $langs;
 
 		$langs->load('powerplantpv@powerplantpv');
+		$allowsignedgeneration = 0;
+		if (is_array($moreparams) && !empty($moreparams['allow_signed_generation'])) {
+			$allowsignedgeneration = 1;
+		}
+		if (!$allowsignedgeneration && !empty($this->context['allow_signed_generation'])) {
+			$allowsignedgeneration = 1;
+		}
+		if ((int) $this->status === self::STATUS_SIGNED && empty($allowsignedgeneration)) {
+			$this->error = 'AttestationSignedPdfGenerationPermissionRequired';
+			return -1;
+		}
 		if ($this->checkBusinessRequirements() < 0) {
 			return -1;
 		}
@@ -520,10 +538,115 @@ class PowerPlantPVAttestation extends CommonObject
 		$result = $this->commonGenerateDocument('core/modules/attestation/doc/', $modele, $outputlangs, $hidedetails, $hidedesc, $hideref, $moreparams);
 		if ($result > 0) {
 			global $user;
+			if ((int) $this->status === self::STATUS_SIGNED) {
+				$metadataresult = $this->updateSignedDocumentMetadata($user);
+				if ($metadataresult < 0) {
+					return -1;
+				}
+			}
 			$this->callAttestationTrigger('GENERATEPDF', $user);
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Update signed PDF metadata after regenerating a signed attestation.
+	 *
+	 * @param	User	$user	User
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	protected function updateSignedDocumentMetadata(User $user)
+	{
+		if (!function_exists('hash_file')) {
+			$this->error = 'AttestationSignatureHashUnavailable';
+			return -1;
+		}
+
+		$pdfFile = $this->getGeneratedPdfFile();
+		if ($pdfFile === '' || !is_readable($pdfFile)) {
+			$this->error = 'ErrorFileNotFound';
+			return -1;
+		}
+
+		$signatureHash = hash_file('sha256', $pdfFile);
+		if ($signatureHash === false || $signatureHash === '') {
+			$this->error = 'AttestationSignatureHashUnavailable';
+			return -1;
+		}
+
+		dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
+		$signedPdfRelative = powerplantpvAttestationGetDocumentRelativePath($this).'/'.basename($pdfFile);
+		$fields = array();
+		if ($this->tableColumnExists('signed_pdf_file')) {
+			$fields[] = "signed_pdf_file = '".$this->db->escape($signedPdfRelative)."'";
+		}
+		if ($this->tableColumnExists('last_main_doc')) {
+			$fields[] = "last_main_doc = '".$this->db->escape($signedPdfRelative)."'";
+		}
+		if ($this->tableColumnExists('signature_hash')) {
+			$fields[] = "signature_hash = '".$this->db->escape($signatureHash)."'";
+		}
+		if ($this->tableColumnExists('fk_user_modif')) {
+			$fields[] = "fk_user_modif = ".((int) $user->id);
+		}
+		if (empty($fields)) {
+			return 1;
+		}
+
+		$sql = "UPDATE ".$this->db->prefix().$this->table_element;
+		$sql .= " SET ".implode(', ', $fields);
+		$sql .= " WHERE rowid = ".((int) $this->id);
+		$sql .= " AND entity = ".((int) $this->entity);
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$this->signed_pdf_file = $signedPdfRelative;
+		$this->last_main_doc = $signedPdfRelative;
+		$this->signature_hash = $signatureHash;
+		$this->fk_user_modif = (int) $user->id;
+
+		return 1;
+	}
+
+	/**
+	 * Return the generated PDF file path for this attestation.
+	 *
+	 * @return	string	Full path or empty string
+	 */
+	protected function getGeneratedPdfFile()
+	{
+		dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
+		require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+
+		$rootDir = powerplantpvAttestationGetDocumentRootDir($this->entity);
+		$uploadDir = powerplantpvAttestationGetDocumentUploadDir($this);
+		$candidates = array();
+		if (!empty($this->last_main_doc)) {
+			$candidates[] = $rootDir.'/'.ltrim((string) $this->last_main_doc, '/\\');
+		}
+		if (!empty($this->ref)) {
+			$candidates[] = $uploadDir.'/'.dol_sanitizeFileName($this->ref).'.pdf';
+		}
+		if (!empty($this->signed_pdf_file)) {
+			$candidates[] = $rootDir.'/'.ltrim((string) $this->signed_pdf_file, '/\\');
+		}
+
+		$seen = array();
+		foreach ($candidates as $candidate) {
+			$key = str_replace('\\', '/', $candidate);
+			if (isset($seen[$key])) {
+				continue;
+			}
+			$seen[$key] = true;
+			if (is_readable($candidate)) {
+				return $candidate;
+			}
+		}
+
+		return '';
 	}
 
 	/**

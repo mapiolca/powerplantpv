@@ -60,6 +60,7 @@ if (!class_exists('PowerPlantPVAttestation') || !class_exists('PowerPlantPVAttes
 $permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
 $permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
 $permissiontodelete = powerplantpvAttestationUserHasRight($user, 'delete');
+$permissiontomanagesigned = powerplantpvAttestationUserHasRight($user, 'manage_signed');
 if (!$permissiontoread) {
 	dol_syslog('PowerPlantPV attestation list forbidden: missing read right for user '.$user->id, LOG_WARNING);
 	accessforbidden();
@@ -203,7 +204,7 @@ if (empty($reshook)) {
 		$massaction = '';
 	}
 
-	if (($action === 'confirm_delete' || $massaction === 'confirm_delete') && $confirm === 'yes' && $permissiontodelete) {
+	if (($action === 'confirm_delete' || $massaction === 'confirm_delete') && $confirm === 'yes' && ($permissiontodelete || $permissiontomanagesigned)) {
 		if (function_exists('checkToken') && !checkToken()) {
 			accessforbidden('Bad token');
 		}
@@ -211,7 +212,12 @@ if (empty($reshook)) {
 		foreach ((array) $toselect as $selectedId) {
 			$tmp = new PowerPlantPVAttestation($db);
 			if ($tmp->fetch((int) $selectedId) > 0) {
-				$result = $tmp->delete($user);
+				if (!powerplantpvAttestationCanDelete($user, $tmp)) {
+					$error++;
+					setEventMessages($langs->trans('AttestationDeletePermissionDeniedForStatus', $tmp->ref), null, 'errors');
+					continue;
+				}
+				$result = $tmp->delete($user, 0, powerplantpvAttestationCanManageSigned($user, $tmp));
 				if ($result < 0) {
 					$error++;
 					setEventMessages($tmp->error, $tmp->errors, 'errors');
@@ -339,7 +345,7 @@ $sql .= $sqlFrom.$sqlWhere.$db->order($sortfield, $sortorder).$db->plimit($limit
 $resql = $db->query($sql);
 
 $arrayofmassactions = array();
-if (!empty($permissiontodelete)) {
+if (!empty($permissiontodelete) || !empty($permissiontomanagesigned)) {
 	$arrayofmassactions['predelete'] = img_picto('', 'delete', 'class="pictofixedwidth"').$langs->trans('Delete');
 }
 if (GETPOSTINT('nomassaction') || in_array($massaction, array('predelete'), true)) {

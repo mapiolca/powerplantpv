@@ -62,8 +62,8 @@ if ($id <= 0 || $object->fetch($id) <= 0) {
 	accessforbidden();
 }
 
-$permissiontoadd = powerplantpvAttestationUserHasRight($user, 'write');
-$permissionnote = ($permissiontoadd && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
+$permissiontoadd = powerplantpvAttestationCanEdit($user, $object);
+$permissionnote = powerplantpvAttestationCanEditNotes($user, $object);
 
 if ($user->socid > 0) {
 	$socid = $user->socid;

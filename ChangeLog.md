@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+Ajout du droit spécifique `powerplantpv / attestation / manage_signed` permettant, avec le droit de lecture, de modifier, supprimer et régénérer les PDF des attestations signées.
 Déplacement du bouton de signature en ligne des attestations vers les boutons d'action de la fiche, avec libellé court `Signer`.
 Déplacement de l'onglet de réglages `Attestations` avant l'onglet `Compatibilité`.
 Ajout d'un bouton d'action `Créer une attestation` sur la fiche centrale et affichage du projet lié dans la bannière de la fiche attestation.
