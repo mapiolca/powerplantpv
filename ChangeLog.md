@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+Correction des titres d'onglets navigateur des fiches centrales et attestations : la fiche centrale affiche désormais `{référence} - Fiche` et l'attestation `{référence} - Attestation {type}`.
 Correction du badge de l'onglet centrale `Fichiers joints/Attestations` : il additionne désormais les fichiers/liens joints et les attestations visibles liées à la centrale.
 Refonte du modèle PDF de réglage fréquence maximale 51,5 Hz avec données centrale/producteur, matériel, seuil VFR 2019, vérifications, résultat et bloc signature/cachet ; le tiers n'est plus sélectionnable à la création d'une attestation et reste hérité de la centrale.
 Alignement des attestations : formulaire de création unique avec sélection dynamique du type et de la centrale, tableau matériel installateur identique au PDF, titre PDF installateur sans doublon, refonte du PDF de bridage statique sur le modèle dynamique et onglet centrale `Fichiers joints/Attestations`.

@@ -448,7 +448,9 @@ $form = new Form($db);
 $formfile = new FormFile($db);
 
 $title = $langs->trans("PowerPlant")." - ".$langs->trans('Card');
-//$title = $object->ref." - ".$langs->trans('Card');
+if ($object->id > 0 && !empty($object->ref)) {
+	$title = $object->ref." - ".$langs->trans('Card');
+}
 if ($action == 'create') {
 	$title = $langs->trans("New_PowerPlant");
 }

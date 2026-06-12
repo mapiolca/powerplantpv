@@ -368,6 +368,13 @@ if (empty($reshook) && $object->id > 0) {
  */
 
 $title = $langs->trans('Attestation');
+if ($action == 'create' && empty($object->id)) {
+	$title = $langs->trans('New_Attestation');
+} elseif ($object->id > 0 && !empty($object->ref)) {
+	$typeLabels = PowerPlantPVAttestationTypes::getTypeLabels($langs);
+	$typeLabel = !empty($typeLabels[$object->type_code]) ? $typeLabels[$object->type_code] : $object->type_code;
+	$title = $object->ref.' - '.$langs->trans('Attestation').($typeLabel !== '' ? ' '.$typeLabel : '');
+}
 llxHeader('', $title, '', '', 0, 0, '', '', '', 'mod-powerplantpv page-attestation-card');
 
 if ($action == 'delete' && $object->id > 0) {
