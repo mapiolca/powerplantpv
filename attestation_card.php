@@ -475,7 +475,7 @@ if ($action == 'create' || $action == 'edit') {
 	$derivedData = powerplantpvAttestationGetDerivedData($object, $langs);
 	$head = powerplantpvAttestationPrepareHead($object);
 	print dol_get_fiche_head($head, 'card', $langs->trans('Attestation'), -1, $object->picto);
-	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object));
+	dol_banner_tab($object, 'ref', powerplantpvAttestationGetBackToListLink($object), 1, 'ref', 'ref', powerplantpvAttestationBuildBannerMoreHtml($object, $permissiontoadd, $action));
 	print '<div class="fichecenter"><div class="underbanner clearboth"></div>';
 	print '<table class="border centpercent tableforfield">';
 	print '<tr><td class="titlefield">'.$langs->trans('AttestationType').'</td><td>'.dol_escape_htmltag(PowerPlantPVAttestationTypes::getTypeLabels($langs)[$object->type_code] ?? $object->type_code).'</td></tr>';

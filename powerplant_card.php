@@ -97,6 +97,7 @@ dol_include_once('/product/class/html.formproduct.class.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 // Load translation files required by the page
 $langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other", "agenda"));
@@ -1383,6 +1384,15 @@ $k_purchase_tariff = 'buyback_tariff';
 			// Send
 			if (empty($user->socid)) {
 				print dolGetButtonAction('', $langs->trans('SendMail'), 'email', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=presend&token='.newToken().'&mode=init#formmailbeforetitle');
+			}
+
+			if (!empty($object->id)
+				&& getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)
+				&& function_exists('powerplantpvAttestationUserHasRight')
+				&& powerplantpvAttestationUserHasRight($user, 'write')
+			) {
+				$urlCreateAttestation = dol_buildpath('/powerplantpv/attestation_card.php', 1).'?action=create&fk_powerplant='.(int) $object->id;
+				print dolGetButtonAction('', $langs->trans('CreateAttestation'), 'default', $urlCreateAttestation);
 			}
 
 			// Back to draft

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+Déplacement de l'onglet de réglages `Attestations` avant l'onglet `Compatibilité`.
+Ajout d'un bouton d'action `Créer une attestation` sur la fiche centrale et affichage du projet lié dans la bannière de la fiche attestation.
+Ajout d'une signature en ligne alternative pour les attestations lorsque le core Dolibarr ne supporte pas nativement la source `powerplantpv_attestation`, avec page publique module, endpoint Ajax sécurisé et génération du PDF signé via les modèles existants.
 Correction des titres d'onglets navigateur des fiches centrales et attestations : la fiche centrale affiche désormais `{référence} - Fiche` et l'attestation `{référence} - Attestation {type}`.
 Correction du badge de l'onglet centrale `Fichiers joints/Attestations` : il additionne désormais les fichiers/liens joints et les attestations visibles liées à la centrale.
 Refonte du modèle PDF de réglage fréquence maximale 51,5 Hz avec données centrale/producteur, matériel, seuil VFR 2019, vérifications, résultat et bloc signature/cachet ; le tiers n'est plus sélectionnable à la création d'une attestation et reste hérité de la centrale.
@@ -45,7 +48,7 @@ Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
 - refonte du modèle PDF de bridage dynamique onduleur avec contenu métier complet, données centrale/producteur, matériel, résultat, signature et cachet ;
 - amélioration du modèle PDF de bridage dynamique onduleur : section installation en tableau à hauteur de ligne homogène, matériel réparti par ligne en colonnes catégorie/désignation/numéro de série avec cellules alignées, sans colonne bridage, vérifications réalisées restaurées, bloc résultat/fait à/signature conservé sur une même page, signataire intégré à la case Signature et footer Dolibarr réservé au plus juste ;
 - alignement du modèle PDF de bridage statique onduleur : titre d'attestation explicite, tableaux installation/matériel, signataire et cachet en cases dédiées et pied de page natif Dolibarr ;
-- correction du pied de page natif des PDF d'attestation avec réservation Cyan, suppression du flux public custom et signature en ligne limitée à la page core `/public/onlinesign/newonlinesign.php` lorsque la source attestation est supportée ;
+- correction du pied de page natif des PDF d'attestation avec réservation Cyan et signature en ligne priorisant la page core `/public/onlinesign/newonlinesign.php` lorsque la source attestation est supportée ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
 
 ## 1.1.0

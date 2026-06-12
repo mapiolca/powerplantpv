@@ -104,17 +104,38 @@ class PowerPlantPVCompatibility
 			require_once DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php';
 			$signaturelibavailable = function_exists('getOnlineSignatureUrl') && function_exists('showOnlineSignatureUrl');
 		}
-		$attestationonlinesignatureavailable = $baseavailable
+		$attestationnativeonlinesignatureavailable = $baseavailable
 			&& function_exists('hash_file')
 			&& $signaturelibavailable
 			&& self::isCoreOnlineSignatureAttestationSupported();
+		$attestationalternativefile = dol_buildpath('/powerplantpv/public/onlinesign/attestation.php');
+		$attestationalternativeonlinesignatureavailable = $baseavailable
+			&& function_exists('hash_file')
+			&& is_readable($attestationalternativefile);
+		$attestationonlinesignatureavailable = $attestationnativeonlinesignatureavailable || $attestationalternativeonlinesignatureavailable;
 		$attestationonlinesignaturereason = '';
 		if (!$baseavailable) {
 			$attestationonlinesignaturereason = 'PowerPlantPVRequiresDolibarr20Php80';
 		} elseif (!function_exists('hash_file')) {
 			$attestationonlinesignaturereason = 'AttestationSignatureHashUnavailable';
+		} elseif (!$attestationonlinesignatureavailable) {
+			$attestationonlinesignaturereason = 'AttestationAlternativeOnlineSignatureUnavailable';
+		}
+		$attestationnativeonlinesignaturereason = '';
+		if (!$baseavailable) {
+			$attestationnativeonlinesignaturereason = 'PowerPlantPVRequiresDolibarr20Php80';
+		} elseif (!function_exists('hash_file')) {
+			$attestationnativeonlinesignaturereason = 'AttestationSignatureHashUnavailable';
 		} elseif (!$signaturelibavailable || !self::isCoreOnlineSignatureAttestationSupported()) {
-			$attestationonlinesignaturereason = 'AttestationNativeOnlineSignatureUnsupported';
+			$attestationnativeonlinesignaturereason = 'AttestationNativeOnlineSignatureUnsupported';
+		}
+		$attestationalternativeonlinesignaturereason = '';
+		if (!$baseavailable) {
+			$attestationalternativeonlinesignaturereason = 'PowerPlantPVRequiresDolibarr20Php80';
+		} elseif (!function_exists('hash_file')) {
+			$attestationalternativeonlinesignaturereason = 'AttestationSignatureHashUnavailable';
+		} elseif (!$attestationalternativeonlinesignatureavailable) {
+			$attestationalternativeonlinesignaturereason = 'AttestationAlternativeOnlineSignatureUnavailable';
 		}
 
 		return array(
@@ -205,6 +226,22 @@ class PowerPlantPVCompatibility
 				'min_php' => self::MIN_PHP_VERSION,
 				'available' => $attestationonlinesignatureavailable,
 				'reason' => $attestationonlinesignaturereason,
+			),
+			'attestation_native_online_signature' => array(
+				'label' => 'AttestationNativeOnlineSignature',
+				'description' => 'AttestationCompatibilityNativeSignatureDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $attestationnativeonlinesignatureavailable,
+				'reason' => $attestationnativeonlinesignaturereason,
+			),
+			'attestation_alternative_online_signature' => array(
+				'label' => 'AttestationAlternativeOnlineSignature',
+				'description' => 'AttestationCompatibilityAlternativeSignatureDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $attestationalternativeonlinesignatureavailable,
+				'reason' => $attestationalternativeonlinesignaturereason,
 			),
 		);
 	}
