@@ -1,58 +1,21 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
-## Unreleased
+## 1.2.0
 
-Correction des événements Agenda des attestations : suppression de la création manuelle doublonnée, libellés `...InDolibarr` traduits, nettoyage idempotent des anciens doublons `AC_OTH_AUTO` et pagination native de l'onglet `Événements/Agenda`.
-Ajout du droit spécifique `powerplantpv / attestation / manage_signed` permettant, avec le droit de lecture, de modifier, supprimer et régénérer les PDF des attestations signées.
-Déplacement du bouton de signature en ligne des attestations vers les boutons d'action de la fiche, avec libellé court `Signer`.
-Déplacement de l'onglet de réglages `Attestations` avant l'onglet `Compatibilité`.
-Ajout d'un bouton d'action `Créer une attestation` sur la fiche centrale et affichage du projet lié dans la bannière de la fiche attestation.
-Ajout d'une signature en ligne alternative pour les attestations lorsque le core Dolibarr ne supporte pas nativement la source `powerplantpv_attestation`, avec page publique module, endpoint Ajax sécurisé et génération du PDF signé via les modèles existants.
-Correction des titres d'onglets navigateur des fiches centrales et attestations : la fiche centrale affiche désormais `{référence} - Fiche` et l'attestation `{référence} - Attestation {type}`.
-Correction du badge de l'onglet centrale `Fichiers joints/Attestations` : il additionne désormais les fichiers/liens joints et les attestations visibles liées à la centrale.
-Refonte du modèle PDF de réglage fréquence maximale 51,5 Hz avec données centrale/producteur, matériel, seuil VFR 2019, vérifications, résultat et bloc signature/cachet ; le tiers n'est plus sélectionnable à la création d'une attestation et reste hérité de la centrale.
-Alignement des attestations : formulaire de création unique avec sélection dynamique du type et de la centrale, tableau matériel installateur identique au PDF, titre PDF installateur sans doublon, refonte du PDF de bridage statique sur le modèle dynamique et onglet centrale `Fichiers joints/Attestations`.
-Correction du tableau matériel de l'attestation installateur < 100 kWc : colonnes Catégorie, Marque, Référence et Fabricant uniquement, par référence produit.
-Reprise du modèle PDF d'attestation installateur < 100 kWc : numéro de contrat de rachat en en-tête, suppression du tableau d'installation, texte légal mis à jour et matériel regroupé par référence sans numéros de série.
-Amélioration des PDF d'attestation : les valeurs `Non renseigné` sont mises en évidence en rouge gras et les engagements de l'attestation installateur < 100 kWc sont rendus sous forme de paragraphe.
-Ajout dans l'onglet `Fichiers joints` des centrales d'un tableau natif listant les attestations liées, avec date de validation dédiée et colonne Environnement seulement lorsque nécessaire en Multicompany.
-Refonte du modèle PDF d'attestation installateur inférieure à 100 kWc avec contenu adapté au formulaire source et tableaux structurés.
-Ajout d'un lien natif vers la fiche produit sur la référence des équipements affichés dans la fiche attestation.
-Précision des unités attendues sur les caractéristiques détaillées des onduleurs et conservation des champs numériques vides en `NULL` lors de la saisie manuelle, sans convertir les valeurs existantes.
-Correction de compatibilité des lignes d'équipement d'attestation : les anciennes colonnes miroir existantes sont rendues nullable sans jamais être recréées à l'activation.
-Ajout du bloc émetteur dans l'entête des PDF d'attestation, limité à la première page tandis que le bandeau haut reste affiché sur toutes les pages.
-Réduction des cases signature/cachet des PDF d'attestation au format compact natif des contrats Dolibarr.
-Refonte des lignes d'équipements d'attestation pour s'appuyer sur les références produit, composition et numéros de série importés, avec ajout des extrafields produit marque/fabricant photovoltaïques et verrous de suppression sur les lignes et produits utilisés.
-
-Cette version ajoute le périmètre V1 des attestations PowerPlantPV :
+Cette version ajoute le périmètre des attestations PowerPlantPV :
 - nouvel objet métier `PowerPlantPVAttestation` avec quatre types d'attestations : bridage dynamique onduleur, bridage statique onduleur, réglage fréquence maximale 51,5 Hz et installateur inférieur à 100 kWc ;
 - tables SQL principales et lignes d'équipements, avec `entity`, références, liens centrale/tiers/projet, données gelées, métadonnées de signature et documents ;
 - listes, fiches, onglet documents, onglet agenda et signature en ligne strictement déléguée au process natif Dolibarr lorsque le core supporte la source `powerplantpv_attestation` ;
 - modèles PDF fonctionnels pour les quatre types, prêts pour validation métier des contenus légaux ;
 - droits Dolibarr dédiés, menus internes au module, numérotation native, réglages par entité, partage Multicompany et colonne Environnement en liste lorsque nécessaire ;
 - triggers Agenda et Notifications natifs pour création, validation, génération PDF, envoi en signature, signature, annulation et suppression ;
-- correction des contrôles d'accès aux attestations : la création utilise le droit d'écriture, les pages partagent le même helper de droits et l'administration signale les tables ou droits manquants après un déploiement incomplet ;
-- les données de lieu et d'installateur des attestations sont désormais préremplies depuis les informations société Dolibarr de l'entité (`MAIN_INFO_*`) et ne sont plus ressaisies dans les réglages PowerPlantPV ;
-- la fonction du rédacteur des attestations est désormais préremplie depuis le champ natif utilisateur `Poste/fonction`, sans réglage PowerPlantPV dédié ;
-- les champs de lieu, installateur, site et rédacteur des attestations ne sont plus stockés sur l'objet attestation : ils sont résolus depuis l'entité Dolibarr, la centrale PV liée et l'utilisateur auteur `fk_user_creat` ;
-- les modèles core des attestations sont isolés dans `core/modules/attestation` et les pages liste/fiche journalisent désormais les sorties précoces pour diagnostiquer les erreurs 500 ;
-- correction du bloc documents des attestations : la génération utilise les modèles de `core/modules/attestation` sans demander à `FormFile::showdocuments()` une classe PDF sous `core/modules/powerplantpv` ;
-- l'onglet de réglages Attestations expose désormais les blocs natifs Dolibarr de numérotation et de modèles de documents pour l'objet `attestation` ;
-- la validation des attestations indique désormais le champ ou la source native manquante, et la fiche affiche les champs métier conditionnels utiles à la validation ;
-- la puissance maximale injectée des attestations de bridage dynamique est obligatoire mais peut désormais valoir `0`, tandis que le bridage statique exige toujours une valeur strictement positive ;
-- la fiche et l'onglet Fichiers joints des attestations affichent désormais les fichiers générés avec les blocs natifs Dolibarr ;
-- correction du rendu documentaire des attestations : la génération et les fichiers de la fiche utilisent le même tableau natif Dolibarr, les aperçus pointent vers `powerplantpv/attestation/<ref>/<ref>.pdf` et les anciens fichiers générés un niveau trop haut sont déplacés sans écrasement ;
-- alignement du calcul du répertoire documentaire des attestations sur celui des centrales PV, avec récupération des anciens fichiers générés dans `powerplantpv/<ref>` ou `powerplantpv/<ref>/attestation/<ref>` ;
-- alignement natif des attestations : menu `Nouvelle attestation` avant la liste, type et centrale obligatoires à la création, onglets `Notes`, `Fichiers joints`, `Événements/Agenda` réordonnés, notes gérées par le template Dolibarr avec WYSIWYG et fiche déclarée dans `usernavhistory` via le hook `globalcard` ;
-- alignement de l'onglet `Événements/Agenda` des attestations sur le rendu natif des projets Dolibarr : informations de création/modification, barre de liste, filtres conservés et bouton d'ajout d'événement prélié à l'attestation ;
-- correction de l'inscription et du rechargement des attestations dans le module `usernavhistory` depuis la fiche principale ;
 - complétude des traductions pour les événements automatiques, notifications et statuts longs/courts des centrales PV et attestations ;
-- ajout sur l'index PowerPlantPV du tableau natif des dernières attestations modifiées ;
-- refonte du modèle PDF de bridage dynamique onduleur avec contenu métier complet, données centrale/producteur, matériel, résultat, signature et cachet ;
-- amélioration du modèle PDF de bridage dynamique onduleur : section installation en tableau à hauteur de ligne homogène, matériel réparti par ligne en colonnes catégorie/désignation/numéro de série avec cellules alignées, sans colonne bridage, vérifications réalisées restaurées, bloc résultat/fait à/signature conservé sur une même page, signataire intégré à la case Signature et footer Dolibarr réservé au plus juste ;
-- alignement du modèle PDF de bridage statique onduleur : titre d'attestation explicite, tableaux installation/matériel, signataire et cachet en cases dédiées et pied de page natif Dolibarr ;
-- correction du pied de page natif des PDF d'attestation avec réservation Cyan et signature en ligne priorisant la page core `/public/onlinesign/newonlinesign.php` lorsque la source attestation est supportée ;
 - traductions `fr_FR`, `en_US`, `es_ES`, `it_IT` et `de_DE` mises à jour.
+- Ajout du droit spécifique `powerplantpv / attestation / manage_signed` permettant, avec le droit de lecture, de modifier, supprimer et régénérer les PDF des attestations signées.
+- Ajout d'un bouton d'action `Créer une attestation` sur la fiche centrale et affichage du projet lié dans la bannière de la fiche attestation.
+- Ajout d'une signature en ligne alternative pour les attestations lorsque le core Dolibarr ne supporte pas nativement la source `powerplantpv_attestation`, avec page publique module, endpoint Ajax sécurisé et génération du PDF signé via les modèles existants.
+- Ajout dans l'onglet `Fichiers joints` des centrales d'un tableau natif listant les attestations liées, avec date de validation dédiée et colonne Environnement seulement lorsque nécessaire en Multicompany.
+- Précision des unités attendues sur les caractéristiques détaillées des onduleurs et conservation des champs numériques vides en `NULL` lors de la saisie manuelle, sans convertir les valeurs existantes.
 
 ## 1.1.0
 
