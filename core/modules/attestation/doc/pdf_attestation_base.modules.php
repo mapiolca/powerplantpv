@@ -33,6 +33,8 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	public $phpmin = array(8, 0);
 	public $version = 'dolibarr';
 	public $emetteur;
+	protected $nameKey = '';
+	protected $descriptionKey = 'PowerPlantPVAttestationPdfModel';
 	protected $titleKey = 'Attestation';
 	protected $validationWarningKey = '';
 	protected $heightforfooter = 0;
@@ -63,6 +65,36 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$this->marge_haute = getDolGlobalInt('MAIN_PDF_MARGIN_TOP', 10);
 		$this->marge_basse = getDolGlobalInt('MAIN_PDF_MARGIN_BOTTOM', 10);
 		$this->emetteur = $mysoc;
+	}
+
+	/**
+	 * Set translated model metadata.
+	 *
+	 * @param	string	$nameKey		Translation key for model name
+	 * @param	string	$descriptionKey	Translation key for model description
+	 * @return	void
+	 */
+	protected function setModelMetadata($nameKey, $descriptionKey)
+	{
+		global $langs;
+
+		$this->nameKey = $nameKey;
+		$this->descriptionKey = $descriptionKey;
+		$this->name = $langs->trans($nameKey);
+		$this->description = $langs->trans($descriptionKey);
+	}
+
+	/**
+	 * Return model information.
+	 *
+	 * @param	Translate	$langs	Lang output object
+	 * @return	string				Description
+	 */
+	public function info($langs)
+	{
+		$langs->load('powerplantpv@powerplantpv');
+
+		return $langs->trans($this->descriptionKey);
 	}
 
 	/**
