@@ -169,7 +169,9 @@ function powerplantpvAttestationSetFromPost($object)
 {
 	$object->type_code = GETPOST('type_code', 'alphanohtml');
 	$object->fk_powerplant = GETPOSTINT('fk_powerplant') ?: null;
-	$object->fk_soc = GETPOSTINT('fk_soc') ?: null;
+	if (GETPOSTISSET('fk_soc')) {
+		$object->fk_soc = GETPOSTINT('fk_soc') ?: null;
+	}
 	$object->socid = $object->fk_soc;
 	$object->fk_project = GETPOSTINT('fk_project') ?: null;
 	$object->date_attestation = powerplantpvAttestationGetPostDate('date_attestation');
@@ -420,7 +422,9 @@ if ($action == 'create' || $action == 'edit') {
 		print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.$form->selectarray('type_code', PowerPlantPVAttestationTypes::getTypeLabels($langs), $object->type_code, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	}
 	print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), (int) $object->fk_powerplant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
-	print '<tr><td>'.$langs->trans('ThirdParty').'</td><td>'.$form->select_company($object->fk_soc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300').'</td></tr>';
+	if ($object->id > 0) {
+		print '<tr><td>'.$langs->trans('ThirdParty').'</td><td>'.$form->select_company($object->fk_soc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300').'</td></tr>';
+	}
 	if (isModEnabled('project')) {
 		print '<tr><td>'.$langs->trans('Project').'</td><td>'.$formproject->select_projects($object->fk_soc, $object->fk_project, 'fk_project', 0, 0, 1, 1, 0, 0, 0, '', 1, 0, 'maxwidth500').'</td></tr>';
 	}

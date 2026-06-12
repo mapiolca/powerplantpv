@@ -1026,6 +1026,46 @@ function powerplantpvAttestationFetchForPowerPlantDocumentTab($powerplant, $user
 }
 
 /**
+ * Count attestations linked to a power plant for the power plant document tab.
+ *
+ * @param	PowerPlant	$powerplant	Power plant object
+ * @param	User		$user		Current user
+ * @return	int					Number of linked attestations
+ */
+function powerplantpvAttestationCountForPowerPlantDocumentTab($powerplant, $user)
+{
+	global $db;
+
+	if (!powerplantpvAttestationUserHasRight($user, 'read') || !is_object($powerplant) || empty($powerplant->id)) {
+		return 0;
+	}
+
+	$table = $db->prefix().'powerplantpv_attestation';
+	if (!powerplantpvAttestationDatabaseTableExists($table)) {
+		return 0;
+	}
+
+	$sql = "SELECT COUNT(t.rowid) as nb";
+	$sql .= " FROM ".$db->sanitize($table)." as t";
+	$sql .= " WHERE t.fk_powerplant = ".((int) $powerplant->id);
+	$sql .= " AND t.entity IN (".getEntity('attestation').")";
+	if (!empty($user->socid)) {
+		$sql .= " AND t.fk_soc = ".((int) $user->socid);
+	}
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__METHOD__.' '.$db->lasterror(), LOG_ERR);
+		return 0;
+	}
+
+	$obj = $db->fetch_object($resql);
+	$db->free($resql);
+
+	return !empty($obj->nb) ? (int) $obj->nb : 0;
+}
+
+/**
  * Return entity labels indexed by entity id.
  *
  * @param	int[]	$entityIds	Entity ids

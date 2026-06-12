@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Correction du badge de l'onglet centrale `Fichiers joints/Attestations` : il additionne désormais les fichiers/liens joints et les attestations visibles liées à la centrale.
+Refonte du modèle PDF de réglage fréquence maximale 51,5 Hz avec données centrale/producteur, matériel, seuil VFR 2019, vérifications, résultat et bloc signature/cachet ; le tiers n'est plus sélectionnable à la création d'une attestation et reste hérité de la centrale.
 Alignement des attestations : formulaire de création unique avec sélection dynamique du type et de la centrale, tableau matériel installateur identique au PDF, titre PDF installateur sans doublon, refonte du PDF de bridage statique sur le modèle dynamique et onglet centrale `Fichiers joints/Attestations`.
 Correction du tableau matériel de l'attestation installateur < 100 kWc : colonnes Catégorie, Marque, Référence et Fabricant uniquement, par référence produit.
 Reprise du modèle PDF d'attestation installateur < 100 kWc : numéro de contrat de rachat en en-tête, suppression du tableau d'installation, texte légal mis à jour et matériel regroupé par référence sans numéros de série.
