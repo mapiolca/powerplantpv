@@ -256,10 +256,9 @@ if ($user->hasRight('agenda', 'myactions', 'read') || $user->hasRight('agenda', 
 		}
 	}
 
-	$nbEvent = powerplantpvAttestationCountAgendaEvents($object);
-	$titlelist = $langs->trans('ActionsOnAttestation').(is_numeric($nbEvent) ? '<span class="opacitymedium colorblack paddingleft">('.$nbEvent.')</span>' : '');
+	$titlelist = $langs->trans('ActionsOnAttestation');
 	if (!empty($conf->dol_optimize_smallscreen)) {
-		$titlelist = $langs->trans('Actions').(is_numeric($nbEvent) ? '<span class="opacitymedium colorblack paddingleft">('.$nbEvent.')</span>' : '');
+		$titlelist = $langs->trans('Actions');
 	}
 
 	$sqlselect = "SELECT a.id, a.label, a.datep as dp, a.datep2 as dp2, a.percent, a.fk_element, a.elementtype, a.fk_contact, a.code,";
@@ -326,7 +325,15 @@ if ($user->hasRight('agenda', 'myactions', 'read') || $user->hasRight('agenda', 
 		dol_print_error($db);
 	}
 
-	print_barre_liste($titlelist, $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $totalnboflines, '', 0, $morehtmlright, '', $limit, 0, 0, 1);
+	print '<form name="listactionsfilter" class="listactionsfilter" action="'.$_SERVER['PHP_SELF'].'" method="GET">';
+	print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+	print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
+	print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
+	if (!empty($contextpage) && $contextpage != getDolDefaultContextPage(__FILE__)) {
+		print '<input type="hidden" name="contextpage" value="'.dol_escape_htmltag($contextpage).'">';
+	}
+
+	print_barre_liste($titlelist, $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $totalnboflines, 'object_action', 0, $morehtmlright, '', $limit, 0, 0, 1);
 
 	$complete = (string) (!empty($filters['search_complete']) ? $filters['search_complete'] : '');
 	$percent = ($complete !== '' ? $complete : -1);
@@ -336,17 +343,8 @@ if ($user->hasRight('agenda', 'myactions', 'read') || $user->hasRight('agenda', 
 		$percent = '100';
 	}
 
-	print '<form name="listactionsfilter" class="listactionsfilter" action="'.$_SERVER['PHP_SELF'].'" method="GET">';
-	print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
-	print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
-	print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
-	print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
-	if (!empty($contextpage) && $contextpage != getDolDefaultContextPage(__FILE__)) {
-		print '<input type="hidden" name="contextpage" value="'.dol_escape_htmltag($contextpage).'">';
-	}
-
 	print '<div class="div-table-responsive-no-min">';
-	print '<table class="noborder centpercent">';
+	print '<table class="tagtable nobottomiftotal liste listwithfilterbefore">';
 
 	print '<tr class="liste_titre_filter">';
 	if (getDolGlobalString('MAIN_CHECKBOX_LEFT_COLUMN')) {
