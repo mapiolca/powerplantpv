@@ -847,6 +847,7 @@ AttestationAlternativeSignatureLinkInfo = Le lien utilise la signature alternati
 SignaturePowerplantpvAttestationRef = Signature de l'attestation %s
 WelcomeOnOnlineSignaturePageAttestation = Bienvenue sur la page de signature en ligne de %s
 ThisScreenAllowsYouToSignDocFromAttestation = Cet écran vous permet de signer l'attestation transmise par %s.
+AttestationSignButton = Signer
 SignAttestation = Signer l'attestation
 AttestationSignatureRequired = La signature est obligatoire
 AttestationSignatureNotAllowed = La signature n'est pas autorisée pour cette attestation

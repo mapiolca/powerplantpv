@@ -847,6 +847,7 @@ AttestationAlternativeSignatureLinkInfo = This link uses the module alternative 
 SignaturePowerplantpvAttestationRef = Signature of attestation %s
 WelcomeOnOnlineSignaturePageAttestation = Welcome to %s online signature page
 ThisScreenAllowsYouToSignDocFromAttestation = This screen allows you to sign the attestation sent by %s.
+AttestationSignButton = Sign
 SignAttestation = Sign attestation
 AttestationSignatureRequired = The signature is required
 AttestationSignatureNotAllowed = Signature is not allowed for this attestation

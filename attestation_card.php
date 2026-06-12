@@ -575,6 +575,15 @@ if ($action == 'create' || $action == 'edit') {
 	if ($permissiontovalidate && $object->status == PowerPlantPVAttestation::STATUS_DRAFT) {
 		print dolGetButtonAction($langs->trans('Validate'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=validate&token='.newToken(), '', true);
 	}
+	if ($permissiontosign
+		&& PowerPlantPVCompatibility::isFeatureAvailable('attestation_online_signature')
+		&& in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE), true)
+	) {
+		$signatureUrl = powerplantpvAttestationGetOnlineSignatureUrl(0, $object, 1);
+		if ($signatureUrl !== '') {
+			print dolGetButtonAction($langs->trans('AttestationSignButton'), '', 'default', $signatureUrl, '', true);
+		}
+	}
 	if ($permissiontocancel && !in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_SIGNED, PowerPlantPVAttestation::STATUS_CANCELED), true)) {
 		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=cancel&token='.newToken(), '', true);
 	}
@@ -590,11 +599,6 @@ if ($action == 'create' || $action == 'edit') {
 	$genallowed = ($permissiontoadd && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
 	$delallowed = ($permissiontodelete && (int) $object->status !== PowerPlantPVAttestation::STATUS_SIGNED);
 	print $formfile->showdocuments(powerplantpvAttestationGetDocumentGenerationModulePart(), powerplantpvAttestationGetDocumentRelativePath($object), $uploadDir, $_SERVER['PHP_SELF'].'?id='.(int) $object->id, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
-	if ($permissiontosign && PowerPlantPVCompatibility::isFeatureAvailable('attestation_online_signature') && in_array((int) $object->status, array(PowerPlantPVAttestation::STATUS_VALIDATED, PowerPlantPVAttestation::STATUS_PENDING_SIGNATURE), true)) {
-		print '<br>';
-		print powerplantpvAttestationShowOnlineSignatureUrl($object);
-		print '<br>';
-	}
 	if (method_exists($form, 'showLinkedObjectBlock')) {
 		$form->showLinkedObjectBlock($object);
 	}

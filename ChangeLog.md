@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+Déplacement du bouton de signature en ligne des attestations vers les boutons d'action de la fiche, avec libellé court `Signer`.
 Déplacement de l'onglet de réglages `Attestations` avant l'onglet `Compatibilité`.
 Ajout d'un bouton d'action `Créer une attestation` sur la fiche centrale et affichage du projet lié dans la bannière de la fiche attestation.
 Ajout d'une signature en ligne alternative pour les attestations lorsque le core Dolibarr ne supporte pas nativement la source `powerplantpv_attestation`, avec page publique module, endpoint Ajax sécurisé et génération du PDF signé via les modèles existants.
