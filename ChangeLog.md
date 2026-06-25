@@ -1,5 +1,9 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.1
+
+- Complétude des modèles et de la mécanique d'import CSV/XLSX des onduleurs avec tous les champs généraux peuplables, hors lignes MPPT et entrées PV.
+
 ## 1.2.0
 
 Cette version ajoute le périmètre des attestations PowerPlantPV :
@@ -16,7 +20,6 @@ Cette version ajoute le périmètre des attestations PowerPlantPV :
 - Ajout d'une signature en ligne alternative pour les attestations lorsque le core Dolibarr ne supporte pas nativement la source `powerplantpv_attestation`, avec page publique module, endpoint Ajax sécurisé et génération du PDF signé via les modèles existants.
 - Ajout dans l'onglet `Fichiers joints` des centrales d'un tableau natif listant les attestations liées, avec date de validation dédiée et colonne Environnement seulement lorsque nécessaire en Multicompany.
 - Précision des unités attendues sur les caractéristiques détaillées des onduleurs et conservation des champs numériques vides en `NULL` lors de la saisie manuelle, sans convertir les valeurs existantes.
-- Complétude des modèles et de la mécanique d'import CSV/XLSX des onduleurs avec tous les champs généraux peuplables, hors lignes MPPT et entrées PV.
 
 ## 1.1.0
 
