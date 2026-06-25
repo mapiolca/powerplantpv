@@ -61,6 +61,7 @@ require_once DOL_DOCUMENT_ROOT."/core/lib/admin.lib.php";
 require_once DOL_DOCUMENT_ROOT."/core/lib/ajax.lib.php";
 require_once '../lib/powerplantpv.lib.php';
 require_once '../lib/powerplantpv_powerplant.lib.php';
+require_once '../lib/powerplantpv_serialnumber.lib.php';
 //require_once "../class/myclass.class.php";
 
 /**
@@ -325,6 +326,28 @@ if ($action == 'updateMask') {
 	} else {
 		setEventMessages($db->lasterror(), null, 'errors');
 	}
+} elseif ($action == 'save_serialnumber_settings') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$ignoredcategoryids = GETPOST('serialnumber_ignored_category_ids', 'array:int');
+	if (!is_array($ignoredcategoryids)) {
+		$ignoredcategoryids = array();
+	}
+	$ignoredcategoryids = powerplantpvSerialNumberFilterExistingCategoryIds($ignoredcategoryids, true);
+	$ignoredcategoryvalue = implode(',', array_map('intval', $ignoredcategoryids));
+
+	$res = dolibarr_set_const($db, 'POWERPLANTPV_SERIALNUMBER_IGNORED_CATEGORY_IDS', $ignoredcategoryvalue, 'chaine', 0, '', (int) $conf->entity);
+	if ($res > 0) {
+		$res = dolibarr_set_const($db, 'POWERPLANTPV_SERIALNUMBER_IGNORED_CATEGORY_IDS_CONFIGURED', '1', 'chaine', 0, '', (int) $conf->entity);
+	}
+
+	if ($res > 0) {
+		setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
 }
 
 $action = 'edit';
@@ -372,6 +395,50 @@ if (!empty($formSetup->items)) {
 	print $formSetup->generateOutput(true);
 	print '<br>';
 }
+
+$serialnumbercategories = powerplantpvSerialNumberFetchPhotovoltaicCategories(true);
+$serialnumberignoredids = powerplantpvSerialNumberGetIgnoredCategoryIds((int) $conf->entity);
+$serialnumberignoredconfigured = powerplantpvSerialNumberIgnoredCategoriesAreConfigured((int) $conf->entity);
+
+print load_fiche_titre($langs->trans('SerialNumbersSettings'), '', 'fa-barcode');
+print '<span class="opacitymedium">'.$langs->trans('SerialNumbersIgnoredCategoriesHelp').'</span>';
+if (!$serialnumberignoredconfigured) {
+	print '<br><span class="opacitymedium">'.$langs->trans('SerialNumbersIgnoredCategoriesDefaultHelp').'</span>';
+}
+print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_serialnumber_settings">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('SerialNumbersIgnoredCategories').'</td><td>';
+if (empty($serialnumbercategories)) {
+	print '<span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span>';
+} else {
+	print '<select class="flat minwidth500" id="serialnumber_ignored_category_ids" name="serialnumber_ignored_category_ids[]" multiple>';
+	foreach ($serialnumbercategories as $categoryid => $category) {
+		$categorylabel = (string) $category['label'];
+		$translatedlabel = $langs->trans($categorylabel);
+		if ($translatedlabel !== $categorylabel) {
+			$categorylabel = $translatedlabel;
+		}
+		if (!empty($category['code'])) {
+			$categorylabel .= ' ('.(string) $category['code'].')';
+		}
+		$selected = in_array((int) $categoryid, $serialnumberignoredids, true) ? ' selected' : '';
+		print '<option value="'.((int) $categoryid).'"'.$selected.'>'.dol_escape_htmltag($categorylabel).'</option>';
+	}
+	print '</select>';
+	print '<br><span class="opacitymedium">'.$langs->trans('SerialNumbersIgnoredCategoriesEmptyHelp').'</span>';
+}
+print '</td></tr>';
+print '</table>';
+print '<div class="tabsAction">';
+print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+print '</div>';
+print '</form>';
+if ($conf->use_javascript_ajax && !empty($serialnumbercategories)) {
+	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#serialnumber_ignored_category_ids").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
+}
+print '<br>';
 
 $conf->global->POWERPLANTPV_PVFREE_IMPORT_RAW_JSON = getDolGlobalInt('POWERPLANTPV_PVFREE_IMPORT_RAW_JSON', 1);
 $pvfreeoverwritestrategies = array(
