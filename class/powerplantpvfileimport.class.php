@@ -21,6 +21,8 @@
  * \brief      CSV/XLSX reader and normalizer for product technical imports.
  */
 
+dol_include_once('/powerplantpv/class/powerplantpvproductimport.class.php');
+
 /**
  * Read and normalize CSV/XLSX product technical characteristics.
  */
@@ -343,7 +345,7 @@ class PowerPlantPVFileImport
 	 */
 	public function normalizeModuleRow(array $row)
 	{
-		return $this->normalizeRowWithAliases($row, $this->getModuleAliases(), $this->getModuleNumericFields(), 'module');
+		return $this->normalizeRowWithAliases($row, $this->getModuleAliases(), $this->getModuleFieldTypes(), 'module');
 	}
 
 	/**
@@ -354,7 +356,7 @@ class PowerPlantPVFileImport
 	 */
 	public function normalizeInverterRow(array $row)
 	{
-		return $this->normalizeRowWithAliases($row, $this->getInverterAliases(), $this->getInverterNumericFields(), 'inverter');
+		return $this->normalizeRowWithAliases($row, $this->getInverterAliases(), $this->getInverterFieldTypes(), 'inverter');
 	}
 
 	/**
@@ -729,13 +731,13 @@ class PowerPlantPVFileImport
 	/**
 	 * Normalize a row using aliases.
 	 *
-	 * @param array<string,mixed> $row           Raw row
-	 * @param array<string,string> $aliases      Alias map
-	 * @param array<int,string>    $numericFields Numeric fields
-	 * @param string               $dataset      Dataset label
+	 * @param array<string,mixed>  $row        Raw row
+	 * @param array<string,string> $aliases    Alias map
+	 * @param array<string,string> $fieldTypes Field types by field name
+	 * @param string               $dataset    Dataset label
 	 * @return array<string,mixed> Normalized row
 	 */
-	protected function normalizeRowWithAliases(array $row, array $aliases, array $numericFields, $dataset)
+	protected function normalizeRowWithAliases(array $row, array $aliases, array $fieldTypes, $dataset)
 	{
 		$normalized = array('_dataset' => $dataset);
 		foreach ($row as $header => $value) {
@@ -747,11 +749,8 @@ class PowerPlantPVFileImport
 			if (isset($normalized[$field]) && $normalized[$field] !== null && $normalized[$field] !== '') {
 				continue;
 			}
-			if (in_array($field, $numericFields, true)) {
-				$normalized[$field] = $this->parseNumericValue($value);
-			} else {
-				$normalized[$field] = $this->parseStringValue($value);
-			}
+			$type = isset($fieldTypes[$field]) ? $fieldTypes[$field] : 'varchar';
+			$normalized[$field] = $this->parseFieldValue($value, $type);
 		}
 
 		return $normalized;
@@ -875,7 +874,7 @@ class PowerPlantPVFileImport
 	 */
 	protected function getModuleAliases()
 	{
-		return array(
+		$aliases = array(
 			'pmax' => 'pmax',
 			'pmpp' => 'pmax',
 			'stc' => 'pmax',
@@ -1005,6 +1004,8 @@ class PowerPlantPVFileImport
 			'modules_par_conteneur_40' => 'modules_per_container40',
 			'modules_par_conteneur_40_pcs' => 'modules_per_container40',
 		);
+
+		return $this->addCanonicalAliases($aliases, PowerPlantPVProductImport::getModuleImportFields());
 	}
 
 	/**
@@ -1014,7 +1015,7 @@ class PowerPlantPVFileImport
 	 */
 	protected function getInverterAliases()
 	{
-		return array(
+		$aliases = array(
 			'pv_max_power' => 'pv_max_power',
 			'dc_power_max' => 'pv_max_power',
 			'puissance_dc_max' => 'pv_max_power',
@@ -1047,26 +1048,115 @@ class PowerPlantPVFileImport
 			'ac_max_output_current' => 'ac_max_output_current',
 			'iac_max' => 'ac_max_output_current',
 			'courant_ac_max' => 'ac_max_output_current',
+			'power_factor' => 'power_factor',
+			'cos_phi' => 'power_factor',
+			'cosphi' => 'power_factor',
+			'facteur_puissance' => 'power_factor',
+			'facteur_de_puissance' => 'power_factor',
+			'thd' => 'thd',
+			'taux_distorsion_harmonique' => 'thd',
+			'distorsion_harmonique' => 'thd',
 			'max_efficiency' => 'max_efficiency',
 			'efficiency_max' => 'max_efficiency',
 			'rendement_max' => 'max_efficiency',
 			'european_efficiency' => 'european_efficiency',
 			'euro_efficiency' => 'european_efficiency',
 			'rendement_europeen' => 'european_efficiency',
+			'dc_switch' => 'dc_switch',
+			'switch_dc' => 'dc_switch',
+			'interrupteur_dc' => 'dc_switch',
+			'sectionneur_dc' => 'dc_switch',
+			'dc_spd' => 'dc_spd',
+			'spd_dc' => 'dc_spd',
+			'surge_protection_dc' => 'dc_spd',
+			'protection_surtension_dc' => 'dc_spd',
+			'parafoudre_dc' => 'dc_spd',
+			'ac_spd' => 'ac_spd',
+			'spd_ac' => 'ac_spd',
+			'surge_protection_ac' => 'ac_spd',
+			'protection_surtension_ac' => 'ac_spd',
+			'parafoudre_ac' => 'ac_spd',
+			'afci' => 'afci',
+			'arc_fault_circuit_interrupter' => 'afci',
+			'pid_recovery' => 'pid_recovery',
+			'anti_pid' => 'pid_recovery',
+			'recuperation_pid' => 'pid_recovery',
+			'anti_islanding' => 'anti_islanding',
+			'anti_islanding_protection' => 'anti_islanding',
+			'anti_ilotage' => 'anti_islanding',
+			'protection_anti_ilotage' => 'anti_islanding',
+			'dc_reverse_polarity_protection' => 'dc_reverse_polarity_protection',
+			'reverse_polarity_protection' => 'dc_reverse_polarity_protection',
+			'polarite_inverse_dc' => 'dc_reverse_polarity_protection',
+			'protection_polarite_inverse_dc' => 'dc_reverse_polarity_protection',
+			'insulation_monitoring' => 'insulation_monitoring',
+			'surveillance_isolement' => 'insulation_monitoring',
+			'controle_isolement' => 'insulation_monitoring',
+			'residual_current_monitoring' => 'residual_current_monitoring',
+			'rcmu' => 'residual_current_monitoring',
+			'courant_residuel' => 'residual_current_monitoring',
+			'surveillance_courant_residuel' => 'residual_current_monitoring',
 			'ip_rating' => 'ip_rating',
 			'indice_ip' => 'ip_rating',
 			'operating_temperature' => 'operating_temperature',
 			'temperature_fonctionnement' => 'operating_temperature',
+			'relative_humidity' => 'relative_humidity',
+			'humidity' => 'relative_humidity',
+			'humidite_relative' => 'relative_humidity',
+			'humidite' => 'relative_humidity',
 			'cooling' => 'cooling',
 			'refroidissement' => 'cooling',
+			'max_altitude' => 'max_altitude',
+			'altitude_max' => 'max_altitude',
+			'altitude_maximum' => 'max_altitude',
+			'noise' => 'noise',
+			'noise_db' => 'noise',
+			'bruit' => 'noise',
+			'bruit_db' => 'noise',
+			'topology' => 'topology',
+			'topologie' => 'topology',
+			'night_consumption' => 'night_consumption',
+			'nighttime_consumption' => 'night_consumption',
+			'standby_consumption' => 'night_consumption',
+			'consommation_nocturne' => 'night_consumption',
+			'display_type' => 'display_type',
+			'display' => 'display_type',
+			'afficheur' => 'display_type',
+			'ecran' => 'display_type',
 			'communication_interfaces' => 'communication_interfaces',
 			'communication' => 'communication_interfaces',
 			'interfaces_communication' => 'communication_interfaces',
+			'dc_connector' => 'dc_connector',
+			'connector_dc' => 'dc_connector',
+			'connecteur_dc' => 'dc_connector',
+			'ac_connector' => 'ac_connector',
+			'connector_ac' => 'ac_connector',
+			'connecteur_ac' => 'ac_connector',
+			'mounting' => 'mounting',
+			'montage' => 'mounting',
 			'warranty' => 'warranty',
 			'garantie' => 'warranty',
 			'certifications' => 'certifications',
 			'certification' => 'certifications',
 		);
+
+		return $this->addCanonicalAliases($aliases, PowerPlantPVProductImport::getInverterImportFields());
+	}
+
+	/**
+	 * Add canonical technical field names as aliases.
+	 *
+	 * @param array<string,string> $aliases Existing aliases
+	 * @param array<int,string>    $fields  Canonical fields
+	 * @return array<string,string> Aliases
+	 */
+	protected function addCanonicalAliases(array $aliases, array $fields)
+	{
+		foreach ($fields as $field) {
+			$aliases[$field] = $field;
+		}
+
+		return $aliases;
 	}
 
 	/**
@@ -1080,63 +1170,33 @@ class PowerPlantPVFileImport
 	}
 
 	/**
-	 * Return module numeric fields.
+	 * Return module field types.
 	 *
-	 * @return array<int,string> Fields
+	 * @return array<string,string> Type by field
 	 */
-	protected function getModuleNumericFields()
+	protected function getModuleFieldTypes()
 	{
-		return array(
-			'pmax',
-			'power_tolerance',
-			'module_efficiency',
-			'vmp',
-			'imp',
-			'voc',
-			'isc',
-			'front_glass_thickness',
-			'back_glass_thickness',
-			'cable_section',
-			'cable_length',
-			'noct',
-			'temp_coeff_pmax',
-			'temp_coeff_voc',
-			'temp_coeff_isc',
-			'max_system_voltage',
-			'max_series_fuse',
-			'operating_temperature',
-			'snow_load',
-			'wind_load',
-			'product_warranty',
-			'power_warranty',
-			'first_year_degradation',
-			'annual_degradation',
-			'modules_per_box',
-			'modules_per_container40',
-		);
+		$types = array();
+		foreach (PowerPlantPVProductImport::getModuleImportFields() as $field) {
+			$types[$field] = 'double';
+		}
+
+		return $types;
 	}
 
 	/**
-	 * Return inverter numeric fields.
+	 * Return inverter field types.
 	 *
-	 * @return array<int,string> Fields
+	 * @return array<string,string> Type by field
 	 */
-	protected function getInverterNumericFields()
+	protected function getInverterFieldTypes()
 	{
-		return array(
-			'pv_max_power',
-			'dc_max_voltage',
-			'startup_voltage',
-			'mppt_voltage_min',
-			'mppt_voltage_max',
-			'nominal_dc_voltage',
-			'ac_nominal_power',
-			'ac_max_power',
-			'ac_apparent_power',
-			'ac_max_output_current',
-			'max_efficiency',
-			'european_efficiency',
-		);
+		$types = array();
+		foreach (ProductInverter::getInverterFields() as $field => $spec) {
+			$types[$field] = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+		}
+
+		return $types;
 	}
 
 	/**
@@ -1158,6 +1218,28 @@ class PowerPlantPVFileImport
 		$header = preg_replace('/_+/', '_', (string) $header);
 
 		return trim((string) $header, '_');
+	}
+
+	/**
+	 * Parse a value according to the target field type.
+	 *
+	 * @param mixed  $value Value
+	 * @param string $type  Field type
+	 * @return int|float|string|null Parsed value
+	 */
+	protected function parseFieldValue($value, $type)
+	{
+		if ($type === 'double') {
+			return $this->parseNumericValue($value);
+		}
+		if ($type === 'int') {
+			return $this->parseIntegerValue($value);
+		}
+		if ($type === 'bool') {
+			return $this->parseBooleanValue($value);
+		}
+
+		return $this->parseStringValue($value);
 	}
 
 	/**
@@ -1193,6 +1275,54 @@ class PowerPlantPVFileImport
 		}
 
 		return is_numeric($number) ? (float) $number : null;
+	}
+
+	/**
+	 * Parse an integer value without unit conversion.
+	 *
+	 * @param mixed $value Value
+	 * @return int|null Number
+	 */
+	protected function parseIntegerValue($value)
+	{
+		$number = $this->parseNumericValue($value);
+
+		return ($number === null ? null : (int) $number);
+	}
+
+	/**
+	 * Parse a boolean value.
+	 *
+	 * Unknown non-empty values are ignored instead of being cast to false.
+	 *
+	 * @param mixed $value Value
+	 * @return int|null 1, 0 or null
+	 */
+	protected function parseBooleanValue($value)
+	{
+		$value = trim((string) $value);
+		if ($value === '') {
+			return null;
+		}
+
+		$value = str_replace("\xc2\xa0", ' ', $value);
+		$normalized = strtolower($value);
+		if (function_exists('iconv')) {
+			$converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+			if ($converted !== false) {
+				$normalized = $converted;
+			}
+		}
+		$normalized = trim((string) preg_replace('/[^a-z0-9]+/', '_', $normalized), '_');
+
+		if (in_array($normalized, array('1', 'yes', 'true', 'oui', 'vrai', 'on'), true)) {
+			return 1;
+		}
+		if (in_array($normalized, array('0', 'no', 'false', 'non', 'faux', 'off'), true)) {
+			return 0;
+		}
+
+		return null;
 	}
 
 	/**

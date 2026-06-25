@@ -21,6 +21,8 @@
  * \brief      Product technical import UI helpers.
  */
 
+dol_include_once('/powerplantpv/class/powerplantpvproductimport.class.php');
+
 /**
  * Return product technical import template headers.
  *
@@ -30,58 +32,10 @@
 function powerplantpvProductTechnicalImportGetTemplateHeaders($categoryCode)
 {
 	if ($categoryCode === 'ONDULE') {
-		return array(
-			'pv_max_power',
-			'dc_max_voltage',
-			'startup_voltage',
-			'mppt_voltage_min',
-			'mppt_voltage_max',
-			'nominal_dc_voltage',
-			'ac_nominal_power',
-			'ac_max_power',
-			'ac_apparent_power',
-			'ac_nominal_voltage',
-			'grid_frequency',
-			'ac_max_output_current',
-			'max_efficiency',
-			'european_efficiency',
-			'ip_rating',
-			'operating_temperature',
-			'cooling',
-			'communication_interfaces',
-			'warranty',
-			'certifications',
-		);
+		return PowerPlantPVProductImport::getInverterImportFields();
 	}
 
-	return array(
-		'pmax',
-		'power_tolerance',
-		'module_efficiency',
-		'vmp',
-		'imp',
-		'voc',
-		'isc',
-		'front_glass_thickness',
-		'back_glass_thickness',
-		'cable_section',
-		'cable_length',
-		'noct',
-		'temp_coeff_pmax',
-		'temp_coeff_voc',
-		'temp_coeff_isc',
-		'max_system_voltage',
-		'max_series_fuse',
-		'operating_temperature',
-		'snow_load',
-		'wind_load',
-		'product_warranty',
-		'power_warranty',
-		'first_year_degradation',
-		'annual_degradation',
-		'modules_per_box',
-		'modules_per_container40',
-	);
+	return PowerPlantPVProductImport::getModuleImportFields();
 }
 
 /**
