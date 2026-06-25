@@ -3,6 +3,7 @@
 ## 1.2.1
 
 - Complétude des modèles et de la mécanique d'import CSV/XLSX des onduleurs avec tous les champs généraux peuplables, hors lignes MPPT et entrées PV.
+- Ajout d'un réglage par entité pour exclure certaines catégories photovoltaïques du contrôle des numéros de série, avec coffrets AC, coffrets DC et systèmes d'intégration ignorés par défaut tant que le réglage n'a jamais été enregistré.
 
 ## 1.2.0
 

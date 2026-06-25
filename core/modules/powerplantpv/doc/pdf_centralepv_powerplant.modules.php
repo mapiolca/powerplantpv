@@ -24,6 +24,7 @@
 dol_include_once('/powerplantpv/core/modules/powerplantpv/modules_powerplant.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
 require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
 require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
@@ -478,7 +479,7 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 		$entity = (!empty($object->entity) ? (int) $object->entity : 1);
 		$productEntities = $this->sanitizeEntityList(getEntity('product'));
 
-		$sql = "SELECT c.rowid, c.fk_product, c.fk_status, c.qty, c.serial_number, c.commissioning_date,";
+		$sql = "SELECT c.rowid, c.entity as component_entity, c.fk_product, c.fk_status, c.qty, c.serial_number, c.commissioning_date,";
 		$sql .= " p.ref as product_ref, p.label as product_label,";
 		$sql .= " pe.categorie_photovoltaique as fk_categorypv, pvcat.code as category_code, pvcat.label as category_label";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_powerplantcomp as c";
@@ -505,7 +506,9 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 			$productpower = ($productid > 0 ? $powercache[$productid] : array());
 			$rows[] = array(
 				'id' => (int) $obj->rowid,
+				'entity' => (int) $obj->component_entity,
 				'fk_product' => $productid,
+				'fk_categorypv' => !empty($obj->fk_categorypv) ? (int) $obj->fk_categorypv : 0,
 				'product_ref' => (string) $obj->product_ref,
 				'product_label' => (string) $obj->product_label,
 				'category_code' => (string) $obj->category_code,
@@ -648,7 +651,7 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 				'product' => $this->productLabel($component),
 				'qty' => $this->formatNumber($component['qty'], 2, $outputlangs),
 				'power' => $power,
-				'serial' => $component['serial_number'],
+				'serial' => $this->serialNumberDisplayValue($component, $outputlangs),
 				'status' => $component['status'],
 			);
 		}
@@ -671,13 +674,30 @@ class pdf_centralepv_powerplant extends ModelePDFPowerPlant
 				'category' => $this->firstNonEmpty(array($component['category_label'], $component['category_code'])),
 				'product' => $this->productLabel($component),
 				'qty' => $this->formatNumber($component['qty'], 2, $outputlangs),
-				'serial' => $component['serial_number'],
+				'serial' => $this->serialNumberDisplayValue($component, $outputlangs),
 				'date' => $this->formatDate($component['commissioning_date'], $outputlangs),
 				'status' => $component['status'],
 			);
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * Return the serial number display value for a component.
+	 *
+	 * @param	array<string,mixed>	$component		Component data
+	 * @param	Translate			$outputlangs	Output language
+	 * @return	string								Display value
+	 */
+	protected function serialNumberDisplayValue($component, $outputlangs)
+	{
+		return powerplantpvSerialNumberDisplayValue(
+			isset($component['serial_number']) ? (string) $component['serial_number'] : '',
+			isset($component['fk_categorypv']) ? (int) $component['fk_categorypv'] : 0,
+			isset($component['entity']) ? (int) $component['entity'] : 0,
+			$outputlangs
+		);
 	}
 
 	/**

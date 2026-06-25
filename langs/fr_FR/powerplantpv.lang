@@ -511,6 +511,12 @@ TypeContact_powerplant_external_CENTPV_EXTERNAL_ROOFER = Technicien toiture exte
 #
 ImportSerialNumbers = Importer les numéros de série
 SerialNumbers = Numéros de série
+SerialNumbersSettings = Réglages des numéros de série
+SerialNumbersIgnoredCategories = Catégories sans contrôle du n° de série
+SerialNumbersIgnoredCategoriesHelp = Les produits appartenant aux catégories sélectionnées ne sont pas comptés dans les numéros de série attendus, saisis ou manquants.
+SerialNumbersIgnoredCategoriesDefaultHelp = Tant que ce réglage n'a jamais été enregistré, les coffrets AC, coffrets DC et systèmes d'intégration sont ignorés par défaut.
+SerialNumbersIgnoredCategoriesEmptyHelp = Une sélection vide enregistrée signifie que toutes les catégories photovoltaïques sont contrôlées.
+SerialNumbersNotApplicable = Sans objet
 PowerPlantCompositionLine = Ligne de composition
 SerialNumbersImport = Import des numéros de série
 SerialNumbersImportSubmit = Importer

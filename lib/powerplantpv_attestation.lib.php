@@ -23,6 +23,7 @@
 
 dol_include_once('/powerplantpv/class/powerplantpvattestation.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvattestationtypes.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
 
 /**
  * Check an attestation permission with Dolibarr v20+ and legacy fallback.
@@ -1275,13 +1276,18 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 	$fkProduct = !empty($line->fk_product) ? (int) $line->fk_product : 0;
 	$fkPowerplantLine = !empty($line->fk_powerplant_line) ? (int) $line->fk_powerplant_line : 0;
 	$fkSerial = !empty($line->fk_powerplant_serialnumber) ? (int) $line->fk_powerplant_serialnumber : 0;
+	$entity = !empty($line->entity) ? (int) $line->entity : 0;
+	$lineCategoryId = !empty($line->fk_categorie) ? (int) $line->fk_categorie : 0;
+	if ($fallback['serial_number'] === '' && $lineCategoryId > 0) {
+		$fallback['serial_number'] = powerplantpvSerialNumberDisplayValue('', $lineCategoryId, $entity, $outputlangs);
+	}
 	if ($fkProduct <= 0 && $fkPowerplantLine <= 0 && $fkSerial <= 0) {
 		return $fallback;
 	}
 
-	$entity = !empty($line->entity) ? (int) $line->entity : 0;
 	static $cache = array();
-	$cachekey = $entity.'|'.$fkProduct.'|'.$fkPowerplantLine.'|'.$fkSerial.'|'.((int) (!empty($line->fk_categorie) ? $line->fk_categorie : 0));
+	$outputlangkey = (is_object($outputlangs) && !empty($outputlangs->defaultlang)) ? (string) $outputlangs->defaultlang : '';
+	$cachekey = $outputlangkey.'|'.$entity.'|'.$fkProduct.'|'.$fkPowerplantLine.'|'.$fkSerial.'|'.$lineCategoryId;
 	if (array_key_exists($cachekey, $cache)) {
 		return $cache[$cachekey];
 	}
@@ -1331,13 +1337,15 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 		return $fallback;
 	}
 
+	$categoryid = $lineCategoryId > 0 ? $lineCategoryId : (!empty($obj->categorie_photovoltaique) ? (int) $obj->categorie_photovoltaique : 0);
+	$serialnumber = !empty($obj->imported_serial_number) ? (string) $obj->imported_serial_number : (!empty($obj->composition_serial_number) ? (string) $obj->composition_serial_number : $fallback['serial_number']);
 	$resolved = array(
 		'category' => !empty($obj->category_label) ? (string) $obj->category_label : (!empty($obj->category_code) ? (string) $obj->category_code : $fallback['category']),
 		'category_code' => !empty($obj->category_code) ? (string) $obj->category_code : $fallback['category_code'],
 		'fk_product' => !empty($obj->fk_product) ? (int) $obj->fk_product : $fallback['fk_product'],
 		'product_ref' => (string) $obj->product_ref,
 		'designation' => (string) $obj->product_label,
-		'serial_number' => !empty($obj->imported_serial_number) ? (string) $obj->imported_serial_number : (!empty($obj->composition_serial_number) ? (string) $obj->composition_serial_number : $fallback['serial_number']),
+		'serial_number' => powerplantpvSerialNumberDisplayValue($serialnumber, $categoryid, $entity, $outputlangs),
 		'brand' => !empty($obj->product_photovoltaic_brand) ? (string) $obj->product_photovoltaic_brand : $fallback['brand'],
 		'manufacturer' => !empty($obj->product_photovoltaic_manufacturer) ? (string) $obj->product_photovoltaic_manufacturer : $fallback['manufacturer'],
 		'max_power_kw' => ($obj->ac_max_power !== null && $obj->ac_max_power !== '') ? $obj->ac_max_power : (($obj->ac_nominal_power !== null && $obj->ac_nominal_power !== '') ? $obj->ac_nominal_power : $fallback['max_power_kw']),

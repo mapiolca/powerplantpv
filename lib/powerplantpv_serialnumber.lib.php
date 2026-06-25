@@ -110,6 +110,311 @@ function powerplantpvSerialImportGetUploadDir($object)
 }
 
 /**
+ * Return category codes ignored by default for serial-number controls.
+ *
+ * @return	string[]	Default category codes
+ */
+function powerplantpvSerialNumberDefaultIgnoredCategoryCodes()
+{
+	return array('COFFAC', 'COFFDC', 'SYSINT');
+}
+
+/**
+ * Fetch a Dolibarr constant for a specific entity without switching context.
+ *
+ * @param	string	$constname	Constant name
+ * @param	int		$entity		Entity id
+ * @return	string|null			Constant value, null when not found
+ */
+function powerplantpvSerialNumberFetchEntityConstValue($constname, $entity)
+{
+	global $db, $conf;
+
+	$entity = (int) ($entity > 0 ? $entity : $conf->entity);
+	$sql = "SELECT value";
+	$sql .= " FROM ".$db->prefix()."const";
+	$sql .= " WHERE name = '".$db->escape($constname)."'";
+	$sql .= " AND entity = ".$entity;
+	$sql .= $db->plimit(1);
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return null;
+	}
+
+	$obj = $db->fetch_object($resql);
+	$db->free($resql);
+	if (!$obj) {
+		return null;
+	}
+
+	return (string) $obj->value;
+}
+
+/**
+ * Parse a category id list from a constant or form value.
+ *
+ * @param	string|string[]|int[]	$value	Raw ids
+ * @return	int[]							Unique positive ids
+ */
+function powerplantpvSerialNumberParseCategoryIds($value)
+{
+	if (is_array($value)) {
+		$rawvalues = $value;
+	} else {
+		$rawvalues = preg_split('/[,\s;]+/', (string) $value);
+		if (!is_array($rawvalues)) {
+			$rawvalues = array();
+		}
+	}
+
+	$ids = array();
+	foreach ($rawvalues as $rawvalue) {
+		$id = (int) $rawvalue;
+		if ($id > 0) {
+			$ids[$id] = $id;
+		}
+	}
+
+	return array_values($ids);
+}
+
+/**
+ * Fetch photovoltaic categories.
+ *
+ * @param	bool	$activeonly	Only active categories
+ * @return	array<int,array<string,mixed>>	Categories indexed by id
+ */
+function powerplantpvSerialNumberFetchPhotovoltaicCategories($activeonly = true)
+{
+	global $db;
+
+	$categories = array();
+	$sql = "SELECT rowid, code, label, active";
+	$sql .= " FROM ".$db->prefix()."c_powerplantpv_categorypv";
+	if ($activeonly) {
+		$sql .= " WHERE active = 1";
+	}
+	$sql .= " ORDER BY label ASC";
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return $categories;
+	}
+
+	while ($obj = $db->fetch_object($resql)) {
+		$categories[(int) $obj->rowid] = array(
+			'id' => (int) $obj->rowid,
+			'code' => (string) $obj->code,
+			'label' => (string) $obj->label,
+			'active' => (int) $obj->active,
+		);
+	}
+	$db->free($resql);
+
+	return $categories;
+}
+
+/**
+ * Keep only ids that still exist in the PV category dictionary.
+ *
+ * @param	string|string[]|int[]	$categoryids	Raw category ids
+ * @param	bool					$activeonly		Only active categories
+ * @return	int[]									Existing category ids
+ */
+function powerplantpvSerialNumberFilterExistingCategoryIds($categoryids, $activeonly = false)
+{
+	$ids = powerplantpvSerialNumberParseCategoryIds($categoryids);
+	if (empty($ids)) {
+		return array();
+	}
+
+	$categories = powerplantpvSerialNumberFetchPhotovoltaicCategories($activeonly);
+	$filtered = array();
+	foreach ($ids as $id) {
+		if (isset($categories[$id])) {
+			$filtered[$id] = $id;
+		}
+	}
+
+	return array_values($filtered);
+}
+
+/**
+ * Normalize text for default category detection.
+ *
+ * @param	string	$value	Raw text
+ * @return	string			Normalized ASCII uppercase text
+ */
+function powerplantpvSerialNumberNormalizeCategoryText($value)
+{
+	$value = trim((string) $value);
+	if (function_exists('iconv')) {
+		$converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+		if ($converted !== false) {
+			$value = $converted;
+		}
+	}
+	$value = strtoupper($value);
+	$value = preg_replace('/[^A-Z0-9]+/', ' ', $value);
+
+	return trim((string) $value);
+}
+
+/**
+ * Tell whether a category matches the default ignored set.
+ *
+ * @param	array<string,mixed>	$category	Category data
+ * @return	bool							True if ignored by default
+ */
+function powerplantpvSerialNumberCategoryMatchesDefaultIgnore($category)
+{
+	$code = strtoupper(trim((string) ($category['code'] ?? '')));
+	if (in_array($code, powerplantpvSerialNumberDefaultIgnoredCategoryCodes(), true)) {
+		return true;
+	}
+
+	$label = powerplantpvSerialNumberNormalizeCategoryText((string) ($category['label'] ?? ''));
+	if ($label === '') {
+		return false;
+	}
+
+	$isbox = (strpos($label, 'COFFRET') !== false || strpos($label, 'COMBINER BOX') !== false || strpos($label, 'BOX') !== false);
+	if ($isbox && strpos($label, 'AC') !== false) {
+		return true;
+	}
+	if ($isbox && strpos($label, 'DC') !== false) {
+		return true;
+	}
+	if (strpos($label, 'INTEGRATION') !== false || strpos($label, 'MOUNTING SYSTEM') !== false) {
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * Return the default ignored PV category ids.
+ *
+ * @return	int[]	Default ignored ids
+ */
+function powerplantpvSerialNumberFetchDefaultIgnoredCategoryIds()
+{
+	$ids = array();
+	$categories = powerplantpvSerialNumberFetchPhotovoltaicCategories(true);
+	foreach ($categories as $categoryid => $category) {
+		if (powerplantpvSerialNumberCategoryMatchesDefaultIgnore($category)) {
+			$ids[(int) $categoryid] = (int) $categoryid;
+		}
+	}
+
+	return array_values($ids);
+}
+
+/**
+ * Tell whether the ignored-category setting has been explicitly saved.
+ *
+ * @param	int	$entity	Entity id
+ * @return	bool		True when saved
+ */
+function powerplantpvSerialNumberIgnoredCategoriesAreConfigured($entity = 0)
+{
+	global $conf;
+
+	$entity = (int) ($entity > 0 ? $entity : $conf->entity);
+	$marker = powerplantpvSerialNumberFetchEntityConstValue('POWERPLANTPV_SERIALNUMBER_IGNORED_CATEGORY_IDS_CONFIGURED', $entity);
+	if ($marker !== null) {
+		return ((string) $marker === '1');
+	}
+
+	return powerplantpvSerialNumberFetchEntityConstValue('POWERPLANTPV_SERIALNUMBER_IGNORED_CATEGORY_IDS', $entity) !== null;
+}
+
+/**
+ * Return configured ignored category ids for one entity.
+ *
+ * A missing setting applies the default categories. A saved empty setting means
+ * every PV category must be counted.
+ *
+ * @param	int	$entity	Entity id
+ * @return	int[]		Ignored category ids
+ */
+function powerplantpvSerialNumberGetIgnoredCategoryIds($entity = 0)
+{
+	global $conf;
+
+	$entity = (int) ($entity > 0 ? $entity : $conf->entity);
+	if (!powerplantpvSerialNumberIgnoredCategoriesAreConfigured($entity)) {
+		return powerplantpvSerialNumberFetchDefaultIgnoredCategoryIds();
+	}
+
+	$value = powerplantpvSerialNumberFetchEntityConstValue('POWERPLANTPV_SERIALNUMBER_IGNORED_CATEGORY_IDS', $entity);
+
+	return powerplantpvSerialNumberFilterExistingCategoryIds((string) $value, false);
+}
+
+/**
+ * Tell whether a category is ignored for serial-number controls.
+ *
+ * @param	int	$categoryid	Category id
+ * @param	int	$entity		Entity id
+ * @return	bool			True if ignored
+ */
+function powerplantpvSerialNumberIsCategoryIgnored($categoryid, $entity = 0)
+{
+	$categoryid = (int) $categoryid;
+	if ($categoryid <= 0) {
+		return false;
+	}
+
+	return in_array($categoryid, powerplantpvSerialNumberGetIgnoredCategoryIds((int) $entity), true);
+}
+
+/**
+ * Return an SQL NOT IN clause fragment for ignored categories.
+ *
+ * @param	string	$field	SQL field name
+ * @param	int		$entity	Entity id
+ * @return	string			SQL fragment
+ */
+function powerplantpvSerialNumberBuildIgnoredCategoryWhere($field, $entity = 0)
+{
+	$ids = powerplantpvSerialNumberGetIgnoredCategoryIds((int) $entity);
+	if (empty($ids)) {
+		return '';
+	}
+
+	return " AND ".$field." NOT IN (".implode(',', array_map('intval', $ids)).")";
+}
+
+/**
+ * Return the serial-number display value for generated documents.
+ *
+ * @param	string|null		$serialnumber	Serial number
+ * @param	int				$categoryid		PV category id
+ * @param	int				$entity			Entity id
+ * @param	Translate|null	$outputlangs	Output language
+ * @return	string							Serial number or not-applicable label
+ */
+function powerplantpvSerialNumberDisplayValue($serialnumber, $categoryid, $entity = 0, $outputlangs = null)
+{
+	global $langs;
+
+	$value = trim((string) $serialnumber);
+	if ($value !== '') {
+		return $value;
+	}
+	if ((int) $categoryid > 0 && powerplantpvSerialNumberIsCategoryIgnored((int) $categoryid, (int) $entity)) {
+		if (!is_object($outputlangs)) {
+			$outputlangs = $langs;
+		}
+		return $outputlangs->transnoentities('SerialNumbersNotApplicable');
+	}
+
+	return '';
+}
+
+/**
  * Return categories actually present in the composition.
  *
  * @param	PowerPlant	$object	Power plant
@@ -125,6 +430,7 @@ function powerplantpvSerialImportFetchCompositionCategories($object)
 	}
 
 	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+	$ignoredwhere = powerplantpvSerialNumberBuildIgnoredCategoryWhere('cpv.rowid', $entity);
 
 	$sql = "SELECT cpv.rowid, cpv.code, cpv.label, SUM(c.qty) as expected_qty,";
 	$sql .= " SUM(CASE WHEN COALESCE(sns.stored_qty, 0) > 0 THEN COALESCE(sns.stored_qty, 0) WHEN c.serial_number IS NOT NULL AND c.serial_number <> '' THEN 1 ELSE 0 END) as stored_qty";
@@ -139,6 +445,7 @@ function powerplantpvSerialImportFetchCompositionCategories($object)
 	$sql .= " AND c.entity = ".$entity;
 	$sql .= " AND p.entity IN (".getEntity('product').")";
 	$sql .= " AND cpv.active = 1";
+	$sql .= $ignoredwhere;
 	$sql .= " AND (c.fk_status IS NULL OR c.fk_status <> 6)";
 	$sql .= " GROUP BY cpv.rowid, cpv.code, cpv.label";
 	$sql .= " ORDER BY cpv.label ASC";
@@ -174,6 +481,9 @@ function powerplantpvSerialImportFetchCategoryLines($powerplantid, $categoryid, 
 
 	$lines = array();
 	if ($powerplantid <= 0 || $categoryid <= 0) {
+		return $lines;
+	}
+	if (powerplantpvSerialNumberIsCategoryIgnored((int) $categoryid, (int) $entity)) {
 		return $lines;
 	}
 
@@ -358,6 +668,7 @@ function powerplantpvSerialNumberFetchCompositionSummary($object)
 	}
 
 	$entity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
+	$ignoredwhere = powerplantpvSerialNumberBuildIgnoredCategoryWhere('cpv.rowid', $entity);
 
 	$sql = "SELECT c.rowid as fk_powerplant_line, cpv.rowid as fk_categorie, cpv.label as category_label, p.rowid as fk_product, p.ref as product_ref, p.label as product_label,";
 	$sql .= " c.qty as expected_qty,";
@@ -372,6 +683,7 @@ function powerplantpvSerialNumberFetchCompositionSummary($object)
 	$sql .= " WHERE c.fk_powerplant = ".((int) $object->id);
 	$sql .= " AND c.entity = ".$entity;
 	$sql .= " AND p.entity IN (".getEntity('product').")";
+	$sql .= $ignoredwhere;
 	$sql .= " AND (c.fk_status IS NULL OR c.fk_status <> 6)";
 	$sql .= " ORDER BY cpv.label ASC, p.ref ASC, c.rowid ASC";
 

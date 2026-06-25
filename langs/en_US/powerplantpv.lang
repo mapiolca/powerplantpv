@@ -511,6 +511,12 @@ TypeContact_powerplant_external_CENTPV_EXTERNAL_ROOFER = External roofing techni
 #
 ImportSerialNumbers = Import serial numbers
 SerialNumbers = Serial numbers
+SerialNumbersSettings = Serial number settings
+SerialNumbersIgnoredCategories = Categories without serial number control
+SerialNumbersIgnoredCategoriesHelp = Products belonging to selected categories are not counted in expected, recorded or missing serial numbers.
+SerialNumbersIgnoredCategoriesDefaultHelp = Until this setting is saved for the first time, AC combiner boxes, DC combiner boxes and mounting systems are ignored by default.
+SerialNumbersIgnoredCategoriesEmptyHelp = A saved empty selection means every photovoltaic category is controlled.
+SerialNumbersNotApplicable = Not applicable
 PowerPlantCompositionLine = Composition line
 SerialNumbersImport = Serial number import
 SerialNumbersImportSubmit = Import
