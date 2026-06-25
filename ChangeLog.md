@@ -1,5 +1,9 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.1
+
+- Complétude des modèles et de la mécanique d'import CSV/XLSX des onduleurs avec tous les champs généraux peuplables, hors lignes MPPT et entrées PV.
+
 ## 1.2.0
 
 Cette version ajoute le périmètre des attestations PowerPlantPV :
