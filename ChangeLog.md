@@ -1,5 +1,12 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.3.0
+
+- Ajout du socle données maintenance préventive : dictionnaires des natures d'intervention, services de maintenance, sections de rapport et types de relevés.
+- Ajout des tables de liaison services/sections et des champs de gabarit de rapport de maintenance, avec données par défaut idempotentes et par entité.
+- Ajout des droits Dolibarr dédiés à la maintenance et des champs complémentaires sur contrats, produits/services et interventions.
+- Déclaration des dictionnaires maintenance dans le partage Multicompany et dans l'onglet de compatibilité.
+
 ## 1.2.1
 
 - Complétude des modèles et de la mécanique d'import CSV/XLSX des onduleurs avec tous les champs généraux peuplables, hors lignes MPPT et entrées PV.

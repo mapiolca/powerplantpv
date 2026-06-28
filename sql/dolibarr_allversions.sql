@@ -239,6 +239,124 @@ ALTER TABLE llx_c_powerplantpv_categorypv ADD INDEX IF NOT EXISTS idx_c_powerpla
 ALTER TABLE llx_c_powerplantpv_categorypv ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_categorypv_code (code);
 ALTER TABLE llx_c_powerplantpv_categorypv ADD INDEX IF NOT EXISTS idx_c_powerplantpv_categorypv_active (active);
 
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_intervention_nature(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	label_en varchar(255),
+	description text,
+	description_en text,
+	report_template_code varchar(64),
+	is_maintenance smallint DEFAULT 0 NOT NULL,
+	is_preventive smallint DEFAULT 0 NOT NULL,
+	requires_report smallint DEFAULT 0 NOT NULL,
+	requires_signature smallint DEFAULT 0 NOT NULL,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_intervention_nature ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_intervention_nature_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_intervention_nature ADD INDEX IF NOT EXISTS idx_c_powerplantpv_intervention_nature_entity (entity);
+ALTER TABLE llx_c_powerplantpv_intervention_nature ADD INDEX IF NOT EXISTS idx_c_powerplantpv_intervention_nature_active (active);
+ALTER TABLE llx_c_powerplantpv_intervention_nature ADD INDEX IF NOT EXISTS idx_c_powerplantpv_intervention_nature_template (report_template_code);
+
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_maintenance_service(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	label_en varchar(255),
+	description text,
+	description_en text,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_maintenance_service ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_maintenance_service_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_maintenance_service ADD INDEX IF NOT EXISTS idx_c_powerplantpv_maintenance_service_entity (entity);
+ALTER TABLE llx_c_powerplantpv_maintenance_service ADD INDEX IF NOT EXISTS idx_c_powerplantpv_maintenance_service_active (active);
+
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_report_section(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	label_en varchar(255),
+	description text,
+	description_en text,
+	scope_type varchar(32),
+	equipment_type varchar(32),
+	repeat_mode varchar(32),
+	is_base smallint DEFAULT 0 NOT NULL,
+	is_required smallint DEFAULT 0 NOT NULL,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_report_section ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_report_section_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_report_section ADD INDEX IF NOT EXISTS idx_c_powerplantpv_report_section_entity (entity);
+ALTER TABLE llx_c_powerplantpv_report_section ADD INDEX IF NOT EXISTS idx_c_powerplantpv_report_section_active (active);
+ALTER TABLE llx_c_powerplantpv_report_section ADD INDEX IF NOT EXISTS idx_c_powerplantpv_report_section_scope (scope_type);
+
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_index_type(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	label_en varchar(255),
+	description text,
+	description_en text,
+	default_unit varchar(32),
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_index_type ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_index_type_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_index_type ADD INDEX IF NOT EXISTS idx_c_powerplantpv_index_type_entity (entity);
+ALTER TABLE llx_c_powerplantpv_index_type ADD INDEX IF NOT EXISTS idx_c_powerplantpv_index_type_active (active);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_maintenance_service_section(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_maintenance_service integer NOT NULL,
+	fk_report_section integer NOT NULL,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	date_creation datetime,
+	fk_user_creat integer,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_maintenance_service_section ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_maintenance_service_section (entity, fk_maintenance_service, fk_report_section);
+ALTER TABLE llx_powerplantpv_maintenance_service_section ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_service_section_entity (entity);
+ALTER TABLE llx_powerplantpv_maintenance_service_section ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_service_section_service (fk_maintenance_service);
+ALTER TABLE llx_powerplantpv_maintenance_service_section ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_service_section_section (fk_report_section);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_template_field(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	report_template_code varchar(64) NOT NULL,
+	fk_report_section integer NOT NULL,
+	fk_maintenance_service integer,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	label_en varchar(255),
+	description text,
+	description_en text,
+	field_type varchar(32) NOT NULL,
+	scope_type varchar(32),
+	unit varchar(32),
+	is_required smallint DEFAULT 0 NOT NULL,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_report_template_field ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_report_template_field_code (entity, report_template_code, code);
+ALTER TABLE llx_powerplantpv_report_template_field ADD INDEX IF NOT EXISTS idx_powerplantpv_report_template_field_entity (entity);
+ALTER TABLE llx_powerplantpv_report_template_field ADD INDEX IF NOT EXISTS idx_powerplantpv_report_template_field_section (fk_report_section);
+ALTER TABLE llx_powerplantpv_report_template_field ADD INDEX IF NOT EXISTS idx_powerplantpv_report_template_field_service (fk_maintenance_service);
+ALTER TABLE llx_powerplantpv_report_template_field ADD INDEX IF NOT EXISTS idx_powerplantpv_report_template_field_template (report_template_code);
+
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_serialnumber(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,
