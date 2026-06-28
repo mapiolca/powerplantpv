@@ -233,7 +233,7 @@ class ActionsPowerplantpv
 	}
 
 	/**
-	 * Load PowerPlantPV translations for ticket contexts.
+	 * Handle PowerPlantPV quick links on native cards.
 	 *
 	 * @param	array<string,mixed>	$parameters		Hook parameters
 	 * @param	CommonObject		$object			Current object
@@ -243,7 +243,7 @@ class ActionsPowerplantpv
 	 */
 	public function doActions($parameters, &$object, &$action, $hookmanager)
 	{
-		global $langs;
+		global $langs, $user;
 
 		if (!isModEnabled('powerplantpv')) {
 			return 0;
@@ -252,6 +252,44 @@ class ActionsPowerplantpv
 		$contexts = $this->getContexts($parameters, $hookmanager);
 		if (in_array('ticketcard', $contexts) || in_array('publicnewticketcard', $contexts)) {
 			$langs->load('powerplantpv@powerplantpv');
+		}
+		if ($this->isNativePowerPlantLinkContext($contexts)) {
+			$langs->load('powerplantpv@powerplantpv');
+			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+
+			$this->prefillInterventionNature($object, $contexts);
+
+			if ($action == 'add' && $this->canEditNativePowerPlantLinks($object, $contexts)) {
+				$this->normalizeExternalPowerPlantOriginPost();
+				$this->injectNativeLinkedObjectsFromRequest($object, $contexts);
+			}
+
+			if ($action == 'powerplantpv_set_powerplants') {
+				$managedobject = $this->fetchNativePowerPlantLinkObject($object, $contexts);
+				if (!is_object($managedobject) || empty($managedobject->id)) {
+					$this->error = 'ErrorRecordNotFound';
+					$this->errors[] = $this->error;
+					return -1;
+				}
+				if (!$this->isSubmittedTokenValid()) {
+					accessforbidden('Invalid CSRF token');
+				}
+				if (!$this->canEditNativePowerPlantLinks($managedobject, $contexts)) {
+					accessforbidden();
+				}
+
+				$selectedids = powerplantpvGetRequestedPowerPlantIds($managedobject, 0);
+				$result = powerplantpvSyncNativePowerPlantLinks($managedobject, $selectedids, $user);
+				if ($result < 0) {
+					setEventMessages($managedobject->error, $managedobject->errors, 'errors');
+					return -1;
+				}
+
+				setEventMessages($langs->trans('PowerPlantPVPowerPlantsLinked'), null, 'mesgs');
+				$url = $_SERVER['PHP_SELF'].'?id='.(int) $managedobject->id;
+				header('Location: '.$url);
+				exit;
+			}
 		}
 
 		return 0;
@@ -275,6 +313,12 @@ class ActionsPowerplantpv
 		}
 
 		$contexts = $this->getContexts($parameters, $hookmanager);
+		if ($this->isNativePowerPlantLinkContext($contexts)) {
+			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+			$this->prefillInterventionNature($object, $contexts);
+			$this->resprints .= $this->renderNativePowerPlantCreateRow($object, $contexts, $parameters);
+		}
+
 		if (!in_array('ticketcard', $contexts)) {
 			return 0;
 		}
@@ -287,7 +331,41 @@ class ActionsPowerplantpv
 			return 0;
 		}
 
-		print $this->getTicketPowerPlantPictoScript();
+		$this->resprints .= $this->getTicketPowerPlantPictoScript();
+
+		return 0;
+	}
+
+	/**
+	 * Add the quick native power plant link block on existing contract/intervention cards.
+	 *
+	 * @param	array<string,mixed>	$parameters		Hook parameters
+	 * @param	CommonObject		$object			Current object
+	 * @param	string				$action			Current action
+	 * @param	HookManager			$hookmanager	Hook manager
+	 * @return	int									0 on success, <0 on error
+	 */
+	public function formConfirm($parameters, &$object, &$action, $hookmanager)
+	{
+		$this->resprints = '';
+
+		if (!isModEnabled('powerplantpv')) {
+			return 0;
+		}
+
+		$contexts = $this->getContexts($parameters, $hookmanager);
+		if (!$this->isNativePowerPlantLinkContext($contexts)) {
+			return 0;
+		}
+
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+		$managedobject = $this->fetchNativePowerPlantLinkObject($object, $contexts);
+		if (!is_object($managedobject) || empty($managedobject->id)) {
+			return 0;
+		}
+
+		$this->syncAfterNativeCreationWhenNeeded($managedobject, $contexts, $action);
+		$this->resprints = $this->renderNativePowerPlantQuickLinkBlock($managedobject, $contexts);
 
 		return 0;
 	}
@@ -674,6 +752,547 @@ class ActionsPowerplantpv
 		$hookmanager->resArray = $this->results;
 
 		return 0;
+	}
+
+	/**
+	 * Check if the current hook context is a supported native quick link context.
+	 *
+	 * @param	string[]	$contexts	Hook contexts
+	 * @return	bool				True if supported
+	 */
+	private function isNativePowerPlantLinkContext($contexts)
+	{
+		return in_array('contractcard', $contexts, true)
+			|| in_array('interventioncard', $contexts, true)
+			|| in_array('fichintercard', $contexts, true);
+	}
+
+	/**
+	 * Return the native linked-object type for the current hook contexts.
+	 *
+	 * @param	string[]	$contexts	Hook contexts
+	 * @return	string				Native linked-object type
+	 */
+	private function getNativePowerPlantLinkElementType($contexts)
+	{
+		if (in_array('contractcard', $contexts, true)) {
+			return 'contrat';
+		}
+		if (in_array('interventioncard', $contexts, true) || in_array('fichintercard', $contexts, true)) {
+			return 'fichinter';
+		}
+
+		return '';
+	}
+
+	/**
+	 * Fetch the object currently handled by a native quick link hook.
+	 *
+	 * @param	CommonObject	$object		Hook object
+	 * @param	string[]			$contexts	Hook contexts
+	 * @return	CommonObject|null			Fetched object or null
+	 */
+	private function fetchNativePowerPlantLinkObject($object, $contexts)
+	{
+		global $db;
+
+		if (is_object($object) && !empty($object->id) && function_exists('powerplantpvSupportsNativePowerPlantLinks') && powerplantpvSupportsNativePowerPlantLinks($object)) {
+			return $object;
+		}
+
+		$id = GETPOSTINT('id');
+		if ($id <= 0) {
+			return null;
+		}
+
+		$elementtype = $this->getNativePowerPlantLinkElementType($contexts);
+		if ($elementtype == 'contrat') {
+			dol_include_once('/contrat/class/contrat.class.php');
+			if (!class_exists('Contrat')) {
+				return null;
+			}
+			$linkedobject = new Contrat($db);
+		} elseif ($elementtype == 'fichinter') {
+			dol_include_once('/fichinter/class/fichinter.class.php');
+			if (!class_exists('Fichinter')) {
+				return null;
+			}
+			$linkedobject = new Fichinter($db);
+		} else {
+			return null;
+		}
+
+		$result = $linkedobject->fetch($id);
+		if ($result <= 0) {
+			return null;
+		}
+
+		return $linkedobject;
+	}
+
+	/**
+	 * Check display permissions for quick power plant links.
+	 *
+	 * @param	CommonObject	$object		Object
+	 * @param	string[]			$contexts	Hook contexts
+	 * @return	bool						True if allowed
+	 */
+	private function canViewNativePowerPlantLinks($object, $contexts)
+	{
+		global $user;
+
+		if (!is_object($object) || !function_exists('powerplantpvUserHasRightPath')) {
+			return false;
+		}
+		if (!powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'))) {
+			return false;
+		}
+		if (!powerplantpvUserHasMaintenanceRight($user, 'read')) {
+			return false;
+		}
+
+		$elementtype = $this->getNativePowerPlantLinkElementType($contexts);
+		if ($elementtype == 'contrat') {
+			return (bool) powerplantpvUserHasRightPath($user, array('contrat', 'lire'));
+		}
+		if ($elementtype == 'fichinter') {
+			return (bool) powerplantpvUserHasRightPath($user, array('ficheinter', 'lire'));
+		}
+
+		return false;
+	}
+
+	/**
+	 * Check edit permissions for quick power plant links.
+	 *
+	 * @param	CommonObject	$object		Object
+	 * @param	string[]			$contexts	Hook contexts
+	 * @return	bool						True if allowed
+	 */
+	private function canEditNativePowerPlantLinks($object, $contexts)
+	{
+		global $user;
+
+		if (!$this->canViewNativePowerPlantLinks($object, $contexts)) {
+			return false;
+		}
+		if (!powerplantpvUserHasMaintenanceRight($user, 'write')) {
+			return false;
+		}
+
+		$elementtype = $this->getNativePowerPlantLinkElementType($contexts);
+		if ($elementtype == 'contrat') {
+			return (bool) powerplantpvUserHasRightPath($user, array('contrat', 'creer'));
+		}
+		if ($elementtype == 'fichinter') {
+			return (bool) powerplantpvUserHasRightPath($user, array('ficheinter', 'creer'));
+		}
+
+		return false;
+	}
+
+	/**
+	 * Apply the requested third party to the temporary hook object when core has not done it yet.
+	 *
+	 * @param	CommonObject	$object	Hook object
+	 * @return	void
+	 */
+	private function applyRequestThirdPartyToObject(&$object)
+	{
+		if (!is_object($object)) {
+			return;
+		}
+
+		$socid = GETPOSTINT('socid') > 0 ? GETPOSTINT('socid') : GETPOSTINT('fk_soc');
+		if ($socid <= 0) {
+			return;
+		}
+		if (empty($object->socid)) {
+			$object->socid = $socid;
+		}
+		if (empty($object->fk_soc)) {
+			$object->fk_soc = $socid;
+		}
+	}
+
+	/**
+	 * Render the power plant selector row on native creation forms.
+	 *
+	 * @param	CommonObject		$object		Hook object
+	 * @param	string[]				$contexts	Hook contexts
+	 * @param	array<string,mixed>	$parameters	Hook parameters
+	 * @return	string							HTML
+	 */
+	private function renderNativePowerPlantCreateRow(&$object, $contexts, $parameters)
+	{
+		global $langs;
+
+		if (GETPOST('action', 'aZ09') != 'create') {
+			return '';
+		}
+		$this->applyRequestThirdPartyToObject($object);
+		if (!$this->canEditNativePowerPlantLinks($object, $contexts)) {
+			return '';
+		}
+
+		$selectedids = powerplantpvGetRequestedPowerPlantIds($object, 0);
+		$options = powerplantpvGetSelectablePowerPlantOptions($object, $selectedids);
+		$colspan = !empty($parameters['colspan']) ? (string) $parameters['colspan'] : '';
+		$contractid = $this->getRequestedContractId();
+		$interventionnatureid = $this->getInterventionNatureIdFromRequest();
+
+		$html = '<tr class="powerplantpv-quick-powerplants">';
+		$html .= '<td class="titlefieldcreate">'.$langs->trans('PowerPlantPVCentrals').'</td>';
+		$html .= '<td'.$colspan.'>';
+		$html .= $this->renderPowerPlantMultiselect('powerplantpv_powerplants', $options, $selectedids);
+		if ($contractid > 0) {
+			$html .= '<input type="hidden" name="fk_contrat" value="'.((int) $contractid).'">';
+		}
+		if ($interventionnatureid > 0) {
+			$html .= '<input type="hidden" name="options_powerplantpv_intervention_nature" value="'.((int) $interventionnatureid).'">';
+		}
+		$html .= '</td>';
+		$html .= '</tr>';
+
+		return $html;
+	}
+
+	/**
+	 * Render a native multiselect for power plant ids.
+	 *
+	 * @param	string				$htmlname		HTML field name
+	 * @param	array<int,string>	$options		Available options
+	 * @param	int[]				$selectedids	Selected ids
+	 * @return	string								HTML
+	 */
+	private function renderPowerPlantMultiselect($htmlname, $options, $selectedids)
+	{
+		global $db, $langs;
+
+		if (empty($options)) {
+			return '<span class="opacitymedium">'.$langs->trans('NoPowerPlantLinked').'</span>';
+		}
+
+		if (!class_exists('Form')) {
+			require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+		}
+		$form = new Form($db);
+
+		return img_picto('', 'fa-sun', 'class="pictofixedwidth"')
+			.$form->multiselectarray($htmlname, $options, $selectedids, 0, 0, 'minwidth300 maxwidth500 widthcentpercentminusxx', 0, 0);
+	}
+
+	/**
+	 * Render linked power plants as native object links.
+	 *
+	 * @param	array<int,PowerPlant>	$powerplants	Linked power plants
+	 * @return	string								HTML
+	 */
+	private function renderLinkedPowerPlantList($powerplants)
+	{
+		global $langs;
+
+		if (empty($powerplants)) {
+			return '<span class="opacitymedium">'.$langs->trans('NoPowerPlantLinked').'</span>';
+		}
+
+		$html = '';
+		foreach ($powerplants as $powerplant) {
+			if (!is_object($powerplant)) {
+				continue;
+			}
+			$html .= '<div>';
+			if (method_exists($powerplant, 'getNomUrl')) {
+				$html .= $powerplant->getNomUrl(1);
+			} elseif (!empty($powerplant->ref)) {
+				$html .= dol_escape_htmltag((string) $powerplant->ref);
+			} else {
+				$html .= '#'.((int) powerplantpvGetCommonObjectId($powerplant));
+			}
+			$html .= '</div>';
+		}
+
+		return $html !== '' ? $html : '<span class="opacitymedium">'.$langs->trans('NoPowerPlantLinked').'</span>';
+	}
+
+	/**
+	 * Render the quick link block on existing native cards.
+	 *
+	 * @param	CommonObject	$object		Object
+	 * @param	string[]			$contexts	Hook contexts
+	 * @return	string						HTML
+	 */
+	private function renderNativePowerPlantQuickLinkBlock($object, $contexts)
+	{
+		global $langs;
+
+		if (!$this->canViewNativePowerPlantLinks($object, $contexts)) {
+			return '';
+		}
+
+		$powerplants = powerplantpvGetLinkedPowerPlants($object);
+		$selectedids = array();
+		foreach ($powerplants as $powerplantid => $powerplant) {
+			$selectedids[] = (int) $powerplantid;
+		}
+		$canedit = $this->canEditNativePowerPlantLinks($object, $contexts);
+		$options = $canedit ? powerplantpvGetSelectablePowerPlantOptions($object, $selectedids) : array();
+
+		$html = '<div class="fichecenter powerplantpv-quick-powerplants-block">';
+		if ($canedit) {
+			$html .= '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
+			$html .= '<input type="hidden" name="token" value="'.newToken().'">';
+			$html .= '<input type="hidden" name="action" value="powerplantpv_set_powerplants">';
+			$html .= '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+		}
+		$html .= '<div class="div-table-responsive-no-min">';
+		$html .= '<table class="noborder centpercent">';
+		$html .= '<tr class="liste_titre">';
+		$html .= '<td colspan="2">'.$langs->trans('LinkedPowerPlants').'</td>';
+		$html .= '</tr>';
+		$html .= '<tr class="oddeven">';
+		$html .= '<td class="titlefield">'.$langs->trans('PowerPlantPVCentrals').'</td>';
+		$html .= '<td>'.$this->renderLinkedPowerPlantList($powerplants).'</td>';
+		$html .= '</tr>';
+		if ($canedit) {
+			$html .= '<tr class="oddeven">';
+			$html .= '<td>'.$langs->trans('SelectPowerPlants').'</td>';
+			$html .= '<td>'.$this->renderPowerPlantMultiselect('powerplantpv_powerplants', $options, $selectedids);
+			$html .= ' <input type="submit" class="button smallpaddingimp" value="'.dol_escape_htmltag($langs->trans('LinkPowerPlant')).'">';
+			$html .= '</td>';
+			$html .= '</tr>';
+		}
+		$html .= '</table>';
+		$html .= '</div>';
+		if ($canedit) {
+			$html .= '</form>';
+		}
+		$html .= '</div>';
+
+		return $html;
+	}
+
+	/**
+	 * Synchronize links after a native object creation that did not process every linked object itself.
+	 *
+	 * @param	CommonObject	$object		Object
+	 * @param	string[]			$contexts	Hook contexts
+	 * @param	string			$action		Current action
+	 * @return	void
+	 */
+	private function syncAfterNativeCreationWhenNeeded($object, $contexts, $action)
+	{
+		global $user;
+
+		static $synced = array();
+
+		if ($action != 'add' || !$this->canEditNativePowerPlantLinks($object, $contexts)) {
+			return;
+		}
+
+		$key = $this->getNativePowerPlantLinkElementType($contexts).':'.((int) $object->id);
+		if (!empty($synced[$key])) {
+			return;
+		}
+
+		$selectedids = powerplantpvGetRequestedPowerPlantIds($object, 0);
+		if (empty($selectedids)) {
+			return;
+		}
+
+		$synced[$key] = 1;
+		$result = powerplantpvSyncNativePowerPlantLinks($object, $selectedids, $user);
+		if ($result < 0) {
+			setEventMessages($object->error, $object->errors, 'errors');
+		}
+	}
+
+	/**
+	 * Inject sanitized linked objects into the native core creation payload.
+	 *
+	 * @param	CommonObject	$object		Hook object
+	 * @param	string[]			$contexts	Hook contexts
+	 * @return	void
+	 */
+	private function injectNativeLinkedObjectsFromRequest(&$object, $contexts)
+	{
+		$this->applyRequestThirdPartyToObject($object);
+
+		$powerplantids = powerplantpvGetRequestedPowerPlantIds($object, 0);
+		if (!empty($powerplantids)) {
+			$powerplantids = powerplantpvFilterSelectablePowerPlantIds($powerplantids, $object, array());
+			if (!empty($powerplantids)) {
+				$this->mergeOtherLinkedObjectsPost(powerplantpvGetCanonicalPowerPlantLinkType(), $powerplantids);
+			}
+		}
+
+		$elementtype = $this->getNativePowerPlantLinkElementType($contexts);
+		if ($elementtype == 'fichinter') {
+			$contractid = $this->getRequestedContractId();
+			$origin = powerplantpvNormalizeElementType(GETPOST('origin', 'alphanohtml'));
+			$originid = GETPOSTINT('originid') > 0 ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
+			if ($contractid > 0 && !($origin == 'contrat' && $originid == $contractid)) {
+				$this->mergeOtherLinkedObjectsPost('contrat', array($contractid));
+			}
+		}
+	}
+
+	/**
+	 * Keep external PowerPlantPV origins resolvable by Dolibarr during native intervention creation.
+	 *
+	 * @return	void
+	 */
+	private function normalizeExternalPowerPlantOriginPost()
+	{
+		$origin = GETPOST('origin', 'alphanohtml');
+		$originid = GETPOSTINT('originid') > 0 ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
+		if ($originid <= 0 || !in_array($origin, array('powerplant', 'powerplant@powerplantpv', 'powerplantpv_powerplant'), true)) {
+			return;
+		}
+
+		$selectedids = powerplantpvGetRequestedPowerPlantIds(null, 0);
+		if (!in_array($originid, $selectedids, true)) {
+			return;
+		}
+
+		$_POST['origin'] = powerplantpvGetCanonicalPowerPlantLinkType();
+		$_REQUEST['origin'] = powerplantpvGetCanonicalPowerPlantLinkType();
+	}
+
+	/**
+	 * Merge linked object ids into the native other_linked_objects POST array.
+	 *
+	 * @param	string	$elementtype	Linked object type
+	 * @param	int[]	$ids			Linked object ids
+	 * @return	void
+	 */
+	private function mergeOtherLinkedObjectsPost($elementtype, $ids)
+	{
+		$ids = powerplantpvSanitizeIdArray($ids);
+		if (empty($elementtype) || empty($ids)) {
+			return;
+		}
+
+		$otherlinkedobjects = GETPOST('other_linked_objects', 'array:int');
+		if (!is_array($otherlinkedobjects)) {
+			$otherlinkedobjects = array();
+		}
+		$existingids = array();
+		if (!empty($otherlinkedobjects[$elementtype])) {
+			$existingids = powerplantpvSanitizeIdArray($otherlinkedobjects[$elementtype]);
+		}
+		$otherlinkedobjects[$elementtype] = array_values(array_unique(array_merge($existingids, $ids)));
+
+		$_POST['other_linked_objects'] = $otherlinkedobjects;
+		$_REQUEST['other_linked_objects'] = $otherlinkedobjects;
+	}
+
+	/**
+	 * Return the contract id carried by the current request.
+	 *
+	 * @return	int	Contract id
+	 */
+	private function getRequestedContractId()
+	{
+		$contractid = GETPOSTINT('fk_contrat') > 0 ? GETPOSTINT('fk_contrat') : GETPOSTINT('contratid');
+		$origin = powerplantpvNormalizeElementType(GETPOST('origin', 'alphanohtml'));
+		$originid = GETPOSTINT('originid') > 0 ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
+		if ($origin == 'contrat' && $originid > 0) {
+			$contractid = $originid;
+		}
+
+		return (int) $contractid;
+	}
+
+	/**
+	 * Prefill the PowerPlantPV intervention nature extrafield when a request asks for it.
+	 *
+	 * @param	CommonObject	$object		Hook object
+	 * @param	string[]			$contexts	Hook contexts
+	 * @return	void
+	 */
+	private function prefillInterventionNature(&$object, $contexts)
+	{
+		if (!in_array('interventioncard', $contexts, true) && !in_array('fichintercard', $contexts, true)) {
+			return;
+		}
+
+		$natureid = $this->getInterventionNatureIdFromRequest();
+		if ($natureid <= 0 || !is_object($object)) {
+			return;
+		}
+
+		if (empty($object->array_options) || !is_array($object->array_options)) {
+			$object->array_options = array();
+		}
+		$object->array_options['options_powerplantpv_intervention_nature'] = $natureid;
+		$_POST['options_powerplantpv_intervention_nature'] = $natureid;
+		$_REQUEST['options_powerplantpv_intervention_nature'] = $natureid;
+	}
+
+	/**
+	 * Return an intervention nature id requested by id or code.
+	 *
+	 * @return	int	Nature row id
+	 */
+	private function getInterventionNatureIdFromRequest()
+	{
+		global $db;
+
+		$natureid = GETPOSTINT('powerplantpv_intervention_nature');
+		if ($natureid > 0) {
+			return $natureid;
+		}
+
+		$naturecode = GETPOST('powerplantpv_intervention_nature_code', 'alphanohtml');
+		if ($naturecode === '') {
+			return 0;
+		}
+
+		$sql = "SELECT rowid";
+		$sql .= " FROM ".$db->prefix()."c_powerplantpv_intervention_nature";
+		$sql .= " WHERE code = '".$db->escape($naturecode)."'";
+		$sql .= " AND active = 1";
+		$sql .= " AND entity IN (".getEntity('c_powerplantpv_intervention_nature').")";
+		$sql .= " ORDER BY entity DESC";
+		$resql = $db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' failed to read intervention nature '.$naturecode.': '.$db->lasterror(), LOG_WARNING);
+			return 0;
+		}
+
+		$id = 0;
+		if ($obj = $db->fetch_object($resql)) {
+			$id = (int) $obj->rowid;
+		}
+		$db->free($resql);
+
+		return $id;
+	}
+
+	/**
+	 * Validate the submitted token without weakening Dolibarr's global CSRF check.
+	 *
+	 * @return	bool	True if token is valid enough for the current Dolibarr version
+	 */
+	private function isSubmittedTokenValid()
+	{
+		$token = GETPOST('token', 'alphanohtml');
+		if ($token === '') {
+			return false;
+		}
+		if (function_exists('dol_verifyToken')) {
+			return (bool) dol_verifyToken($token);
+		}
+		$valid = false;
+		if (function_exists('currentToken')) {
+			$valid = hash_equals((string) currentToken(), (string) $token);
+		}
+		if (!$valid && !empty($_SESSION['newtoken'])) {
+			$valid = hash_equals((string) $_SESSION['newtoken'], (string) $token);
+		}
+
+		return $valid || !function_exists('currentToken');
 	}
 
 	/**
