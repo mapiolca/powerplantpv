@@ -51,6 +51,21 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][2] = 'attestation';
 	$h++;
 
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_report_templates.php", 1));
+	$head[$h][1] = $langs->trans("PowerPlantPVReportTemplates");
+	$head[$h][2] = 'maintenance_report_templates';
+	$h++;
+
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_service_sections.php", 1));
+	$head[$h][1] = $langs->trans("PowerPlantPVMaintenanceServiceSections");
+	$head[$h][2] = 'maintenance_service_sections';
+	$h++;
+
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_intervention_natures.php", 1));
+	$head[$h][1] = $langs->trans("InterventionNatureDictionary");
+	$head[$h][2] = 'maintenance_intervention_natures';
+	$h++;
+
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/compatibility.php", 1));
 	$head[$h][1] = $langs->trans("Compatibility");
 	$head[$h][2] = 'compatibility';

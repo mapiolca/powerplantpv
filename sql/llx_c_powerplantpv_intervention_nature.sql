@@ -22,6 +22,7 @@ CREATE TABLE llx_c_powerplantpv_intervention_nature(
 	label_en varchar(255),
 	description text,
 	description_en text,
+	fk_report_template integer,
 	report_template_code varchar(64),
 	is_maintenance smallint DEFAULT 0 NOT NULL,
 	is_preventive smallint DEFAULT 0 NOT NULL,

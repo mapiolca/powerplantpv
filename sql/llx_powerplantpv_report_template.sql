@@ -14,29 +14,16 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_powerplantpv_report_template_field(
+CREATE TABLE llx_powerplantpv_report_template(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,
-	fk_report_template integer,
-	fk_report_template_section integer,
-	report_template_code varchar(64) NOT NULL,
-	fk_report_section integer NOT NULL,
-	fk_maintenance_service integer,
 	code varchar(64) NOT NULL,
 	label varchar(255) NOT NULL,
 	label_en varchar(255),
 	description text,
 	description_en text,
-	field_type varchar(32) NOT NULL,
-	scope_type varchar(32),
-	unit varchar(32),
-	default_value text,
-	placeholder varchar(255),
-	help text,
-	is_required smallint DEFAULT 0 NOT NULL,
-	visible_form smallint DEFAULT 1 NOT NULL,
-	visible_pdf smallint DEFAULT 1 NOT NULL,
-	readonly smallint DEFAULT 0 NOT NULL,
+	target_element varchar(64) DEFAULT 'fichinter' NOT NULL,
+	is_default smallint DEFAULT 0 NOT NULL,
 	active smallint DEFAULT 1 NOT NULL,
 	position integer DEFAULT 0 NOT NULL,
 	date_creation datetime,

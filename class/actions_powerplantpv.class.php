@@ -154,14 +154,6 @@ class ActionsPowerplantpv
 						'lang' => 'powerplantpv@powerplantpv',
 						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_maintenance_service.sql',
 					),
-					'c_powerplantpv_report_section' => array(
-						'type' => 'dictionary',
-						'icon' => 'list',
-						'transkey' => 'ReportSectionDictionary',
-						'tooltip' => 'ReportSectionDictionarySharingInfo',
-						'lang' => 'powerplantpv@powerplantpv',
-						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_report_section.sql',
-					),
 					'c_powerplantpv_index_type' => array(
 						'type' => 'dictionary',
 						'icon' => 'tachometer',

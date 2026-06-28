@@ -11,6 +11,7 @@
 - Manage PowerPlantPV attestations for dynamic inverter curtailment, static inverter curtailment, maximum frequency 51.5 Hz, and installer under 100 kWc workflows.
 - Generate attestation PDF skeletons from power plant, site, installer, writer and equipment data. Online signature uses Dolibarr's native `/public/onlinesign/newonlinesign.php` page when the installed core explicitly supports the `powerplantpv_attestation` source, otherwise it falls back to the module public signature page.
 - Prepare the preventive maintenance data foundation with native dictionaries, rights and extra fields on contracts, products/services and interventions.
+- Configure intervention report templates for maintenance: report models, sections, fields, select options, service-to-section mappings, and intervention nature to model association.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}
@@ -102,6 +103,8 @@ Signed attestations remain locked for standard write/delete users. Grant the spe
 ## Maintenance foundation
 
 Version 1.3.0 introduces the data foundation for preventive maintenance: entity-aware dictionaries, service-to-section mappings, report template field definitions, rights and extra fields. It does not yet provide the complete maintenance report UI, PDF generation or calculation workflow.
+
+The report template engine turns preventive maintenance into a preinstalled configurable model named `preventive_maintenance`. Administrators can create, edit, disable, duplicate and reorder report templates, sections, fields, field options, service mappings and intervention nature associations from the PowerPlantPV settings tabs. The intervention Report tab and PDF generation are not implemented in this step.
 
 
 

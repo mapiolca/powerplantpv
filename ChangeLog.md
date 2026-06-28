@@ -6,6 +6,11 @@
 - Ajout des tables de liaison services/sections et des champs de gabarit de rapport de maintenance, avec données par défaut idempotentes et par entité.
 - Ajout des droits Dolibarr dédiés à la maintenance et des champs complémentaires sur contrats, produits/services et interventions.
 - Déclaration des dictionnaires maintenance dans le partage Multicompany et dans l'onglet de compatibilité.
+- Ajout du moteur configurable de modèles de rapports d'intervention : modèles, sections, champs, options de champs, mappings prestations -> sections et association nature d'intervention -> modèle.
+- Migration du socle PR1 pour que la maintenance préventive soit portée par le modèle préinstallé `preventive_maintenance`, sans logique de rapport codée en dur.
+- Ajout des écrans d'administration internes aux réglages PowerPlantPV pour créer, modifier, désactiver, dupliquer et réordonner les éléments du moteur de modèles.
+- Retrait du dictionnaire historique `c_powerplantpv_report_section` de l'administration active ; il reste conservé comme source de migration.
+- Ajout de la documentation technique `docs/technical/v1.3-pr2-report-template-engine.md`.
 
 ## 1.2.1
 

@@ -17,11 +17,16 @@
 CREATE TABLE llx_powerplantpv_maintenance_service_section(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,
+	fk_report_template integer,
 	fk_maintenance_service integer NOT NULL,
 	fk_report_section integer NOT NULL,
+	fk_report_template_section integer,
+	is_required smallint DEFAULT 0 NOT NULL,
 	active smallint DEFAULT 1 NOT NULL,
 	position integer DEFAULT 0 NOT NULL,
 	date_creation datetime,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	fk_user_creat integer,
+	fk_user_modif integer,
 	import_key varchar(14)
 ) ENGINE=innodb;

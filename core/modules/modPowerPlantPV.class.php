@@ -286,26 +286,22 @@ class modPowerPlantPV extends DolibarrModules
 				'c_powerplantpv_categorypv',
 				'c_powerplantpv_intervention_nature',
 				'c_powerplantpv_maintenance_service',
-				'c_powerplantpv_report_section',
 				'c_powerplantpv_index_type',
 			),
 			'tablib' => array(
 				'PhotovoltaicCategoryDictionary',
 				'InterventionNatureDictionary',
 				'MaintenanceServiceDictionary',
-				'ReportSectionDictionary',
 				'IndexTypeDictionary',
 			),
 			'tabsql' => array(
 				'SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.$this->db->prefix().'c_powerplantpv_categorypv as f',
 				'SELECT f.rowid as rowid, f.code, f.label, f.report_template_code, f.is_maintenance, f.is_preventive, f.requires_report, f.requires_signature, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_intervention_nature as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_maintenance_service as f WHERE f.entity = '.((int) $conf->entity),
-				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.scope_type, f.equipment_type, f.repeat_mode, f.is_base, f.is_required, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_report_section as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.default_unit, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_index_type as f WHERE f.entity = '.((int) $conf->entity),
 			),
 			'tabsqlsort' => array(
 				'f.label ASC',
-				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
@@ -314,33 +310,28 @@ class modPowerPlantPV extends DolibarrModules
 				'code,label',
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
-				'code,label,description,scope_type,equipment_type,repeat_mode,is_base,is_required,position',
 				'code,label,description,default_unit,position',
 			),
 			'tabfieldvalue' => array(
 				'code,label',
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
-				'code,label,description,scope_type,equipment_type,repeat_mode,is_base,is_required,position',
 				'code,label,description,default_unit,position',
 			),
 			'tabfieldinsert' => array(
 				'code,label',
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
-				'code,label,description,scope_type,equipment_type,repeat_mode,is_base,is_required,position',
 				'code,label,description,default_unit,position',
 			),
-			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid', 'rowid'),
+			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid'),
 			'tabcond' => array(
-				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 			),
 			'tabhelp' => array(
-				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
@@ -401,116 +392,119 @@ class modPowerPlantPV extends DolibarrModules
 		$r = 0;
 		// Add here entries to declare new permissions
 		/* BEGIN MODULEBUILDER PERMISSIONS */
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 0 + 1);
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPermissionRead';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'read';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 1 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPermissionWrite';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'write';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 2 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPermissionDelete';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'delete';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 3 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPermissionInService';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'inservice';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 4 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPermissionOutOfService';
 		$this->rights[$r][4] = 'powerplant';
 		$this->rights[$r][5] = 'outofservice';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 5 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionRead';
 		$this->rights[$r][4] = 'serialnumber';
 		$this->rights[$r][5] = 'read';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 6 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionImport';
 		$this->rights[$r][4] = 'serialnumber';
 		$this->rights[$r][5] = 'import';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 7 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionDelete';
 		$this->rights[$r][4] = 'serialnumber';
 		$this->rights[$r][5] = 'delete';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (0 * 10) + 8 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantSerialNumberPermissionExport';
 		$this->rights[$r][4] = 'serialnumber';
 		$this->rights[$r][5] = 'export';
+		$r++; // Reserved historical permission offset 10.
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 0 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionRead';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'read';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 1 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionWrite';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'write';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 2 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionDelete';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'delete';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 3 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionValidate';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'validate';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 4 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionSign';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'sign';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 5 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionCancel';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'cancel';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 6 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionSetup';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'setup';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (1 * 10) + 7 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVAttestationPermissionManageSigned';
 		$this->rights[$r][4] = 'attestation';
 		$this->rights[$r][5] = 'manage_signed';
+		$r++; // Reserved historical permission offset 19.
+		$r++; // Reserved historical permission offset 20.
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (2 * 10) + 0 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionRead';
 		$this->rights[$r][4] = 'maintenance';
 		$this->rights[$r][5] = 'read';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (2 * 10) + 1 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionWrite';
 		$this->rights[$r][4] = 'maintenance';
 		$this->rights[$r][5] = 'write';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (2 * 10) + 2 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionDelete';
 		$this->rights[$r][4] = 'maintenance';
 		$this->rights[$r][5] = 'delete';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (2 * 10) + 3 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionReport';
 		$this->rights[$r][4] = 'maintenance';
 		$this->rights[$r][5] = 'report';
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf('%02d', (2 * 10) + 4 + 1);
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionConfig';
 		$this->rights[$r][4] = 'maintenance';
 		$this->rights[$r][5] = 'config';
-		$r++;
 
 		/* END MODULEBUILDER PERMISSIONS */
 
@@ -775,6 +769,10 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 		$result = $this->ensureAttestationSchema();
+		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->ensureReportTemplateEngineSchema();
 		if ($result < 0) {
 			return -1;
 		}
@@ -1215,6 +1213,151 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		return 1;
+	}
+
+	/**
+	 * Ensure report template engine tables contain fields added after PR1.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensureReportTemplateEngineSchema()
+	{
+		$tables = array(
+			$this->db->prefix().'c_powerplantpv_intervention_nature' => array(
+				'fk_report_template' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_maintenance_service_section' => array(
+				'fk_report_template' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_report_template_section' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'is_required' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+				'tms' => array('type' => 'timestamp', 'value' => '', 'null' => 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+				'fk_user_modif' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_report_template_field' => array(
+				'fk_report_template' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_report_template_section' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'default_value' => array('type' => 'text', 'value' => '', 'null' => ''),
+				'placeholder' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'help' => array('type' => 'text', 'value' => '', 'null' => ''),
+				'visible_form' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 1 NOT NULL'),
+				'visible_pdf' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 1 NOT NULL'),
+				'readonly' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+				'date_creation' => array('type' => 'datetime', 'value' => '', 'null' => ''),
+				'tms' => array('type' => 'timestamp', 'value' => '', 'null' => 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+				'fk_user_creat' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_user_modif' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			),
+		);
+
+		foreach ($tables as $table => $fields) {
+			if (!$this->reportTemplateTableExists($table)) {
+				continue;
+			}
+			foreach ($fields as $field => $fielddesc) {
+				if ($this->reportTemplateColumnExists($table, $field)) {
+					continue;
+				}
+				$result = $this->db->DDLAddField($table, $field, $fielddesc);
+				if ($result < 0) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+
+		$indexes = array(
+			$this->db->prefix().'c_powerplantpv_intervention_nature' => array(
+				'idx_c_powerplantpv_intervention_nature_fk_template' => 'fk_report_template',
+			),
+			$this->db->prefix().'powerplantpv_maintenance_service_section' => array(
+				'idx_powerplantpv_maintenance_service_section_template' => 'fk_report_template',
+				'idx_powerplantpv_maintenance_service_template_section_fk' => 'fk_report_template_section',
+			),
+			$this->db->prefix().'powerplantpv_report_template_field' => array(
+				'idx_powerplantpv_report_template_field_fk_template' => 'fk_report_template',
+				'idx_powerplantpv_report_template_field_fk_section' => 'fk_report_template_section',
+			),
+		);
+
+		foreach ($indexes as $table => $tableindexes) {
+			if (!$this->reportTemplateTableExists($table)) {
+				continue;
+			}
+			foreach ($tableindexes as $indexname => $fieldname) {
+				if ($this->reportTemplateIndexExists($table, $indexname)) {
+					continue;
+				}
+				$sql = "ALTER TABLE ".$this->db->sanitize($table)." ADD INDEX ".$this->db->sanitize($indexname)." (".$this->db->sanitize($fieldname).")";
+				if (!$this->db->query($sql)) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Check if a table exists.
+	 *
+	 * @param	string	$table	Full table name
+	 * @return	bool			True if table exists
+	 */
+	private function reportTemplateTableExists($table)
+	{
+		$sql = "SHOW TABLES LIKE '".$this->db->escape($table)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return false;
+		}
+		$exists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+
+		return $exists;
+	}
+
+	/**
+	 * Check if a column exists.
+	 *
+	 * @param	string	$table	Full table name
+	 * @param	string	$field	Field name
+	 * @return	bool			True if column exists
+	 */
+	private function reportTemplateColumnExists($table, $field)
+	{
+		$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return false;
+		}
+		$exists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+
+		return $exists;
+	}
+
+	/**
+	 * Check if an index exists.
+	 *
+	 * @param	string	$table		Full table name
+	 * @param	string	$indexname	Index name
+	 * @return	bool				True if index exists
+	 */
+	private function reportTemplateIndexExists($table, $indexname)
+	{
+		$sql = "SHOW INDEX FROM ".$this->db->sanitize($table)." WHERE Key_name = '".$this->db->escape($indexname)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return false;
+		}
+		$exists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+
+		return $exists;
 	}
 
 	/**
@@ -1659,7 +1802,12 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
-		return $this->seedMaintenanceReportTemplateFields($entity);
+		$result = $this->seedMaintenanceReportTemplateFields($entity);
+		if ($result < 0) {
+			return -1;
+		}
+
+		return $this->seedMaintenanceReportTemplateEngineData($entity);
 	}
 
 	/**
@@ -1923,6 +2071,370 @@ class modPowerPlantPV extends DolibarrModules
 			$resql = $this->db->query($sql);
 			if (!$resql) {
 				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Seed and migrate the configurable report template engine.
+	 *
+	 * @param	int	$entity	Current entity
+	 * @return	int			1 if OK, <0 if KO
+	 */
+	private function seedMaintenanceReportTemplateEngineData($entity)
+	{
+		dol_include_once('/powerplantpv/lib/powerplantpv_reporttemplate.lib.php');
+
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
+			'entity' => $entity,
+			'code' => 'preventive_maintenance',
+			'label' => 'Maintenance préventive',
+			'label_en' => 'Preventive maintenance',
+			'description' => 'Modèle préinstallé pour les rapports d’intervention de maintenance préventive.',
+			'description_en' => 'Preinstalled template for preventive maintenance intervention reports.',
+			'target_element' => 'fichinter',
+			'is_default' => 1,
+			'active' => 1,
+			'position' => 10,
+			'date_creation' => $this->db->idate(dol_now()),
+		), "entity = ".$entity." AND code = 'preventive_maintenance'");
+		if ($result < 0) {
+			return -1;
+		}
+
+		$templateId = $this->getReportTemplateId($entity, 'preventive_maintenance');
+		if ($templateId <= 0) {
+			$this->errors[] = 'Unable to fetch preventive maintenance report template';
+			return -1;
+		}
+
+		$result = $this->migrateMaintenanceReportSections($entity, $templateId);
+		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->migrateMaintenanceInterventionNatures($entity, $templateId);
+		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->migrateMaintenanceServiceSectionMappings($entity, $templateId);
+		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->migrateMaintenanceReportTemplateFields($entity, $templateId);
+		if ($result < 0) {
+			return -1;
+		}
+
+		return $this->seedMaintenanceReportFieldOptions($entity, $templateId);
+	}
+
+	/**
+	 * Return a report template id by code.
+	 *
+	 * @param	int		$entity	Entity id
+	 * @param	string	$code	Template code
+	 * @return	int				Template id, 0 if not found, <0 on error
+	 */
+	private function getReportTemplateId($entity, $code)
+	{
+		$sql = "SELECT rowid";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_template";
+		$sql .= " WHERE entity = ".((int) $entity);
+		$sql .= " AND code = '".$this->db->escape($code)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!is_object($obj)) {
+			return 0;
+		}
+
+		return (int) $obj->rowid;
+	}
+
+	/**
+	 * Migrate PR1 dictionary sections into template sections.
+	 *
+	 * @param	int	$entity		Entity id
+	 * @param	int	$templateId	Template id
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	private function migrateMaintenanceReportSections($entity, $templateId)
+	{
+		$table = $this->db->prefix().'powerplantpv_report_template_section';
+		$sourceTable = $this->db->prefix().'c_powerplantpv_report_section';
+
+		$sql = "SELECT rowid, code, label, label_en, description, description_en, scope_type, equipment_type, repeat_mode, is_required, active, position";
+		$sql .= " FROM ".$sourceTable;
+		$sql .= " WHERE entity = ".((int) $entity);
+		$sql .= " ORDER BY position ASC, rowid ASC";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		while ($obj = $this->db->fetch_object($resql)) {
+			$scope = powerplantpvReportTemplateNormalizeScopeType((string) $obj->scope_type);
+			if (!array_key_exists($scope, powerplantpvReportTemplateScopeTypes())) {
+				$scope = 'free_line';
+			}
+			$equipment = powerplantpvReportTemplateNormalizeEquipmentType((string) $obj->equipment_type);
+			if (!array_key_exists($equipment, powerplantpvReportTemplateEquipmentTypes())) {
+				$equipment = '';
+			}
+			$repeat = powerplantpvReportTemplateNormalizeRepeatMode((string) $obj->repeat_mode);
+			if (!array_key_exists($repeat, powerplantpvReportTemplateRepeatModes())) {
+				$repeat = 'once';
+			}
+
+			$result = $this->insertMaintenanceDefaultRow($table, array(
+				'entity' => $entity,
+				'fk_report_template' => $templateId,
+				'code' => (string) $obj->code,
+				'label' => (string) $obj->label,
+				'label_en' => (string) $obj->label_en,
+				'description' => (string) $obj->description,
+				'description_en' => (string) $obj->description_en,
+				'scope_type' => $scope,
+				'equipment_type' => $equipment,
+				'repeat_mode' => $repeat,
+				'is_required' => (int) $obj->is_required,
+				'visible_form' => 1,
+				'visible_pdf' => 1,
+				'active' => (int) $obj->active,
+				'position' => (int) $obj->position,
+				'date_creation' => $this->db->idate(dol_now()),
+			), "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape((string) $obj->code)."'");
+			if ($result < 0) {
+				$this->db->free($resql);
+				return -1;
+			}
+		}
+		$this->db->free($resql);
+
+		return 1;
+	}
+
+	/**
+	 * Link intervention natures to the migrated template.
+	 *
+	 * @param	int	$entity		Entity id
+	 * @param	int	$templateId	Template id
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	private function migrateMaintenanceInterventionNatures($entity, $templateId)
+	{
+		$sql = "UPDATE ".$this->db->prefix()."c_powerplantpv_intervention_nature";
+		$sql .= " SET fk_report_template = ".((int) $templateId);
+		$sql .= " WHERE entity = ".((int) $entity);
+		$sql .= " AND report_template_code = 'preventive_maintenance'";
+		$sql .= " AND (fk_report_template IS NULL OR fk_report_template = 0)";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Migrate service to section mappings to the template section table.
+	 *
+	 * @param	int	$entity		Entity id
+	 * @param	int	$templateId	Template id
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	private function migrateMaintenanceServiceSectionMappings($entity, $templateId)
+	{
+		$mappingTable = $this->db->prefix().'powerplantpv_maintenance_service_section';
+		$sourceSectionTable = $this->db->prefix().'c_powerplantpv_report_section';
+		$templateSectionTable = $this->db->prefix().'powerplantpv_report_template_section';
+
+		$sql = "SELECT m.rowid, ts.rowid as fk_report_template_section, ts.is_required";
+		$sql .= " FROM ".$mappingTable." as m";
+		$sql .= " INNER JOIN ".$sourceSectionTable." as rs ON rs.rowid = m.fk_report_section AND rs.entity = m.entity";
+		$sql .= " INNER JOIN ".$templateSectionTable." as ts ON ts.entity = m.entity AND ts.fk_report_template = ".((int) $templateId)." AND ts.code = rs.code";
+		$sql .= " WHERE m.entity = ".((int) $entity);
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		while ($obj = $this->db->fetch_object($resql)) {
+			$update = "UPDATE ".$mappingTable;
+			$update .= " SET fk_report_template = ".((int) $templateId);
+			$update .= ", fk_report_template_section = ".((int) $obj->fk_report_template_section);
+			$update .= ", is_required = ".((int) $obj->is_required);
+			$update .= " WHERE rowid = ".((int) $obj->rowid);
+			$update .= " AND entity = ".((int) $entity);
+			if (!$this->db->query($update)) {
+				$this->db->free($resql);
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+		$this->db->free($resql);
+
+		return 1;
+	}
+
+	/**
+	 * Migrate PR1 fields to the normalized template and section references.
+	 *
+	 * @param	int	$entity		Entity id
+	 * @param	int	$templateId	Template id
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	private function migrateMaintenanceReportTemplateFields($entity, $templateId)
+	{
+		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
+		$sourceSectionTable = $this->db->prefix().'c_powerplantpv_report_section';
+		$templateSectionTable = $this->db->prefix().'powerplantpv_report_template_section';
+
+		$sql = "SELECT f.rowid, f.field_type, f.scope_type, ts.rowid as fk_report_template_section";
+		$sql .= " FROM ".$fieldTable." as f";
+		$sql .= " INNER JOIN ".$sourceSectionTable." as rs ON rs.rowid = f.fk_report_section AND rs.entity = f.entity";
+		$sql .= " INNER JOIN ".$templateSectionTable." as ts ON ts.entity = f.entity AND ts.fk_report_template = ".((int) $templateId)." AND ts.code = rs.code";
+		$sql .= " WHERE f.entity = ".((int) $entity);
+		$sql .= " AND f.report_template_code = 'preventive_maintenance'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		while ($obj = $this->db->fetch_object($resql)) {
+			$fieldType = powerplantpvReportTemplateNormalizeFieldType((string) $obj->field_type);
+			if (!array_key_exists($fieldType, powerplantpvReportTemplateFieldTypes())) {
+				$fieldType = 'text';
+			}
+			$scope = powerplantpvReportTemplateNormalizeScopeType((string) $obj->scope_type);
+			if ($scope !== '' && !array_key_exists($scope, powerplantpvReportTemplateScopeTypes())) {
+				$scope = '';
+			}
+
+			$update = "UPDATE ".$fieldTable;
+			$update .= " SET fk_report_template = ".((int) $templateId);
+			$update .= ", fk_report_template_section = ".((int) $obj->fk_report_template_section);
+			$update .= ", field_type = '".$this->db->escape($fieldType)."'";
+			$update .= ", scope_type = '".$this->db->escape($scope)."'";
+			$update .= ", visible_form = 1";
+			$update .= ", visible_pdf = 1";
+			$update .= ", readonly = 0";
+			$update .= ", date_creation = COALESCE(date_creation, '".$this->db->idate(dol_now())."')";
+			$update .= " WHERE rowid = ".((int) $obj->rowid);
+			$update .= " AND entity = ".((int) $entity);
+			if (!$this->db->query($update)) {
+				$this->db->free($resql);
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+		$this->db->free($resql);
+
+		return 1;
+	}
+
+	/**
+	 * Seed default field options.
+	 *
+	 * @param	int	$entity		Entity id
+	 * @param	int	$templateId	Template id
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	private function seedMaintenanceReportFieldOptions($entity, $templateId)
+	{
+		$conformityOptions = array(
+			array('code' => 'CONFORME', 'label' => 'Conforme', 'label_en' => 'Compliant', 'position' => 10),
+			array('code' => 'NON_CONFORME', 'label' => 'Non conforme', 'label_en' => 'Non-compliant', 'position' => 20),
+			array('code' => 'SO', 'label' => 'Sans objet', 'label_en' => 'Not applicable', 'position' => 30),
+		);
+		$yesNoOptions = array(
+			array('code' => 'YES', 'label' => 'Oui', 'label_en' => 'Yes', 'position' => 10),
+			array('code' => 'NO', 'label' => 'Non', 'label_en' => 'No', 'position' => 20),
+		);
+		$criticalityOptions = array(
+			array('code' => 'LOW', 'label' => 'Faible', 'label_en' => 'Low', 'position' => 10),
+			array('code' => 'MEDIUM', 'label' => 'Moyenne', 'label_en' => 'Medium', 'position' => 20),
+			array('code' => 'HIGH', 'label' => 'Élevée', 'label_en' => 'High', 'position' => 30),
+			array('code' => 'CRITICAL', 'label' => 'Critique', 'label_en' => 'Critical', 'position' => 40),
+		);
+		$thermographyOptions = array(
+			array('code' => 'HOT_SPOT', 'label' => 'Point chaud', 'label_en' => 'Hot spot', 'position' => 10),
+			array('code' => 'CELL_DEFECT', 'label' => 'Défaut cellule', 'label_en' => 'Cell defect', 'position' => 20),
+			array('code' => 'CONNECTION_HEATING', 'label' => 'Échauffement connexion', 'label_en' => 'Connection heating', 'position' => 30),
+			array('code' => 'SHADING', 'label' => 'Ombrage', 'label_en' => 'Shading', 'position' => 40),
+			array('code' => 'OTHER', 'label' => 'Autre', 'label_en' => 'Other', 'position' => 999),
+		);
+
+		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
+		$sql = "SELECT rowid, code, field_type";
+		$sql .= " FROM ".$fieldTable;
+		$sql .= " WHERE entity = ".((int) $entity);
+		$sql .= " AND fk_report_template = ".((int) $templateId);
+		$sql .= " AND active = 1";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		while ($obj = $this->db->fetch_object($resql)) {
+			$options = array();
+			if ((string) $obj->field_type === 'conformity_so_valid_obs') {
+				$options = $conformityOptions;
+			} elseif ((string) $obj->field_type === 'yesno') {
+				$options = $yesNoOptions;
+			} elseif ((string) $obj->code === 'THERMO_CRITICALITY') {
+				$options = $criticalityOptions;
+			} elseif ((string) $obj->code === 'THERMO_ANOMALY_TYPE') {
+				$options = $thermographyOptions;
+			}
+			if (!empty($options)) {
+				$result = $this->seedFieldOptions((int) $entity, (int) $obj->rowid, $options);
+				if ($result < 0) {
+					$this->db->free($resql);
+					return -1;
+				}
+			}
+		}
+		$this->db->free($resql);
+
+		return 1;
+	}
+
+	/**
+	 * Seed options for a field.
+	 *
+	 * @param	int						$entity	Entity id
+	 * @param	int						$fieldId	Field id
+	 * @param	array<int,array<string,mixed>>	$options	Options
+	 * @return	int								1 if OK, <0 if KO
+	 */
+	private function seedFieldOptions($entity, $fieldId, $options)
+	{
+		$table = $this->db->prefix().'powerplantpv_report_template_field_option';
+		foreach ($options as $option) {
+			$result = $this->insertMaintenanceDefaultRow($table, array(
+				'entity' => $entity,
+				'fk_report_template_field' => $fieldId,
+				'code' => (string) $option['code'],
+				'label' => (string) $option['label'],
+				'label_en' => (string) $option['label_en'],
+				'active' => 1,
+				'position' => (int) $option['position'],
+				'date_creation' => $this->db->idate(dol_now()),
+			), "entity = ".((int) $entity)." AND fk_report_template_field = ".((int) $fieldId)." AND code = '".$this->db->escape((string) $option['code'])."'");
+			if ($result < 0) {
 				return -1;
 			}
 		}

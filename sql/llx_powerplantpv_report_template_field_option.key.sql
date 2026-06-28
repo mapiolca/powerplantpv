@@ -14,8 +14,7 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-ALTER TABLE llx_c_powerplantpv_intervention_nature ADD UNIQUE INDEX uk_c_powerplantpv_intervention_nature_code (entity, code);
-ALTER TABLE llx_c_powerplantpv_intervention_nature ADD INDEX idx_c_powerplantpv_intervention_nature_entity (entity);
-ALTER TABLE llx_c_powerplantpv_intervention_nature ADD INDEX idx_c_powerplantpv_intervention_nature_active (active);
-ALTER TABLE llx_c_powerplantpv_intervention_nature ADD INDEX idx_c_powerplantpv_intervention_nature_fk_template (fk_report_template);
-ALTER TABLE llx_c_powerplantpv_intervention_nature ADD INDEX idx_c_powerplantpv_intervention_nature_template (report_template_code);
+ALTER TABLE llx_powerplantpv_report_template_field_option ADD UNIQUE INDEX uk_powerplantpv_report_template_field_option_code (entity, fk_report_template_field, code);
+ALTER TABLE llx_powerplantpv_report_template_field_option ADD INDEX idx_powerplantpv_report_template_field_option_entity (entity);
+ALTER TABLE llx_powerplantpv_report_template_field_option ADD INDEX idx_powerplantpv_report_template_field_option_field (fk_report_template_field);
+ALTER TABLE llx_powerplantpv_report_template_field_option ADD INDEX idx_powerplantpv_report_template_field_option_active (active);
