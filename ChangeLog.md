@@ -11,6 +11,10 @@
 - Ajout des écrans d'administration internes aux réglages PowerPlantPV pour créer, modifier, désactiver, dupliquer et réordonner les éléments du moteur de modèles.
 - Retrait du dictionnaire historique `c_powerplantpv_report_section` de l'administration active ; il reste conservé comme source de migration.
 - Ajout de la documentation technique `docs/technical/v1.3-pr2-report-template-engine.md`.
+- Ajout de l'onglet `Maintenance` sur la fiche centrale, avec affichage des contrats liés, services actifs, prestations de maintenance, interventions liées et statut de prochaine maintenance.
+- Ajout du moteur `PowerPlantPVMaintenanceScheduler` calculant les statuts `not_required`, `planned`, `due`, `overdue`, `covered` et `incomplete` depuis les liens natifs, les périodes configurées sur contrat et les interventions couvrantes clôturées/signées.
+- Ajout d'un bouton de création d'intervention de maintenance préventive depuis l'onglet centrale, avec préremplissage centrale, contrat, nature et période de contexte.
+- Ajout de la documentation technique `docs/technical/v1.3-pr4-maintenance-tab-scheduler.md`.
 
 ## 1.2.1
 

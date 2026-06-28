@@ -107,6 +107,16 @@ function powerplantPrepareHead($object)
 		$h++;
 	}
 
+	if (getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+		if (!function_exists('powerplantpvUserHasMaintenanceRight') || powerplantpvUserHasMaintenanceRight($user, 'read')) {
+			$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_maintenance.php', 1), ['id' => $object->id]);
+			$head[$h][1] = $langs->trans('PowerPlantPVMaintenance');
+			$head[$h][2] = 'maintenance';
+			$h++;
+		}
+	}
+
 	// Show more tabs from modules
 	// Entries must be declared in modules descriptor with line
 	//$this->tabs = array(

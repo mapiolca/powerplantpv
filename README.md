@@ -102,9 +102,11 @@ Signed attestations remain locked for standard write/delete users. Grant the spe
 
 ## Maintenance foundation
 
-Version 1.3.0 introduces the data foundation for preventive maintenance: entity-aware dictionaries, service-to-section mappings, report template field definitions, rights and extra fields. It does not yet provide the complete maintenance report UI, PDF generation or calculation workflow.
+Version 1.3.0 introduces the data foundation for preventive maintenance: entity-aware dictionaries, service-to-section mappings, report template field definitions, rights and extra fields. The power plant card now includes a `Maintenance` tab that reads linked contracts and interventions, displays active maintenance services, and calculates the next maintenance status from the explicitly configured contract period.
 
 The report template engine turns preventive maintenance into a preinstalled configurable model named `preventive_maintenance`. Administrators can create, edit, disable, duplicate and reorder report templates, sections, fields, field options, service mappings and intervention nature associations from the PowerPlantPV settings tabs. The intervention Report tab and PDF generation are not implemented in this step.
+
+The PR4 maintenance tab does not add the global Maintenance menu, the global calendar, automatic recurrence date generation, or maintenance PDF generation.
 
 
 

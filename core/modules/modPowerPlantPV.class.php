@@ -626,6 +626,82 @@ class modPowerPlantPV extends DolibarrModules
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'
 		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv',
+			'type' => 'left',
+			'titre' => 'Maintenance',
+			'prefix' => img_picto('', 'fa-tools', 'class="paddingright pictofixedwidth valignmiddle"'),
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_maintenance',
+			'url' => '/powerplantpv/maintenance_list.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
+			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVMaintenance'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplantpv_maintenance',
+			'type' => 'left',
+			'titre' => 'NewMaintenanceIntervention',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_maintenance_new_intervention',
+			'url' => '/powerplantpv/maintenance_intervention_card.php?action=create',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && isModEnabled("ficheinter") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
+			'perms' => '(!empty($user->admin) || ($user->hasRight("powerplantpv", "maintenance", "write") && $user->hasRight("ficheinter", "creer")))',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVMaintenance'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplantpv_maintenance',
+			'type' => 'left',
+			'titre' => 'ListMaintenances',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_maintenance_list',
+			'url' => '/powerplantpv/maintenance_list.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
+			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVMaintenance'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplantpv_maintenance',
+			'type' => 'left',
+			'titre' => 'MaintenanceCalendar',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_maintenance_calendar',
+			'url' => '/powerplantpv/maintenance_calendar.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
+			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVMaintenance'
+		);
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=powerplantpv,fk_leftmenu=powerplantpv_maintenance',
+			'type' => 'left',
+			'titre' => 'MaintenanceStatistics',
+			'mainmenu' => 'powerplantpv',
+			'leftmenu' => 'powerplantpv_maintenance_stats',
+			'url' => '/powerplantpv/maintenance_stats.php',
+			'langs' => 'powerplantpv@powerplantpv',
+			'position' => 1000 + $r,
+			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
+			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'target' => '',
+			'user' => 2,
+			'object' => 'PowerPlantPVMaintenance'
+		);
 		/* END MODULEBUILDER LEFTMENU POWERPLANT */
 		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT */
 		/*

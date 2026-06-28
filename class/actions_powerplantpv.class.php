@@ -951,10 +951,87 @@ class ActionsPowerplantpv
 		if ($interventionnatureid > 0) {
 			$html .= '<input type="hidden" name="options_powerplantpv_intervention_nature" value="'.((int) $interventionnatureid).'">';
 		}
+		if (in_array('interventioncard', $contexts, true) || in_array('fichintercard', $contexts, true)) {
+			$html .= $this->renderMaintenancePeriodHiddenInputs();
+		}
+		$html .= '</td>';
+		$html .= '</tr>';
+
+		if (in_array('interventioncard', $contexts, true) || in_array('fichintercard', $contexts, true)) {
+			$html .= $this->renderMaintenancePeriodCreateRow($colspan);
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Render hidden maintenance period inputs on native intervention creation forms.
+	 *
+	 * @return	string	HTML
+	 */
+	private function renderMaintenancePeriodHiddenInputs()
+	{
+		$period = $this->getRequestedMaintenancePeriod();
+		if (empty($period['start']) || empty($period['end'])) {
+			return '';
+		}
+
+		$html = '<input type="hidden" name="powerplantpv_maintenance_period_start" value="'.dol_escape_htmltag($period['start']).'">';
+		$html .= '<input type="hidden" name="powerplantpv_maintenance_period_end" value="'.dol_escape_htmltag($period['end']).'">';
+
+		return $html;
+	}
+
+	/**
+	 * Render maintenance period context row on native intervention creation forms.
+	 *
+	 * @param	string	$colspan	Colspan attribute
+	 * @return	string				HTML
+	 */
+	private function renderMaintenancePeriodCreateRow($colspan)
+	{
+		global $langs;
+
+		$period = $this->getRequestedMaintenancePeriod();
+		if (empty($period['start_timestamp']) || empty($period['end_timestamp'])) {
+			return '';
+		}
+
+		$html = '<tr class="powerplantpv-maintenance-period">';
+		$html .= '<td class="titlefieldcreate">'.$langs->trans('PowerPlantPVMaintenanceCoveredPeriod').'</td>';
+		$html .= '<td'.$colspan.'>';
+		$html .= img_picto('', 'fa-calendar', 'class="pictofixedwidth"');
+		$html .= dol_print_date((int) $period['start_timestamp'], 'day').' - '.dol_print_date((int) $period['end_timestamp'], 'day');
 		$html .= '</td>';
 		$html .= '</tr>';
 
 		return $html;
+	}
+
+	/**
+	 * Return requested maintenance period context.
+	 *
+	 * @return	array{start:string,end:string,start_timestamp:int,end_timestamp:int}	Period values
+	 */
+	private function getRequestedMaintenancePeriod()
+	{
+		$start = GETPOST('powerplantpv_maintenance_period_start', 'alphanohtml');
+		$end = GETPOST('powerplantpv_maintenance_period_end', 'alphanohtml');
+		if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) {
+			return array('start' => '', 'end' => '', 'start_timestamp' => 0, 'end_timestamp' => 0);
+		}
+
+		$startParts = explode('-', $start);
+		$endParts = explode('-', $end);
+		$startTimestamp = dol_mktime(0, 0, 0, (int) $startParts[1], (int) $startParts[2], (int) $startParts[0]);
+		$endTimestamp = dol_mktime(23, 59, 59, (int) $endParts[1], (int) $endParts[2], (int) $endParts[0]);
+
+		return array(
+			'start' => $start,
+			'end' => $end,
+			'start_timestamp' => (int) $startTimestamp,
+			'end_timestamp' => (int) $endTimestamp,
+		);
 	}
 
 	/**
