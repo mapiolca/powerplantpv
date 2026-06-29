@@ -15,6 +15,10 @@
 - Ajout du moteur `PowerPlantPVMaintenanceScheduler` calculant les statuts `not_required`, `planned`, `due`, `overdue`, `covered` et `incomplete` depuis les liens natifs, les périodes configurées sur contrat et les interventions couvrantes clôturées/signées.
 - Ajout d'un bouton de création d'intervention de maintenance préventive depuis l'onglet centrale, avec préremplissage centrale, contrat, nature et période de contexte.
 - Ajout de la documentation technique `docs/technical/v1.3-pr4-maintenance-tab-scheduler.md`.
+- Ajout de l'onglet `Rapport` sur les fiches interventions, généré depuis la nature d'intervention, le modèle associé, les prestations actives et les centrales liées.
+- Ajout des tables de rapport généré `powerplantpv_report`, sections, champs, fichiers, équipements, centrales et prestations sources, avec snapshot figé au premier enregistrement.
+- Ajout de la sauvegarde brouillon/simple, du recalcul depuis le modèle avec conservation des valeurs par clé stable et du verrouillage en lecture seule quand l'intervention est signée ou clôturée.
+- Ajout de la documentation technique `docs/technical/v1.3-pr6-intervention-report-tab.md`.
 
 ## 1.2.1
 

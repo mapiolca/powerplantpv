@@ -179,6 +179,14 @@ class PowerPlantPVCompatibility
 				'available' => $baseavailable,
 				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
 			),
+			'intervention_report_tab' => array(
+				'label' => 'PowerPlantPVInterventionReportTabFeature',
+				'description' => 'PowerPlantPVInterventionReportTabCompatibilityDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable,
+				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
 			'serial_number_import_csv' => array(
 				'label' => 'SerialNumbersImportCsvFeature',
 				'description' => 'SerialNumbersImportCsvFeatureDescription',

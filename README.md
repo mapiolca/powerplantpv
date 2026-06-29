@@ -12,6 +12,7 @@
 - Generate attestation PDF skeletons from power plant, site, installer, writer and equipment data. Online signature uses Dolibarr's native `/public/onlinesign/newonlinesign.php` page when the installed core explicitly supports the `powerplantpv_attestation` source, otherwise it falls back to the module public signature page.
 - Prepare the preventive maintenance data foundation with native dictionaries, rights and extra fields on contracts, products/services and interventions.
 - Configure intervention report templates for maintenance: report models, sections, fields, select options, service-to-section mappings, and intervention nature to model association.
+- Fill intervention reports from the `Rapport` tab, with a generated snapshot based on the intervention nature, active services, linked power plants and the configured report template.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}
@@ -104,9 +105,11 @@ Signed attestations remain locked for standard write/delete users. Grant the spe
 
 Version 1.3.0 introduces the data foundation for preventive maintenance: entity-aware dictionaries, service-to-section mappings, report template field definitions, rights and extra fields. The power plant card now includes a `Maintenance` tab that reads linked contracts and interventions, displays active maintenance services, and calculates the next maintenance status from the explicitly configured contract period.
 
-The report template engine turns preventive maintenance into a preinstalled configurable model named `preventive_maintenance`. Administrators can create, edit, disable, duplicate and reorder report templates, sections, fields, field options, service mappings and intervention nature associations from the PowerPlantPV settings tabs. The intervention Report tab and PDF generation are not implemented in this step.
+The report template engine turns preventive maintenance into a preinstalled configurable model named `preventive_maintenance`. Administrators can create, edit, disable, duplicate and reorder report templates, sections, fields, field options, service mappings and intervention nature associations from the PowerPlantPV settings tabs.
 
-The PR4 maintenance tab does not add the global Maintenance menu, the global calendar, automatic recurrence date generation, or maintenance PDF generation.
+The intervention `Rapport` tab generates a mobile-friendly form from the intervention nature, its active report template, active maintenance services and linked power plants. The first save creates a snapshot of generated sections, fields, power plants, source services and equipment; later template changes do not alter an existing report unless an authorized user explicitly recalculates it before the intervention is signed or closed. Full PDF generation remains outside this step.
+
+The global Maintenance pages provide the list, calendar and statistics views. Automatic recurrence date generation and maintenance PDF generation remain outside this step.
 
 
 

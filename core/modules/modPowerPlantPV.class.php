@@ -221,7 +221,8 @@ class modPowerPlantPV extends DolibarrModules
 		/* BEGIN MODULEBUILDER TABS */
 		// Don't forget to deactivate/reactivate your module to test your changes
 		$this->tabs = array(
-			'product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight(\'produit\', \'lire\'):/powerplantpv/product_detailedcaracteristics.php?id=__ID__'
+			'product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight(\'produit\', \'lire\'):/powerplantpv/product_detailedcaracteristics.php?id=__ID__',
+			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:($user->hasRight(\'powerplantpv\', \'maintenance\', \'read\') || !empty($user->admin)):/powerplantpv/maintenance_intervention_report.php?id=__ID__'
 		);
 		/* END MODULEBUILDER TABS */
 		// Example:
@@ -854,6 +855,10 @@ class modPowerPlantPV extends DolibarrModules
 		if ($result < 0) {
 			return -1;
 		}
+		$result = $this->ensureGeneratedReportSchema();
+		if ($result < 0) {
+			return -1;
+		}
 
 		// Create product extrafield for photovoltaic category.
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
@@ -1354,6 +1359,122 @@ class modPowerPlantPV extends DolibarrModules
 			$this->db->prefix().'powerplantpv_report_template_field' => array(
 				'idx_powerplantpv_report_template_field_fk_template' => 'fk_report_template',
 				'idx_powerplantpv_report_template_field_fk_section' => 'fk_report_template_section',
+			),
+		);
+
+		foreach ($indexes as $table => $tableindexes) {
+			if (!$this->reportTemplateTableExists($table)) {
+				continue;
+			}
+			foreach ($tableindexes as $indexname => $fieldname) {
+				if ($this->reportTemplateIndexExists($table, $indexname)) {
+					continue;
+				}
+				$sql = "ALTER TABLE ".$this->db->sanitize($table)." ADD INDEX ".$this->db->sanitize($indexname)." (".$this->db->sanitize($fieldname).")";
+				if (!$this->db->query($sql)) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Ensure generated report snapshot tables contain fields added for PR6 updates.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensureGeneratedReportSchema()
+	{
+		$tables = array(
+			$this->db->prefix().'powerplantpv_report' => array(
+				'fk_fichinter' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'source_mode' => array('type' => 'varchar', 'value' => '16', 'null' => "DEFAULT 'contract' NOT NULL"),
+				'status' => array('type' => 'varchar', 'value' => '16', 'null' => "DEFAULT 'draft' NOT NULL"),
+			),
+			$this->db->prefix().'powerplantpv_report_powerplant' => array(
+				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_powerplant' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'position' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+			),
+			$this->db->prefix().'powerplantpv_report_source_service' => array(
+				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_maintenance_service' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'source_mode' => array('type' => 'varchar', 'value' => '16', 'null' => "DEFAULT 'contract' NOT NULL"),
+			),
+			$this->db->prefix().'powerplantpv_report_equipment' => array(
+				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'technical_key' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_report_section' => array(
+				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'section_code' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
+				'occurrence_key' => array('type' => 'varchar', 'value' => '255', 'null' => 'NOT NULL'),
+			),
+			$this->db->prefix().'powerplantpv_report_field' => array(
+				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_report_section' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'stable_key' => array('type' => 'varchar', 'value' => '255', 'null' => 'NOT NULL'),
+				'field_code' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
+				'options_snapshot' => array('type' => 'mediumtext', 'value' => '', 'null' => ''),
+				'value_text' => array('type' => 'mediumtext', 'value' => '', 'null' => ''),
+				'value_number' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'value_date' => array('type' => 'datetime', 'value' => '', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_report_file' => array(
+				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_report_field' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'filepath' => array('type' => 'varchar', 'value' => '255', 'null' => 'NOT NULL'),
+			),
+		);
+
+		foreach ($tables as $table => $fields) {
+			if (!$this->reportTemplateTableExists($table)) {
+				continue;
+			}
+			foreach ($fields as $field => $fielddesc) {
+				if ($this->reportTemplateColumnExists($table, $field)) {
+					continue;
+				}
+				$result = $this->db->DDLAddField($table, $field, $fielddesc);
+				if ($result < 0) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+
+		$indexes = array(
+			$this->db->prefix().'powerplantpv_report' => array(
+				'idx_powerplantpv_report_fichinter_guard' => 'fk_fichinter',
+				'idx_powerplantpv_report_status' => 'status',
+			),
+			$this->db->prefix().'powerplantpv_report_powerplant' => array(
+				'idx_powerplantpv_report_powerplant_report' => 'fk_report',
+				'idx_powerplantpv_report_powerplant_powerplant' => 'fk_powerplant',
+			),
+			$this->db->prefix().'powerplantpv_report_source_service' => array(
+				'idx_powerplantpv_report_source_service_report' => 'fk_report',
+				'idx_powerplantpv_report_source_service_service' => 'fk_maintenance_service',
+			),
+			$this->db->prefix().'powerplantpv_report_equipment' => array(
+				'idx_powerplantpv_report_equipment_report' => 'fk_report',
+				'idx_powerplantpv_report_equipment_technical_key' => 'technical_key',
+			),
+			$this->db->prefix().'powerplantpv_report_section' => array(
+				'idx_powerplantpv_report_section_report' => 'fk_report',
+				'idx_powerplantpv_report_section_code' => 'section_code',
+			),
+			$this->db->prefix().'powerplantpv_report_field' => array(
+				'idx_powerplantpv_report_field_report' => 'fk_report',
+				'idx_powerplantpv_report_field_section' => 'fk_report_section',
+				'idx_powerplantpv_report_field_code' => 'field_code',
+			),
+			$this->db->prefix().'powerplantpv_report_file' => array(
+				'idx_powerplantpv_report_file_report' => 'fk_report',
+				'idx_powerplantpv_report_file_field' => 'fk_report_field',
 			),
 		);
 
