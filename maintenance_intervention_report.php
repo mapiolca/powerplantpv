@@ -198,10 +198,25 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 		if ($result >= 0) {
 			$result = $builder->saveDcMeasureValues((int) $report->id, $dcValues, $user);
 		}
+		$interventionValidationResult = 0;
+		if ($result >= 0 && (string) $status === PowerPlantPVReport::STATUS_SAVED) {
+			$interventionValidationResult = powerplantpvReportValidateInterventionIfNeeded($intervention, $user);
+			if ($interventionValidationResult < 0) {
+				$result = -1;
+			}
+		}
 		if ($result < 0) {
-			setEventMessages($builder->error, $builder->errors, 'errors');
+			if ($interventionValidationResult < 0) {
+				powerplantpvReportSetInterventionValidationError($intervention);
+			} else {
+				setEventMessages($builder->error, $builder->errors, 'errors');
+			}
 		} else {
-			setEventMessages($langs->trans($status === PowerPlantPVReport::STATUS_SAVED ? 'PowerPlantPVReportSaved' : 'PowerPlantPVReportDraftSaved'), null, 'mesgs');
+			if ($interventionValidationResult > 0) {
+				setEventMessages($langs->trans('PowerPlantPVReportSavedInterventionValidated'), null, 'mesgs');
+			} else {
+				setEventMessages($langs->trans($status === PowerPlantPVReport::STATUS_SAVED ? 'PowerPlantPVReportSaved' : 'PowerPlantPVReportDraftSaved'), null, 'mesgs');
+			}
 			header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
 			exit;
 		}
@@ -488,6 +503,71 @@ function powerplantpvReportIsInterventionLocked($intervention)
 	$all = (class_exists('Fichinter') && defined('Fichinter::STATUS_SIGNED_ALL')) ? (int) constant('Fichinter::STATUS_SIGNED_ALL') : 9;
 
 	return in_array($signedStatus, array($receiver, $all), true);
+}
+
+/**
+ * Validate intervention with native Dolibarr workflow when the report is finalized.
+ *
+ * @param	Fichinter	$intervention	Intervention object
+ * @param	User		$user			User
+ * @return	int							1 if validated, 0 if already validated, <0 on error
+ */
+function powerplantpvReportValidateInterventionIfNeeded($intervention, $user)
+{
+	global $langs;
+
+	$status = 0;
+	foreach (array('statut', 'status', 'fk_statut') as $property) {
+		if (isset($intervention->{$property})) {
+			$status = (int) $intervention->{$property};
+			break;
+		}
+	}
+	$validatedStatus = (class_exists('Fichinter') && defined('Fichinter::STATUS_VALIDATED')) ? (int) constant('Fichinter::STATUS_VALIDATED') : 1;
+	if ($status >= $validatedStatus) {
+		return 0;
+	}
+	if (!method_exists($intervention, 'setValid')) {
+		$intervention->error = $langs->trans('PowerPlantPVReportInterventionValidationFailed');
+		if (empty($intervention->errors) || !is_array($intervention->errors)) {
+			$intervention->errors = array();
+		}
+		$intervention->errors[] = $intervention->error;
+		return -1;
+	}
+
+	$result = $intervention->setValid($user, 0);
+	if ($result < 0) {
+		return -1;
+	}
+
+	return 1;
+}
+
+/**
+ * Display intervention validation error after report finalization.
+ *
+ * @param	Fichinter	$intervention	Intervention object
+ * @return	void
+ */
+function powerplantpvReportSetInterventionValidationError($intervention)
+{
+	global $langs;
+
+	$message = $langs->trans('PowerPlantPVReportInterventionValidationFailed');
+	$details = array();
+	if (!empty($intervention->error) && (string) $intervention->error !== $message) {
+		$details[] = $intervention->error;
+	}
+	if (!empty($intervention->errors) && is_array($intervention->errors)) {
+		foreach ($intervention->errors as $error) {
+			if ((string) $error !== '' && (string) $error !== $message && !in_array((string) $error, $details, true)) {
+				$details[] = (string) $error;
+			}
+		}
+	}
+
+	setEventMessages($message, $details, 'errors');
 }
 
 /**
