@@ -107,10 +107,10 @@ class PowerPlantPVMaintenanceScheduler
 	{
 		$statusTypes = array(
 			self::STATUS_NOT_REQUIRED => 'status0',
-			self::STATUS_PLANNED => 'status4',
-			self::STATUS_DUE => 'status1',
+			self::STATUS_PLANNED => 'status2',
+			self::STATUS_DUE => 'status3',
 			self::STATUS_OVERDUE => 'status8',
-			self::STATUS_COVERED => 'status6',
+			self::STATUS_COVERED => 'status4',
 			self::STATUS_INCOMPLETE => 'status5',
 		);
 

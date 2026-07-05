@@ -64,11 +64,11 @@ function powerplantpvMaintenanceStatusBadge($status)
 
 	$label = $langs->trans(PowerPlantPVMaintenanceScheduler::getStatusLabelKey($status));
 	$statusType = PowerPlantPVMaintenanceScheduler::getStatusType($status);
-	if (function_exists('dolGetStatus')) {
-		return dolGetStatus($label, $label, '', $statusType, 3);
+	if (!preg_match('/^status[0-9]$/', $statusType)) {
+		$statusType = 'status0';
 	}
 
-	return '<span class="badge '.$statusType.'">'.dol_escape_htmltag($label).'</span>';
+	return '<span class="badge badge-'.dol_escape_htmltag($statusType).'">'.dol_escape_htmltag($label).'</span>';
 }
 
 /**
