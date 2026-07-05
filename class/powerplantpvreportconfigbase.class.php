@@ -196,6 +196,19 @@ abstract class PowerPlantPVReportConfigBase extends CommonObject
 	}
 
 	/**
+	 * Enable record.
+	 *
+	 * @param	User	$user	User
+	 * @return	int			>0 if OK, <0 on error
+	 */
+	public function enable(User $user)
+	{
+		$this->active = 1;
+
+		return $this->update($user, 0);
+	}
+
+	/**
 	 * Delete record.
 	 *
 	 * @param	User		$user		User

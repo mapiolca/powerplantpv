@@ -11,7 +11,7 @@ class pdf_attestation_bridage_statique extends pdf_attestation_bridage_dynamique
 	public function __construct($db)
 	{
 		parent::__construct($db);
-		$this->name = 'attestation_bridage_statique';
+		$this->setModelTranslationKeys('AttestationPdfModelBridageStatiqueName', 'AttestationPdfModelBridageStatiqueDescription');
 		$this->titleKey = 'AttestationTypeBridageStatiqueOnduleur';
 	}
 

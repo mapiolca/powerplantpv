@@ -59,7 +59,7 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 	$search_requires_report = '';
 }
 
-if (in_array($action, array('add', 'update', 'disable', 'delete', 'moveup', 'movedown'), true)) {
+if (in_array($action, array('add', 'update', 'enable', 'disable', 'delete', 'moveup', 'movedown'), true)) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
@@ -112,6 +112,17 @@ if ($action === 'add' || $action === 'update') {
 		setEventMessages($langs->trans('PowerPlantPVRecordDisabled'), null, 'mesgs');
 	}
 	$action = '';
+} elseif ($action === 'enable' && $id > 0) {
+	if ($object->fetch($id) <= 0) {
+		accessforbidden();
+	}
+	$result = $object->enable($user);
+	if ($result < 0) {
+		setEventMessages($object->error, $object->errors, 'errors');
+	} else {
+		setEventMessages($langs->trans('PowerPlantPVRecordEnabled'), null, 'mesgs');
+	}
+	$action = '';
 } elseif ($action === 'delete' && $confirm === 'yes' && $id > 0) {
 	if ($object->fetch($id) <= 0) {
 		accessforbidden();
@@ -138,6 +149,7 @@ if ($action === 'edit' && $id > 0) {
 		accessforbidden();
 	}
 }
+$openeditdialog = in_array($action, array('create', 'edit'), true);
 
 $param = '';
 if ($search !== '') {
@@ -194,9 +206,13 @@ if ($action === 'delete' && $id > 0) {
 	print $form->formconfirm($_SERVER['PHP_SELF'].'?id='.(int) $id.'&token='.newToken().$param, $langs->trans('Delete'), $langs->trans('ConfirmDeleteObject'), 'delete', '', 0, 1);
 }
 
+$newurl = $_SERVER['PHP_SELF'].'?action=create'.$param;
+$newbutton = dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', $newurl, 'powerplantpv-interventionnature-new-btn', 1);
+print load_fiche_titre($title, $newbutton, 'fa-tags');
+
 print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
-print_barre_liste($title, $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-tags', 0, '', '', $limit);
+print_barre_liste('', $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-tags', 0, '', '', $limit);
 print '<div class="div-table-responsive">';
 print '<table class="tagtable nobottomiftotal liste listwithfilterbefore centpercent">';
 print '<tr class="liste_titre_filter">';
@@ -233,7 +249,9 @@ if ($resql) {
 		print ' <a href="'.$_SERVER['PHP_SELF'].'?action=moveup&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('MoveUp'), 'uparrow').'</a>';
 		print ' <a href="'.$_SERVER['PHP_SELF'].'?action=movedown&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('MoveDown'), 'downarrow').'</a>';
 		if (!empty($obj->active)) {
-			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=disable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Disable'), 'switch_off').'</a>';
+			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=disable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Disable'), 'switch_on').'</a>';
+		} else {
+			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=enable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Enable'), 'switch_off').'</a>';
 		}
 		print ' <a href="'.$_SERVER['PHP_SELF'].'?action=delete&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_delete($langs->trans('Delete')).'</a>';
 		print '</td></tr>';
@@ -246,9 +264,9 @@ if (empty($num)) {
 }
 print '</table></div></form>';
 
-print '<br>';
-print load_fiche_titre($langs->trans($action === 'edit' ? 'Modify' : 'New'), '', '');
-print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+$dialogtitle = $langs->trans($action === 'edit' ? 'Modify' : 'New');
+print '<div id="dialog-interventionnature" class="hideobject">';
+print '<form method="POST" id="powerplantpv-interventionnature-form" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="'.($action === 'edit' ? 'update' : 'add').'">';
 if ($action === 'edit') {
@@ -268,7 +286,24 @@ print '<tr><td>'.$langs->trans('PowerPlantPVRequiresSignature').'</td><td>'.$for
 print '<tr><td>'.$langs->trans('Status').'</td><td>'.$form->selectarray('active', powerplantpvReportTemplateTranslateOptions(powerplantpvReportTemplateActiveOptions()), isset($object->active) ? (int) $object->active : 1, 0, 0, 0, '', 0, 0, 0, '', 'maxwidth150').'</td></tr>';
 print '<tr><td>'.$langs->trans('Position').'</td><td><input class="flat maxwidth75 right" type="number" name="position" value="'.((int) $object->position).'"></td></tr>';
 print '</table>';
-print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"></div>';
+print '<div class="center">';
+print '<input type="submit" class="button button-save" value="'.$langs->trans('Save').'">';
+print ' <input type="button" class="button button-cancel" id="interventionnature-cancel-btn" value="'.$langs->trans('Cancel').'">';
+print '</div>';
 print '</form>';
+print '</div>';
+print '<script nonce="'.getNonce().'">';
+print 'jQuery(function(){';
+print 'var dialog = jQuery("#dialog-interventionnature");';
+print 'dialog.dialog({autoOpen:false,modal:true,width:"auto",height:"auto",resizable:false,title:"'.dol_escape_js($dialogtitle).'",maxHeight:Math.max(320,jQuery(window).height()-80),open:function(){';
+print 'jQuery(this).parent().css({"max-width":Math.min(920,jQuery(window).width()-40)+"px"});';
+print 'jQuery("#dialog-interventionnature select").select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
+print '}});';
+print 'jQuery("#interventionnature-cancel-btn").on("click", function(){dialog.dialog("close");});';
+if ($openeditdialog) {
+	print 'dialog.dialog("open");';
+}
+print '});';
+print '</script>';
 
 powerplantpvReportTemplateAdminFooter();
