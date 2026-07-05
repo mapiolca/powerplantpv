@@ -1351,3 +1351,4 @@ PowerPlantPVIndexReadingPowerPlantRequired = The power plant is required to arch
 PowerPlantPVIndexReadingTypeRequired = The reading type is required.
 PowerPlantPVIndexReadingDateRequired = The reading date is required.
 PowerPlantPVIndexReadingValueRequired = The reading value is required.
+PowerPlantPVReportNoPreviousReading = No history available

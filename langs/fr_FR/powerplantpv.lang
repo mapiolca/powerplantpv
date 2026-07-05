@@ -1351,3 +1351,4 @@ PowerPlantPVIndexReadingPowerPlantRequired = La centrale est obligatoire pour ar
 PowerPlantPVIndexReadingTypeRequired = Le type de relevé est obligatoire.
 PowerPlantPVIndexReadingDateRequired = La date du relevé est obligatoire.
 PowerPlantPVIndexReadingValueRequired = La valeur du relevé est obligatoire.
+PowerPlantPVReportNoPreviousReading = Aucun historique disponible

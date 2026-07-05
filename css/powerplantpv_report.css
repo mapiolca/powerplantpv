@@ -164,6 +164,19 @@
 	margin: 16px 0;
 }
 
+.page-maintenance-intervention-report .powerplantpv-report-form-editable {
+	padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+.page-maintenance-intervention-report .powerplantpv-floating-save {
+	position: fixed;
+	right: max(18px, env(safe-area-inset-right, 0px));
+	bottom: max(18px, env(safe-area-inset-bottom, 0px));
+	z-index: 1200;
+	min-width: 130px;
+	max-width: calc(100vw - 36px);
+}
+
 .page-maintenance-intervention-report .powerplantpv-report-files {
 	margin: 0 0 8px 18px;
 	padding: 0;
@@ -281,6 +294,17 @@
 	.page-maintenance-intervention-report .powerplantpv-file-upload .button {
 		width: 100%;
 		margin-top: 8px;
+	}
+
+	.page-maintenance-intervention-report .powerplantpv-report-form-editable {
+		padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+	}
+
+	.page-maintenance-intervention-report .powerplantpv-floating-save {
+		right: max(10px, env(safe-area-inset-right, 0px));
+		bottom: max(10px, env(safe-area-inset-bottom, 0px));
+		min-width: 118px;
+		max-width: calc(100vw - 20px);
 	}
 
 	.page-maintenance-intervention-report .powerplantpv-control-with-unit {

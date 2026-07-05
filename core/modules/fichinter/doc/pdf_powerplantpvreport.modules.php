@@ -586,7 +586,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			$rows[] = array(
 				PowerPlantPVReportPdfDataset::localizedProperty($field, 'field_label', $outputlangs),
 				$readingDate,
-				$valuePrevious === '' ? '' : price($valuePrevious),
+				$valuePrevious === '' ? $outputlangs->transnoentities('PowerPlantPVReportNoPreviousReading') : price($valuePrevious),
 				$valueCurrent === '' ? '' : price($valueCurrent),
 				$delta === '' ? '' : price($delta),
 				(string) $field->unit,

@@ -74,6 +74,7 @@ $token = GETPOST('token', 'alphanohtml');
 $fieldId = GETPOSTINT('field_id');
 $fileId = GETPOSTINT('file_id');
 $dcSectionId = GETPOSTINT('add_dc_section_id');
+$reportRestoreScrollY = GETPOSTINT('report_scroll_y');
 $manualServiceIds = powerplantpvSanitizeIdArray(GETPOST('manual_services', 'array:int'));
 
 if ($action === '') {
@@ -217,7 +218,14 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 			} else {
 				setEventMessages($langs->trans($status === PowerPlantPVReport::STATUS_SAVED ? 'PowerPlantPVReportSaved' : 'PowerPlantPVReportDraftSaved'), null, 'mesgs');
 			}
-			header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
+			$redirectUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id;
+			if ($action === 'save_draft') {
+				$scrollY = GETPOSTINT('powerplantpv_scroll_y');
+				if ($scrollY > 0) {
+					$redirectUrl .= '&report_scroll_y='.(int) $scrollY;
+				}
+			}
+			header('Location: '.$redirectUrl);
 			exit;
 		}
 	}
@@ -279,8 +287,9 @@ if ($action === 'delete_file' && $caneditreport && $reportFetch > 0) {
 $form = new Form($db);
 $title = $langs->trans('PowerPlantPVReportTab');
 
+$morejs = array('/powerplantpv/js/powerplantpv_report.js');
 $morecss = array('/powerplantpv/css/powerplantpv_report.css');
-llxHeader('', $title, '', '', 0, 0, '', $morecss, '', 'mod-powerplantpv page-maintenance-intervention-report');
+llxHeader('', $title, '', '', 0, 0, $morejs, $morecss, '', 'mod-powerplantpv page-maintenance-intervention-report');
 
 $head = array();
 if (function_exists('fichinter_prepare_head')) {
@@ -417,9 +426,12 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		&& $caneditreport
 		&& $noContractPrestations
 		&& !empty($manualOptions));
-	print '<form id="powerplantpvreportform" method="POST" enctype="multipart/form-data" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+	$formClass = 'powerplantpv-report-form'.($caneditreport ? ' powerplantpv-report-form-editable' : '');
+	print '<form id="powerplantpvreportform" class="'.dol_escape_htmltag($formClass).'" method="POST" enctype="multipart/form-data" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="id" value="'.((int) $id).'">';
+	print '<input type="hidden" id="powerplantpv-scroll-y" name="powerplantpv_scroll_y" value="">';
+	print '<input type="hidden" id="powerplantpv-restore-scroll-y" value="'.((int) $reportRestoreScrollY).'">';
 
 	if ($showManualSelection) {
 		print '<div class="powerplantpv-report-manual">';
@@ -458,6 +470,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 			print '<input type="submit" class="button button-save" name="recalculate_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
 		}
 		print '</div>';
+		print '<input type="submit" class="button button-save powerplantpv-floating-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
 	}
 	print '</form>';
 
@@ -1033,6 +1046,8 @@ function powerplantpvReportRenderField($field, $editable, $form)
 			print '<div class="powerplantpv-report-readonly">';
 			powerplantpvReportPrintHtmlValue((string) $value);
 			print '</div>';
+		} elseif ($value === '' && powerplantpvReportFieldIsPreviousReading($field)) {
+			print '<div class="powerplantpv-report-readonly opacitymedium">'.$langs->trans('PowerPlantPVReportNoPreviousReading').'</div>';
 		} else {
 			print '<div class="powerplantpv-report-readonly">'.dol_htmlentitiesbr((string) $value).'</div>';
 		}
@@ -1249,6 +1264,17 @@ function powerplantpvReportFieldDisplayValue($field)
 	}
 
 	return (string) $field->value_text;
+}
+
+/**
+ * Return true for report fields showing previous production/consumption readings.
+ *
+ * @param	PowerPlantPVReportField	$field	Field
+ * @return	bool							True for N-1 reading fields
+ */
+function powerplantpvReportFieldIsPreviousReading($field)
+{
+	return substr((string) $field->field_code, -10) === '_N_MINUS_1';
 }
 
 /**
