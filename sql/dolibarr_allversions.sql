@@ -419,6 +419,60 @@ ALTER TABLE llx_c_powerplantpv_index_type ADD UNIQUE INDEX IF NOT EXISTS uk_c_po
 ALTER TABLE llx_c_powerplantpv_index_type ADD INDEX IF NOT EXISTS idx_c_powerplantpv_index_type_entity (entity);
 ALTER TABLE llx_c_powerplantpv_index_type ADD INDEX IF NOT EXISTS idx_c_powerplantpv_index_type_active (active);
 
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_index_reading(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_powerplant integer NOT NULL,
+	fk_fichinter_source integer,
+	fk_report integer,
+	fk_report_powerplant integer DEFAULT 0 NOT NULL,
+	fk_report_equipment integer DEFAULT 0 NOT NULL,
+	fk_index_type integer,
+	reading_type_code varchar(64) NOT NULL,
+	reading_date datetime NOT NULL,
+	value double(24,8) NOT NULL,
+	unit varchar(32) DEFAULT 'kWh' NOT NULL,
+	meter_ref varchar(128) DEFAULT '' NOT NULL,
+	source_type varchar(32) DEFAULT 'manual' NOT NULL,
+	comment text,
+	date_creation datetime,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer,
+	fk_user_modif integer,
+	active smallint DEFAULT 1 NOT NULL
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS entity integer DEFAULT 1 NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_powerplant integer NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_fichinter_source integer;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_report integer;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_report_powerplant integer DEFAULT 0 NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_report_equipment integer DEFAULT 0 NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_index_type integer;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS reading_type_code varchar(64) NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS reading_date datetime NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS value double(24,8) NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS unit varchar(32) DEFAULT 'kWh' NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS meter_ref varchar(128) DEFAULT '' NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS source_type varchar(32) DEFAULT 'manual' NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS comment text;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS date_creation datetime;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_user_creat integer;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS fk_user_modif integer;
+ALTER TABLE llx_powerplantpv_index_reading ADD COLUMN IF NOT EXISTS active smallint DEFAULT 1 NOT NULL;
+ALTER TABLE llx_powerplantpv_index_reading ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_index_reading_report_source (entity, fk_powerplant, fk_fichinter_source, fk_report, reading_type_code, meter_ref, fk_report_equipment);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_entity (entity);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_powerplant (fk_powerplant);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_fichinter (fk_fichinter_source);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_report (fk_report);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_report_powerplant (fk_report_powerplant);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_report_equipment (fk_report_equipment);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_index_type (fk_index_type);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_type_date (reading_type_code, reading_date);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_source (source_type);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_active (active);
+ALTER TABLE llx_powerplantpv_index_reading ADD INDEX IF NOT EXISTS idx_powerplantpv_index_reading_user_creat (fk_user_creat);
+
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_maintenance_service_section(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,

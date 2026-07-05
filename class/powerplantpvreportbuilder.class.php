@@ -21,6 +21,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreportsection.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfield.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportdcmeasure.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvindexreading.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvinterventionnature.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreporttemplate.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreporttemplatesection.class.php');
@@ -272,6 +273,13 @@ class PowerPlantPVReportBuilder
 			$this->db->rollback();
 			return -1;
 		}
+		if ((string) $status !== PowerPlantPVReport::STATUS_SAVED) {
+			$result = $this->deactivateIndexReadingsForReport((int) $report->id, $user);
+			if ($result < 0) {
+				$this->db->rollback();
+				return -1;
+			}
+		}
 
 		$this->db->commit();
 
@@ -327,6 +335,15 @@ class PowerPlantPVReportBuilder
 		$report->status = $status;
 		if ($report->update($user, 0) < 0) {
 			$this->copyErrorsFrom($report);
+			$this->db->rollback();
+			return -1;
+		}
+		if ((string) $status === PowerPlantPVReport::STATUS_SAVED) {
+			$result = $this->syncIndexReadingsFromReport($report, $user);
+		} else {
+			$result = $this->deactivateIndexReadingsForReport((int) $report->id, $user);
+		}
+		if ($result < 0) {
 			$this->db->rollback();
 			return -1;
 		}
@@ -800,6 +817,7 @@ class PowerPlantPVReportBuilder
 				if (isset($oldValues[(string) $field->stable_key])) {
 					$this->copyStoredValueToField($field, $oldValues[(string) $field->stable_key]);
 				}
+				$this->applyArchivedPreviousReadingToField($field, $section, $plan, (int) $report->id);
 				$fieldId = $field->create($user, 0);
 				if ($fieldId <= 0) {
 					$this->copyErrorsFrom($field);
@@ -1063,8 +1081,84 @@ class PowerPlantPVReportBuilder
 		$field->visible_pdf = (int) $templateField->visible_pdf;
 		$field->readonly = (int) $templateField->readonly;
 		$field->position = (int) $templateField->position;
+		$this->applyArchivedPreviousReadingToField($field, $section, $plan, (int) $report->id);
 
 		return $field;
+	}
+
+	/**
+	 * Prefill an N-1 production reading field from the archived readings.
+	 *
+	 * @param	PowerPlantPVReportField		$field		Field object
+	 * @param	PowerPlantPVReportSection	$section	Section object
+	 * @param	array<string,mixed>			$plan		Section plan
+	 * @param	int							$excludeReportId	Report id to exclude
+	 * @return	void
+	 */
+	private function applyArchivedPreviousReadingToField(PowerPlantPVReportField $field, PowerPlantPVReportSection $section, $plan, $excludeReportId = 0)
+	{
+		if ((string) $section->section_code !== 'PRODUCTION_READING') {
+			return;
+		}
+		$typeCode = $this->productionReadingTypeCodeFromField((string) $field->field_code, 1);
+		if ($typeCode === '') {
+			return;
+		}
+		$fkPowerplant = isset($plan['fk_powerplant']) ? (int) $plan['fk_powerplant'] : 0;
+		if ($fkPowerplant <= 0) {
+			return;
+		}
+		if (!$this->tableExists($this->db->prefix().'powerplantpv_index_reading')) {
+			$field->readonly = 1;
+			return;
+		}
+
+		$archive = new PowerPlantPVIndexReading($this->db);
+		$latest = $archive->fetchLatestValue($fkPowerplant, $typeCode, '', (int) $excludeReportId);
+		$field->readonly = 1;
+		$field->value_text = null;
+		$field->value_date = null;
+		$field->value_number = is_array($latest) ? (float) $latest['value'] : null;
+	}
+
+	/**
+	 * Return production reading report field map.
+	 *
+	 * @return	array<string,string>	Field code to reading type code map
+	 */
+	private function productionReadingFieldMap()
+	{
+		return array(
+			'INVERTER_PRODUCTION' => 'INVERTER_PRODUCTION',
+			'PRODUCTION_INDEX' => 'PRODUCTION_INDEX',
+			'INJECTION_INDEX' => 'INJECTION_INDEX',
+			'CONSUMPTION_INDEX' => 'CONSUMPTION_INDEX',
+			'ANNUAL_PRODUCTION' => 'ANNUAL_PRODUCTION',
+			'SELF_CONSUMPTION' => 'SELF_CONSUMPTION',
+		);
+	}
+
+	/**
+	 * Resolve a report field code to a production reading type code.
+	 *
+	 * @param	string	$fieldCode	Field code
+	 * @param	int		$previous	1 to require an N-1 field, 0 to require an N field
+	 * @return	string				Reading type code, empty when not mapped
+	 */
+	private function productionReadingTypeCodeFromField($fieldCode, $previous)
+	{
+		$fieldCode = trim((string) $fieldCode);
+		$isPrevious = (substr($fieldCode, -10) === '_N_MINUS_1');
+		if ($previous && !$isPrevious) {
+			return '';
+		}
+		if (!$previous && $isPrevious) {
+			return '';
+		}
+		$baseCode = $isPrevious ? substr($fieldCode, 0, -10) : $fieldCode;
+		$map = $this->productionReadingFieldMap();
+
+		return isset($map[$baseCode]) ? $map[$baseCode] : '';
 	}
 
 	/**
@@ -2197,7 +2291,7 @@ class PowerPlantPVReportBuilder
 			$field->value_text = implode("\n", $clean);
 			return true;
 		}
-		if ((string) $field->field_type === 'number') {
+		if ($this->isNumericReportFieldType((string) $field->field_type)) {
 			$field->value_number = price2num((string) $value);
 			$field->value_text = null;
 			$field->value_date = null;
@@ -2216,6 +2310,272 @@ class PowerPlantPVReportBuilder
 
 		$field->value_text = (string) $value;
 		return true;
+	}
+
+	/**
+	 * Return true for report field types stored in value_number.
+	 *
+	 * @param	string	$fieldType	Field type
+	 * @return	bool				True for numeric types
+	 */
+	private function isNumericReportFieldType($fieldType)
+	{
+		return in_array((string) $fieldType, array('number', 'double', 'real', 'integer', 'price'), true);
+	}
+
+	/**
+	 * Synchronize saved production readings from a finalized report into the archive.
+	 *
+	 * @param	PowerPlantPVReport	$report	Report
+	 * @param	User				$user	User
+	 * @return	int							>0 if OK, <0 on error
+	 */
+	private function syncIndexReadingsFromReport(PowerPlantPVReport $report, User $user)
+	{
+		if (!$this->tableExists($this->db->prefix().'powerplantpv_index_reading')) {
+			return 1;
+		}
+
+		$rows = $this->fetchProductionReadingRowsForReport((int) $report->id);
+		if (!is_array($rows)) {
+			return -1;
+		}
+		$commentsBySection = $this->fetchProductionReadingCommentsBySection((int) $report->id);
+		$typeIdsByCode = $this->fetchIndexTypeIdsByCode();
+		$readingDate = $this->fetchReportReadingDate($report);
+
+		foreach ($rows as $row) {
+			$typeCode = $this->productionReadingTypeCodeFromField((string) $row['field_code'], 0);
+			if ($typeCode === '') {
+				continue;
+			}
+			$fkPowerplant = (int) $row['fk_powerplant'];
+			if ($fkPowerplant <= 0) {
+				continue;
+			}
+			$meterRef = '';
+			$fkReportEquipment = (int) $row['fk_report_equipment'];
+			$reading = new PowerPlantPVIndexReading($this->db);
+			$existing = $reading->fetchByReportSource($fkPowerplant, (int) $report->fk_fichinter, (int) $report->id, $typeCode, $meterRef, $fkReportEquipment);
+			if ($existing < 0) {
+				$this->copyErrorsFrom($reading);
+				return -1;
+			}
+
+			$value = $this->normalizeProductionReadingValue($row);
+			if ($value === null) {
+				if ($existing > 0 && !empty($reading->active)) {
+					$reading->active = 0;
+					if ($reading->update($user, 1) < 0) {
+						$this->copyErrorsFrom($reading);
+						return -1;
+					}
+				}
+				continue;
+			}
+
+			$reading->entity = (int) $report->entity;
+			$reading->fk_powerplant = $fkPowerplant;
+			$reading->fk_fichinter_source = (int) $report->fk_fichinter;
+			$reading->fk_report = (int) $report->id;
+			$reading->fk_report_powerplant = (int) $row['fk_report_powerplant'];
+			$reading->fk_report_equipment = $fkReportEquipment;
+			$reading->fk_index_type = isset($typeIdsByCode[$typeCode]) ? (int) $typeIdsByCode[$typeCode] : null;
+			$reading->reading_type_code = $typeCode;
+			$reading->reading_date = $this->db->idate($readingDate);
+			$reading->value = $value;
+			$reading->unit = !empty($row['unit']) ? (string) $row['unit'] : 'kWh';
+			$reading->meter_ref = $meterRef;
+			$reading->source_type = PowerPlantPVIndexReading::SOURCE_REPORT;
+			$reading->comment = isset($commentsBySection[(int) $row['fk_report_section']]) ? (string) $commentsBySection[(int) $row['fk_report_section']] : '';
+			$reading->active = 1;
+			$result = ($existing > 0) ? $reading->update($user, 1) : $reading->create($user, 1);
+			if ($result <= 0) {
+				$this->copyErrorsFrom($reading);
+				return -1;
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Deactivate all index readings previously archived from a report.
+	 *
+	 * @param	int		$reportId	Report id
+	 * @param	User	$user		User
+	 * @return	int					>0 if OK, <0 on error
+	 */
+	private function deactivateIndexReadingsForReport($reportId, User $user)
+	{
+		if (!$this->tableExists($this->db->prefix().'powerplantpv_index_reading')) {
+			return 1;
+		}
+		$reading = new PowerPlantPVIndexReading($this->db);
+		$result = $reading->deactivateByReport((int) $reportId, $user);
+		if ($result < 0) {
+			$this->copyErrorsFrom($reading);
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Fetch production reading N fields from a report.
+	 *
+	 * @param	int	$reportId	Report id
+	 * @return	array<int,array<string,mixed>>|int	Rows or <0 on error
+	 */
+	private function fetchProductionReadingRowsForReport($reportId)
+	{
+		$sql = "SELECT f.rowid, f.fk_report_section, f.fk_report_powerplant, f.fk_report_equipment, f.field_code, f.value_text, f.value_number, f.unit";
+		$sql .= ", s.fk_report_powerplant as section_report_powerplant, rp.fk_powerplant";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_field as f";
+		$sql .= " INNER JOIN ".$this->db->prefix()."powerplantpv_report_section as s ON s.rowid = f.fk_report_section";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."powerplantpv_report_powerplant as rp ON rp.rowid = COALESCE(NULLIF(f.fk_report_powerplant, 0), s.fk_report_powerplant)";
+		$sql .= " WHERE f.fk_report = ".((int) $reportId);
+		$sql .= " AND s.section_code = 'PRODUCTION_READING'";
+		$sql .= " ORDER BY s.position ASC, f.position ASC, f.rowid ASC";
+
+		$rows = array();
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->setError($this->db->lasterror());
+			return -1;
+		}
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$rows[] = array(
+				'rowid' => (int) $obj->rowid,
+				'fk_report_section' => (int) $obj->fk_report_section,
+				'fk_report_powerplant' => !empty($obj->fk_report_powerplant) ? (int) $obj->fk_report_powerplant : (int) $obj->section_report_powerplant,
+				'fk_report_equipment' => !empty($obj->fk_report_equipment) ? (int) $obj->fk_report_equipment : 0,
+				'fk_powerplant' => !empty($obj->fk_powerplant) ? (int) $obj->fk_powerplant : 0,
+				'field_code' => (string) $obj->field_code,
+				'value_text' => isset($obj->value_text) ? (string) $obj->value_text : '',
+				'value_number' => isset($obj->value_number) ? $obj->value_number : null,
+				'unit' => isset($obj->unit) ? (string) $obj->unit : '',
+			);
+		}
+		$this->db->free($resql);
+
+		return $rows;
+	}
+
+	/**
+	 * Fetch production reading comments by section.
+	 *
+	 * @param	int	$reportId	Report id
+	 * @return	array<int,string>	Comment by report section id
+	 */
+	private function fetchProductionReadingCommentsBySection($reportId)
+	{
+		$sql = "SELECT f.fk_report_section, f.value_text";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_field as f";
+		$sql .= " INNER JOIN ".$this->db->prefix()."powerplantpv_report_section as s ON s.rowid = f.fk_report_section";
+		$sql .= " WHERE f.fk_report = ".((int) $reportId);
+		$sql .= " AND s.section_code = 'PRODUCTION_READING'";
+		$sql .= " AND f.field_code = 'PRODUCTION_READING_OBSERVATION'";
+
+		$comments = array();
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' production reading comments lookup failed: '.$this->db->lasterror(), LOG_WARNING);
+			return $comments;
+		}
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$comments[(int) $obj->fk_report_section] = isset($obj->value_text) ? (string) $obj->value_text : '';
+		}
+		$this->db->free($resql);
+
+		return $comments;
+	}
+
+	/**
+	 * Fetch index type row ids by code.
+	 *
+	 * @return	array<string,int>	Dictionary row ids by code
+	 */
+	private function fetchIndexTypeIdsByCode()
+	{
+		$sql = "SELECT rowid, code";
+		$sql .= " FROM ".$this->db->prefix()."c_powerplantpv_index_type";
+		$sql .= " WHERE entity IN (".$this->db->sanitize(getEntity('c_powerplantpv_index_type')).")";
+
+		$ids = array();
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' index type lookup failed: '.$this->db->lasterror(), LOG_WARNING);
+			return $ids;
+		}
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$ids[(string) $obj->code] = (int) $obj->rowid;
+		}
+		$this->db->free($resql);
+
+		return $ids;
+	}
+
+	/**
+	 * Normalize a production reading value from a report field row.
+	 *
+	 * @param	array<string,mixed>	$row	Report field row
+	 * @return	float|null					Numeric value or null when empty
+	 */
+	private function normalizeProductionReadingValue($row)
+	{
+		if (isset($row['value_number']) && $row['value_number'] !== null && (string) $row['value_number'] !== '') {
+			return (float) $row['value_number'];
+		}
+		if (isset($row['value_text']) && trim((string) $row['value_text']) !== '') {
+			return (float) price2num((string) $row['value_text']);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Resolve the reading date for report-sourced readings.
+	 *
+	 * @param	PowerPlantPVReport	$report	Report
+	 * @return	int							Unix timestamp
+	 */
+	private function fetchReportReadingDate(PowerPlantPVReport $report)
+	{
+		$dateColumns = array('datei', 'dateo', 'date_valid', 'datec', 'tms');
+		$availableColumns = array();
+		$table = $this->db->prefix().'fichinter';
+		foreach ($dateColumns as $column) {
+			if ($this->columnExists($table, $column)) {
+				$availableColumns[] = $column;
+			}
+		}
+		if (!empty($availableColumns) && !empty($report->fk_fichinter)) {
+			$selects = array();
+			foreach ($availableColumns as $column) {
+				$selects[] = $this->db->sanitize($column);
+			}
+			$sql = "SELECT ".implode(', ', $selects);
+			$sql .= " FROM ".$table;
+			$sql .= " WHERE rowid = ".((int) $report->fk_fichinter);
+			$resql = $this->db->query($sql);
+			if ($resql) {
+				$obj = $this->db->fetch_object($resql);
+				$this->db->free($resql);
+				if (is_object($obj)) {
+					foreach ($availableColumns as $column) {
+						if (!empty($obj->{$column})) {
+							return $this->db->jdate((string) $obj->{$column});
+						}
+					}
+				}
+			}
+		}
+		if (!empty($report->date_creation)) {
+			return is_numeric($report->date_creation) ? (int) $report->date_creation : $this->db->jdate((string) $report->date_creation);
+		}
+
+		return dol_now();
 	}
 
 	/**

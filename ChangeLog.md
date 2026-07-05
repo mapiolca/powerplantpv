@@ -26,6 +26,9 @@
 - Ajout des mesures DC spécialisées `powerplantpv_report_dc_measure`, générées automatiquement depuis la topologie installée, avec mode manuel et conservation des valeurs au recalcul par clé stable.
 - Extension du snapshot équipement de rapport avec source équipement, marque, modèle, position et snapshot technique JSON.
 - Ajout de la documentation technique `docs/technical/v1.3-pr8-multi-equipment-dc-measures.md`.
+- Ajout de l'onglet centrale `Production/consommation`, de l'archive `powerplantpv_index_reading`, de la saisie manuelle des relevés et de la synchronisation des champs `PRODUCTION_READING` des rapports finalisés.
+- Préremplissage non éditable des champs `N-1` depuis le dernier relevé archivé et ajout des champs `SELF_CONSUMPTION_N_MINUS_1` / `SELF_CONSUMPTION` au modèle préinstallé.
+- Ajout de la documentation technique `docs/technical/v1.3-pr9-production-consumption.md`.
 
 ## 1.2.1
 

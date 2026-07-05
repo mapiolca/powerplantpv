@@ -670,7 +670,7 @@ function powerplantpvReportRenderField($field, $editable, $form)
 
 	if ($type === 'textarea' || $type === 'dynamic_table') {
 		print '<textarea class="flat minwidth500 widthcentpercentminusxx" name="'.$name.'" rows="4">'.dol_escape_htmltag((string) $value).'</textarea>';
-	} elseif ($type === 'number') {
+	} elseif (powerplantpvReportIsNumericFieldType($type)) {
 		print '<input type="text" class="flat maxwidth150 right" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'">';
 	} elseif ($type === 'date' || $type === 'datetime') {
 		$hash = md5((string) $field->stable_key);
@@ -809,7 +809,7 @@ function powerplantpvReportEquipmentLabel($equipment)
  */
 function powerplantpvReportFieldDisplayValue($field)
 {
-	if ((string) $field->field_type === 'number') {
+	if (powerplantpvReportIsNumericFieldType((string) $field->field_type)) {
 		return $field->value_number !== null ? price($field->value_number) : '';
 	}
 	if ((string) $field->field_type === 'date' || (string) $field->field_type === 'datetime') {
@@ -820,6 +820,17 @@ function powerplantpvReportFieldDisplayValue($field)
 	}
 
 	return (string) $field->value_text;
+}
+
+/**
+ * Return true for report field types stored in value_number.
+ *
+ * @param	string	$fieldType	Field type
+ * @return	bool				True for numeric field types
+ */
+function powerplantpvReportIsNumericFieldType($fieldType)
+{
+	return in_array((string) $fieldType, array('number', 'double', 'real', 'integer', 'price'), true);
 }
 
 /**

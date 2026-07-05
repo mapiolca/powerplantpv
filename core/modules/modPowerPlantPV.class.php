@@ -859,6 +859,10 @@ class modPowerPlantPV extends DolibarrModules
 		if ($result < 0) {
 			return -1;
 		}
+		$result = $this->ensureIndexReadingSchema();
+		if ($result < 0) {
+			return -1;
+		}
 
 		// Create product extrafield for photovoltaic category.
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
@@ -1647,6 +1651,115 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
+	 * Ensure production/consumption index reading archive table exists.
+	 *
+	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensureIndexReadingSchema()
+	{
+		$table = $this->db->prefix().'powerplantpv_index_reading';
+		$sql = "CREATE TABLE IF NOT EXISTS ".$table."(
+			rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+			entity integer DEFAULT 1 NOT NULL,
+			fk_powerplant integer NOT NULL,
+			fk_fichinter_source integer,
+			fk_report integer,
+			fk_report_powerplant integer DEFAULT 0 NOT NULL,
+			fk_report_equipment integer DEFAULT 0 NOT NULL,
+			fk_index_type integer,
+			reading_type_code varchar(64) NOT NULL,
+			reading_date datetime NOT NULL,
+			value double(24,8) NOT NULL,
+			unit varchar(32) DEFAULT 'kWh' NOT NULL,
+			meter_ref varchar(128) DEFAULT '' NOT NULL,
+			source_type varchar(32) DEFAULT 'manual' NOT NULL,
+			comment text,
+			date_creation datetime,
+			tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			fk_user_creat integer,
+			fk_user_modif integer,
+			active smallint DEFAULT 1 NOT NULL
+		) ENGINE=innodb";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		$fields = array(
+			'entity' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 1 NOT NULL'),
+			'fk_powerplant' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+			'fk_fichinter_source' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			'fk_report' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			'fk_report_powerplant' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+			'fk_report_equipment' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+			'fk_index_type' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			'reading_type_code' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
+			'reading_date' => array('type' => 'datetime', 'value' => '', 'null' => 'NOT NULL'),
+			'value' => array('type' => 'double', 'value' => '24,8', 'null' => 'NOT NULL'),
+			'unit' => array('type' => 'varchar', 'value' => '32', 'null' => "DEFAULT 'kWh' NOT NULL"),
+			'meter_ref' => array('type' => 'varchar', 'value' => '128', 'null' => "DEFAULT '' NOT NULL"),
+			'source_type' => array('type' => 'varchar', 'value' => '32', 'null' => "DEFAULT 'manual' NOT NULL"),
+			'comment' => array('type' => 'text', 'value' => '', 'null' => ''),
+			'date_creation' => array('type' => 'datetime', 'value' => '', 'null' => ''),
+			'tms' => array('type' => 'timestamp', 'value' => '', 'null' => 'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+			'fk_user_creat' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			'fk_user_modif' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			'active' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 1 NOT NULL'),
+		);
+
+		foreach ($fields as $field => $fielddesc) {
+			if ($this->reportTemplateColumnExists($table, $field)) {
+				continue;
+			}
+			$result = $this->db->DDLAddField($table, $field, $fielddesc);
+			if ($result < 0) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
+		$indexes = array(
+			'idx_powerplantpv_index_reading_entity' => 'entity',
+			'idx_powerplantpv_index_reading_powerplant' => 'fk_powerplant',
+			'idx_powerplantpv_index_reading_fichinter' => 'fk_fichinter_source',
+			'idx_powerplantpv_index_reading_report' => 'fk_report',
+			'idx_powerplantpv_index_reading_report_powerplant' => 'fk_report_powerplant',
+			'idx_powerplantpv_index_reading_report_equipment' => 'fk_report_equipment',
+			'idx_powerplantpv_index_reading_index_type' => 'fk_index_type',
+			'idx_powerplantpv_index_reading_source' => 'source_type',
+			'idx_powerplantpv_index_reading_active' => 'active',
+			'idx_powerplantpv_index_reading_user_creat' => 'fk_user_creat',
+		);
+		foreach ($indexes as $indexname => $fieldname) {
+			if ($this->reportTemplateIndexExists($table, $indexname)) {
+				continue;
+			}
+			$sql = "ALTER TABLE ".$this->db->sanitize($table)." ADD INDEX ".$this->db->sanitize($indexname)." (".$this->db->sanitize($fieldname).")";
+			if (!$this->db->query($sql)) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
+		$customIndexes = array(
+			'uk_powerplantpv_index_reading_report_source' => 'UNIQUE INDEX uk_powerplantpv_index_reading_report_source (entity, fk_powerplant, fk_fichinter_source, fk_report, reading_type_code, meter_ref, fk_report_equipment)',
+			'idx_powerplantpv_index_reading_type_date' => 'INDEX idx_powerplantpv_index_reading_type_date (reading_type_code, reading_date)',
+		);
+		foreach ($customIndexes as $indexname => $definition) {
+			if ($this->reportTemplateIndexExists($table, $indexname)) {
+				continue;
+			}
+			$sql = "ALTER TABLE ".$this->db->sanitize($table)." ADD ".$definition;
+			if (!$this->db->query($sql)) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
+		return 1;
+	}
+
+	/**
 	 * Check if a table exists.
 	 *
 	 * @param	string	$table	Full table name
@@ -2395,6 +2508,8 @@ class modPowerPlantPV extends DolibarrModules
 			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'CONSUMPTION_INDEX', 'label' => 'Index consommation N', 'label_en' => 'Consumption index N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5040),
 			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'ANNUAL_PRODUCTION_N_MINUS_1', 'label' => 'Production annuelle N-1', 'label_en' => 'Annual production N-1', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5045),
 			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'ANNUAL_PRODUCTION', 'label' => 'Production annuelle N', 'label_en' => 'Annual production N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5050),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'SELF_CONSUMPTION_N_MINUS_1', 'label' => 'Autoconsommation N-1', 'label_en' => 'Self-consumption N-1', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5055),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'SELF_CONSUMPTION', 'label' => 'Autoconsommation N', 'label_en' => 'Self-consumption N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5058),
 			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'PRODUCTION_READING_OBSERVATION', 'label' => 'Observation', 'label_en' => 'Observation', 'field_type' => 'text', 'scope_type' => 'powerplant', 'unit' => '', 'position' => 5060),
 			array('section' => 'GENERAL_OBSERVATIONS', 'service' => '', 'code' => 'GENERAL_OBSERVATIONS_TEXT', 'label' => 'Observations générales', 'label_en' => 'General observations', 'field_type' => 'textarea', 'scope_type' => 'intervention', 'unit' => '', 'position' => 7010),
 			array('section' => 'CUSTOMER_SIGNATURE', 'service' => '', 'code' => 'CUSTOMER_SIGNATORY_NAME', 'label' => 'Nom du signataire client', 'label_en' => 'Customer signatory name', 'field_type' => 'varchar', 'scope_type' => 'intervention', 'unit' => '', 'position' => 8010),
