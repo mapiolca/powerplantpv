@@ -1015,6 +1015,7 @@ PowerPlantPVReportSourceMode = Source mode
 PowerPlantPVReportNoInterventionNature = No intervention nature is defined on this intervention. The report cannot be generated.
 PowerPlantPVReportNoTemplateForNature = The intervention nature has no active report template. The report cannot be generated.
 PowerPlantPVReportCannotBeGenerated = The report cannot be generated with the current data.
+PowerPlantPVReportNoUsableTemplateSections = The report template has no active usable section or field for the detected maintenance services.
 PowerPlantPVReportEmptySnapshot = The saved report contains no section. Recalculate it from the template to rebuild the form.
 PowerPlantPVReportNoContractPrestations = No maintenance service from an active contract was found. Manual mode is available if you have permission to manage reports.
 PowerPlantPVReportManualServices = Services to apply manually

@@ -571,12 +571,12 @@ class PowerPlantPVReportBuilder
 		$equipment = $this->fetchEquipmentContext($powerplants);
 		$dcMeasureInputs = $this->fetchDcMeasureInputContext($powerplants, $equipment);
 		$templateSections = $this->fetchTemplateSections((int) $template['id']);
-		$templateFields = $this->fetchTemplateFields((int) $template['id']);
+		$templateFields = $this->fetchTemplateFields((int) $template['id'], (string) $template['code']);
 		$fieldOptions = $this->fetchFieldOptions($templateFields);
 		$mappedSectionIds = $this->fetchMappedSectionIds((int) $template['id'], $serviceRows);
 		$mappedSectionIdsByPowerplant = $this->fetchMappedSectionIdsByPowerplant((int) $template['id'], $serviceRows);
 
-		return array(
+		$context = array(
 			'can_generate' => 1,
 			'messages' => $messages,
 			'intervention_id' => $interventionId,
@@ -598,6 +598,18 @@ class PowerPlantPVReportBuilder
 			'mapped_section_ids' => $mappedSectionIds,
 			'mapped_section_ids_by_powerplant' => $mappedSectionIdsByPowerplant,
 		);
+
+		$planDiagnostics = array();
+		$sectionPlans = $this->buildSectionPlans($context, $planDiagnostics);
+		$context['section_plans'] = $sectionPlans;
+		$context['section_plan_diagnostics'] = $planDiagnostics;
+		$this->logSectionPlanDiagnostics($context, $planDiagnostics, empty($sectionPlans) ? LOG_WARNING : LOG_DEBUG);
+		if (empty($sectionPlans)) {
+			$context['can_generate'] = 0;
+			$context['messages'][] = 'PowerPlantPVReportNoUsableTemplateSections';
+		}
+
+		return $context;
 	}
 
 	/**
@@ -796,7 +808,11 @@ class PowerPlantPVReportBuilder
 	private function persistSectionFieldSnapshot(PowerPlantPVReport $report, $context, User $user, $powerplantMap, $equipmentMap, $oldValues, $oldDcValues)
 	{
 		$fieldIds = array();
-		$plans = $this->buildSectionPlans($context);
+		$plans = !empty($context['section_plans']) && is_array($context['section_plans']) ? $context['section_plans'] : $this->buildSectionPlans($context);
+		if (empty($plans)) {
+			$this->setError('PowerPlantPVReportNoUsableTemplateSections');
+			return -1;
+		}
 		foreach ($plans as $plan) {
 			$templateSection = $plan['section'];
 			$section = new PowerPlantPVReportSection($this->db);
@@ -804,7 +820,7 @@ class PowerPlantPVReportBuilder
 			$section->fk_report = (int) $report->id;
 			$section->fk_report_powerplant = isset($powerplantMap[(int) $plan['fk_powerplant']]) ? (int) $powerplantMap[(int) $plan['fk_powerplant']] : 0;
 			$section->fk_report_equipment = isset($equipmentMap[(string) $plan['equipment_key']]) ? (int) $equipmentMap[(string) $plan['equipment_key']] : 0;
-			$section->fk_report_template_section = (int) $templateSection->id;
+			$section->fk_report_template_section = $this->getTemplateObjectId($templateSection);
 			$section->section_code = (string) $templateSection->code;
 			$section->section_label = (string) $templateSection->label;
 			$section->section_label_en = (string) $templateSection->label_en;
@@ -864,7 +880,8 @@ class PowerPlantPVReportBuilder
 		$report->id = $reportId;
 
 		$sections = array();
-		foreach ($this->buildSectionPlans($context) as $plan) {
+		$plans = !empty($context['section_plans']) && is_array($context['section_plans']) ? $context['section_plans'] : $this->buildSectionPlans($context);
+		foreach ($plans as $plan) {
 			$templateSection = $plan['section'];
 			$section = new PowerPlantPVReportSection($this->db);
 			$section->id = 0;
@@ -873,7 +890,7 @@ class PowerPlantPVReportBuilder
 			$section->fk_report = $reportId;
 			$section->fk_report_powerplant = isset($powerplantMap[(int) $plan['fk_powerplant']]) ? (int) $powerplantMap[(int) $plan['fk_powerplant']] : 0;
 			$section->fk_report_equipment = isset($equipmentMap[(string) $plan['equipment_key']]) ? (int) $equipmentMap[(string) $plan['equipment_key']] : 0;
-			$section->fk_report_template_section = (int) $templateSection->id;
+			$section->fk_report_template_section = $this->getTemplateObjectId($templateSection);
 			$section->section_code = (string) $templateSection->code;
 			$section->section_label = (string) $templateSection->label;
 			$section->section_label_en = (string) $templateSection->label_en;
@@ -1072,7 +1089,8 @@ class PowerPlantPVReportBuilder
 		$field->fk_report_section = (int) $section->id;
 		$field->fk_report_powerplant = (int) $section->fk_report_powerplant;
 		$field->fk_report_equipment = (int) $section->fk_report_equipment;
-		$field->fk_report_template_field = (int) $templateField->id;
+		$templateFieldId = $this->getTemplateObjectId($templateField);
+		$field->fk_report_template_field = $templateFieldId;
 		$field->stable_key = (string) $plan['occurrence_key'].':field:'.(string) $templateField->code;
 		$field->field_code = (string) $templateField->code;
 		$field->field_label = (string) $templateField->label;
@@ -1085,7 +1103,7 @@ class PowerPlantPVReportBuilder
 		$field->default_value = (string) $templateField->default_value;
 		$field->placeholder = (string) $templateField->placeholder;
 		$field->help = (string) $templateField->help;
-		$field->options_snapshot = $this->encodeFieldOptions((int) $templateField->id, $context['field_options']);
+		$field->options_snapshot = $this->encodeFieldOptions($templateFieldId, $context['field_options']);
 		$field->value_text = (string) $templateField->default_value;
 		$field->value_number = null;
 		$field->value_date = null;
@@ -1178,44 +1196,76 @@ class PowerPlantPVReportBuilder
 	 * Build section occurrence plans.
 	 *
 	 * @param	array<string,mixed>	$context	Context
+	 * @param	array<string,int>|null	$diagnostics	Diagnostic counters
 	 * @return	array<int,array<string,mixed>>	Plans
 	 */
-	private function buildSectionPlans($context)
+	private function buildSectionPlans($context, &$diagnostics = null)
 	{
 		$plans = array();
 		$fieldsBySection = array();
+		$stats = array(
+			'template_sections' => !empty($context['template_sections']) && is_array($context['template_sections']) ? count($context['template_sections']) : 0,
+			'template_fields' => !empty($context['template_fields']) && is_array($context['template_fields']) ? count($context['template_fields']) : 0,
+			'mapped_sections' => !empty($context['mapped_section_ids']) && is_array($context['mapped_section_ids']) ? count($context['mapped_section_ids']) : 0,
+			'visible_fields' => 0,
+			'fields_skipped_hidden' => 0,
+			'fields_skipped_service' => 0,
+			'fields_skipped_no_section' => 0,
+			'sections_with_fields' => 0,
+			'sections_skipped_hidden' => 0,
+			'sections_skipped_unmapped' => 0,
+			'sections_skipped_no_fields' => 0,
+			'occurrences_skipped_unmapped' => 0,
+			'planned_sections' => 0,
+		);
 		foreach ($context['template_fields'] as $field) {
-			if (empty($field->active) || empty($field->visible_form)) {
+			if (!$this->isTemplateFlagEnabled($field, 'active', 1) || !$this->isTemplateFlagEnabled($field, 'visible_form', 1)) {
+				$stats['fields_skipped_hidden']++;
 				continue;
 			}
 			if ((int) $field->fk_maintenance_service > 0 && empty($context['service_ids'][(int) $field->fk_maintenance_service])) {
+				$stats['fields_skipped_service']++;
 				continue;
 			}
 			$sectionId = (int) $field->fk_report_template_section;
+			if ($sectionId <= 0) {
+				$stats['fields_skipped_no_section']++;
+				continue;
+			}
 			if (!isset($fieldsBySection[$sectionId])) {
 				$fieldsBySection[$sectionId] = array();
 			}
 			$fieldsBySection[$sectionId][] = $field;
+			$stats['visible_fields']++;
 		}
+		$stats['sections_with_fields'] = count($fieldsBySection);
 
 		$position = 0;
 		$hasMappedSections = !empty($context['mapped_section_ids']);
 		foreach ($context['template_sections'] as $section) {
-			$sectionId = (int) $section->id;
-			if (empty($section->active) || empty($section->visible_form)) {
+			$sectionId = $this->getTemplateObjectId($section);
+			if ($sectionId <= 0) {
+				$stats['sections_skipped_hidden']++;
+				continue;
+			}
+			if (!$this->isTemplateFlagEnabled($section, 'active', 1) || !$this->isTemplateFlagEnabled($section, 'visible_form', 1)) {
+				$stats['sections_skipped_hidden']++;
 				continue;
 			}
 			if ($hasMappedSections && empty($section->is_required) && empty($context['mapped_section_ids'][$sectionId])) {
+				$stats['sections_skipped_unmapped']++;
 				continue;
 			}
 			$fields = isset($fieldsBySection[$sectionId]) ? $fieldsBySection[$sectionId] : array();
 			$isDcMeasureSection = ((string) $section->code === 'DC_ELECTRICAL_MEASURE');
 			if (empty($fields) && !$isDcMeasureSection) {
+				$stats['sections_skipped_no_fields']++;
 				continue;
 			}
 			$occurrences = $this->buildSectionOccurrences($section, $context);
 			foreach ($occurrences as $occurrence) {
 				if ($hasMappedSections && empty($section->is_required) && !$this->isSectionMappedForPowerplant($sectionId, (int) $occurrence['fk_powerplant'], $context)) {
+					$stats['occurrences_skipped_unmapped']++;
 					continue;
 				}
 				$plans[] = array(
@@ -1228,6 +1278,10 @@ class PowerPlantPVReportBuilder
 				);
 				$position += 10;
 			}
+		}
+		$stats['planned_sections'] = count($plans);
+		if (is_array($diagnostics)) {
+			$diagnostics = $stats;
 		}
 
 		return $plans;
@@ -1243,9 +1297,9 @@ class PowerPlantPVReportBuilder
 	private function buildSectionOccurrences($section, $context)
 	{
 		$code = (string) $section->code;
-		$scope = (string) $section->scope_type;
-		$repeat = (string) $section->repeat_mode;
-		$equipmentType = (string) $section->equipment_type;
+		$scope = powerplantpvReportTemplateNormalizeScopeType((string) $section->scope_type);
+		$repeat = powerplantpvReportTemplateNormalizeRepeatMode((string) $section->repeat_mode);
+		$equipmentType = powerplantpvReportTemplateNormalizeEquipmentType((string) $section->equipment_type);
 
 		if ($code === 'DC_ELECTRICAL_MEASURE') {
 			$occurrences = array();
@@ -1901,30 +1955,186 @@ class PowerPlantPVReportBuilder
 	}
 
 	/**
-	 * Fetch active template sections.
+	 * Fetch template sections without applying generation flags.
 	 *
 	 * @param	int	$templateId	Template id
 	 * @return	array<int,PowerPlantPVReportTemplateSection>	Sections
 	 */
 	private function fetchTemplateSections($templateId)
 	{
-		$sectionObject = new PowerPlantPVReportTemplateSection($this->db);
-		$rows = $sectionObject->fetchAll(1, array('fk_report_template' => (int) $templateId), 'position', 'ASC');
-		return is_array($rows) ? $rows : array();
+		global $conf;
+
+		$sql = "SELECT t.rowid, t.entity, t.fk_report_template, t.code, t.label, t.label_en, t.description, t.description_en,";
+		$sql .= " t.scope_type, t.equipment_type, t.repeat_mode, t.is_required, t.visible_form, t.visible_pdf, t.active, t.position,";
+		$sql .= " t.date_creation, t.tms, t.fk_user_creat, t.fk_user_modif, t.import_key";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_template_section as t";
+		$sql .= " WHERE t.entity = ".((int) $conf->entity);
+		$sql .= " AND t.fk_report_template = ".((int) $templateId);
+		$sql .= " ORDER BY t.position ASC, t.rowid ASC";
+
+		$rows = array();
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' template section lookup failed: '.$this->db->lasterror(), LOG_WARNING);
+			return $rows;
+		}
+
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$section = $this->buildTemplateSectionFromSqlRow($obj, (int) $templateId);
+			if ($this->getTemplateObjectId($section) > 0) {
+				$rows[] = $section;
+			}
+		}
+		$this->db->free($resql);
+
+		return $rows;
 	}
 
 	/**
-	 * Fetch active template fields.
+	 * Fetch template fields without applying generation flags.
 	 *
-	 * @param	int	$templateId	Template id
+	 * @param	int		$templateId		Template id
+	 * @param	string	$templateCode	Template code
 	 * @return	array<int,PowerPlantPVReportTemplateField>	Fields
 	 */
-	private function fetchTemplateFields($templateId)
+	private function fetchTemplateFields($templateId, $templateCode)
 	{
-		$fieldObject = new PowerPlantPVReportTemplateField($this->db);
-		$rows = $fieldObject->fetchAll(1, array('fk_report_template' => (int) $templateId), 'position', 'ASC');
+		global $conf;
 
-		return is_array($rows) ? $rows : array();
+		$sql = "SELECT f.rowid, f.entity, f.fk_report_template,";
+		$sql .= " COALESCE(directts.rowid, legacyts.rowid, 0) as resolved_report_template_section,";
+		$sql .= " f.fk_report_template_section, f.report_template_code, f.fk_report_section, f.fk_maintenance_service,";
+		$sql .= " f.code, f.label, f.label_en, f.description, f.description_en, f.field_type, f.scope_type, f.unit,";
+		$sql .= " f.default_value, f.placeholder, f.help, f.is_required, f.visible_form, f.visible_pdf, f.readonly, f.active, f.position,";
+		$sql .= " f.date_creation, f.tms, f.fk_user_creat, f.fk_user_modif, f.import_key";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_template_field as f";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."powerplantpv_report_template_section as directts ON directts.rowid = f.fk_report_template_section AND directts.entity = f.entity AND directts.fk_report_template = ".((int) $templateId);
+		$sql .= " LEFT JOIN ".$this->db->prefix()."c_powerplantpv_report_section as rs ON rs.rowid = f.fk_report_section AND rs.entity = f.entity";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."powerplantpv_report_template_section as legacyts ON legacyts.entity = f.entity AND legacyts.fk_report_template = ".((int) $templateId)." AND legacyts.code = rs.code";
+		$sql .= " WHERE f.entity = ".((int) $conf->entity);
+		$sql .= " AND (f.fk_report_template = ".((int) $templateId);
+		$sql .= " OR ((f.fk_report_template IS NULL OR f.fk_report_template = 0) AND f.report_template_code = '".$this->db->escape($templateCode)."'))";
+		$sql .= " ORDER BY f.position ASC, f.rowid ASC";
+
+		$rows = array();
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' template field lookup failed: '.$this->db->lasterror(), LOG_WARNING);
+			return $rows;
+		}
+
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$field = $this->buildTemplateFieldFromSqlRow($obj, (int) $templateId, (string) $templateCode);
+			if ($this->getTemplateObjectId($field) > 0) {
+				$rows[] = $field;
+			}
+		}
+		$this->db->free($resql);
+
+		return $rows;
+	}
+
+	/**
+	 * Build a template section object from an explicit SQL row.
+	 *
+	 * @param	stdClass	$obj		SQL row
+	 * @param	int			$templateId	Template id
+	 * @return	PowerPlantPVReportTemplateSection	Section object
+	 */
+	private function buildTemplateSectionFromSqlRow($obj, $templateId)
+	{
+		$section = new PowerPlantPVReportTemplateSection($this->db);
+		$section->rowid = (int) $obj->rowid;
+		$section->id = (int) $obj->rowid;
+		$section->entity = (int) $obj->entity;
+		$section->fk_report_template = (int) $templateId;
+		$section->code = (string) $obj->code;
+		$section->label = (string) $obj->label;
+		$section->label_en = isset($obj->label_en) ? (string) $obj->label_en : '';
+		$section->description = isset($obj->description) ? (string) $obj->description : '';
+		$section->description_en = isset($obj->description_en) ? (string) $obj->description_en : '';
+
+		$scope = powerplantpvReportTemplateNormalizeScopeType(isset($obj->scope_type) ? (string) $obj->scope_type : '');
+		if (!array_key_exists($scope, powerplantpvReportTemplateScopeTypes())) {
+			$scope = 'free_line';
+		}
+		$equipmentType = powerplantpvReportTemplateNormalizeEquipmentType(isset($obj->equipment_type) ? (string) $obj->equipment_type : '');
+		if (!array_key_exists($equipmentType, powerplantpvReportTemplateEquipmentTypes())) {
+			$equipmentType = '';
+		}
+		$repeatMode = powerplantpvReportTemplateNormalizeRepeatMode(isset($obj->repeat_mode) ? (string) $obj->repeat_mode : '');
+		if (!array_key_exists($repeatMode, powerplantpvReportTemplateRepeatModes())) {
+			$repeatMode = 'once';
+		}
+		$section->scope_type = $scope;
+		$section->equipment_type = $equipmentType;
+		$section->repeat_mode = $repeatMode;
+		$section->is_required = isset($obj->is_required) ? (int) $obj->is_required : 0;
+		$section->visible_form = isset($obj->visible_form) ? (int) $obj->visible_form : 1;
+		$section->visible_pdf = isset($obj->visible_pdf) ? (int) $obj->visible_pdf : 1;
+		$section->active = isset($obj->active) ? (int) $obj->active : 1;
+		$section->position = isset($obj->position) ? (int) $obj->position : 0;
+		$section->date_creation = isset($obj->date_creation) ? $obj->date_creation : null;
+		$section->tms = isset($obj->tms) ? $obj->tms : null;
+		$section->fk_user_creat = isset($obj->fk_user_creat) ? (int) $obj->fk_user_creat : null;
+		$section->fk_user_modif = isset($obj->fk_user_modif) ? (int) $obj->fk_user_modif : null;
+		$section->import_key = isset($obj->import_key) ? (string) $obj->import_key : null;
+
+		return $section;
+	}
+
+	/**
+	 * Build a template field object from an explicit SQL row.
+	 *
+	 * @param	stdClass	$obj			SQL row
+	 * @param	int			$templateId		Template id
+	 * @param	string		$templateCode	Template code
+	 * @return	PowerPlantPVReportTemplateField	Field object
+	 */
+	private function buildTemplateFieldFromSqlRow($obj, $templateId, $templateCode)
+	{
+		$field = new PowerPlantPVReportTemplateField($this->db);
+		$field->rowid = (int) $obj->rowid;
+		$field->id = (int) $obj->rowid;
+		$field->entity = (int) $obj->entity;
+		$field->fk_report_template = (int) $templateId;
+		$field->fk_report_template_section = isset($obj->resolved_report_template_section) ? (int) $obj->resolved_report_template_section : 0;
+		$field->report_template_code = !empty($obj->report_template_code) ? (string) $obj->report_template_code : (string) $templateCode;
+		$field->fk_report_section = isset($obj->fk_report_section) ? (int) $obj->fk_report_section : 0;
+		$field->fk_maintenance_service = isset($obj->fk_maintenance_service) ? (int) $obj->fk_maintenance_service : 0;
+		$field->code = (string) $obj->code;
+		$field->label = (string) $obj->label;
+		$field->label_en = isset($obj->label_en) ? (string) $obj->label_en : '';
+		$field->description = isset($obj->description) ? (string) $obj->description : '';
+		$field->description_en = isset($obj->description_en) ? (string) $obj->description_en : '';
+
+		$fieldType = powerplantpvReportTemplateNormalizeFieldType(isset($obj->field_type) ? (string) $obj->field_type : '');
+		if (!array_key_exists($fieldType, powerplantpvReportTemplateFieldTypes())) {
+			$fieldType = 'text';
+		}
+		$scope = powerplantpvReportTemplateNormalizeScopeType(isset($obj->scope_type) ? (string) $obj->scope_type : '');
+		if ($scope !== '' && !array_key_exists($scope, powerplantpvReportTemplateScopeTypes())) {
+			$scope = '';
+		}
+		$field->field_type = $fieldType;
+		$field->scope_type = $scope;
+		$field->unit = isset($obj->unit) ? (string) $obj->unit : '';
+		$field->default_value = isset($obj->default_value) ? (string) $obj->default_value : '';
+		$field->placeholder = isset($obj->placeholder) ? (string) $obj->placeholder : '';
+		$field->help = isset($obj->help) ? (string) $obj->help : '';
+		$field->is_required = isset($obj->is_required) ? (int) $obj->is_required : 0;
+		$field->visible_form = isset($obj->visible_form) ? (int) $obj->visible_form : 1;
+		$field->visible_pdf = isset($obj->visible_pdf) ? (int) $obj->visible_pdf : 1;
+		$field->readonly = isset($obj->readonly) ? (int) $obj->readonly : 0;
+		$field->active = isset($obj->active) ? (int) $obj->active : 1;
+		$field->position = isset($obj->position) ? (int) $obj->position : 0;
+		$field->date_creation = isset($obj->date_creation) ? $obj->date_creation : null;
+		$field->tms = isset($obj->tms) ? $obj->tms : null;
+		$field->fk_user_creat = isset($obj->fk_user_creat) ? (int) $obj->fk_user_creat : null;
+		$field->fk_user_modif = isset($obj->fk_user_modif) ? (int) $obj->fk_user_modif : null;
+		$field->import_key = isset($obj->import_key) ? (string) $obj->import_key : null;
+
+		return $field;
 	}
 
 	/**
@@ -1937,7 +2147,7 @@ class PowerPlantPVReportBuilder
 	{
 		$fieldIds = array();
 		foreach ($fields as $field) {
-			$fieldId = powerplantpvGetCommonObjectId($field);
+			$fieldId = $this->getTemplateObjectId($field);
 			if ($fieldId > 0) {
 				$fieldIds[$fieldId] = $fieldId;
 			}
@@ -1994,14 +2204,15 @@ class PowerPlantPVReportBuilder
 			return array();
 		}
 
-		$sql = "SELECT fk_report_template_section";
-		$sql .= " FROM ".$this->db->prefix()."powerplantpv_maintenance_service_section";
-		$sql .= " WHERE active = 1";
-		$sql .= " AND fk_maintenance_service IN (".implode(',', $serviceIds).")";
-		$sql .= " AND (fk_report_template = ".((int) $templateId)." OR fk_report_template IS NULL OR fk_report_template = 0)";
-		$sql .= " AND fk_report_template_section IS NOT NULL";
-		$sql .= " AND fk_report_template_section > 0";
-		$sql .= " AND entity IN (".$this->db->sanitize(getEntity('powerplantpv_maintenance_service_section')).")";
+		$sql = "SELECT COALESCE(directts.rowid, legacyts.rowid, 0) as resolved_report_template_section";
+		$sql .= " FROM ".$this->db->prefix()."powerplantpv_maintenance_service_section as m";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."powerplantpv_report_template_section as directts ON directts.rowid = m.fk_report_template_section AND directts.entity = m.entity AND directts.fk_report_template = ".((int) $templateId);
+		$sql .= " LEFT JOIN ".$this->db->prefix()."c_powerplantpv_report_section as rs ON rs.rowid = m.fk_report_section AND rs.entity = m.entity";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."powerplantpv_report_template_section as legacyts ON legacyts.entity = m.entity AND legacyts.fk_report_template = ".((int) $templateId)." AND legacyts.code = rs.code";
+		$sql .= " WHERE m.active = 1";
+		$sql .= " AND m.fk_maintenance_service IN (".implode(',', $serviceIds).")";
+		$sql .= " AND (m.fk_report_template = ".((int) $templateId)." OR m.fk_report_template IS NULL OR m.fk_report_template = 0)";
+		$sql .= " AND m.entity IN (".$this->db->sanitize(getEntity('powerplantpv_maintenance_service_section')).")";
 
 		$ids = array();
 		$resql = $this->db->query($sql);
@@ -2010,7 +2221,10 @@ class PowerPlantPVReportBuilder
 			return $ids;
 		}
 		while (is_object($obj = $this->db->fetch_object($resql))) {
-			$ids[(int) $obj->fk_report_template_section] = (int) $obj->fk_report_template_section;
+			$sectionId = isset($obj->resolved_report_template_section) ? (int) $obj->resolved_report_template_section : 0;
+			if ($sectionId > 0) {
+				$ids[$sectionId] = $sectionId;
+			}
 		}
 		$this->db->free($resql);
 
@@ -2670,6 +2884,71 @@ class PowerPlantPVReportBuilder
 		}
 
 		return 1;
+	}
+
+	/**
+	 * Return the explicit row id of a template configuration object.
+	 *
+	 * @param	object	$object	Template object
+	 * @return	int				Row id
+	 */
+	private function getTemplateObjectId($object)
+	{
+		if (!is_object($object)) {
+			return 0;
+		}
+		if (!empty($object->rowid)) {
+			return (int) $object->rowid;
+		}
+		if (!empty($object->id)) {
+			return (int) $object->id;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Check a template boolean flag while preserving explicit admin disable values.
+	 *
+	 * @param	object	$object		Object carrying the flag
+	 * @param	string	$property	Property name
+	 * @param	int		$default	Default value for NULL/missing values
+	 * @return	bool				True if enabled
+	 */
+	private function isTemplateFlagEnabled($object, $property, $default = 1)
+	{
+		if (!is_object($object) || !property_exists($object, $property) || $object->{$property} === null || $object->{$property} === '') {
+			return (int) $default !== 0;
+		}
+
+		return (int) $object->{$property} !== 0;
+	}
+
+	/**
+	 * Log report section planning counters.
+	 *
+	 * @param	array<string,mixed>	$context		Context
+	 * @param	array<string,int>	$diagnostics	Diagnostic counters
+	 * @param	int					$level			Log level
+	 * @return	void
+	 */
+	private function logSectionPlanDiagnostics($context, $diagnostics, $level)
+	{
+		$template = !empty($context['template']) && is_array($context['template']) ? $context['template'] : array();
+		$templateId = !empty($template['id']) ? (int) $template['id'] : 0;
+		$templateCode = !empty($template['code']) ? (string) $template['code'] : '';
+		$serviceCount = !empty($context['service_ids']) && is_array($context['service_ids']) ? count($context['service_ids']) : 0;
+
+		$parts = array(
+			'template_id='.$templateId,
+			'template_code='.$templateCode,
+			'service_count='.$serviceCount,
+		);
+		foreach ($diagnostics as $key => $value) {
+			$parts[] = $key.'='.(int) $value;
+		}
+
+		dol_syslog(__METHOD__.' '.implode(' ', $parts), $level);
 	}
 
 	/**
