@@ -316,7 +316,7 @@ class ActionsPowerplantpv
 		if ($this->isNativePowerPlantLinkContext($contexts)) {
 			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 			$this->prefillInterventionNature($object, $contexts);
-			$this->resprints .= $this->renderNativePowerPlantCreateRow($object, $contexts, $parameters);
+			$this->resprints .= $this->renderNativePowerPlantOptionRows($object, $contexts, $parameters);
 		}
 
 		if (!in_array('ticketcard', $contexts)) {
@@ -365,7 +365,6 @@ class ActionsPowerplantpv
 		}
 
 		$this->syncAfterNativeCreationWhenNeeded($managedobject, $contexts, $action);
-		$this->resprints = $this->renderNativePowerPlantQuickLinkBlock($managedobject, $contexts);
 
 		return 0;
 	}
@@ -965,6 +964,80 @@ class ActionsPowerplantpv
 	}
 
 	/**
+	 * Render the power plant row on native contract/intervention cards.
+	 *
+	 * @param	CommonObject		$object		Hook object
+	 * @param	string[]				$contexts	Hook contexts
+	 * @param	array<string,mixed>	$parameters	Hook parameters
+	 * @return	string							HTML
+	 */
+	private function renderNativePowerPlantOptionRows(&$object, $contexts, $parameters)
+	{
+		if (GETPOST('action', 'aZ09') == 'create') {
+			return $this->renderNativePowerPlantCreateRow($object, $contexts, $parameters);
+		}
+
+		$managedobject = $this->fetchNativePowerPlantLinkObject($object, $contexts);
+		if (!is_object($managedobject) || empty($managedobject->id)) {
+			return '';
+		}
+
+		return $this->renderNativePowerPlantOptionRow($managedobject, $contexts, $parameters);
+	}
+
+	/**
+	 * Render the read-only or inline-edit power plant row on existing native cards.
+	 *
+	 * @param	CommonObject		$object		Object
+	 * @param	string[]				$contexts	Hook contexts
+	 * @param	array<string,mixed>	$parameters	Hook parameters
+	 * @return	string							HTML
+	 */
+	private function renderNativePowerPlantOptionRow($object, $contexts, $parameters)
+	{
+		global $langs;
+
+		if (!$this->canViewNativePowerPlantLinks($object, $contexts)) {
+			return '';
+		}
+
+		$powerplants = powerplantpvGetLinkedPowerPlants($object);
+		$selectedids = array();
+		foreach ($powerplants as $powerplantid => $powerplant) {
+			$selectedids[] = (int) $powerplantid;
+		}
+
+		$canedit = $this->canEditNativePowerPlantLinks($object, $contexts);
+		$isedit = ($canedit && GETPOST('action', 'aZ09') == 'powerplantpv_edit_powerplants');
+		$colspan = !empty($parameters['colspan']) ? (string) $parameters['colspan'] : '';
+
+		$html = '<tr class="oddeven powerplantpv-quick-powerplants">';
+		$html .= '<td class="titlefield">'.$langs->trans('PowerPlantPVCentrals');
+		if ($canedit && !$isedit) {
+			$url = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=powerplantpv_edit_powerplants&token='.newToken();
+			$html .= ' <a class="editfielda" href="'.dol_escape_htmltag($url).'">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a>';
+		}
+		$html .= '</td>';
+		$html .= '<td'.$colspan.'>';
+		if ($isedit) {
+			$options = powerplantpvGetSelectablePowerPlantOptions($object, $selectedids);
+			$html .= '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
+			$html .= '<input type="hidden" name="token" value="'.newToken().'">';
+			$html .= '<input type="hidden" name="action" value="powerplantpv_set_powerplants">';
+			$html .= '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+			$html .= $this->renderPowerPlantMultiselect('powerplantpv_powerplants', $options, $selectedids);
+			$html .= ' <input type="submit" class="button smallpaddingimp" value="'.dol_escape_htmltag($langs->trans('Modify')).'">';
+			$html .= '</form>';
+		} else {
+			$html .= $this->renderLinkedPowerPlantList($powerplants);
+		}
+		$html .= '</td>';
+		$html .= '</tr>';
+
+		return $html;
+	}
+
+	/**
 	 * Render hidden maintenance period inputs on native intervention creation forms.
 	 *
 	 * @return	string	HTML
@@ -1090,63 +1163,6 @@ class ActionsPowerplantpv
 		}
 
 		return $html !== '' ? $html : '<span class="opacitymedium">'.$langs->trans('NoPowerPlantLinked').'</span>';
-	}
-
-	/**
-	 * Render the quick link block on existing native cards.
-	 *
-	 * @param	CommonObject	$object		Object
-	 * @param	string[]			$contexts	Hook contexts
-	 * @return	string						HTML
-	 */
-	private function renderNativePowerPlantQuickLinkBlock($object, $contexts)
-	{
-		global $langs;
-
-		if (!$this->canViewNativePowerPlantLinks($object, $contexts)) {
-			return '';
-		}
-
-		$powerplants = powerplantpvGetLinkedPowerPlants($object);
-		$selectedids = array();
-		foreach ($powerplants as $powerplantid => $powerplant) {
-			$selectedids[] = (int) $powerplantid;
-		}
-		$canedit = $this->canEditNativePowerPlantLinks($object, $contexts);
-		$options = $canedit ? powerplantpvGetSelectablePowerPlantOptions($object, $selectedids) : array();
-
-		$html = '<div class="fichecenter powerplantpv-quick-powerplants-block">';
-		if ($canedit) {
-			$html .= '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'">';
-			$html .= '<input type="hidden" name="token" value="'.newToken().'">';
-			$html .= '<input type="hidden" name="action" value="powerplantpv_set_powerplants">';
-			$html .= '<input type="hidden" name="id" value="'.((int) $object->id).'">';
-		}
-		$html .= '<div class="div-table-responsive-no-min">';
-		$html .= '<table class="noborder centpercent">';
-		$html .= '<tr class="liste_titre">';
-		$html .= '<td colspan="2">'.$langs->trans('LinkedPowerPlants').'</td>';
-		$html .= '</tr>';
-		$html .= '<tr class="oddeven">';
-		$html .= '<td class="titlefield">'.$langs->trans('PowerPlantPVCentrals').'</td>';
-		$html .= '<td>'.$this->renderLinkedPowerPlantList($powerplants).'</td>';
-		$html .= '</tr>';
-		if ($canedit) {
-			$html .= '<tr class="oddeven">';
-			$html .= '<td>'.$langs->trans('SelectPowerPlants').'</td>';
-			$html .= '<td>'.$this->renderPowerPlantMultiselect('powerplantpv_powerplants', $options, $selectedids);
-			$html .= ' <input type="submit" class="button smallpaddingimp" value="'.dol_escape_htmltag($langs->trans('LinkPowerPlant')).'">';
-			$html .= '</td>';
-			$html .= '</tr>';
-		}
-		$html .= '</table>';
-		$html .= '</div>';
-		if ($canedit) {
-			$html .= '</form>';
-		}
-		$html .= '</div>';
-
-		return $html;
 	}
 
 	/**
