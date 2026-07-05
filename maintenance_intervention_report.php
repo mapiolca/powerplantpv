@@ -1121,16 +1121,18 @@ function powerplantpvReportRenderField($field, $editable, $form)
 	$name = 'report_values['.dol_escape_htmltag((string) $field->stable_key).']';
 	$type = (string) $field->field_type;
 	$value = powerplantpvReportFieldDisplayValue($field);
+	$fieldClass = 'powerplantpv-report-field';
+	$fieldClass .= powerplantpvReportFieldCanInline($field) ? ' powerplantpv-report-field-inline' : ' powerplantpv-report-field-block';
 	$inputClass = 'powerplantpv-report-input'.(powerplantpvReportFieldHasInlineUnit($field) ? ' powerplantpv-report-input-with-unit' : '');
 
-	print '<div class="powerplantpv-report-field">';
+	print '<div class="'.$fieldClass.'">';
 	print '<label>'.dol_escape_htmltag($label);
 	if (!empty($field->is_required)) {
 		print ' <span class="required">*</span>';
 	}
 	print '</label>';
 	if (!empty($field->help)) {
-		print '<div class="opacitymedium">'.dol_escape_htmltag((string) $field->help).'</div>';
+		print '<div class="opacitymedium powerplantpv-report-field-help">'.dol_escape_htmltag((string) $field->help).'</div>';
 	}
 	print '<div class="'.$inputClass.'">';
 	if (!$fieldEditable) {
@@ -1369,6 +1371,17 @@ function powerplantpvReportFieldDisplayValue($field)
 function powerplantpvReportFieldIsPreviousReading($field)
 {
 	return substr((string) $field->field_code, -10) === '_N_MINUS_1';
+}
+
+/**
+ * Return true when a field can keep label, control and unit on one line.
+ *
+ * @param	PowerPlantPVReportField	$field	Field
+ * @return	bool							True for compact fields
+ */
+function powerplantpvReportFieldCanInline($field)
+{
+	return !in_array((string) $field->field_type, array('textarea', 'dynamic_table', 'file', 'signature'), true);
 }
 
 /**
