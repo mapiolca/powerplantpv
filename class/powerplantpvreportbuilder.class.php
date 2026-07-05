@@ -2617,7 +2617,7 @@ class PowerPlantPVReportBuilder
 			return true;
 		}
 		if ($this->isNumericReportFieldType((string) $field->field_type)) {
-			$field->value_number = price2num((string) $value);
+			$field->value_number = trim((string) $value) !== '' ? price2num((string) $value) : null;
 			$field->value_text = null;
 			$field->value_date = null;
 			return true;

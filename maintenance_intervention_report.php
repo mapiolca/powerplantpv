@@ -164,9 +164,10 @@ if ($action === 'classin' && $usercancreateintervention) {
 
 if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 	$status = ($action === 'save') ? PowerPlantPVReport::STATUS_SAVED : PowerPlantPVReport::STATUS_DRAFT;
+	$persistStatus = ($action === 'save') ? PowerPlantPVReport::STATUS_DRAFT : $status;
 	$saveerror = 0;
 	if ($reportFetch <= 0) {
-		$createdReport = $builder->createSnapshot($intervention, $user, $manualServiceIds, $status);
+		$createdReport = $builder->createSnapshot($intervention, $user, $manualServiceIds, $persistStatus);
 		if ($createdReport instanceof PowerPlantPVReport) {
 			$report = $createdReport;
 			$reportFetch = 1;
@@ -176,7 +177,7 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 		}
 	}
 	if (!$saveerror && $reportFetch > 0 && powerplantpvReportSnapshotNeedsRebuild($builder, (int) $report->id)) {
-		$result = $builder->recalculateSnapshot($report, $intervention, $user, $manualServiceIds, $status);
+		$result = $builder->recalculateSnapshot($report, $intervention, $user, $manualServiceIds, $persistStatus);
 		if ($result < 0) {
 			$saveerror++;
 			setEventMessages($builder->error, $builder->errors, 'errors');
@@ -196,20 +197,37 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 		$values = powerplantpvReportGetSubmittedValues();
 		$dateValues = powerplantpvReportGetSubmittedDateValues();
 		$dcValues = powerplantpvReportGetSubmittedDcMeasures();
-		$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $status);
+		$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $persistStatus);
 		if ($result >= 0) {
 			$result = $builder->saveDcMeasureValues((int) $report->id, $dcValues, $user);
 		}
 		$interventionValidationResult = 0;
+		$requiredValidationFailed = 0;
 		if ($result >= 0 && (string) $status === PowerPlantPVReport::STATUS_SAVED) {
-			$interventionValidationResult = powerplantpvReportValidateInterventionIfNeeded($intervention, $user);
-			if ($interventionValidationResult < 0) {
+			$missingRequiredFields = powerplantpvReportFindMissingRequiredFields((int) $report->id);
+			if (!is_array($missingRequiredFields)) {
 				$result = -1;
+				$requiredValidationFailed = 1;
+				setEventMessages($langs->trans('ErrorRecordNotFound'), null, 'errors');
+			} elseif (!empty($missingRequiredFields)) {
+				$result = -1;
+				$requiredValidationFailed = 1;
+				powerplantpvReportSetMissingRequiredFieldsError($missingRequiredFields);
+			} else {
+				$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, PowerPlantPVReport::STATUS_SAVED);
+				if ($result >= 0) {
+					$interventionValidationResult = powerplantpvReportValidateInterventionIfNeeded($intervention, $user);
+					if ($interventionValidationResult < 0) {
+						$result = -1;
+					}
+				}
 			}
 		}
 		if ($result < 0) {
 			if ($interventionValidationResult < 0) {
 				powerplantpvReportSetInterventionValidationError($intervention);
+			} elseif ($requiredValidationFailed) {
+				// Message already set with the missing required fields.
 			} else {
 				setEventMessages($builder->error, $builder->errors, 'errors');
 			}
@@ -780,6 +798,118 @@ function powerplantpvReportGetSubmittedDcMeasures()
 	}
 
 	return $values;
+}
+
+/**
+ * Return missing required field labels for a report.
+ *
+ * @param	int	$reportId	Report id
+ * @return	array<int,string>|int	Labels, <0 on error
+ */
+function powerplantpvReportFindMissingRequiredFields($reportId)
+{
+	global $db;
+
+	$fieldObject = new PowerPlantPVReportField($db);
+	$fields = $fieldObject->fetchAllByReport((int) $reportId, 'position', 'ASC');
+	if (!is_array($fields)) {
+		return -1;
+	}
+
+	$missing = array();
+	foreach ($fields as $field) {
+		if (!is_object($field) || empty($field->is_required)) {
+			continue;
+		}
+		if (!empty($field->readonly) || (int) $field->visible_form <= 0) {
+			continue;
+		}
+		if (in_array((string) $field->field_type, array('computed', 'signature'), true)) {
+			continue;
+		}
+		if (powerplantpvReportFieldIsPreviousReading($field)) {
+			continue;
+		}
+		if (powerplantpvReportRequiredFieldIsEmpty($field)) {
+			$label = powerplantpvReportLocalizedObjectLabel($field, 'field_label');
+			$missing[] = $label !== '' ? $label : (string) $field->field_code;
+		}
+	}
+
+	return $missing;
+}
+
+/**
+ * Return true when a required report field has no exploitable value.
+ *
+ * @param	PowerPlantPVReportField	$field	Field
+ * @return	bool							True if empty
+ */
+function powerplantpvReportRequiredFieldIsEmpty($field)
+{
+	global $db;
+
+	$type = (string) $field->field_type;
+	if ($type === 'file') {
+		if (empty($field->id)) {
+			return true;
+		}
+		$fileObject = new PowerPlantPVReportFile($db);
+		$files = $fileObject->fetchAllByField((int) $field->id);
+		return !is_array($files) || empty($files);
+	}
+	if (powerplantpvReportIsNumericFieldType($type)) {
+		return $field->value_number === null || (string) $field->value_number === '';
+	}
+	if ($type === 'date' || $type === 'datetime') {
+		return empty($field->value_date);
+	}
+	if ($type === 'checkbox' || $type === 'yesno') {
+		return !in_array((string) $field->value_text, array('0', '1'), true);
+	}
+	if ($type === 'multiselect') {
+		return trim((string) $field->value_text) === '';
+	}
+
+	return powerplantpvReportIsHtmlTextEmpty((string) $field->value_text);
+}
+
+/**
+ * Return true when a text/HTML field is empty after stripping markup.
+ *
+ * @param	string	$value	Value
+ * @return	bool			True if empty
+ */
+function powerplantpvReportIsHtmlTextEmpty($value)
+{
+	$value = str_replace(array('&nbsp;', '&#160;', "\xc2\xa0"), ' ', (string) $value);
+	$value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	$value = trim(strip_tags($value));
+
+	return $value === '';
+}
+
+/**
+ * Display missing required field errors.
+ *
+ * @param	array<int,string>	$missing	Missing field labels
+ * @return	void
+ */
+function powerplantpvReportSetMissingRequiredFieldsError($missing)
+{
+	global $langs;
+
+	$details = array();
+	$limit = 10;
+	foreach (array_slice($missing, 0, $limit) as $label) {
+		$details[] = (string) $label;
+	}
+	$remaining = count($missing) - count($details);
+	if ($remaining > 0) {
+		$details[] = $langs->trans('PowerPlantPVReportRequiredFieldsMore', $remaining);
+	}
+
+	setEventMessages($langs->trans('PowerPlantPVReportRequiredFieldsMissing'), $details, 'errors');
 }
 
 /**
