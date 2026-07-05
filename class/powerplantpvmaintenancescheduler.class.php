@@ -123,12 +123,13 @@ class PowerPlantPVMaintenanceScheduler
 	 * @param	CommonObject	$powerplant		Power plant object
 	 * @param	User			$user			Current user
 	 * @param	int|null		$referenceDate	Reference timestamp, defaults to today
+	 * @param	int<0,1>		$systemMode		1 to bypass UI permission filters during system recomputation
 	 * @return	array<string,mixed>				Schedule result
 	 */
-	public function getScheduleForPowerPlant($powerplant, $user, $referenceDate = null)
+	public function getScheduleForPowerPlant($powerplant, $user, $referenceDate = null, $systemMode = 0)
 	{
-		$contracts = $this->fetchLinkedContracts($powerplant, $user);
-		$interventions = $this->fetchLinkedInterventions($powerplant, $user);
+		$contracts = $this->fetchLinkedContracts($powerplant, $user, $systemMode);
+		$interventions = $this->fetchLinkedInterventions($powerplant, $user, $systemMode);
 		$items = array();
 		$referenceDate = !empty($referenceDate) ? (int) $referenceDate : dol_now();
 
@@ -424,14 +425,15 @@ class PowerPlantPVMaintenanceScheduler
 	 *
 	 * @param	CommonObject	$powerplant	Power plant object
 	 * @param	User			$user		Current user
+	 * @param	int<0,1>		$systemMode	1 to bypass UI permission filters during system recomputation
 	 * @return	array<int,array<string,mixed>>	Linked contracts
 	 */
-	private function fetchLinkedContracts($powerplant, $user)
+	private function fetchLinkedContracts($powerplant, $user, $systemMode = 0)
 	{
 		if (empty($powerplant->id)) {
 			return array();
 		}
-		if (function_exists('powerplantpvUserHasRightPath') && !powerplantpvUserHasRightPath($user, array('contrat', 'lire'))) {
+		if (empty($systemMode) && function_exists('powerplantpvUserHasRightPath') && !powerplantpvUserHasRightPath($user, array('contrat', 'lire'))) {
 			return array();
 		}
 
@@ -574,14 +576,15 @@ class PowerPlantPVMaintenanceScheduler
 	 *
 	 * @param	CommonObject	$powerplant	Power plant object
 	 * @param	User			$user		Current user
+	 * @param	int<0,1>		$systemMode	1 to bypass UI permission filters during system recomputation
 	 * @return	array<int,array<string,mixed>>	Linked interventions
 	 */
-	private function fetchLinkedInterventions($powerplant, $user)
+	private function fetchLinkedInterventions($powerplant, $user, $systemMode = 0)
 	{
 		if (empty($powerplant->id)) {
 			return array();
 		}
-		if (function_exists('powerplantpvUserHasRightPath') && !powerplantpvUserHasRightPath($user, array('ficheinter', 'lire'))) {
+		if (empty($systemMode) && function_exists('powerplantpvUserHasRightPath') && !powerplantpvUserHasRightPath($user, array('ficheinter', 'lire'))) {
 			return array();
 		}
 

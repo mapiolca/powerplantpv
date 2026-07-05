@@ -204,6 +204,13 @@ class PowerPlantPVReportBuilder
 			$this->db->rollback();
 			return -1;
 		}
+		if ((string) $status === PowerPlantPVReport::STATUS_SAVED) {
+			$result = $this->syncIndexReadingsFromReport($report, $user);
+			if ($result < 0) {
+				$this->db->rollback();
+				return -1;
+			}
+		}
 
 		$this->db->commit();
 
@@ -273,7 +280,13 @@ class PowerPlantPVReportBuilder
 			$this->db->rollback();
 			return -1;
 		}
-		if ((string) $status !== PowerPlantPVReport::STATUS_SAVED) {
+		if ((string) $status === PowerPlantPVReport::STATUS_SAVED) {
+			$result = $this->syncIndexReadingsFromReport($report, $user);
+			if ($result < 0) {
+				$this->db->rollback();
+				return -1;
+			}
+		} else {
 			$result = $this->deactivateIndexReadingsForReport((int) $report->id, $user);
 			if ($result < 0) {
 				$this->db->rollback();
