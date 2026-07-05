@@ -650,6 +650,27 @@ function powerplantpvReportGetInterventionOnlineSignatureUrl($intervention)
 }
 
 /**
+ * Return the native Dolibarr online signature block for the intervention.
+ *
+ * @param	Fichinter	$intervention	Intervention object
+ * @return	string						Native signature HTML block, or empty string when unavailable
+ */
+function powerplantpvReportShowInterventionOnlineSignatureBlock($intervention)
+{
+	if (!is_object($intervention) || empty($intervention->ref) || !is_readable(DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php')) {
+		return '';
+	}
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php';
+	if (!function_exists('showOnlineSignatureUrl')) {
+		return '';
+	}
+
+	$source = !empty($intervention->element) ? (string) $intervention->element : 'fichinter';
+
+	return (string) showOnlineSignatureUrl($source, (string) $intervention->ref, $intervention, '');
+}
+
+/**
  * Return submitted scalar values.
  *
  * @return	array<string,mixed>	Values by stable key
@@ -778,7 +799,7 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
 		if (!is_array($row) || empty($row['section']) || !is_object($row['section'])) {
 			continue;
 		}
-		if (PowerPlantPVReportBuilder::isIgnoredReportSectionCode((string) $row['section']->section_code)) {
+		if (powerplantpvReportSectionIsNativeCustomerSignature((string) $row['section']->section_code)) {
 			continue;
 		}
 		if ((string) $row['section']->section_code === 'DC_ELECTRICAL_MEASURE') {
@@ -812,7 +833,15 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 	}
 
 	$groups = array();
+	$signatureRows = array();
 	foreach ($sections as $row) {
+		if (!is_array($row) || !isset($row['section']) || !is_object($row['section'])) {
+			continue;
+		}
+		if (powerplantpvReportSectionIsNativeCustomerSignature((string) $row['section']->section_code)) {
+			$signatureRows[] = $row;
+			continue;
+		}
 		$key = 'general';
 		if (!empty($row['powerplant'])) {
 			$key = 'powerplant:'.powerplantpvReportPowerplantSourceId($row['powerplant']);
@@ -829,9 +858,6 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 		}
 		foreach ($group['sections'] as $row) {
 			$section = $row['section'];
-			if (PowerPlantPVReportBuilder::isIgnoredReportSectionCode((string) $section->section_code)) {
-				continue;
-			}
 			$fields = powerplantpvReportFilterRenderableFields(isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array());
 			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
 				continue;
@@ -860,6 +886,74 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 			print '</details>';
 		}
 	}
+
+	if (!empty($signatureRows)) {
+		powerplantpvReportRenderNativeCustomerSignatureBlock($signatureRows);
+	}
+}
+
+/**
+ * Return true for the customer signature section handled by native Dolibarr signature.
+ *
+ * @param	string	$sectionCode	Section code
+ * @return	bool					True for native customer signature section
+ */
+function powerplantpvReportSectionIsNativeCustomerSignature($sectionCode)
+{
+	return (string) $sectionCode === 'CUSTOMER_SIGNATURE';
+}
+
+/**
+ * Render the native customer signature block at the end of the report page.
+ *
+ * @param	array<int,array<string,mixed>>	$signatureRows	Signature section rows
+ * @return	void
+ */
+function powerplantpvReportRenderNativeCustomerSignatureBlock($signatureRows)
+{
+	global $intervention, $langs, $report, $reportFetch, $snapshotNeedsRebuild;
+
+	$firstRow = reset($signatureRows);
+	$section = is_array($firstRow) && isset($firstRow['section']) && is_object($firstRow['section']) ? $firstRow['section'] : null;
+	$title = is_object($section) ? powerplantpvReportLocalizedObjectLabel($section, 'section_label') : $langs->trans('PowerPlantPVReportCustomerSignature');
+	if ($title === '') {
+		$title = $langs->trans('PowerPlantPVReportCustomerSignature');
+	}
+	$signatureUrl = powerplantpvReportGetInterventionOnlineSignatureUrl($intervention);
+	$reportIsFinalized = ($reportFetch > 0 && (string) $report->status === PowerPlantPVReport::STATUS_SAVED);
+	$signatureEnabled = ($reportIsFinalized && !$snapshotNeedsRebuild && $signatureUrl !== '');
+	$message = $langs->trans('PowerPlantPVReportSignatureUnavailable');
+	if (!$reportIsFinalized) {
+		$message = $langs->trans('PowerPlantPVReportSignatureRequiresFinalizedReport');
+	}
+
+	print '<div class="powerplantpv-native-signature-block">';
+	print '<table class="noborder centpercent">';
+	print '<tr class="liste_titre"><td colspan="2">'.dol_escape_htmltag($title).'</td></tr>';
+	print '<tr class="oddeven">';
+	print '<td class="titlefield">'.$langs->trans('PowerPlantPVReportSignatures').'</td>';
+	print '<td>';
+	if ($signatureEnabled) {
+		$nativeBlock = powerplantpvReportShowInterventionOnlineSignatureBlock($intervention);
+		if ($nativeBlock !== '') {
+			print $nativeBlock;
+		} else {
+			print dolGetButtonAction(
+				$langs->trans('PowerPlantPVReportSignButton'),
+				'',
+				'default',
+				$signatureUrl,
+				'',
+				true
+			);
+		}
+	} else {
+		print '<span class="opacitymedium">'.dol_escape_htmltag($message).'</span>';
+	}
+	print '</td>';
+	print '</tr>';
+	print '</table>';
+	print '</div>';
 }
 
 /**

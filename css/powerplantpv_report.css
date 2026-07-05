@@ -164,6 +164,10 @@
 	margin: 16px 0;
 }
 
+.page-maintenance-intervention-report .powerplantpv-native-signature-block {
+	margin-top: 16px;
+}
+
 .page-maintenance-intervention-report .powerplantpv-report-form-editable {
 	padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }

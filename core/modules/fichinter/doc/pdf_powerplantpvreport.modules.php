@@ -380,14 +380,19 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			return;
 		}
 
+		$customerSignatureSections = $this->extractCustomerSignatureSections($dataset);
 		if (!empty($dataset['general_sections']) && is_array($dataset['general_sections'])) {
 			foreach ($dataset['general_sections'] as $sectionRow) {
+				if ($this->isCustomerSignatureSectionRow($sectionRow)) {
+					continue;
+				}
 				$this->renderSection($pdf, $sectionRow, $dataset, $outputlangs);
 			}
 		}
 
 		if (empty($dataset['powerplants']) || !is_array($dataset['powerplants'])) {
 			$this->renderTechnicianFallback($pdf, $dataset, $outputlangs);
+			$this->renderCustomerSignatureSections($pdf, $customerSignatureSections, $dataset, $outputlangs);
 			return;
 		}
 
@@ -409,11 +414,78 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 				$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('NoRecordFound'));
 			} else {
 				foreach ($sections as $sectionRow) {
+					if ($this->isCustomerSignatureSectionRow($sectionRow)) {
+						continue;
+					}
 					$this->renderSection($pdf, $sectionRow, $dataset, $outputlangs);
 				}
 			}
 		}
 		$this->renderTechnicianFallback($pdf, $dataset, $outputlangs);
+		$this->renderCustomerSignatureSections($pdf, $customerSignatureSections, $dataset, $outputlangs);
+	}
+
+	/**
+	 * Extract customer signature sections from the dataset.
+	 *
+	 * @param	array<string,mixed>	$dataset	Dataset
+	 * @return	array<int,array<string,mixed>>	Customer signature section rows
+	 */
+	protected function extractCustomerSignatureSections($dataset)
+	{
+		$sections = array();
+		if (!empty($dataset['general_sections']) && is_array($dataset['general_sections'])) {
+			foreach ($dataset['general_sections'] as $sectionRow) {
+				if ($this->isCustomerSignatureSectionRow($sectionRow)) {
+					$sections[] = $sectionRow;
+				}
+			}
+		}
+		if (!empty($dataset['sections_by_powerplant']) && is_array($dataset['sections_by_powerplant'])) {
+			foreach ($dataset['sections_by_powerplant'] as $powerplantSections) {
+				if (!is_array($powerplantSections)) {
+					continue;
+				}
+				foreach ($powerplantSections as $sectionRow) {
+					if ($this->isCustomerSignatureSectionRow($sectionRow)) {
+						$sections[] = $sectionRow;
+					}
+				}
+			}
+		}
+
+		return $sections;
+	}
+
+	/**
+	 * Return true when a section row is the customer signature section.
+	 *
+	 * @param	array<string,mixed>	$sectionRow	Section row
+	 * @return	bool							True for customer signature section
+	 */
+	protected function isCustomerSignatureSectionRow($sectionRow)
+	{
+		if (empty($sectionRow['section']) || !is_object($sectionRow['section'])) {
+			return false;
+		}
+
+		return (string) $sectionRow['section']->section_code === 'CUSTOMER_SIGNATURE';
+	}
+
+	/**
+	 * Render customer signature sections at the end of the PDF.
+	 *
+	 * @param	TCPDF|TCPDI		$pdf			PDF handler
+	 * @param	array<int,array<string,mixed>>	$sections	Customer signature sections
+	 * @param	array<string,mixed>	$dataset		Dataset
+	 * @param	Translate		$outputlangs	Output language
+	 * @return	void
+	 */
+	protected function renderCustomerSignatureSections(&$pdf, $sections, $dataset, $outputlangs)
+	{
+		foreach ($sections as $sectionRow) {
+			$this->renderSection($pdf, $sectionRow, $dataset, $outputlangs);
+		}
 	}
 
 	/**
