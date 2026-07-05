@@ -3,6 +3,7 @@
 ## 1.3.0
 
 - Correction de l'idempotence d'activation/réactivation : les scripts SQL de création de tables utilisent `IF NOT EXISTS` et les extrafields déjà conformes ne sont plus réenregistrés inutilement.
+- Maintenance : ajout des rappels automatiques hebdomadaires et mensuels des maintenances à prévoir, en cours ou en retard, avec destinataires configurables, modèle d'email optionnel et délai de bascule `Couverte` vers `À prévoir`.
 - Maintenance : alignement des couleurs des badges d'état sur la grille métier et affichage du libellé dans les tableaux.
 - Administration maintenance : séparation des switches d'activation dans une colonne dédiée sur les listes de modèles de rapport, prestations déclenchant des sections et natures d'intervention.
 - Maintenance : liaison automatique d'une intervention de maintenance au contrat actif de la centrale via les liens natifs Dolibarr, sans remplacer un contrat déjà fourni.

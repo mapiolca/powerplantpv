@@ -205,6 +205,13 @@ class modPowerPlantPV extends DolibarrModules
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLATEUR_INF100KWC_MODEL', 'chaine', 'attestation_installateur_inf100kwc', 'Default installer under 100 kWc attestation PDF model', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_ENABLE', 'chaine', '1', 'Enable maintenance foundation features', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_DEFAULT_REPORT_TEMPLATE', 'chaine', 'preventive_maintenance', 'Default maintenance report template code', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 'chaine', '30', 'Maintenance planning lead time in days', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', 'chaine', '0', 'Enable weekly maintenance reminders', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME', 'chaine', '', 'Weekly maintenance reminder start time', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', 'chaine', '0', 'Enable monthly maintenance reminders', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_STARTTIME', 'chaine', '', 'Monthly maintenance reminder start time', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_REMINDER_USER_IDS', 'chaine', '', 'Maintenance reminder recipient user ids', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_REMINDER_EMAIL_TEMPLATE', 'chaine', '0', 'Maintenance reminder email template', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE', 'chaine', '', 'Legal notice for dynamic intervention report PDFs', 0, 'current');
 
 		// Some keys to add into the overwriting translation tables
@@ -383,6 +390,34 @@ class modPowerPlantPV extends DolibarrModules
 				'unitfrequency' => 86400,
 				'status' => 1,
 				'test' => 'isModEnabled("powerplantpv")',
+				'priority' => 50,
+			),
+			1 => array(
+				'label' => 'PowerPlantPVMaintenanceWeeklyReminderCron',
+				'jobtype' => 'method',
+				'class' => '/powerplantpv/class/powerplantpvmaintenancereminder.class.php',
+				'objectname' => 'PowerPlantPVMaintenanceReminder',
+				'method' => 'runWeeklyReminder',
+				'parameters' => '',
+				'comment' => 'PowerPlantPVMaintenanceWeeklyReminderCronComment',
+				'frequency' => 5,
+				'unitfrequency' => 60,
+				'status' => 1,
+				'test' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
+				'priority' => 50,
+			),
+			2 => array(
+				'label' => 'PowerPlantPVMaintenanceMonthlyReminderCron',
+				'jobtype' => 'method',
+				'class' => '/powerplantpv/class/powerplantpvmaintenancereminder.class.php',
+				'objectname' => 'PowerPlantPVMaintenanceReminder',
+				'method' => 'runMonthlyReminder',
+				'parameters' => '',
+				'comment' => 'PowerPlantPVMaintenanceMonthlyReminderCronComment',
+				'frequency' => 5,
+				'unitfrequency' => 60,
+				'status' => 1,
+				'test' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
 				'priority' => 50,
 			),
 		);

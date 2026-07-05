@@ -315,7 +315,8 @@ class PowerPlantPVMaintenanceScheduler
 		$status = isset($item['status']) ? (string) $item['status'] : self::STATUS_NOT_REQUIRED;
 		$socid = !empty($contract['fk_soc']) ? (int) $contract['fk_soc'] : (int) $powerplant->fk_soc;
 
-		if (!empty($filters['status']) && $status !== (string) $filters['status']) {
+		$statusFilters = $this->normalizeStatusFilters($filters);
+		if (!empty($statusFilters) && !in_array($status, $statusFilters, true)) {
 			return false;
 		}
 		if (!empty($filters['fk_soc']) && $socid !== (int) $filters['fk_soc']) {
@@ -367,6 +368,39 @@ class PowerPlantPVMaintenanceScheduler
 		}
 
 		return false;
+	}
+
+	/**
+	 * Normalize status filters.
+	 *
+	 * @param	array<string,mixed>	$filters	Raw filters
+	 * @return	array<int,string>				Accepted status codes
+	 */
+	private function normalizeStatusFilters(array $filters)
+	{
+		$values = array();
+		foreach (array('status', 'statuses') as $key) {
+			if (empty($filters[$key])) {
+				continue;
+			}
+			if (is_array($filters[$key])) {
+				foreach ($filters[$key] as $status) {
+					$status = trim((string) $status);
+					if ($status !== '') {
+						$values[$status] = $status;
+					}
+				}
+			} else {
+				foreach (explode(',', (string) $filters[$key]) as $status) {
+					$status = trim($status);
+					if ($status !== '') {
+						$values[$status] = $status;
+					}
+				}
+			}
+		}
+
+		return array_values($values);
 	}
 
 	/**
@@ -819,7 +853,13 @@ class PowerPlantPVMaintenanceScheduler
 			return self::STATUS_OVERDUE;
 		}
 		if ($periodStart > $todayEnd) {
-			return self::STATUS_PLANNED;
+			$leadDays = max(0, getDolGlobalInt('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 30));
+			if ($leadDays <= 0) {
+				return self::STATUS_COVERED;
+			}
+			$plannedFrom = $this->dayBoundary(dol_time_plus_duree($periodStart, -$leadDays, 'd'), false);
+
+			return ($todayStart >= $plannedFrom) ? self::STATUS_PLANNED : self::STATUS_COVERED;
 		}
 
 		return self::STATUS_DUE;

@@ -62,6 +62,7 @@ require_once DOL_DOCUMENT_ROOT."/core/lib/ajax.lib.php";
 require_once '../lib/powerplantpv.lib.php';
 require_once '../lib/powerplantpv_powerplant.lib.php';
 require_once '../lib/powerplantpv_serialnumber.lib.php';
+dol_include_once('/powerplantpv/class/powerplantpvmaintenancereminder.class.php');
 //require_once "../class/myclass.class.php";
 
 /**
@@ -398,6 +399,109 @@ function powerplantpvPrintPowerPlantModelSettings($myTmpObjects, $dirmodels, $mo
 	return $printedsections;
 }
 
+/**
+ * Read a date/time selected with Form::selectDate().
+ *
+ * @param	string	$prefix	Field prefix
+ * @return	int				Timestamp or 0
+ */
+function powerplantpvSetupReadDateTimeFromPost($prefix)
+{
+	$year = GETPOSTINT($prefix.'year');
+	$month = GETPOSTINT($prefix.'month');
+	$day = GETPOSTINT($prefix.'day');
+	$hour = GETPOSTINT($prefix.'hour');
+	$minute = GETPOSTINT($prefix.'min');
+	if ($year <= 0 || $month <= 0 || $day <= 0) {
+		return 0;
+	}
+
+	return dol_mktime($hour, $minute, 0, $month, $day, $year);
+}
+
+/**
+ * Return configured timestamp or a default value.
+ *
+ * @param	string	$constname	Constant name
+ * @return	int					Timestamp
+ */
+function powerplantpvSetupGetTimestampConst($constname)
+{
+	$value = getDolGlobalString($constname, '');
+	if ($value !== '') {
+		if (is_numeric($value)) {
+			return (int) $value;
+		}
+		$timestamp = dol_stringtotime($value, 0);
+		if ($timestamp > 0) {
+			return $timestamp;
+		}
+	}
+
+	return dol_now();
+}
+
+/**
+ * Return active email template options.
+ *
+ * @return	array<int,string>	Template options
+ */
+function powerplantpvSetupGetEmailTemplateOptions()
+{
+	global $conf, $db, $langs;
+
+	$options = array(0 => $langs->trans('PowerPlantPVMaintenanceReminderDefaultTemplate'));
+	$sql = 'SELECT rowid, label';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'c_email_templates';
+	$sql .= " WHERE enabled = '1'";
+	$sql .= ' AND entity IN (0, '.((int) $conf->entity).')';
+	$sql .= " AND type_template = 'actioncomm_send'";
+	$sql .= ' ORDER BY label ASC, rowid ASC';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return $options;
+	}
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$options[(int) $obj->rowid] = (string) $obj->label;
+	}
+	$db->free($resql);
+
+	return $options;
+}
+
+/**
+ * Return active internal users with an email address.
+ *
+ * @return	array<int,string>	User options
+ */
+function powerplantpvSetupGetMaintenanceReminderUserOptions()
+{
+	global $db;
+
+	$options = array();
+	$sql = 'SELECT rowid, lastname, firstname, login, email';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'user';
+	$sql .= ' WHERE statut = 1';
+	$sql .= " AND email IS NOT NULL AND email <> ''";
+	$sql .= ' AND entity IN ('.$db->sanitize(getEntity('user')).')';
+	$sql .= ' ORDER BY lastname ASC, firstname ASC, login ASC, rowid ASC';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return $options;
+	}
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$label = trim(dolGetFirstLastname($obj->firstname, $obj->lastname));
+		if ($label === '') {
+			$label = (string) $obj->login;
+		}
+		$label .= ' <'.(string) $obj->email.'>';
+		$options[(int) $obj->rowid] = $label;
+	}
+	$db->free($resql);
+
+	return $options;
+}
+
 
 /*
  * Actions
@@ -616,6 +720,72 @@ if ($action == 'updateMask') {
 	} else {
 		setEventMessages($db->lasterror(), null, 'errors');
 	}
+} elseif ($action == 'save_maintenance_reminder_settings') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$leadDays = GETPOSTINT('maintenance_planning_lead_days');
+	if ($leadDays < 0) {
+		$leadDays = 0;
+	}
+	$weeklyStart = powerplantpvSetupReadDateTimeFromPost('maintenance_weekly_reminder_start');
+	$monthlyStart = powerplantpvSetupReadDateTimeFromPost('maintenance_monthly_reminder_start');
+	$templateId = GETPOSTINT('maintenance_reminder_email_template');
+	$templateOptions = powerplantpvSetupGetEmailTemplateOptions();
+	if (!isset($templateOptions[$templateId])) {
+		$templateId = 0;
+	}
+	$userIds = GETPOST('maintenance_reminder_user_ids', 'array:int');
+	if (!is_array($userIds)) {
+		$userIds = array();
+	}
+
+	$userOptions = powerplantpvSetupGetMaintenanceReminderUserOptions();
+	$userOptionIds = array_flip(array_keys($userOptions));
+	$selectedUserIds = array();
+	foreach ($userIds as $userId) {
+		$userId = (int) $userId;
+		if ($userId > 0 && isset($userOptionIds[$userId])) {
+			$selectedUserIds[$userId] = $userId;
+		}
+	}
+
+	$error = 0;
+	if ($weeklyStart <= 0 || $monthlyStart <= 0) {
+		setEventMessages($langs->trans('PowerPlantPVMaintenanceReminderStartTimeInvalid'), null, 'errors');
+		$error++;
+	}
+
+	if (!$error) {
+		$res = dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', (string) $leadDays, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME', (string) $weeklyStart, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_STARTTIME', (string) $monthlyStart, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_REMINDER_USER_IDS', implode(',', array_values($selectedUserIds)), 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_REMINDER_EMAIL_TEMPLATE', (string) $templateId, 'chaine', 0, '', (int) $conf->entity);
+
+		if ($res > 0) {
+			$warnings = array();
+			$weeklyCronUpdate = PowerPlantPVMaintenanceReminder::updateCronStartTime($db, 'weekly', $weeklyStart, $user);
+			$monthlyCronUpdate = PowerPlantPVMaintenanceReminder::updateCronStartTime($db, 'monthly', $monthlyStart, $user);
+			if ($weeklyCronUpdate < 0 || $monthlyCronUpdate < 0) {
+				setEventMessages($db->lasterror(), null, 'errors');
+			} else {
+				if ($weeklyCronUpdate === 0) {
+					$warnings[] = $langs->trans('PowerPlantPVMaintenanceWeeklyReminderCronMissing');
+				}
+				if ($monthlyCronUpdate === 0) {
+					$warnings[] = $langs->trans('PowerPlantPVMaintenanceMonthlyReminderCronMissing');
+				}
+				setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+				if (!empty($warnings)) {
+					setEventMessages($langs->trans('Warning'), $warnings, 'warnings');
+				}
+			}
+		} else {
+			setEventMessages($db->lasterror(), null, 'errors');
+		}
+	}
 } elseif ($action == 'save_report_pdf_settings') {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
@@ -677,6 +847,54 @@ if (!empty($formSetup->items)) {
 	print $formSetup->generateOutput(true);
 	print '<br>';
 }
+
+$conf->global->POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', 0);
+$conf->global->POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', 0);
+$maintenanceleadtime = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 30);
+$maintenanceweeklystart = powerplantpvSetupGetTimestampConst('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME');
+$maintenancemonthlystart = powerplantpvSetupGetTimestampConst('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_STARTTIME');
+$maintenancereminderusers = array_filter(array_map('intval', explode(',', getDolGlobalString('POWERPLANTPV_MAINTENANCE_REMINDER_USER_IDS', ''))));
+$maintenancereminderuseroptions = powerplantpvSetupGetMaintenanceReminderUserOptions();
+$maintenancereminderusers = array_values(array_intersect($maintenancereminderusers, array_keys($maintenancereminderuseroptions)));
+$maintenanceremindertemplateoptions = powerplantpvSetupGetEmailTemplateOptions();
+$maintenanceremindertemplate = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_REMINDER_EMAIL_TEMPLATE', 0);
+
+print load_fiche_titre($langs->trans('PowerPlantPVMaintenanceReminderSettings'), '', 'email');
+print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceReminderSettingsHelp').'</span>';
+print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_maintenance_reminder_settings">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre"><td>'.$langs->trans('Name').'</td><td>'.$langs->trans('Value').'</td></tr>';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVMaintenancePlanningLeadDays').'</td><td><input type="number" min="0" class="flat maxwidth100 right" name="maintenance_planning_lead_days" value="'.((int) $maintenanceleadtime).'"> '.$langs->trans('PowerPlantPVDays').'<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenancePlanningLeadDaysHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceWeeklyReminderEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceWeeklyReminderStartTime').'</td><td>'.$form->selectDate($maintenanceweeklystart, 'maintenance_weekly_reminder_start', 1, 1, 1, '', 1, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceMonthlyReminderEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceMonthlyReminderStartTime').'</td><td>'.$form->selectDate($maintenancemonthlystart, 'maintenance_monthly_reminder_start', 1, 1, 1, '', 1, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceReminderRecipients').'</td><td>';
+if (empty($maintenancereminderuseroptions)) {
+	print '<span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span>';
+} else {
+	print '<select class="flat minwidth500" id="maintenance_reminder_user_ids" name="maintenance_reminder_user_ids[]" multiple>';
+	foreach ($maintenancereminderuseroptions as $userId => $userLabel) {
+		$selected = in_array((int) $userId, $maintenancereminderusers, true) ? ' selected' : '';
+		print '<option value="'.((int) $userId).'"'.$selected.'>'.dol_escape_htmltag($userLabel).'</option>';
+	}
+	print '</select>';
+}
+print '<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceReminderRecipientsHelp').'</span>';
+print '</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceReminderEmailTemplate').'</td><td>'.$form->selectarray('maintenance_reminder_email_template', $maintenanceremindertemplateoptions, $maintenanceremindertemplate, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceReminderEmailTemplateHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceReminderSubstitutions').'</td><td><span class="opacitymedium">__POWERPLANTPV_MAINTENANCE_REMINDER_FREQUENCY__, __POWERPLANTPV_MAINTENANCE_REMINDER_COUNT__, __POWERPLANTPV_MAINTENANCE_REMINDER_HTML__, __POWERPLANTPV_MAINTENANCE_REMINDER_TEXT__</span></td></tr>';
+print '</table>';
+print '<div class="tabsAction">';
+print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+print '</div>';
+print '</form>';
+if ($conf->use_javascript_ajax) {
+	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#maintenance_reminder_user_ids,#maintenance_reminder_email_template").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
+}
+print '<br>';
 
 print load_fiche_titre($langs->trans('PowerPlantPVReportPdfSettings'), '', 'fa-file-pdf');
 print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportPdfSettingsHelp').'</span>';

@@ -179,6 +179,14 @@ class PowerPlantPVCompatibility
 				'available' => $baseavailable,
 				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
 			),
+			'maintenance_reminders' => array(
+				'label' => 'PowerPlantPVMaintenanceReminderFeature',
+				'description' => 'PowerPlantPVMaintenanceReminderCompatibilityDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable,
+				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
 			'maintenance_contract_auto_link' => array(
 				'label' => 'PowerPlantPVMaintenanceContractAutoLinkFeature',
 				'description' => 'PowerPlantPVMaintenanceContractAutoLinkCompatibilityDescription',
