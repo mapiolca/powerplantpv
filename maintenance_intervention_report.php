@@ -329,6 +329,7 @@ if ($locked) {
 $tree = null;
 $diagnosticTree = null;
 $emptyExistingSnapshot = false;
+$invalidExistingSnapshot = false;
 if ($reportFetch > 0) {
 	$tree = $builder->loadReportTree((int) $report->id);
 	if (!is_array($tree)) {
@@ -336,6 +337,15 @@ if ($reportFetch > 0) {
 	} elseif (empty($tree['sections'])) {
 		$emptyExistingSnapshot = true;
 		$diagnosticTree = $builder->buildPreviewTree($intervention, $manualServiceIds);
+		if (is_array($diagnosticTree)) {
+			$tree = $diagnosticTree;
+		}
+	} elseif (powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)) {
+		$invalidExistingSnapshot = true;
+		$diagnosticTree = $builder->buildPreviewTree($intervention, $manualServiceIds);
+		if (is_array($diagnosticTree)) {
+			$tree = $diagnosticTree;
+		}
 	}
 } else {
 	$tree = $builder->buildPreviewTree($intervention, $manualServiceIds);
@@ -344,6 +354,9 @@ if ($reportFetch > 0) {
 $messages = array();
 if ($emptyExistingSnapshot) {
 	$messages[] = 'PowerPlantPVReportEmptySnapshot';
+}
+if ($invalidExistingSnapshot) {
+	$messages[] = 'PowerPlantPVReportSnapshotSectionsWithoutFields';
 }
 if (is_array($tree) && !empty($tree['messages']) && is_array($tree['messages'])) {
 	$messages = array_merge($messages, $tree['messages']);
@@ -365,7 +378,8 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	$manualContext = is_array($diagnosticTree) ? $diagnosticTree : $tree;
 	$manualMessages = !empty($manualContext['messages']) && is_array($manualContext['messages']) ? $manualContext['messages'] : array();
 	$noContractPrestations = in_array('PowerPlantPVReportNoContractPrestations', $manualMessages, true);
-	$showManualSelection = (($reportFetch <= 0 || $emptyExistingSnapshot)
+	$snapshotNeedsRebuild = ($emptyExistingSnapshot || $invalidExistingSnapshot);
+	$showManualSelection = (($reportFetch <= 0 || $snapshotNeedsRebuild)
 		&& $caneditreport
 		&& $noContractPrestations
 		&& !empty($manualOptions));
@@ -381,11 +395,12 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '</div>';
 	}
 
-	powerplantpvReportRenderSections($tree['sections'], $caneditreport, $form);
+	$renderEditableFields = ($caneditreport && !$snapshotNeedsRebuild);
+	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form);
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
-		if ($emptyExistingSnapshot && $reportFetch > 0) {
+		if ($snapshotNeedsRebuild && $reportFetch > 0) {
 			print '<input type="submit" class="button button-save" name="recalculate_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
 		} else {
 			print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportSaveDraft')).'">';
@@ -396,7 +411,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	}
 	print '</form>';
 
-	if ($caneditreport && $reportFetch > 0 && !$emptyExistingSnapshot) {
+	if ($caneditreport && $reportFetch > 0 && !$snapshotNeedsRebuild) {
 		print '<div class="tabsAction">';
 		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="powerplantpv-inline-form">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -563,6 +578,34 @@ function powerplantpvReportGetSubmittedDcMeasures()
 	}
 
 	return $values;
+}
+
+/**
+ * Check if a loaded snapshot has non-DC sections without any field rows.
+ *
+ * @param	array<string,mixed>	$tree	Loaded report tree
+ * @return	bool						True when existing snapshot must be rebuilt
+ */
+function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
+{
+	if (empty($tree['sections']) || !is_array($tree['sections'])) {
+		return false;
+	}
+
+	foreach ($tree['sections'] as $row) {
+		if (!is_array($row) || empty($row['section']) || !is_object($row['section'])) {
+			continue;
+		}
+		if ((string) $row['section']->section_code === 'DC_ELECTRICAL_MEASURE') {
+			continue;
+		}
+		$fields = isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array();
+		if (empty($fields)) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**

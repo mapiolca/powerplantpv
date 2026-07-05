@@ -1017,6 +1017,7 @@ PowerPlantPVReportNoTemplateForNature = La nature d'intervention ne possède auc
 PowerPlantPVReportCannotBeGenerated = Le rapport ne peut pas être généré avec les données actuelles.
 PowerPlantPVReportNoUsableTemplateSections = Le modèle de rapport ne contient aucune section ou aucun champ actif exploitable pour les prestations de maintenance détectées.
 PowerPlantPVReportEmptySnapshot = Le rapport enregistré ne contient aucune section. Recalculez-le depuis le modèle pour reconstruire le formulaire.
+PowerPlantPVReportSnapshotSectionsWithoutFields = Le rapport enregistré contient des sections sans champs. Recalculez-le depuis le modèle pour reconstruire le formulaire.
 PowerPlantPVReportNoContractPrestations = Aucune prestation de maintenance issue d'un contrat actif n'a été trouvée. Un mode manuel est disponible si vous avez le droit de gérer les rapports.
 PowerPlantPVReportManualServices = Prestations à appliquer manuellement
 PowerPlantPVReportManualServicesHelp = Utilisé uniquement lorsqu'aucune prestation contractuelle active n'est trouvée pour l'intervention ou les centrales liées.

@@ -129,11 +129,20 @@ class PowerPlantPVReportBuilder
 		$fileObject = new PowerPlantPVReportFile($this->db);
 		$dcMeasureObject = new PowerPlantPVReportDcMeasure($this->db);
 		$sectionRows = array();
+		$diagnostics = array(
+			'sections_loaded' => count($sections),
+			'fields_loaded' => 0,
+			'non_dc_sections_without_fields' => 0,
+		);
 		foreach ($sections as $section) {
 			$fields = $fieldObject->fetchAllBySection((int) $section->id, 'position', 'ASC');
 			if (!is_array($fields)) {
 				$this->copyErrorsFrom($fieldObject);
 				return -1;
+			}
+			$diagnostics['fields_loaded'] += count($fields);
+			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
+				$diagnostics['non_dc_sections_without_fields']++;
 			}
 			foreach ($fields as $fieldKey => $field) {
 				$files = $fileObject->fetchAllByField((int) $field->id);
@@ -159,6 +168,7 @@ class PowerPlantPVReportBuilder
 				'equipment' => !empty($equipmentById[(int) $section->fk_report_equipment]) ? $equipmentById[(int) $section->fk_report_equipment] : null,
 			);
 		}
+		$this->logReportDiagnostics('load_report_tree', (int) $report->id, $diagnostics, !empty($diagnostics['non_dc_sections_without_fields']) ? LOG_WARNING : LOG_DEBUG);
 
 		return array(
 			'can_generate' => 1,
@@ -167,6 +177,7 @@ class PowerPlantPVReportBuilder
 			'powerplants' => $powerplants,
 			'equipment' => $equipmentRows,
 			'sections' => $sectionRows,
+			'load_diagnostics' => $diagnostics,
 		);
 	}
 
@@ -808,6 +819,11 @@ class PowerPlantPVReportBuilder
 	private function persistSectionFieldSnapshot(PowerPlantPVReport $report, $context, User $user, $powerplantMap, $equipmentMap, $oldValues, $oldDcValues)
 	{
 		$fieldIds = array();
+		$diagnostics = array(
+			'sections_persisted' => 0,
+			'fields_persisted' => 0,
+			'non_dc_sections_without_fields' => 0,
+		);
 		$plans = !empty($context['section_plans']) && is_array($context['section_plans']) ? $context['section_plans'] : $this->buildSectionPlans($context);
 		if (empty($plans)) {
 			$this->setError('PowerPlantPVReportNoUsableTemplateSections');
@@ -815,6 +831,13 @@ class PowerPlantPVReportBuilder
 		}
 		foreach ($plans as $plan) {
 			$templateSection = $plan['section'];
+			$plannedFields = isset($plan['fields']) && is_array($plan['fields']) ? $plan['fields'] : array();
+			if ((string) $templateSection->code !== 'DC_ELECTRICAL_MEASURE' && empty($plannedFields)) {
+				$diagnostics['non_dc_sections_without_fields']++;
+				$this->setError('PowerPlantPVReportSnapshotSectionsWithoutFields');
+				$this->logReportDiagnostics('persist_section_field_snapshot', (int) $report->id, $diagnostics, LOG_WARNING);
+				return -1;
+			}
 			$section = new PowerPlantPVReportSection($this->db);
 			$section->entity = (int) $report->entity;
 			$section->fk_report = (int) $report->id;
@@ -839,8 +862,9 @@ class PowerPlantPVReportBuilder
 				$this->copyErrorsFrom($section);
 				return -1;
 			}
+			$diagnostics['sections_persisted']++;
 
-			foreach ($plan['fields'] as $templateField) {
+			foreach ($plannedFields as $templateField) {
 				$field = $this->newFieldFromTemplate($report, $section, $templateField, $plan, $context);
 				$field->fk_report_section = $sectionId;
 				if (isset($oldValues[(string) $field->stable_key])) {
@@ -853,6 +877,7 @@ class PowerPlantPVReportBuilder
 					return -1;
 				}
 				$fieldIds[(string) $field->stable_key] = $fieldId;
+				$diagnostics['fields_persisted']++;
 			}
 			if ((string) $section->section_code === 'DC_ELECTRICAL_MEASURE') {
 				$result = $this->persistDcMeasureRowsForSection($report, $section, $sectionId, $plan, $context, $equipmentMap, $oldDcValues, $user);
@@ -861,6 +886,7 @@ class PowerPlantPVReportBuilder
 				}
 			}
 		}
+		$this->logReportDiagnostics('persist_section_field_snapshot', (int) $report->id, $diagnostics, LOG_DEBUG);
 
 		return $fieldIds;
 	}
@@ -1217,6 +1243,7 @@ class PowerPlantPVReportBuilder
 			'sections_skipped_no_fields' => 0,
 			'occurrences_skipped_unmapped' => 0,
 			'planned_sections' => 0,
+			'planned_fields' => 0,
 		);
 		foreach ($context['template_fields'] as $field) {
 			if (!$this->isTemplateFlagEnabled($field, 'active', 1) || !$this->isTemplateFlagEnabled($field, 'visible_form', 1)) {
@@ -1276,6 +1303,7 @@ class PowerPlantPVReportBuilder
 					'equipment_key' => (string) $occurrence['equipment_key'],
 					'position' => $position,
 				);
+				$stats['planned_fields'] += count($fields);
 				$position += 10;
 			}
 		}
@@ -2943,6 +2971,28 @@ class PowerPlantPVReportBuilder
 			'template_id='.$templateId,
 			'template_code='.$templateCode,
 			'service_count='.$serviceCount,
+		);
+		foreach ($diagnostics as $key => $value) {
+			$parts[] = $key.'='.(int) $value;
+		}
+
+		dol_syslog(__METHOD__.' '.implode(' ', $parts), $level);
+	}
+
+	/**
+	 * Log report snapshot counters.
+	 *
+	 * @param	string				$label			Diagnostic label
+	 * @param	int					$reportId		Report id
+	 * @param	array<string,int>	$diagnostics	Diagnostic counters
+	 * @param	int					$level			Log level
+	 * @return	void
+	 */
+	private function logReportDiagnostics($label, $reportId, $diagnostics, $level)
+	{
+		$parts = array(
+			'label='.(string) $label,
+			'report_id='.((int) $reportId),
 		);
 		foreach ($diagnostics as $key => $value) {
 			$parts[] = $key.'='.(int) $value;
