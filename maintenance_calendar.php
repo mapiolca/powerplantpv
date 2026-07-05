@@ -81,10 +81,22 @@ if ($month <= 0 || $month > 12) {
 	$month = (int) date('m');
 }
 
+$prevYear = $year;
+$prevMonth = $month - 1;
+if ($prevMonth < 1) {
+	$prevMonth = 12;
+	$prevYear--;
+}
+$nextYear = $year;
+$nextMonth = $month + 1;
+if ($nextMonth > 12) {
+	$nextMonth = 1;
+	$nextYear++;
+}
+$lastDayOfMonth = (int) date('t', mktime(12, 0, 0, $month, 1, $year));
+
 $monthStart = dol_mktime(0, 0, 0, $month, 1, $year);
-$monthEnd = dol_mktime(23, 59, 59, $month + 1, 0, $year);
-$prev = dol_mktime(0, 0, 0, $month - 1, 1, $year);
-$next = dol_mktime(0, 0, 0, $month + 1, 1, $year);
+$monthEnd = dol_mktime(23, 59, 59, $month, $lastDayOfMonth, $year);
 
 $scheduler = new PowerPlantPVMaintenanceScheduler($db);
 $allRows = $scheduler->getMaintenanceRows($user);
@@ -113,9 +125,9 @@ $createAllowed = powerplantpvMaintenanceCanCreateIntervention($user);
 $title = $langs->trans('MaintenanceCalendar');
 llxHeader('', $title, '', '', 0, 0, '', '', '', 'mod-powerplantpv page-maintenance-calendar');
 
-$nav = dolGetButtonTitle($langs->trans('Previous'), '', 'fa fa-chevron-left', $_SERVER['PHP_SELF'].'?year='.(int) date('Y', $prev).'&month='.(int) date('m', $prev), '', 1);
+$nav = dolGetButtonTitle($langs->trans('Previous'), '', 'fa fa-chevron-left', $_SERVER['PHP_SELF'].'?year='.(int) $prevYear.'&month='.(int) $prevMonth, '', 1);
 $nav .= dolGetButtonTitle($langs->trans('CurrentMonth'), '', 'fa fa-calendar', $_SERVER['PHP_SELF'], '', 1);
-$nav .= dolGetButtonTitle($langs->trans('Next'), '', 'fa fa-chevron-right', $_SERVER['PHP_SELF'].'?year='.(int) date('Y', $next).'&month='.(int) date('m', $next), '', 1);
+$nav .= dolGetButtonTitle($langs->trans('Next'), '', 'fa fa-chevron-right', $_SERVER['PHP_SELF'].'?year='.(int) $nextYear.'&month='.(int) $nextMonth, '', 1);
 print_barre_liste($title.' - '.dol_print_date($monthStart, '%B %Y'), 0, $_SERVER['PHP_SELF'], '&year='.$year.'&month='.$month, '', '', '', count($calendarRows), count($calendarRows), 'fa-tools', 0, $nav, '', 0);
 
 print '<div class="div-table-responsive-no-min">';
