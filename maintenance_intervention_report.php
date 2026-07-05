@@ -395,7 +395,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '</div>';
 	}
 
-	$renderEditableFields = ($caneditreport && !$snapshotNeedsRebuild);
+	$renderEditableFields = $caneditreport;
 	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form);
 
 	if ($caneditreport) {
