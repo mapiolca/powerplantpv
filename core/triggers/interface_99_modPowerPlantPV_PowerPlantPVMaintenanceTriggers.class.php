@@ -24,6 +24,7 @@
 require_once DOL_DOCUMENT_ROOT.'/core/triggers/dolibarrtriggers.class.php';
 
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancerecalculator.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvmaintenancecontractlinker.class.php');
 
 /**
  * Maintenance recomputation triggers for PowerPlantPV.
@@ -58,6 +59,14 @@ class InterfacePowerPlantPVMaintenanceTriggers extends DolibarrTriggers
 	{
 		if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
 			return 0;
+		}
+
+		if ($action === 'FICHINTER_CREATE') {
+			$linker = new PowerPlantPVMaintenanceContractLinker($this->db);
+			$linkResult = $linker->linkInterventionToMaintenanceContract($object, $user, 'trigger_create');
+			if ($linkResult < 0) {
+				dol_syslog(__METHOD__.' contract auto-link failed for action='.$action.': '.$linker->error, LOG_WARNING);
+			}
 		}
 
 		$recalculator = new PowerPlantPVMaintenanceRecalculator($this->db);

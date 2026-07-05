@@ -24,9 +24,10 @@
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/class/powerplant.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancescheduler.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvmaintenanceperiodadvancer.class.php');
 
 /**
- * Recompute maintenance schedules from Dolibarr core triggers without storing a cache.
+ * Recompute maintenance schedules from Dolibarr core triggers and advance covered contract periods.
  */
 class PowerPlantPVMaintenanceRecalculator
 {
@@ -375,7 +376,11 @@ class PowerPlantPVMaintenanceRecalculator
 		}
 
 		$scheduler = new PowerPlantPVMaintenanceScheduler($this->db);
+		$periodAdvancer = new PowerPlantPVMaintenancePeriodAdvancer($this->db);
+		$processedContractIds = array();
 		$done = 0;
+		$advanced = 0;
+		$advanceErrors = 0;
 		foreach ($powerPlantIds as $powerPlantId) {
 			$powerPlant = $this->fetchPowerPlant((int) $powerPlantId);
 			if (!$powerPlant instanceof PowerPlant) {
@@ -384,11 +389,19 @@ class PowerPlantPVMaintenanceRecalculator
 
 			$schedule = $scheduler->getScheduleForPowerPlant($powerPlant, $user, null, 1);
 			$summary = isset($schedule['summary']) && is_array($schedule['summary']) ? $schedule['summary'] : array();
+			$advanceStats = $periodAdvancer->advanceCoveredSchedule(
+				$schedule,
+				$reason,
+				array_merge($context, array('powerplant_id' => (int) $powerPlant->id)),
+				$processedContractIds
+			);
+			$advanced += !empty($advanceStats['advanced']) ? (int) $advanceStats['advanced'] : 0;
+			$advanceErrors += !empty($advanceStats['errors']) ? (int) $advanceStats['errors'] : 0;
 			dol_syslog(__METHOD__.' action='.$reason.' recomputed powerplant_id='.(int) $powerPlant->id.' ref='.(string) $powerPlant->ref.' summary='.json_encode($summary), LOG_DEBUG);
 			$done++;
 		}
 
-		dol_syslog(__METHOD__.' action='.$reason.' targeted_powerplants='.implode(',', $powerPlantIds).' recomputed='.$done.' context='.json_encode($this->sanitizeLogContext($context)), LOG_DEBUG);
+		dol_syslog(__METHOD__.' action='.$reason.' targeted_powerplants='.implode(',', $powerPlantIds).' recomputed='.$done.' advanced_periods='.$advanced.' advance_errors='.$advanceErrors.' context='.json_encode($this->sanitizeLogContext($context)), LOG_DEBUG);
 	}
 
 	/**

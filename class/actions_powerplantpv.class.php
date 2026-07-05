@@ -243,7 +243,7 @@ class ActionsPowerplantpv
 	 */
 	public function doActions($parameters, &$object, &$action, $hookmanager)
 	{
-		global $langs, $user;
+		global $db, $langs, $user;
 
 		if (!isModEnabled('powerplantpv')) {
 			return 0;
@@ -283,6 +283,14 @@ class ActionsPowerplantpv
 				if ($result < 0) {
 					setEventMessages($managedobject->error, $managedobject->errors, 'errors');
 					return -1;
+				}
+				if ($this->getNativePowerPlantLinkElementType($contexts) == 'fichinter') {
+					dol_include_once('/powerplantpv/class/powerplantpvmaintenancecontractlinker.class.php');
+					$linker = new PowerPlantPVMaintenanceContractLinker($db);
+					$linkResult = $linker->linkInterventionToMaintenanceContract($managedobject, $user, 'native_powerplant_sync');
+					if ($linkResult < 0) {
+						dol_syslog(__METHOD__.' failed to auto-link maintenance contract after power plant sync: '.$linker->error, LOG_WARNING);
+					}
 				}
 
 				setEventMessages($langs->trans('PowerPlantPVPowerPlantsLinked'), null, 'mesgs');
@@ -1180,7 +1188,7 @@ class ActionsPowerplantpv
 	 */
 	private function syncAfterNativeCreationWhenNeeded($object, $contexts, $action)
 	{
-		global $user;
+		global $db, $user;
 
 		static $synced = array();
 
@@ -1193,15 +1201,28 @@ class ActionsPowerplantpv
 			return;
 		}
 
+		$elementtype = $this->getNativePowerPlantLinkElementType($contexts);
 		$selectedids = powerplantpvGetRequestedPowerPlantIds($object, 0);
-		if (empty($selectedids)) {
+		if (empty($selectedids) && $elementtype != 'fichinter') {
 			return;
 		}
 
 		$synced[$key] = 1;
-		$result = powerplantpvSyncNativePowerPlantLinks($object, $selectedids, $user);
-		if ($result < 0) {
-			setEventMessages($object->error, $object->errors, 'errors');
+		if (!empty($selectedids)) {
+			$result = powerplantpvSyncNativePowerPlantLinks($object, $selectedids, $user);
+			if ($result < 0) {
+				setEventMessages($object->error, $object->errors, 'errors');
+				return;
+			}
+		}
+
+		if ($elementtype == 'fichinter') {
+			dol_include_once('/powerplantpv/class/powerplantpvmaintenancecontractlinker.class.php');
+			$linker = new PowerPlantPVMaintenanceContractLinker($db);
+			$linkResult = $linker->linkInterventionToMaintenanceContract($object, $user, 'native_creation_hook');
+			if ($linkResult < 0) {
+				dol_syslog(__METHOD__.' failed to auto-link maintenance contract: '.$linker->error, LOG_WARNING);
+			}
 		}
 	}
 
@@ -1227,12 +1248,59 @@ class ActionsPowerplantpv
 		$elementtype = $this->getNativePowerPlantLinkElementType($contexts);
 		if ($elementtype == 'fichinter') {
 			$contractid = $this->getRequestedContractId();
+			if ($contractid <= 0) {
+				$contractid = $this->getAutomaticMaintenanceContractIdFromRequest($object, $contexts, $powerplantids);
+				if ($contractid > 0) {
+					$_POST['fk_contrat'] = $contractid;
+					$_REQUEST['fk_contrat'] = $contractid;
+				}
+			}
 			$origin = powerplantpvNormalizeElementType(GETPOST('origin', 'alphanohtml'));
 			$originid = GETPOSTINT('originid') > 0 ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
 			if ($contractid > 0 && !($origin == 'contrat' && $originid == $contractid)) {
 				$this->mergeOtherLinkedObjectsPost('contrat', array($contractid));
 			}
 		}
+	}
+
+	/**
+	 * Return the maintenance contract candidate carried by requested power plants.
+	 *
+	 * @param	CommonObject	$object			Hook object
+	 * @param	string[]			$contexts		Hook contexts
+	 * @param	int[]			$powerplantids	Requested power plant ids
+	 * @return	int								Contract id, 0 if no automatic link applies
+	 */
+	private function getAutomaticMaintenanceContractIdFromRequest($object, $contexts, $powerplantids)
+	{
+		global $db;
+
+		if (!in_array('interventioncard', $contexts, true) && !in_array('fichintercard', $contexts, true)) {
+			return 0;
+		}
+
+		dol_include_once('/powerplantpv/class/powerplantpvmaintenancecontractlinker.class.php');
+		$linker = new PowerPlantPVMaintenanceContractLinker($db);
+		if ($linker->requestAlreadyCarriesContract()) {
+			return 0;
+		}
+
+		$natureid = $this->getInterventionNatureIdFromRequest();
+		if ($natureid <= 0) {
+			return 0;
+		}
+
+		$powerplantids = powerplantpvSanitizeIdArray($powerplantids);
+		if (empty($powerplantids)) {
+			$powerplantids = powerplantpvGetRequestedPowerPlantIds($object, 0);
+		}
+
+		$contractid = $linker->findBestMaintenanceContractIdForPowerPlants($powerplantids, $natureid);
+		if ($contractid > 0) {
+			dol_syslog(__METHOD__.' selected contract '.$contractid.' for native intervention creation', LOG_DEBUG);
+		}
+
+		return (int) $contractid;
 	}
 
 	/**
@@ -1338,6 +1406,9 @@ class ActionsPowerplantpv
 		global $db;
 
 		$natureid = GETPOSTINT('powerplantpv_intervention_nature');
+		if ($natureid <= 0) {
+			$natureid = GETPOSTINT('options_powerplantpv_intervention_nature');
+		}
 		if ($natureid > 0) {
 			return $natureid;
 		}
@@ -1351,7 +1422,7 @@ class ActionsPowerplantpv
 		$sql .= " FROM ".$db->prefix()."c_powerplantpv_intervention_nature";
 		$sql .= " WHERE code = '".$db->escape($naturecode)."'";
 		$sql .= " AND active = 1";
-		$sql .= " AND entity IN (".getEntity('c_powerplantpv_intervention_nature').")";
+		$sql .= " AND entity IN (".$db->sanitize(getEntity('c_powerplantpv_intervention_nature')).")";
 		$sql .= " ORDER BY entity DESC";
 		$resql = $db->query($sql);
 		if (!$resql) {

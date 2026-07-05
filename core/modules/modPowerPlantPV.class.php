@@ -371,20 +371,20 @@ class modPowerPlantPV extends DolibarrModules
 		// unit_frequency must be 60 for minute, 3600 for hour, 86400 for day, 604800 for week
 		/* BEGIN MODULEBUILDER CRON */
 		$this->cronjobs = array(
-			//  0 => array(
-			//      'label' => 'MyJob label',
-			//      'jobtype' => 'method',
-			//      'class' => '/powerplantpv/class/powerplant.class.php',
-			//      'objectname' => 'PowerPlant',
-			//      'method' => 'doScheduledJob',
-			//      'parameters' => '',
-			//      'comment' => 'Comment',
-			//      'frequency' => 2,
-			//      'unitfrequency' => 3600,
-			//      'status' => 0,
-			//      'test' => 'isModEnabled("powerplantpv")',
-			//      'priority' => 50,
-			//  ),
+			0 => array(
+				'label' => 'PowerPlantPVMaintenancePeriodAutoAdvanceCron',
+				'jobtype' => 'method',
+				'class' => '/powerplantpv/class/powerplantpvmaintenanceperiodadvancer.class.php',
+				'objectname' => 'PowerPlantPVMaintenancePeriodAdvancer',
+				'method' => 'runScheduledAdvancement',
+				'parameters' => '',
+				'comment' => 'PowerPlantPVMaintenancePeriodAutoAdvanceCronComment',
+				'frequency' => 1,
+				'unitfrequency' => 86400,
+				'status' => 1,
+				'test' => 'isModEnabled("powerplantpv")',
+				'priority' => 50,
+			),
 		);
 		/* END MODULEBUILDER CRON */
 		// Example: $this->cronjobs=array(

@@ -3,6 +3,9 @@
 ## 1.3.0
 
 - Correction de l'idempotence d'activation/réactivation : les scripts SQL de création de tables utilisent `IF NOT EXISTS` et les extrafields déjà conformes ne sont plus réenregistrés inutilement.
+- Administration maintenance : séparation des switches d'activation dans une colonne dédiée sur les listes de modèles de rapport, prestations déclenchant des sections et natures d'intervention.
+- Maintenance : liaison automatique d'une intervention de maintenance au contrat actif de la centrale via les liens natifs Dolibarr, sans remplacer un contrat déjà fourni.
+- Maintenance : avancement automatique d'une période de contrat récurrente lorsqu'une intervention clôturée ou signée couvre la période courante, avec travail planifié natif de rattrapage pour les signatures sans trigger Dolibarr.
 - Maintenance : une intervention clôturée ou signée sans période native peut désormais couvrir une période contractuelle via un fallback sur sa date de finalisation disponible.
 - Maintenance : correction de la navigation du calendrier en décembre, qui pouvait provoquer une erreur fatale sur le mois suivant.
 - Stabilisation finale v1.3 Maintenance : audit de cohérence, documentation utilisateur, administrateur, technique et checklist de release.

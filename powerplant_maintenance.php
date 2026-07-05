@@ -291,7 +291,7 @@ print '</div>';
 print '</div>';
 print '<div class="fichehalfright">';
 print '<br>';
-print '<div class="info">'.$langs->trans('PowerPlantPVMaintenanceKnownLimitNoRolling').'</div>';
+print '<div class="info">'.$langs->trans('PowerPlantPVMaintenanceAutoAdvanceInfo').'</div>';
 print '</div>';
 print '</div>';
 

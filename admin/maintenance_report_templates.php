@@ -55,14 +55,21 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 	$search_active = '';
 }
 
-if (in_array($action, array('disable', 'setdefault', 'duplicate', 'moveup', 'movedown'), true)) {
+if (in_array($action, array('enable', 'disable', 'setdefault', 'duplicate', 'moveup', 'movedown'), true)) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
 	if ($id <= 0 || $object->fetch($id) <= 0) {
 		accessforbidden();
 	}
-	if ($action === 'disable') {
+	if ($action === 'enable') {
+		$result = $object->enable($user);
+		if ($result < 0) {
+			setEventMessages($object->error, $object->errors, 'errors');
+		} else {
+			setEventMessages($langs->trans('PowerPlantPVRecordEnabled'), null, 'mesgs');
+		}
+	} elseif ($action === 'disable') {
 		$result = $object->disable($user);
 		if ($result < 0) {
 			setEventMessages($object->error, $object->errors, 'errors');
@@ -163,6 +170,7 @@ print '<td></td>';
 print '<td></td>';
 print '<td class="center">'.$form->selectarray('search_active', powerplantpvReportTemplateTranslateOptions(powerplantpvReportTemplateActiveOptions()), $search_active, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth150').'</td>';
 print '<td></td>';
+print '<td></td>';
 print '<td class="center">';
 print '<input type="submit" class="button smallpaddingimp" name="button_search" value="'.$langs->trans('Search').'">';
 print '<input type="submit" class="button smallpaddingimp" name="button_removefilter" value="'.$langs->trans('RemoveFilter').'">';
@@ -174,6 +182,7 @@ print_liste_field_titre('Code', $_SERVER['PHP_SELF'], 'code', '', $param, '', $s
 print_liste_field_titre('Label', $_SERVER['PHP_SELF'], 'label', '', $param, '', $sortfield, $sortorder);
 print_liste_field_titre('PowerPlantPVReportTargetElement', $_SERVER['PHP_SELF'], 'target_element', '', $param, '', $sortfield, $sortorder);
 print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'active', '', $param, 'class="center"', $sortfield, $sortorder);
+print '<th class="center">'.$langs->trans('PowerPlantPVActivationSwitch').'</th>';
 print_liste_field_titre('Position', $_SERVER['PHP_SELF'], 'position', '', $param, 'class="center"', $sortfield, $sortorder);
 print '<th class="center">'.$langs->trans('Actions').'</th>';
 print '</tr>';
@@ -191,6 +200,13 @@ if ($resql) {
 		print '<td>'.dol_escape_htmltag((string) $obj->label).'</td>';
 		print '<td>'.dol_escape_htmltag((string) $obj->target_element).'</td>';
 		print '<td class="center"><span class="badge '.(!empty($obj->active) ? 'badge-status4' : 'badge-status8').'">'.$langs->trans(!empty($obj->active) ? 'Enabled' : 'Disabled').'</span></td>';
+		print '<td class="center nowraponall">';
+		if (!empty($obj->active)) {
+			print '<a href="'.$_SERVER['PHP_SELF'].'?action=disable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Disable'), 'switch_on').'</a>';
+		} else {
+			print '<a href="'.$_SERVER['PHP_SELF'].'?action=enable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Enable'), 'switch_off').'</a>';
+		}
+		print '</td>';
 		print '<td class="center">'.((int) $obj->position).'</td>';
 		print '<td class="center nowraponall">';
 		print '<a href="'.$cardUrl.'">'.img_edit($langs->trans('Modify')).'</a>';
@@ -200,9 +216,6 @@ if ($resql) {
 		if (empty($obj->is_default)) {
 			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=setdefault&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('SetAsDefault'), 'check').'</a>';
 		}
-		if (!empty($obj->active)) {
-			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=disable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Disable'), 'switch_off').'</a>';
-		}
 		print '</td>';
 		print '</tr>';
 		$i++;
@@ -210,7 +223,7 @@ if ($resql) {
 	$db->free($resql);
 }
 if (empty($num)) {
-	powerplantpvPrintNoRecordFound(6);
+	powerplantpvPrintNoRecordFound(7);
 }
 
 print '</table>';

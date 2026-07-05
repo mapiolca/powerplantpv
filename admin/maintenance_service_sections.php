@@ -62,7 +62,7 @@ if ($templateId > 0 && $template->fetch($templateId) <= 0) {
 	$templateId = 0;
 }
 
-if (in_array($action, array('add', 'update', 'disable', 'delete', 'moveup', 'movedown'), true)) {
+if (in_array($action, array('add', 'update', 'enable', 'disable', 'delete', 'moveup', 'movedown'), true)) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
@@ -102,6 +102,17 @@ if ($action === 'add' || $action === 'update') {
 		setEventMessages($object->error, $object->errors, 'errors');
 	} else {
 		setEventMessages($langs->trans('PowerPlantPVRecordDisabled'), null, 'mesgs');
+	}
+	$action = '';
+} elseif ($action === 'enable' && $id > 0) {
+	if ($object->fetch($id) <= 0 || (int) $object->fk_report_template !== (int) $templateId) {
+		accessforbidden();
+	}
+	$result = $object->enable($user);
+	if ($result < 0) {
+		setEventMessages($object->error, $object->errors, 'errors');
+	} else {
+		setEventMessages($langs->trans('PowerPlantPVRecordEnabled'), null, 'mesgs');
 	}
 	$action = '';
 } elseif ($action === 'delete' && $confirm === 'yes' && $id > 0) {
@@ -194,7 +205,7 @@ print '<table class="tagtable nobottomiftotal liste listwithfilterbefore centper
 print '<tr class="liste_titre_filter">';
 print '<td></td><td></td><td></td>';
 print '<td class="center">'.$form->selectarray('search_active', powerplantpvReportTemplateTranslateOptions(powerplantpvReportTemplateActiveOptions()), $search_active, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth150').'</td>';
-print '<td></td><td class="center">';
+print '<td></td><td></td><td class="center">';
 print '<input type="submit" class="button smallpaddingimp" name="button_search" value="'.$langs->trans('Search').'">';
 print '<input type="submit" class="button smallpaddingimp" name="button_removefilter" value="'.$langs->trans('RemoveFilter').'">';
 print '</td></tr>';
@@ -203,6 +214,7 @@ print_liste_field_titre('MaintenanceServiceDictionary', $_SERVER['PHP_SELF'], 'f
 print_liste_field_titre('PowerPlantPVReportSection', $_SERVER['PHP_SELF'], 'fk_report_template_section', '', $param, '', $sortfield, $sortorder);
 print_liste_field_titre('Required', $_SERVER['PHP_SELF'], 'is_required', '', $param, 'class="center"', $sortfield, $sortorder);
 print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'active', '', $param, 'class="center"', $sortfield, $sortorder);
+print '<th class="center">'.$langs->trans('PowerPlantPVActivationSwitch').'</th>';
 print_liste_field_titre('Position', $_SERVER['PHP_SELF'], 'position', '', $param, 'class="center"', $sortfield, $sortorder);
 print '<th class="center">'.$langs->trans('Actions').'</th>';
 print '</tr>';
@@ -214,14 +226,18 @@ if ($resql) {
 		print '<td>'.dol_escape_htmltag((string) $obj->section_label).'</td>';
 		print '<td class="center">'.yn((int) $obj->is_required).'</td>';
 		print '<td class="center"><span class="badge '.(!empty($obj->active) ? 'badge-status4' : 'badge-status8').'">'.$langs->trans(!empty($obj->active) ? 'Enabled' : 'Disabled').'</span></td>';
+		print '<td class="center nowraponall">';
+		if (!empty($obj->active)) {
+			print '<a href="'.$_SERVER['PHP_SELF'].'?action=disable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Disable'), 'switch_on').'</a>';
+		} else {
+			print '<a href="'.$_SERVER['PHP_SELF'].'?action=enable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Enable'), 'switch_off').'</a>';
+		}
+		print '</td>';
 		print '<td class="center">'.((int) $obj->position).'</td>';
 		print '<td class="center nowraponall">';
 		print '<a href="'.$_SERVER['PHP_SELF'].'?action=edit&id='.(int) $obj->rowid.$param.'">'.img_edit($langs->trans('Modify')).'</a>';
 		print ' <a href="'.$_SERVER['PHP_SELF'].'?action=moveup&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('MoveUp'), 'uparrow').'</a>';
 		print ' <a href="'.$_SERVER['PHP_SELF'].'?action=movedown&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('MoveDown'), 'downarrow').'</a>';
-		if (!empty($obj->active)) {
-			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=disable&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('Disable'), 'switch_off').'</a>';
-		}
 		print ' <a href="'.$_SERVER['PHP_SELF'].'?action=delete&id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_delete($langs->trans('Delete')).'</a>';
 		print '</td></tr>';
 		$i++;
@@ -229,7 +245,7 @@ if ($resql) {
 	$db->free($resql);
 }
 if (empty($num)) {
-	powerplantpvPrintNoRecordFound(6);
+	powerplantpvPrintNoRecordFound(7);
 }
 print '</table></div></form>';
 
