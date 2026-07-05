@@ -60,9 +60,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreportfield.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportdcmeasure.class.php');
 dol_include_once('/fichinter/class/fichinter.class.php');
-if (is_readable(DOL_DOCUMENT_ROOT.'/fichinter/lib/fichinter.lib.php')) {
-	require_once DOL_DOCUMENT_ROOT.'/fichinter/lib/fichinter.lib.php';
-}
+require_once DOL_DOCUMENT_ROOT.'/core/lib/fichinter.lib.php';
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'interventions', 'companies', 'contracts', 'other'));
 
