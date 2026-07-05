@@ -205,6 +205,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_INSTALLATEUR_INF100KWC_MODEL', 'chaine', 'attestation_installateur_inf100kwc', 'Default installer under 100 kWc attestation PDF model', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_ENABLE', 'chaine', '1', 'Enable maintenance foundation features', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_DEFAULT_REPORT_TEMPLATE', 'chaine', 'preventive_maintenance', 'Default maintenance report template code', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE', 'chaine', '', 'Legal notice for dynamic intervention report PDFs', 0, 'current');
 
 		// Some keys to add into the overwriting translation tables
 		/*$this->overwrite_translation = array(
@@ -1039,6 +1040,16 @@ class modPowerPlantPV extends DolibarrModules
 			$sql[] = "DELETE FROM ".$this->db->prefix()."document_model WHERE nom = '".$this->db->escape($attestationModel)."' AND type = 'attestation' AND entity = ".((int) $conf->entity);
 			$sql[] = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('".$this->db->escape($attestationModel)."', 'attestation', ".((int) $conf->entity).")";
 		}
+
+		$sqlreportmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";
+		$sqlreportmodel .= " SELECT 'powerplantpvreport', 'ficheinter', ".((int) $conf->entity);
+		$sqlreportmodel .= " WHERE NOT EXISTS (";
+		$sqlreportmodel .= " SELECT 1 FROM ".$this->db->prefix()."document_model";
+		$sqlreportmodel .= " WHERE nom = 'powerplantpvreport'";
+		$sqlreportmodel .= " AND type = 'ficheinter'";
+		$sqlreportmodel .= " AND entity = ".((int) $conf->entity);
+		$sqlreportmodel .= ")";
+		$sql[] = $sqlreportmodel;
 
 		// Migrate legacy agenda links to the canonical Dolibarr element type used by this module.
 		$sqlmigrateagenda = "UPDATE ".$this->db->prefix()."actioncomm";

@@ -29,6 +29,9 @@
 - Ajout de l'onglet centrale `Production/consommation`, de l'archive `powerplantpv_index_reading`, de la saisie manuelle des relevés et de la synchronisation des champs `PRODUCTION_READING` des rapports finalisés.
 - Préremplissage non éditable des champs `N-1` depuis le dernier relevé archivé et ajout des champs `SELF_CONSUMPTION_N_MINUS_1` / `SELF_CONSUMPTION` au modèle préinstallé.
 - Ajout de la documentation technique `docs/technical/v1.3-pr9-production-consumption.md`.
+- Ajout du modèle PDF Fichinter `powerplantpvreport`, généré dynamiquement depuis le snapshot du rapport d'intervention sans créer de snapshot pendant la génération.
+- Ajout du dataset PDF `PowerPlantPVReportPdfDataset`, du rendu multi-centrales, multi-équipements, mesures DC, relevés N-1/N, thermographie, fichiers et signatures.
+- Ajout du réglage par entité `POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE` pour les mentions légales du PDF et de la documentation technique `docs/technical/v1.3-pr10-dynamic-pdf.md`.
 
 ## 1.2.1
 

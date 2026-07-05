@@ -348,6 +348,18 @@ if ($action == 'updateMask') {
 	} else {
 		setEventMessages($db->lasterror(), null, 'errors');
 	}
+} elseif ($action == 'save_report_pdf_settings') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$legalnotice = trim(GETPOST('report_pdf_legal_notice', 'restricthtml'));
+	$res = dolibarr_set_const($db, 'POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE', $legalnotice, 'chaine', 0, '', (int) $conf->entity);
+	if ($res > 0) {
+		setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
 }
 
 $action = 'edit';
@@ -395,6 +407,23 @@ if (!empty($formSetup->items)) {
 	print $formSetup->generateOutput(true);
 	print '<br>';
 }
+
+print load_fiche_titre($langs->trans('PowerPlantPVReportPdfSettings'), '', 'fa-file-pdf');
+print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportPdfSettingsHelp').'</span>';
+print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_report_pdf_settings">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVReportPdfLegalNotice').'</td><td>';
+print '<textarea class="flat centpercent" rows="4" name="report_pdf_legal_notice">'.dol_escape_htmltag(getDolGlobalString('POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE')).'</textarea>';
+print '<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVReportPdfLegalNoticeHelp').'</span>';
+print '</td></tr>';
+print '</table>';
+print '<div class="tabsAction">';
+print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+print '</div>';
+print '</form>';
+print '<br>';
 
 $serialnumbercategories = powerplantpvSerialNumberFetchPhotovoltaicCategories(true);
 $serialnumberignoredids = powerplantpvSerialNumberGetIgnoredCategoryIds((int) $conf->entity);
