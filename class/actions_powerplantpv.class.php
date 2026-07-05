@@ -1015,7 +1015,7 @@ class ActionsPowerplantpv
 		$html .= '<td class="titlefield">'.$langs->trans('PowerPlantPVCentrals');
 		if ($canedit && !$isedit) {
 			$url = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=powerplantpv_edit_powerplants&token='.newToken();
-			$html .= ' <a class="editfielda" href="'.dol_escape_htmltag($url).'">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a>';
+			$html .= '<span class="floatright"><a class="editfielda reposition" href="'.dol_escape_htmltag($url).'">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a></span>';
 		}
 		$html .= '</td>';
 		$html .= '<td'.$colspan.'>';
