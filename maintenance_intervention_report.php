@@ -162,16 +162,35 @@ if ($action === 'classin' && $usercancreateintervention) {
 
 if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 	$status = ($action === 'save') ? PowerPlantPVReport::STATUS_SAVED : PowerPlantPVReport::STATUS_DRAFT;
+	$saveerror = 0;
 	if ($reportFetch <= 0) {
 		$createdReport = $builder->createSnapshot($intervention, $user, $manualServiceIds, $status);
 		if ($createdReport instanceof PowerPlantPVReport) {
 			$report = $createdReport;
 			$reportFetch = 1;
 		} else {
+			$saveerror++;
 			setEventMessages($builder->error, $builder->errors, 'errors');
 		}
 	}
-	if ($reportFetch > 0) {
+	if (!$saveerror && $reportFetch > 0 && powerplantpvReportSnapshotNeedsRebuild($builder, (int) $report->id)) {
+		$result = $builder->recalculateSnapshot($report, $intervention, $user, $manualServiceIds, $status);
+		if ($result < 0) {
+			$saveerror++;
+			setEventMessages($builder->error, $builder->errors, 'errors');
+		} else {
+			$reportFetch = $report->fetchByIntervention($id);
+			if ($reportFetch <= 0) {
+				$saveerror++;
+				if (!empty($report->error) || !empty($report->errors)) {
+					setEventMessages($report->error, $report->errors, 'errors');
+				} else {
+					setEventMessages($langs->trans('ErrorRecordNotFound'), null, 'errors');
+				}
+			}
+		}
+	}
+	if (!$saveerror && $reportFetch > 0) {
 		$values = powerplantpvReportGetSubmittedValues();
 		$dateValues = powerplantpvReportGetSubmittedDateValues();
 		$dcValues = powerplantpvReportGetSubmittedDcMeasures();
@@ -400,12 +419,23 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
+		print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportSaveDraft')).'">';
+		print ' ';
+		print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
+		print ' ';
+		$signatureUrl = powerplantpvReportGetInterventionOnlineSignatureUrl($intervention);
+		$signatureEnabled = ($reportFetch > 0 && !$snapshotNeedsRebuild && $signatureUrl !== '');
+		print dolGetButtonAction(
+			$langs->trans('PowerPlantPVReportSignButton'),
+			$signatureEnabled ? '' : $langs->trans('PowerPlantPVReportSignatureUnavailable'),
+			'default',
+			$signatureEnabled ? $signatureUrl : '#',
+			'',
+			$signatureEnabled
+		);
 		if ($snapshotNeedsRebuild && $reportFetch > 0) {
-			print '<input type="submit" class="button button-save" name="recalculate_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
-		} else {
-			print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportSaveDraft')).'">';
 			print ' ';
-			print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
+			print '<input type="submit" class="button button-save" name="recalculate_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
 		}
 		print '</div>';
 	}
@@ -478,6 +508,47 @@ function powerplantpvReportSubmittedTokenValid($token)
 	}
 
 	return $valid || !function_exists('currentToken');
+}
+
+/**
+ * Return true when a stored snapshot must be rebuilt before saving submitted values.
+ *
+ * @param	PowerPlantPVReportBuilder	$builder	Report builder
+ * @param	int							$reportId	Report id
+ * @return	bool									True when snapshot is incomplete
+ */
+function powerplantpvReportSnapshotNeedsRebuild($builder, $reportId)
+{
+	$tree = $builder->loadReportTree((int) $reportId);
+	if (!is_array($tree)) {
+		return false;
+	}
+	if (empty($tree['sections']) || !is_array($tree['sections'])) {
+		return true;
+	}
+
+	return powerplantpvReportTreeHasNonDcSectionWithoutFields($tree);
+}
+
+/**
+ * Return a native Dolibarr online signature URL for the intervention.
+ *
+ * @param	Fichinter	$intervention	Intervention object
+ * @return	string						Online signature URL, or empty string when unavailable
+ */
+function powerplantpvReportGetInterventionOnlineSignatureUrl($intervention)
+{
+	if (!is_object($intervention) || empty($intervention->ref) || !is_readable(DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php')) {
+		return '';
+	}
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/signature.lib.php';
+	if (!function_exists('getOnlineSignatureUrl')) {
+		return '';
+	}
+
+	$source = !empty($intervention->element) ? (string) $intervention->element : 'fichinter';
+
+	return (string) getOnlineSignatureUrl(0, $source, (string) $intervention->ref, 1, $intervention);
 }
 
 /**
@@ -656,7 +727,10 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 		}
 		foreach ($group['sections'] as $row) {
 			$section = $row['section'];
-			$fields = isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array();
+			$fields = powerplantpvReportFilterRenderableFields(isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array());
+			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
+				continue;
+			}
 			$label = powerplantpvReportLocalizedObjectLabel($section, 'section_label');
 			print '<details class="powerplantpv-report-section" open>';
 			print '<summary class="liste_titre"><span>'.dol_escape_htmltag($label).'</span>';
@@ -681,6 +755,25 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 			print '</details>';
 		}
 	}
+}
+
+/**
+ * Return fields rendered in the report tab.
+ *
+ * @param	array<int,PowerPlantPVReportField>	$fields	Fields
+ * @return	array<int,PowerPlantPVReportField>			Renderable fields
+ */
+function powerplantpvReportFilterRenderableFields($fields)
+{
+	$filtered = array();
+	foreach ($fields as $field) {
+		if (!is_object($field) || (string) $field->field_type === 'signature') {
+			continue;
+		}
+		$filtered[] = $field;
+	}
+
+	return $filtered;
 }
 
 /**
@@ -829,6 +922,7 @@ function powerplantpvReportRenderField($field, $editable, $form)
 	$name = 'report_values['.dol_escape_htmltag((string) $field->stable_key).']';
 	$type = (string) $field->field_type;
 	$value = powerplantpvReportFieldDisplayValue($field);
+	$inputClass = 'powerplantpv-report-input'.(powerplantpvReportFieldHasInlineUnit($field) ? ' powerplantpv-report-input-with-unit' : '');
 
 	print '<div class="powerplantpv-report-field">';
 	print '<label>'.dol_escape_htmltag($label);
@@ -839,7 +933,7 @@ function powerplantpvReportRenderField($field, $editable, $form)
 	if (!empty($field->help)) {
 		print '<div class="opacitymedium">'.dol_escape_htmltag((string) $field->help).'</div>';
 	}
-	print '<div class="powerplantpv-report-input">';
+	print '<div class="'.$inputClass.'">';
 	if (!$fieldEditable) {
 		if ($type === 'file') {
 			powerplantpvReportRenderFiles($field, false);
@@ -896,6 +990,21 @@ function powerplantpvReportRenderField($field, $editable, $form)
 	}
 	print '</div>';
 	print '</div>';
+}
+
+/**
+ * Return true when the field unit must stay inline with the control.
+ *
+ * @param	PowerPlantPVReportField	$field	Field
+ * @return	bool							True for compact input/select controls with unit
+ */
+function powerplantpvReportFieldHasInlineUnit($field)
+{
+	if (empty($field->unit)) {
+		return false;
+	}
+
+	return !in_array((string) $field->field_type, array('textarea', 'dynamic_table', 'file', 'signature'), true);
 }
 
 /**

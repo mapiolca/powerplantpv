@@ -10,6 +10,9 @@
 	cursor: pointer;
 	font-weight: 600;
 	padding: 10px 12px;
+	border-left: 4px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
+	background: var(--colorbacktitle1, var(--colorbacklinepair1, transparent));
+	color: var(--colortexttitle, inherit);
 }
 
 .page-maintenance-intervention-report .powerplantpv-report-fields {
@@ -22,6 +25,7 @@
 
 .page-maintenance-intervention-report .powerplantpv-report-field {
 	border: 1px solid var(--border-color, currentColor);
+	border-top: 3px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
 	border-radius: 4px;
 	padding: 10px;
 	background: var(--colorbacklineimpair1, transparent);
@@ -29,10 +33,14 @@
 	overflow: hidden;
 }
 
-.page-maintenance-intervention-report .powerplantpv-report-field label {
+.page-maintenance-intervention-report .powerplantpv-report-field > label {
 	display: block;
 	font-weight: 600;
 	margin-bottom: 6px;
+	padding: 6px 8px;
+	border-left: 3px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
+	border-radius: 3px;
+	background: var(--colorbacklinepair1, transparent);
 	min-width: 0;
 	overflow-wrap: break-word;
 }
@@ -40,6 +48,13 @@
 .page-maintenance-intervention-report .powerplantpv-report-input {
 	min-width: 0;
 	max-width: 100%;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-input-with-unit {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: 6px;
 }
 
 .page-maintenance-intervention-report .powerplantpv-report-control,
@@ -63,6 +78,20 @@
 	max-width: 100%;
 	min-width: 0;
 	box-sizing: border-box;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-input-with-unit > .powerplantpv-report-control,
+.page-maintenance-intervention-report .powerplantpv-report-input-with-unit > input,
+.page-maintenance-intervention-report .powerplantpv-report-input-with-unit > select,
+.page-maintenance-intervention-report .powerplantpv-report-input-with-unit > .select2-container,
+.page-maintenance-intervention-report .powerplantpv-control-with-unit > .powerplantpv-report-control,
+.page-maintenance-intervention-report .powerplantpv-control-with-unit > input,
+.page-maintenance-intervention-report .powerplantpv-control-with-unit > select,
+.page-maintenance-intervention-report .powerplantpv-control-with-unit > .select2-container {
+	flex: 1 1 0;
+	width: auto !important;
+	min-width: 0;
+	max-width: 100%;
 }
 
 .page-maintenance-intervention-report .powerplantpv-report-input .select2-selection,
@@ -108,8 +137,14 @@
 }
 
 .page-maintenance-intervention-report .powerplantpv-report-unit {
-	display: block;
+	display: inline-block;
 	margin-top: 4px;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-input-with-unit .powerplantpv-report-unit {
+	flex: 0 0 auto;
+	margin-top: 0;
+	white-space: nowrap;
 }
 
 .page-maintenance-intervention-report .powerplantpv-report-readonly {
@@ -169,6 +204,9 @@
 
 .page-maintenance-intervention-report .powerplantpv-dc-inverter > .liste_titre {
 	padding: 8px 10px;
+	border-left: 4px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
+	background: var(--colorbacktitle1, var(--colorbacklinepair1, transparent));
+	color: var(--colortexttitle, inherit);
 }
 
 .page-maintenance-intervention-report .powerplantpv-dc-mppt {
@@ -186,6 +224,7 @@
 
 .page-maintenance-intervention-report .powerplantpv-dc-card {
 	border: 1px solid var(--border-color, currentColor);
+	border-top: 3px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
 	border-radius: 4px;
 	padding: 10px;
 	background: var(--colorbacklineimpair1, transparent);
@@ -196,6 +235,12 @@
 .page-maintenance-intervention-report .powerplantpv-dc-card-title {
 	font-weight: 600;
 	margin-bottom: 8px;
+	padding: 6px 8px;
+	border-left: 3px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
+	border-radius: 3px;
+	background: var(--colorbacklinepair1, transparent);
+	min-width: 0;
+	overflow-wrap: break-word;
 }
 
 .page-maintenance-intervention-report .powerplantpv-dc-card label {
