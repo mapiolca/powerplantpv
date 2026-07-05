@@ -765,6 +765,9 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
 		if (!is_array($row) || empty($row['section']) || !is_object($row['section'])) {
 			continue;
 		}
+		if (PowerPlantPVReportBuilder::isIgnoredReportSectionCode((string) $row['section']->section_code)) {
+			continue;
+		}
 		if ((string) $row['section']->section_code === 'DC_ELECTRICAL_MEASURE') {
 			continue;
 		}
@@ -813,6 +816,9 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 		}
 		foreach ($group['sections'] as $row) {
 			$section = $row['section'];
+			if (PowerPlantPVReportBuilder::isIgnoredReportSectionCode((string) $section->section_code)) {
+				continue;
+			}
 			$fields = powerplantpvReportFilterRenderableFields(isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array());
 			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
 				continue;

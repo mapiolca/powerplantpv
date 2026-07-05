@@ -61,6 +61,17 @@ class PowerPlantPVReportBuilder
 	}
 
 	/**
+	 * Return true when a report section is handled by another native workflow.
+	 *
+	 * @param	string	$sectionCode	Section code
+	 * @return	bool					True if section must not be rendered or generated
+	 */
+	public static function isIgnoredReportSectionCode($sectionCode)
+	{
+		return in_array((string) $sectionCode, array('CUSTOMER_SIGNATURE'), true);
+	}
+
+	/**
 	 * Build a read-only preview tree from current model data without writing to database.
 	 *
 	 * @param	CommonObject	$intervention	Intervention object
@@ -137,6 +148,9 @@ class PowerPlantPVReportBuilder
 			'non_dc_sections_without_fields' => 0,
 		);
 		foreach ($sections as $section) {
+			if (self::isIgnoredReportSectionCode((string) $section->section_code)) {
+				continue;
+			}
 			$fields = $fieldObject->fetchAllBySection((int) $section->id, 'position', 'ASC');
 			if (!is_array($fields)) {
 				$this->copyErrorsFrom($fieldObject);
@@ -1260,6 +1274,7 @@ class PowerPlantPVReportBuilder
 			'sections_skipped_hidden' => 0,
 			'sections_skipped_unmapped' => 0,
 			'sections_skipped_no_fields' => 0,
+			'sections_skipped_signature' => 0,
 			'occurrences_skipped_unmapped' => 0,
 			'planned_sections' => 0,
 			'planned_fields' => 0,
@@ -1289,6 +1304,10 @@ class PowerPlantPVReportBuilder
 		$position = 0;
 		$hasMappedSections = !empty($context['mapped_section_ids']);
 		foreach ($context['template_sections'] as $section) {
+			if (self::isIgnoredReportSectionCode((string) $section->code)) {
+				$stats['sections_skipped_signature']++;
+				continue;
+			}
 			$sectionId = $this->getTemplateObjectId($section);
 			if ($sectionId <= 0) {
 				$stats['sections_skipped_hidden']++;

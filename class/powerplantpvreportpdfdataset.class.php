@@ -139,6 +139,9 @@ class PowerPlantPVReportPdfDataset
 				continue;
 			}
 			$section = $sectionRow['section'];
+			if (PowerPlantPVReportBuilder::isIgnoredReportSectionCode((string) $section->section_code)) {
+				continue;
+			}
 			$powerplantId = (int) $section->fk_report_powerplant;
 			if ($powerplantId > 0) {
 				if (!isset($sectionsByPowerplant[$powerplantId])) {
