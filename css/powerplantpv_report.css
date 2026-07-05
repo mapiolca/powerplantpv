@@ -9,7 +9,6 @@
 	cursor: pointer;
 	font-weight: 600;
 	padding: 10px 12px;
-	background: var(--colorbackhmenu1, #f7f7f7);
 }
 
 .page-maintenance-intervention-report .powerplantpv-report-fields {

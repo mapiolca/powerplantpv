@@ -605,7 +605,7 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 			$fields = isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array();
 			$label = powerplantpvReportLocalizedObjectLabel($section, 'section_label');
 			print '<details class="powerplantpv-report-section" open>';
-			print '<summary><span>'.dol_escape_htmltag($label).'</span>';
+			print '<summary class="liste_titre"><span>'.dol_escape_htmltag($label).'</span>';
 			if (!empty($section->is_required)) {
 				print '<span class="badge marginleftonlyshort">'.$langs->trans('Required').'</span>';
 			}
