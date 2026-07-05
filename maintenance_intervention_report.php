@@ -81,6 +81,8 @@ if ($action === '') {
 		$action = 'save_draft';
 	} elseif (GETPOSTISSET('save_report_submit')) {
 		$action = 'save';
+	} elseif (GETPOSTISSET('recalculate_submit')) {
+		$action = 'recalculate';
 	}
 }
 
@@ -325,17 +327,33 @@ if ($locked) {
 }
 
 $tree = null;
+$diagnosticTree = null;
+$emptyExistingSnapshot = false;
 if ($reportFetch > 0) {
 	$tree = $builder->loadReportTree((int) $report->id);
 	if (!is_array($tree)) {
 		setEventMessages($builder->error, $builder->errors, 'errors');
+	} elseif (empty($tree['sections'])) {
+		$emptyExistingSnapshot = true;
+		$diagnosticTree = $builder->buildPreviewTree($intervention, $manualServiceIds);
 	}
 } else {
 	$tree = $builder->buildPreviewTree($intervention, $manualServiceIds);
 }
 
+$messages = array();
+if ($emptyExistingSnapshot) {
+	$messages[] = 'PowerPlantPVReportEmptySnapshot';
+}
 if (is_array($tree) && !empty($tree['messages']) && is_array($tree['messages'])) {
-	foreach ($tree['messages'] as $messageKey) {
+	$messages = array_merge($messages, $tree['messages']);
+}
+if (is_array($diagnosticTree) && !empty($diagnosticTree['messages']) && is_array($diagnosticTree['messages'])) {
+	$messages = array_merge($messages, $diagnosticTree['messages']);
+}
+$messages = array_values(array_unique($messages));
+if (!empty($messages)) {
+	foreach ($messages as $messageKey) {
 		print '<div class="info">'.$langs->trans((string) $messageKey).'</div>';
 	}
 }
@@ -344,8 +362,13 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	print '<div class="opacitymedium">'.$langs->trans('PowerPlantPVReportCannotBeGenerated').'</div>';
 } elseif (is_array($tree)) {
 	$manualOptions = $builder->fetchManualMaintenanceServiceOptions();
-	$noContractPrestations = !empty($tree['messages']) && is_array($tree['messages']) && in_array('PowerPlantPVReportNoContractPrestations', $tree['messages'], true);
-	$showManualSelection = ($reportFetch <= 0 && $caneditreport && $noContractPrestations && !empty($manualOptions));
+	$manualContext = is_array($diagnosticTree) ? $diagnosticTree : $tree;
+	$manualMessages = !empty($manualContext['messages']) && is_array($manualContext['messages']) ? $manualContext['messages'] : array();
+	$noContractPrestations = in_array('PowerPlantPVReportNoContractPrestations', $manualMessages, true);
+	$showManualSelection = (($reportFetch <= 0 || $emptyExistingSnapshot)
+		&& $caneditreport
+		&& $noContractPrestations
+		&& !empty($manualOptions));
 	print '<form id="powerplantpvreportform" method="POST" enctype="multipart/form-data" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="id" value="'.((int) $id).'">';
@@ -362,14 +385,18 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
-		print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportSaveDraft')).'">';
-		print ' ';
-		print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
+		if ($emptyExistingSnapshot && $reportFetch > 0) {
+			print '<input type="submit" class="button button-save" name="recalculate_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
+		} else {
+			print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportSaveDraft')).'">';
+			print ' ';
+			print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
+		}
 		print '</div>';
 	}
 	print '</form>';
 
-	if ($caneditreport && $reportFetch > 0) {
+	if ($caneditreport && $reportFetch > 0 && !$emptyExistingSnapshot) {
 		print '<div class="tabsAction">';
 		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="powerplantpv-inline-form">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
