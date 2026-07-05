@@ -221,9 +221,10 @@ class modPowerPlantPV extends DolibarrModules
 		// Array to add new pages in new tabs
 		/* BEGIN MODULEBUILDER TABS */
 		// Don't forget to deactivate/reactivate your module to test your changes
+		// Menu/tab descriptors are parsed by dol_eval(), so their conditions must keep descriptor-safe syntax.
 		$this->tabs = array(
 			'product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight(\'produit\', \'lire\'):/powerplantpv/product_detailedcaracteristics.php?id=__ID__',
-			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:($user->hasRight(\'powerplantpv\', \'maintenance\', \'read\') || !empty($user->admin)):/powerplantpv/maintenance_intervention_report.php?id=__ID__'
+			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:$user->admin || $user->rights->powerplantpv->maintenance->read:/powerplantpv/maintenance_intervention_report.php?id=__ID__'
 		);
 		/* END MODULEBUILDER TABS */
 		// Example:
@@ -639,7 +640,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -654,7 +655,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && isModEnabled("ficheinter") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '(!empty($user->admin) || ($user->hasRight("powerplantpv", "maintenance", "write") && $user->hasRight("ficheinter", "creer")))',
+			'perms' => '$user->admin || ($user->rights->powerplantpv->maintenance->write && $user->rights->ficheinter->creer)',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -669,7 +670,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -684,7 +685,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -699,7 +700,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '(!empty($user->admin) || $user->hasRight("powerplantpv", "maintenance", "read"))',
+			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'

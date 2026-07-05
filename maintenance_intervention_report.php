@@ -61,6 +61,10 @@ dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportdcmeasure.class.php');
 dol_include_once('/fichinter/class/fichinter.class.php');
 require_once DOL_DOCUMENT_ROOT.'/core/lib/fichinter.lib.php';
+if (isModEnabled('project')) {
+	require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+	require_once DOL_DOCUMENT_ROOT.'/core/class/html.formprojet.class.php';
+}
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'interventions', 'companies', 'contracts', 'other'));
 
@@ -94,9 +98,13 @@ if ($intervention->fetch($id) <= 0) {
 if (method_exists($intervention, 'fetch_optionals')) {
 	$intervention->fetch_optionals();
 }
+if (method_exists($intervention, 'fetch_thirdparty')) {
+	$intervention->fetch_thirdparty();
+}
 
 $permissiontoread = powerplantpvUserHasRightPath($user, array('ficheinter', 'lire')) && powerplantpvUserHasMaintenanceRight($user, 'read');
 $permissiontowrite = powerplantpvUserHasMaintenanceRight($user, 'report') || powerplantpvUserHasMaintenanceRight($user, 'write');
+$usercancreateintervention = $user->hasRight('ficheinter', 'creer');
 if (!$permissiontoread) {
 	accessforbidden();
 }
@@ -118,6 +126,35 @@ if (in_array($action, $sensitiveActions, true)) {
 	}
 	if (!powerplantpvReportSubmittedTokenValid($token)) {
 		accessforbidden('Invalid CSRF token');
+	}
+}
+
+if (in_array($action, array('setref_client', 'classin'), true)) {
+	if (!$usercancreateintervention) {
+		accessforbidden();
+	}
+	if (!powerplantpvReportSubmittedTokenValid($token)) {
+		accessforbidden('Invalid CSRF token');
+	}
+}
+
+if ($action === 'setref_client' && $usercancreateintervention) {
+	$result = $intervention->setRefClient($user, GETPOST('ref_client', 'alpha'));
+	if ($result < 0) {
+		setEventMessages($intervention->error, $intervention->errors, 'errors');
+	} else {
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
+		exit;
+	}
+}
+
+if ($action === 'classin' && $usercancreateintervention) {
+	$result = $intervention->setProject(GETPOSTINT('projectid'));
+	if ($result < 0) {
+		setEventMessages($intervention->error, $intervention->errors, 'errors');
+	} else {
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
+		exit;
 	}
 }
 
@@ -215,10 +252,68 @@ if (function_exists('fichinter_prepare_head')) {
 }
 print dol_get_fiche_head($head, 'powerplantpv_report', $langs->trans('Intervention'), -1, 'intervention');
 
-$linkback = '<a href="'.DOL_URL_ROOT.'/fichinter/list.php?restore_lastsearch_values=1">'.$langs->trans('BackToList').'</a>';
+$linkback = '<a href="'.DOL_URL_ROOT.'/fichinter/list.php?restore_lastsearch_values=1'
+	.(!empty($intervention->socid) ? '&socid='.(int) $intervention->socid : '').'">'
+	.$langs->trans('BackToList').'</a>';
 $morehtmlref = '<div class="refidno">';
-if (!empty($intervention->socid)) {
-	$morehtmlref .= $langs->trans('ThirdParty').' : '.dol_escape_htmltag((string) $intervention->socid);
+$morehtmlref .= $form->editfieldkey(
+	'RefCustomer',
+	'ref_client',
+	$intervention->ref_client,
+	$intervention,
+	$usercancreateintervention,
+	'string',
+	'',
+	0,
+	1
+);
+$morehtmlref .= $form->editfieldval(
+	'RefCustomer',
+	'ref_client',
+	$intervention->ref_client,
+	$intervention,
+	$usercancreateintervention,
+	'string',
+	'',
+	null,
+	null,
+	'',
+	1
+);
+if (isset($intervention->thirdparty) && is_object($intervention->thirdparty) && !empty($intervention->thirdparty->id)) {
+	$morehtmlref .= '<br>'.$intervention->thirdparty->getNomUrl(1, 'customer');
+}
+if (isModEnabled('project')) {
+	$langs->load('projects');
+	$morehtmlref .= '<br>';
+	if ($usercancreateintervention) {
+		$morehtmlref .= img_picto($langs->trans('Project'), 'project', 'class="pictofixedwidth"');
+		if ($action !== 'classify') {
+			$morehtmlref .= '<a class="editfielda" href="'.$_SERVER['PHP_SELF'].'?action=classify'
+				.'&token='.newToken().'&id='.(int) $intervention->id.'">'
+				.img_edit($langs->transnoentitiesnoconv('SetProject')).'</a> ';
+		}
+		$morehtmlref .= $form->form_project(
+			$_SERVER['PHP_SELF'].'?id='.(int) $intervention->id,
+			$intervention->socid,
+			$intervention->fk_project,
+			($action === 'classify' ? 'projectid' : 'none'),
+			0,
+			0,
+			0,
+			1,
+			'',
+			'maxwidth300'
+		);
+	} elseif (!empty($intervention->fk_project)) {
+		$proj = new Project($db);
+		if ($proj->fetch((int) $intervention->fk_project) > 0) {
+			$morehtmlref .= $proj->getNomUrl(1);
+			if ($proj->title) {
+				$morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($proj->title).'</span>';
+			}
+		}
+	}
 }
 $morehtmlref .= '</div>';
 dol_banner_tab($intervention, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
