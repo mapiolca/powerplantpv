@@ -639,41 +639,101 @@ if (in_array($action, array('save_mppt_config', 'delete_mppt_config', 'save_stri
 		}
 		$action = 'configdc';
 	} elseif ($action === 'prefill_mppt_config') {
-		$sql = "SELECT pim.position, COUNT(pip.rowid) as input_count";
+		$sql = "SELECT pim.position as mppt_position, pip.position as input_position, pip.label as input_label";
 		$sql .= " FROM ".$db->prefix()."powerplantpv_product_inverter as inv";
 		$sql .= " INNER JOIN ".$db->prefix()."powerplantpv_product_inverter_mppt as pim ON pim.fk_inverter = inv.rowid";
 		$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_product_inverter_pvinput as pip ON pip.fk_mppt = pim.rowid";
 		$sql .= " WHERE inv.fk_product = ".((int) $line->fk_product);
 		$sql .= " AND inv.entity IN (".getEntity('product').")";
-		$sql .= " GROUP BY pim.rowid, pim.position";
-		$sql .= " ORDER BY pim.position ASC, pim.rowid ASC";
+		$sql .= " ORDER BY pim.position ASC, pip.position ASC, pip.rowid ASC";
 		$resprefill = $db->query($sql);
 		$nbcreated = 0;
+		$nbstringscreated = 0;
 		if ($resprefill) {
+			$mppttemplates = array();
 			while ($objprefill = $db->fetch_object($resprefill)) {
-				$mpptNumber = (int) $objprefill->position;
-				$inputCount = (int) $objprefill->input_count;
+				$mpptNumber = (int) $objprefill->mppt_position;
 				if ($mpptNumber <= 0) {
 					continue;
 				}
-				$sqlexists = "SELECT rowid FROM ".$db->prefix()."powerplantpv_equipment_mppt WHERE entity = ".$powerplantentity." AND fk_powerplant = ".((int) $object->id)." AND fk_inverter = ".((int) $lineid)." AND mppt_number = ".$mpptNumber;
-					$resexists = $db->query($sqlexists);
-					if ($resexists && $db->num_rows($resexists) > 0) {
-						$db->free($resexists);
-						continue;
-					}
-					if ($resexists) {
-						$db->free($resexists);
-					}
+				if (empty($mppttemplates[$mpptNumber])) {
+					$mppttemplates[$mpptNumber] = array('input_count' => 0, 'inputs' => array());
+				}
+				$inputNumber = (int) $objprefill->input_position;
+				if ($inputNumber > 0) {
+					$mppttemplates[$mpptNumber]['inputs'][$inputNumber] = (string) $objprefill->input_label;
+					$mppttemplates[$mpptNumber]['input_count'] = count($mppttemplates[$mpptNumber]['inputs']);
+				}
+			}
+			$db->free($resprefill);
+
+			$error = 0;
+			$db->begin();
+			foreach ($mppttemplates as $mpptNumber => $template) {
+				$mpptNumber = (int) $mpptNumber;
+				$inputCount = isset($template['input_count']) ? (int) $template['input_count'] : 0;
+				$sqlexists = "SELECT rowid FROM ".$db->prefix()."powerplantpv_equipment_mppt";
+				$sqlexists .= " WHERE entity = ".$powerplantentity." AND fk_powerplant = ".((int) $object->id)." AND fk_inverter = ".((int) $lineid)." AND mppt_number = ".$mpptNumber;
+				$resexists = $db->query($sqlexists);
+				if (!$resexists) {
+					$error++;
+					break;
+				}
+				if ($resexists && $db->num_rows($resexists) > 0) {
+					$db->free($resexists);
+				} else {
+					$db->free($resexists);
 					$sqlinsert = "INSERT INTO ".$db->prefix()."powerplantpv_equipment_mppt(entity, fk_powerplant, fk_inverter, mppt_number, pv_input_count, position, date_creation, fk_user_creat)";
 					$sqlinsert .= " VALUES (".$powerplantentity.", ".((int) $object->id).", ".((int) $lineid).", ".$mpptNumber.", ".$inputCount.", ".$mpptNumber.", '".$db->idate(dol_now())."', ".((int) $user->id).")";
 					if ($db->query($sqlinsert)) {
 						$nbcreated++;
+					} else {
+						$error++;
+						break;
 					}
 				}
-				$db->free($resprefill);
+
+				$inputs = isset($template['inputs']) && is_array($template['inputs']) ? $template['inputs'] : array();
+				foreach ($inputs as $inputNumber => $inputLabel) {
+					$inputNumber = (int) $inputNumber;
+					if ($inputNumber <= 0) {
+						continue;
+					}
+					$sqlexists = "SELECT rowid FROM ".$db->prefix()."powerplantpv_equipment_string";
+					$sqlexists .= " WHERE entity = ".$powerplantentity." AND fk_powerplant = ".((int) $object->id)." AND fk_inverter = ".((int) $lineid);
+					$sqlexists .= " AND mppt_number = ".$mpptNumber." AND pv_input_number = ".$inputNumber;
+					$resexists = $db->query($sqlexists);
+					if (!$resexists) {
+						$error++;
+						break 2;
+					}
+					if ($db->num_rows($resexists) > 0) {
+						$db->free($resexists);
+						continue;
+					}
+					$db->free($resexists);
+
+					$sqlinsert = "INSERT INTO ".$db->prefix()."powerplantpv_equipment_string(entity, fk_powerplant, fk_inverter, mppt_number, pv_input_number, string_ref, module_count, module_power, orientation, tilt, is_connected, position, date_creation, fk_user_creat)";
+					$sqlinsert .= " VALUES (".$powerplantentity.", ".((int) $object->id).", ".((int) $lineid).", ".$mpptNumber.", ".$inputNumber.", '".$db->escape((string) $inputLabel)."', NULL, NULL, '', NULL, 1, ".$inputNumber.", '".$db->idate(dol_now())."', ".((int) $user->id).")";
+					if ($db->query($sqlinsert)) {
+						$nbstringscreated++;
+					} else {
+						$error++;
+						break 2;
+					}
+				}
 			}
-		setEventMessages($langs->trans('PowerPlantPVMPPTPrefillDone', $nbcreated), null, 'mesgs');
+
+			if ($error) {
+				$db->rollback();
+				setEventMessages($db->lasterror(), null, 'errors');
+			} else {
+				$db->commit();
+				setEventMessages($langs->trans('PowerPlantPVMPPTPrefillDone', $nbcreated), array($langs->trans('PowerPlantPVPVInputPrefillDone', $nbstringscreated)), 'mesgs');
+			}
+		} else {
+			setEventMessages($db->lasterror(), null, 'errors');
+		}
 		$action = 'configdc';
 	}
 }

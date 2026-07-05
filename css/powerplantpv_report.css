@@ -23,6 +23,30 @@
 	min-width: 0;
 }
 
+.page-maintenance-intervention-report .powerplantpv-report-summary-content {
+	padding: 12px;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-summary-content .titre {
+	font-weight: 600;
+	margin-top: 10px;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-summary-table {
+	margin-bottom: 10px;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-summary-table th,
+.page-maintenance-intervention-report .powerplantpv-report-summary-table td {
+	vertical-align: top;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-summary-fallback {
+	margin-bottom: 10px;
+}
+
 .page-maintenance-intervention-report .powerplantpv-report-field {
 	border: 1px solid var(--border-color, currentColor);
 	border-top: 3px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));

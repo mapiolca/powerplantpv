@@ -36,6 +36,7 @@ class PowerPlantPVReportPowerPlant extends PowerPlantPVReportGeneratedBase
 		'fk_soc' => array('type' => 'integer', 'label' => 'ThirdParty', 'enabled' => 1, 'position' => 50, 'notnull' => 0, 'visible' => 1),
 		'fk_project' => array('type' => 'integer', 'label' => 'Project', 'enabled' => 1, 'position' => 60, 'notnull' => 0, 'visible' => 1),
 		'position' => array('type' => 'integer', 'label' => 'Position', 'enabled' => 1, 'position' => 70, 'notnull' => 1, 'visible' => 1, 'default' => 0),
+		'technical_snapshot' => array('type' => 'mediumtext', 'label' => 'PowerPlantPVTechnicalSnapshot', 'enabled' => 1, 'position' => 80, 'notnull' => 0, 'visible' => 1),
 		'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => 1, 'position' => 500, 'notnull' => 0, 'visible' => -2),
 		'tms' => array('type' => 'timestamp', 'label' => 'DateModification', 'enabled' => 1, 'position' => 501, 'notnull' => 0, 'visible' => -2),
 		'fk_user_creat' => array('type' => 'integer:User:user/class/user.class.php', 'label' => 'UserAuthor', 'enabled' => 1, 'position' => 510, 'notnull' => 0, 'visible' => -2),
@@ -50,4 +51,5 @@ class PowerPlantPVReportPowerPlant extends PowerPlantPVReportGeneratedBase
 	public $fk_soc;
 	public $fk_project;
 	public $position;
+	public $technical_snapshot;
 }

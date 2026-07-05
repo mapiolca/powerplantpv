@@ -1517,6 +1517,7 @@ class modPowerPlantPV extends DolibarrModules
 				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'fk_powerplant' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'position' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+				'technical_snapshot' => array('type' => 'mediumtext', 'value' => '', 'null' => ''),
 			),
 			$this->db->prefix().'powerplantpv_report_source_service' => array(
 				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
@@ -2720,6 +2721,8 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		$fieldDefaults = array(
+			'EQUIPMENT_SUMMARY_OBSERVATION' => array('visible_form' => array('value' => 0, 'old' => array(1)), 'visible_pdf' => array('value' => 0, 'old' => array(1)), 'readonly' => array('value' => 1, 'old' => array(0))),
+			'INSTALLATION_DESCRIPTION_TEXT' => array('visible_form' => array('value' => 0, 'old' => array(1)), 'visible_pdf' => array('value' => 0, 'old' => array(1)), 'readonly' => array('value' => 1, 'old' => array(0))),
 			'INVERTER_PRODUCTION' => array('label' => array('value' => 'Relevé production onduleur N', 'old' => array('Relevé production onduleur')), 'label_en' => array('value' => 'Inverter production reading N', 'old' => array('Inverter production reading')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),
 			'PRODUCTION_INDEX' => array('label' => array('value' => 'Index production N', 'old' => array('Index production')), 'label_en' => array('value' => 'Production index N', 'old' => array('Production index')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),
 			'INJECTION_INDEX' => array('label' => array('value' => 'Index injection N', 'old' => array('Index injection')), 'label_en' => array('value' => 'Injection index N', 'old' => array('Injection index')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),

@@ -219,7 +219,7 @@ class PowerPlantPVFileImport
 		for ($i = 0; $i < $limit; $i++) {
 			$score = 0;
 			foreach ($this->normalizeHeaders((array) $rows[$i]) as $header) {
-				if ($header !== '' && isset($aliases[$header])) {
+				if ($header !== '' && (isset($aliases[$header]) || !empty($this->parseMpptCompositionHeader($header)))) {
 					$score++;
 				}
 			}
@@ -296,7 +296,7 @@ class PowerPlantPVFileImport
 		$headers = (array) $rows[$headerrow];
 		$normalizedheaders = $this->normalizeHeaders($headers);
 		$fieldmap = $this->buildFieldMap($normalizedheaders, $type);
-		if (empty($fieldmap['fields'])) {
+		if (empty($fieldmap['fields']) && empty($fieldmap['composition_fields'])) {
 			$this->setError('ProductTechnicalImportNoRecognizedColumn');
 			return array();
 		}
@@ -356,7 +356,13 @@ class PowerPlantPVFileImport
 	 */
 	public function normalizeInverterRow(array $row)
 	{
-		return $this->normalizeRowWithAliases($row, $this->getInverterAliases(), $this->getInverterFieldTypes(), 'inverter');
+		$normalized = $this->normalizeRowWithAliases($row, $this->getInverterAliases(), $this->getInverterFieldTypes(), 'inverter');
+		$composition = $this->normalizeMpptCompositionRow($row);
+		if (!empty($composition)) {
+			$normalized['_mppt_composition'] = $composition;
+		}
+
+		return $normalized;
 	}
 
 	/**
@@ -767,6 +773,7 @@ class PowerPlantPVFileImport
 	{
 		$aliases = ($type === 'inverter') ? $this->getInverterAliases() : $this->getModuleAliases();
 		$fields = array();
+		$compositionfields = array();
 		$recognized = array();
 		$ignored = array();
 		foreach ($normalizedheaders as $idx => $header) {
@@ -779,12 +786,15 @@ class PowerPlantPVFileImport
 					$fields[$field] = $idx;
 				}
 				$recognized[$header] = $field;
+			} elseif ($type === 'inverter' && !empty($this->parseMpptCompositionHeader($header))) {
+				$compositionfields[$header] = $idx;
+				$recognized[$header] = '_mppt_composition';
 			} else {
 				$ignored[] = $header;
 			}
 		}
 
-		return array('fields' => $fields, 'recognized_headers' => $recognized, 'ignored_headers' => array_values(array_unique($ignored)));
+		return array('fields' => $fields, 'composition_fields' => $compositionfields, 'recognized_headers' => $recognized, 'ignored_headers' => array_values(array_unique($ignored)));
 	}
 
 	/**
@@ -819,8 +829,52 @@ class PowerPlantPVFileImport
 			if ($key === '_dataset') {
 				continue;
 			}
+			if ($key === '_mppt_composition' && is_array($value)) {
+				$count += $this->countMpptCompositionValues($value);
+				continue;
+			}
 			if ($value !== null && $value !== '') {
 				$count++;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Count imported MPPT composition values.
+	 *
+	 * @param array<int,array<string,mixed>> $composition MPPT composition
+	 * @return int Count
+	 */
+	protected function countMpptCompositionValues(array $composition)
+	{
+		$count = 0;
+		foreach ($composition as $mppt) {
+			if (!is_array($mppt)) {
+				continue;
+			}
+			foreach ($mppt as $key => $value) {
+				if ($key === 'position' || $key === 'inputs') {
+					continue;
+				}
+				if ($value !== null && $value !== '') {
+					$count++;
+				}
+			}
+			$inputs = isset($mppt['inputs']) && is_array($mppt['inputs']) ? $mppt['inputs'] : array();
+			foreach ($inputs as $input) {
+				if (!is_array($input)) {
+					continue;
+				}
+				foreach ($input as $key => $value) {
+					if ($key === 'position') {
+						continue;
+					}
+					if ($value !== null && $value !== '') {
+						$count++;
+					}
+				}
 			}
 		}
 
@@ -865,6 +919,190 @@ class PowerPlantPVFileImport
 		}
 
 		return '';
+	}
+
+	/**
+	 * Normalize MPPT and PV input composition columns from an inverter row.
+	 *
+	 * @param array<string,mixed> $row Raw row indexed by file headers
+	 * @return array<int,array<string,mixed>> Composition indexed by MPPT number
+	 */
+	protected function normalizeMpptCompositionRow(array $row)
+	{
+		$composition = array();
+		foreach ($row as $header => $value) {
+			$descriptor = $this->parseMpptCompositionHeader($this->normalizeHeader((string) $header));
+			if (empty($descriptor)) {
+				continue;
+			}
+
+			$type = $this->getMpptCompositionFieldType((string) $descriptor['field'], (string) $descriptor['kind']);
+			$parsed = $this->parseFieldValue($value, $type);
+			if ($parsed === null || $parsed === '') {
+				continue;
+			}
+
+			$mpptnumber = (int) $descriptor['mppt_number'];
+			if (empty($composition[$mpptnumber])) {
+				$composition[$mpptnumber] = array(
+					'position' => $mpptnumber,
+					'inputs' => array(),
+				);
+			}
+
+			if ((string) $descriptor['kind'] === 'mppt') {
+				$composition[$mpptnumber][(string) $descriptor['field']] = $parsed;
+				continue;
+			}
+
+			$inputnumber = isset($descriptor['input_number']) ? (int) $descriptor['input_number'] : 0;
+			if ($inputnumber <= 0) {
+				continue;
+			}
+			if (empty($composition[$mpptnumber]['inputs'][$inputnumber])) {
+				$composition[$mpptnumber]['inputs'][$inputnumber] = array('position' => $inputnumber);
+			}
+			$composition[$mpptnumber]['inputs'][$inputnumber][(string) $descriptor['field']] = $parsed;
+		}
+
+		if (!empty($composition)) {
+			ksort($composition);
+			foreach ($composition as $mpptnumber => $mppt) {
+				if (isset($mppt['inputs']) && is_array($mppt['inputs'])) {
+					ksort($mppt['inputs']);
+					$composition[$mpptnumber]['inputs'] = $mppt['inputs'];
+				}
+			}
+		}
+
+		return $composition;
+	}
+
+	/**
+	 * Parse a normalized MPPT composition header.
+	 *
+	 * @param string $header Normalized header
+	 * @return array<string,mixed> Descriptor, empty array when not a composition header
+	 */
+	protected function parseMpptCompositionHeader($header)
+	{
+		if (!preg_match('/^mppt_([0-9]+)_(.+)$/', (string) $header, $matches)) {
+			return array();
+		}
+
+		$mpptnumber = (int) $matches[1];
+		if ($mpptnumber <= 0) {
+			return array();
+		}
+
+		$tail = (string) $matches[2];
+		if (preg_match('/^(input|inputs|pv_input|pv_inputs|pvinput|pvinputs|entree|entrees|entree_pv|entrees_pv|chaine|chaines|chaine_pv|chaines_pv|string|strings)_([0-9]+)_(.+)$/', $tail, $inputmatches)) {
+			$inputnumber = (int) $inputmatches[2];
+			$field = $this->mapMpptCompositionFieldAlias((string) $inputmatches[3], 'input');
+			if ($inputnumber <= 0 || $field === '') {
+				return array();
+			}
+
+			return array(
+				'kind' => 'input',
+				'mppt_number' => $mpptnumber,
+				'input_number' => $inputnumber,
+				'field' => $field,
+			);
+		}
+
+		$field = $this->mapMpptCompositionFieldAlias($tail, 'mppt');
+		if ($field === '') {
+			return array();
+		}
+
+		return array(
+			'kind' => 'mppt',
+			'mppt_number' => $mpptnumber,
+			'field' => $field,
+		);
+	}
+
+	/**
+	 * Map a MPPT composition field alias to a stored field.
+	 *
+	 * @param string $field Field alias
+	 * @param string $kind  mppt|input
+	 * @return string Stored field or empty string
+	 */
+	protected function mapMpptCompositionFieldAlias($field, $kind)
+	{
+		$mpptaliases = array(
+			'label' => 'label',
+			'libelle' => 'label',
+			'name' => 'label',
+			'nom' => 'label',
+			'voltage_min' => 'voltage_min',
+			'mppt_voltage_min' => 'voltage_min',
+			'vmppt_min' => 'voltage_min',
+			'tension_min' => 'voltage_min',
+			'tension_mppt_min' => 'voltage_min',
+			'voltage_max' => 'voltage_max',
+			'mppt_voltage_max' => 'voltage_max',
+			'vmppt_max' => 'voltage_max',
+			'tension_max' => 'voltage_max',
+			'tension_mppt_max' => 'voltage_max',
+			'max_input_current' => 'max_input_current',
+			'input_current_max' => 'max_input_current',
+			'courant_entree_max' => 'max_input_current',
+			'courant_max_entree' => 'max_input_current',
+			'max_short_circuit_current' => 'max_short_circuit_current',
+			'short_circuit_current_max' => 'max_short_circuit_current',
+			'courant_court_circuit_max' => 'max_short_circuit_current',
+			'courant_cc_max' => 'max_short_circuit_current',
+			'max_dc_power' => 'max_dc_power',
+			'dc_power_max' => 'max_dc_power',
+			'puissance_dc_max' => 'max_dc_power',
+			'note_private' => 'note_private',
+			'note' => 'note_private',
+			'notes' => 'note_private',
+		);
+
+		$inputaliases = array(
+			'label' => 'label',
+			'libelle' => 'label',
+			'name' => 'label',
+			'nom' => 'label',
+			'max_input_current' => 'max_input_current',
+			'input_current_max' => 'max_input_current',
+			'courant_entree_max' => 'max_input_current',
+			'courant_max_entree' => 'max_input_current',
+			'max_short_circuit_current' => 'max_short_circuit_current',
+			'short_circuit_current_max' => 'max_short_circuit_current',
+			'courant_court_circuit_max' => 'max_short_circuit_current',
+			'courant_cc_max' => 'max_short_circuit_current',
+			'connector_type' => 'connector_type',
+			'connector' => 'connector_type',
+			'connecteur' => 'connector_type',
+			'type_connecteur' => 'connector_type',
+			'note_private' => 'note_private',
+			'note' => 'note_private',
+			'notes' => 'note_private',
+		);
+
+		$aliases = ($kind === 'input') ? $inputaliases : $mpptaliases;
+		$field = (string) $field;
+
+		return isset($aliases[$field]) ? $aliases[$field] : '';
+	}
+
+	/**
+	 * Return the field type for a composition field.
+	 *
+	 * @param string $field Field name
+	 * @param string $kind  mppt|input
+	 * @return string Field type
+	 */
+	protected function getMpptCompositionFieldType($field, $kind)
+	{
+		$fields = ($kind === 'input') ? ProductInverter::getPvInputFields() : ProductInverter::getMpptFields();
+
+		return isset($fields[$field]['type']) ? (string) $fields[$field]['type'] : 'varchar';
 	}
 
 	/**

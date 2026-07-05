@@ -613,6 +613,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_powerplant(
 	fk_soc integer,
 	fk_project integer,
 	position integer DEFAULT 0 NOT NULL,
+	technical_snapshot mediumtext,
 	date_creation datetime,
 	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	fk_user_creat integer,
@@ -625,6 +626,7 @@ ALTER TABLE llx_powerplantpv_report_powerplant ADD INDEX IF NOT EXISTS idx_power
 ALTER TABLE llx_powerplantpv_report_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_report_powerplant_powerplant (fk_powerplant);
 ALTER TABLE llx_powerplantpv_report_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_report_powerplant_soc (fk_soc);
 ALTER TABLE llx_powerplantpv_report_powerplant ADD INDEX IF NOT EXISTS idx_powerplantpv_report_powerplant_project (fk_project);
+ALTER TABLE llx_powerplantpv_report_powerplant ADD COLUMN IF NOT EXISTS technical_snapshot mediumtext;
 
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_source_service(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,

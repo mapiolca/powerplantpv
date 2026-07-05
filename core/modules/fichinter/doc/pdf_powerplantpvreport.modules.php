@@ -18,6 +18,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 dol_include_once('/powerplantpv/class/powerplantpvreportpdfdataset.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 
 /**
  * Dynamic PDF model for PowerPlantPV intervention reports.
@@ -386,6 +387,9 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 				if ($this->isCustomerSignatureSectionRow($sectionRow)) {
 					continue;
 				}
+				if ($this->isPowerplantTechnicalSummarySectionRow($sectionRow)) {
+					continue;
+				}
 				$this->renderSection($pdf, $sectionRow, $dataset, $outputlangs);
 			}
 		}
@@ -402,7 +406,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			}
 			$this->ensureSpace($pdf, 28);
 			$this->renderSectionTitle($pdf, $this->powerplantLabel($powerplant), 1);
-			$this->renderEquipmentTable($pdf, isset($dataset['equipment_by_powerplant'][(int) $powerplant->id]) ? $dataset['equipment_by_powerplant'][(int) $powerplant->id] : array(), $outputlangs);
+			$this->renderPowerplantTechnicalSummary($pdf, $powerplant, $outputlangs);
 
 			$sourceServices = $this->filterSourceServicesByPowerplant($dataset['source_services'], (int) $powerplant->id);
 			if (!empty($sourceServices)) {
@@ -415,6 +419,9 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			} else {
 				foreach ($sections as $sectionRow) {
 					if ($this->isCustomerSignatureSectionRow($sectionRow)) {
+						continue;
+					}
+					if ($this->isPowerplantTechnicalSummarySectionRow($sectionRow)) {
 						continue;
 					}
 					$this->renderSection($pdf, $sectionRow, $dataset, $outputlangs);
@@ -470,6 +477,162 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		}
 
 		return (string) $sectionRow['section']->section_code === 'CUSTOMER_SIGNATURE';
+	}
+
+	/**
+	 * Return true when a section row is now rendered by the frozen power plant summary.
+	 *
+	 * @param	array<string,mixed>	$sectionRow	Section row
+	 * @return	bool							True for legacy summary sections
+	 */
+	protected function isPowerplantTechnicalSummarySectionRow($sectionRow)
+	{
+		if (empty($sectionRow['section']) || !is_object($sectionRow['section'])) {
+			return false;
+		}
+
+		return in_array((string) $sectionRow['section']->section_code, array('EQUIPMENT_SUMMARY', 'INSTALLATION_DESCRIPTION'), true);
+	}
+
+	/**
+	 * Render the frozen power plant technical summary.
+	 *
+	 * @param	TCPDF|TCPDI					$pdf			PDF handler
+	 * @param	PowerPlantPVReportPowerPlant	$powerplant	Report power plant snapshot
+	 * @param	Translate					$outputlangs	Output language
+	 * @return	void
+	 */
+	protected function renderPowerplantTechnicalSummary(&$pdf, $powerplant, $outputlangs)
+	{
+		$snapshot = $this->resolvePowerplantTechnicalSummarySnapshot($powerplant, $outputlangs);
+		if (empty($snapshot['sections']) || !is_array($snapshot['sections'])) {
+			return;
+		}
+
+		$this->renderSectionTitle($pdf, $outputlangs->transnoentities('PowerPlantPVReportPowerPlantSummary'), 2);
+		foreach ($snapshot['sections'] as $section) {
+			if (!is_array($section)) {
+				continue;
+			}
+			$this->renderPowerplantTechnicalSummarySection($pdf, $section, $outputlangs);
+		}
+	}
+
+	/**
+	 * Resolve a stored summary snapshot with live fallback for old reports.
+	 *
+	 * @param	PowerPlantPVReportPowerPlant	$powerplant	Report power plant snapshot
+	 * @param	Translate					$outputlangs	Output language
+	 * @return	array<string,mixed>						Snapshot
+	 */
+	protected function resolvePowerplantTechnicalSummarySnapshot($powerplant, $outputlangs)
+	{
+		$summary = new PowerPlantPVPowerPlantSummary($this->db);
+		if (is_object($powerplant) && !empty($powerplant->technical_snapshot)) {
+			$snapshot = $summary->decodeSnapshot((string) $powerplant->technical_snapshot);
+			if (!$summary->isEmptySnapshot($snapshot)) {
+				return $snapshot;
+			}
+		}
+
+		$sourceId = is_object($powerplant) && !empty($powerplant->fk_powerplant) ? (int) $powerplant->fk_powerplant : 0;
+		if ($sourceId <= 0) {
+			return array();
+		}
+		dol_syslog(__METHOD__.' live fallback for report powerplant id='.(is_object($powerplant) && !empty($powerplant->id) ? (int) $powerplant->id : 0).' source_powerplant_id='.$sourceId, LOG_WARNING);
+
+		return $summary->buildSnapshotById($sourceId, $outputlangs);
+	}
+
+	/**
+	 * Render one frozen power plant summary section.
+	 *
+	 * @param	TCPDF|TCPDI			$pdf			PDF handler
+	 * @param	array<string,mixed>	$section		Snapshot section
+	 * @param	Translate			$outputlangs	Output language
+	 * @return	void
+	 */
+	protected function renderPowerplantTechnicalSummarySection(&$pdf, $section, $outputlangs)
+	{
+		$titleKey = !empty($section['title_key']) ? (string) $section['title_key'] : '';
+		if ($titleKey !== '') {
+			$this->renderSectionTitle($pdf, $outputlangs->transnoentities($titleKey), 3);
+		}
+
+		$type = !empty($section['type']) ? (string) $section['type'] : 'key_value';
+		if ($type === 'key_value') {
+			$rows = array();
+			$sourceRows = isset($section['rows']) && is_array($section['rows']) ? $section['rows'] : array();
+			foreach ($sourceRows as $row) {
+				if (!is_array($row) || !array_key_exists('value', $row) || trim((string) $row['value']) === '') {
+					continue;
+				}
+				$labelKey = !empty($row['label_key']) ? (string) $row['label_key'] : '';
+				$rows[] = array($labelKey !== '' ? $outputlangs->transnoentities($labelKey) : '', (string) $row['value']);
+			}
+			$this->renderKeyValueTable($pdf, $rows, '');
+			return;
+		}
+		if ($type === 'table') {
+			$this->renderPowerplantSummaryTable($pdf, isset($section['columns']) && is_array($section['columns']) ? $section['columns'] : array(), isset($section['rows']) && is_array($section['rows']) ? $section['rows'] : array(), $outputlangs);
+			return;
+		}
+		if ($type === 'grouped_tables' && !empty($section['tables']) && is_array($section['tables'])) {
+			foreach ($section['tables'] as $table) {
+				if (!is_array($table) || empty($table['rows']) || !is_array($table['rows'])) {
+					continue;
+				}
+				$titleKey = !empty($table['title_key']) ? (string) $table['title_key'] : '';
+				if ($titleKey !== '') {
+					$this->renderSectionTitle($pdf, $outputlangs->transnoentities($titleKey), 3);
+				}
+				$this->renderPowerplantSummaryTable($pdf, isset($table['columns']) && is_array($table['columns']) ? $table['columns'] : array(), $table['rows'], $outputlangs);
+			}
+		}
+	}
+
+	/**
+	 * Render a frozen power plant summary table.
+	 *
+	 * @param	TCPDF|TCPDI					$pdf			PDF handler
+	 * @param	array<int,array<string,mixed>>	$columns	Columns
+	 * @param	array<int,array<string,mixed>>	$rows		Rows
+	 * @param	Translate					$outputlangs	Output language
+	 * @return	void
+	 */
+	protected function renderPowerplantSummaryTable(&$pdf, $columns, $rows, $outputlangs)
+	{
+		if (empty($columns) || empty($rows)) {
+			return;
+		}
+		$html = '<table border="1" cellpadding="3" cellspacing="0" width="100%">';
+		$html .= '<tr style="background-color:#f0f3f5;font-weight:bold;">';
+		foreach ($columns as $column) {
+			if (!is_array($column) || empty($column['key'])) {
+				continue;
+			}
+			$labelKey = !empty($column['label_key']) ? (string) $column['label_key'] : (string) $column['key'];
+			$html .= '<td>'.dol_escape_htmltag($outputlangs->transnoentities($labelKey)).'</td>';
+		}
+		$html .= '</tr>';
+		foreach ($rows as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+			$html .= '<tr>';
+			foreach ($columns as $column) {
+				if (!is_array($column) || empty($column['key'])) {
+					continue;
+				}
+				$key = (string) $column['key'];
+				$value = isset($row[$key]) ? (string) $row[$key] : '';
+				$html .= '<td>'.dol_htmlentitiesbr($value).'</td>';
+			}
+			$html .= '</tr>';
+		}
+		$html .= '</table>';
+		$this->writeHtml($pdf, $html);
+		$pdf->Ln(2);
 	}
 
 	/**

@@ -23,6 +23,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportdcmeasure.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvindexreading.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvinterventionnature.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreporttemplate.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreporttemplatesection.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreporttemplatefield.class.php');
@@ -702,7 +703,14 @@ class PowerPlantPVReportBuilder
 	{
 		$map = array();
 		$position = 0;
+		$summaryBuilder = new PowerPlantPVPowerPlantSummary($this->db);
 		foreach ($context['powerplants'] as $powerplantId => $powerplant) {
+			$technicalSnapshot = $summaryBuilder->buildSnapshotById((int) $powerplantId);
+			if (empty($technicalSnapshot)) {
+				dol_syslog(__METHOD__.' unable to build technical snapshot for powerplant_id='.(int) $powerplantId.' error='.$summaryBuilder->error, LOG_WARNING);
+			}
+			$technicalSnapshotJson = !empty($technicalSnapshot) ? json_encode($technicalSnapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '';
+
 			$row = new PowerPlantPVReportPowerPlant($this->db);
 			$row->entity = (int) $report->entity;
 			$row->fk_report = (int) $report->id;
@@ -712,6 +720,7 @@ class PowerPlantPVReportBuilder
 			$row->fk_soc = (int) $powerplant['fk_soc'];
 			$row->fk_project = (int) $powerplant['fk_project'];
 			$row->position = $position;
+			$row->technical_snapshot = is_string($technicalSnapshotJson) ? $technicalSnapshotJson : '';
 			$rowId = $row->create($user, 0);
 			if ($rowId <= 0) {
 				$this->copyErrorsFrom($row);

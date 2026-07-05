@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_powerplant(
 	fk_soc integer,
 	fk_project integer,
 	position integer DEFAULT 0 NOT NULL,
+	technical_snapshot mediumtext,
 	date_creation datetime,
 	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	fk_user_creat integer,

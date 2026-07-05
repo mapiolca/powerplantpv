@@ -59,6 +59,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreportbuilder.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfield.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportdcmeasure.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 dol_include_once('/fichinter/class/fichinter.class.php');
 require_once DOL_DOCUMENT_ROOT.'/core/lib/fichinter.lib.php';
 if (isModEnabled('project')) {
@@ -442,7 +443,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	}
 
 	$renderEditableFields = $caneditreport;
-	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form);
+	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form, isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array());
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
@@ -819,13 +820,14 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
  * @param	array<int,array<string,mixed>>	$sections	Sections
  * @param	bool							$editable	Editable flag
  * @param	Form							$form		Form helper
+ * @param	array<int,mixed>					$powerplants	Power plants
  * @return	void
  */
-function powerplantpvReportRenderSections($sections, $editable, $form)
+function powerplantpvReportRenderSections($sections, $editable, $form, $powerplants = array())
 {
 	global $langs;
 
-	if (empty($sections)) {
+	if (empty($sections) && empty($powerplants)) {
 		print '<table class="noborder centpercent">';
 		print '<tr class="oddeven"><td><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
 		print '</table>';
@@ -833,6 +835,15 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 	}
 
 	$groups = array();
+	foreach ($powerplants as $powerplant) {
+		$key = 'powerplant:'.powerplantpvReportPowerplantSourceId($powerplant);
+		if ($key === 'powerplant:0') {
+			$key = 'powerplant:report:'.(is_object($powerplant) && !empty($powerplant->id) ? (int) $powerplant->id : count($groups));
+		}
+		if (!isset($groups[$key])) {
+			$groups[$key] = array('powerplant' => $powerplant, 'sections' => array());
+		}
+	}
 	$signatureRows = array();
 	foreach ($sections as $row) {
 		if (!is_array($row) || !isset($row['section']) || !is_object($row['section'])) {
@@ -855,9 +866,13 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 	foreach ($groups as $group) {
 		if (!empty($group['powerplant'])) {
 			print load_fiche_titre(dol_escape_htmltag(powerplantpvReportPowerplantLabel($group['powerplant'])), '', 'fa-industry');
+			powerplantpvReportRenderPowerplantTechnicalSummary($group['powerplant']);
 		}
 		foreach ($group['sections'] as $row) {
 			$section = $row['section'];
+			if (powerplantpvReportSectionIsPowerplantTechnicalSummary((string) $section->section_code)) {
+				continue;
+			}
 			$fields = powerplantpvReportFilterRenderableFields(isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array());
 			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
 				continue;
@@ -901,6 +916,200 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 function powerplantpvReportSectionIsNativeCustomerSignature($sectionCode)
 {
 	return (string) $sectionCode === 'CUSTOMER_SIGNATURE';
+}
+
+/**
+ * Return true for legacy power plant summary sections now rendered from the frozen technical snapshot.
+ *
+ * @param	string	$sectionCode	Section code
+ * @return	bool					True for legacy summary sections
+ */
+function powerplantpvReportSectionIsPowerplantTechnicalSummary($sectionCode)
+{
+	return in_array((string) $sectionCode, array('EQUIPMENT_SUMMARY', 'INSTALLATION_DESCRIPTION'), true);
+}
+
+/**
+ * Render the frozen power plant technical summary.
+ *
+ * @param	mixed	$powerplant	Power plant preview row or report snapshot object
+ * @return	void
+ */
+function powerplantpvReportRenderPowerplantTechnicalSummary($powerplant)
+{
+	global $langs;
+
+	$resolved = powerplantpvReportResolvePowerplantTechnicalSummary($powerplant);
+	$snapshot = $resolved['snapshot'];
+	if (empty($snapshot['sections']) || !is_array($snapshot['sections'])) {
+		print '<details class="powerplantpv-report-section powerplantpv-report-summary" open>';
+		print '<summary class="liste_titre"><span>'.dol_escape_htmltag($langs->trans('PowerPlantPVReportPowerPlantSummary')).'</span></summary>';
+		print '<div class="powerplantpv-report-summary-content">';
+		print '<table class="noborder centpercent"><tr class="oddeven"><td><span class="opacitymedium">'.$langs->trans('PowerPlantPVReportPowerPlantSummaryUnavailable').'</span></td></tr></table>';
+		print '</div>';
+		print '</details>';
+		return;
+	}
+
+	print '<details class="powerplantpv-report-section powerplantpv-report-summary" open>';
+	print '<summary class="liste_titre"><span>'.dol_escape_htmltag($langs->trans('PowerPlantPVReportPowerPlantSummary')).'</span></summary>';
+	print '<div class="powerplantpv-report-summary-content">';
+	if (!empty($resolved['fallback_notice'])) {
+		print '<div class="info opacitymedium powerplantpv-report-summary-fallback">'.dol_escape_htmltag($langs->trans('PowerPlantPVReportPowerPlantSummaryLiveFallback')).'</div>';
+	}
+	foreach ($snapshot['sections'] as $section) {
+		if (!is_array($section)) {
+			continue;
+		}
+		powerplantpvReportRenderSummarySection($section);
+	}
+	print '</div>';
+	print '</details>';
+}
+
+/**
+ * Resolve a power plant technical summary snapshot, with live fallback for old reports and previews.
+ *
+ * @param	mixed	$powerplant	Power plant preview row or report snapshot object
+ * @return	array{snapshot:array<string,mixed>,fallback_notice:bool}	Resolved summary
+ */
+function powerplantpvReportResolvePowerplantTechnicalSummary($powerplant)
+{
+	global $db, $langs;
+
+	$summary = new PowerPlantPVPowerPlantSummary($db);
+	if (is_object($powerplant) && !empty($powerplant->technical_snapshot)) {
+		$snapshot = $summary->decodeSnapshot((string) $powerplant->technical_snapshot);
+		if (!$summary->isEmptySnapshot($snapshot)) {
+			return array('snapshot' => $snapshot, 'fallback_notice' => false);
+		}
+	}
+
+	$sourceId = powerplantpvReportPowerplantSourceId($powerplant);
+	if ($sourceId <= 0) {
+		return array('snapshot' => array(), 'fallback_notice' => false);
+	}
+
+	$snapshot = $summary->buildSnapshotById($sourceId, $langs);
+	$isStoredReportRow = is_object($powerplant) && property_exists($powerplant, 'technical_snapshot');
+	if ($isStoredReportRow) {
+		dol_syslog(__METHOD__.' live fallback for report powerplant id='.(int) $powerplant->id.' source_powerplant_id='.$sourceId, LOG_WARNING);
+	}
+
+	return array('snapshot' => $snapshot, 'fallback_notice' => $isStoredReportRow);
+}
+
+/**
+ * Render one summary section.
+ *
+ * @param	array<string,mixed>	$section	Snapshot section
+ * @return	void
+ */
+function powerplantpvReportRenderSummarySection($section)
+{
+	global $langs;
+
+	$titleKey = !empty($section['title_key']) ? (string) $section['title_key'] : '';
+	$title = $titleKey !== '' ? $langs->trans($titleKey) : '';
+	if ($title !== '') {
+		print load_fiche_titre(dol_escape_htmltag($title), '', '');
+	}
+
+	$type = !empty($section['type']) ? (string) $section['type'] : 'key_value';
+	if ($type === 'key_value') {
+		powerplantpvReportRenderSummaryKeyValueRows(isset($section['rows']) && is_array($section['rows']) ? $section['rows'] : array());
+		return;
+	}
+	if ($type === 'table') {
+		powerplantpvReportRenderSummaryTable(isset($section['columns']) && is_array($section['columns']) ? $section['columns'] : array(), isset($section['rows']) && is_array($section['rows']) ? $section['rows'] : array());
+		return;
+	}
+	if ($type === 'grouped_tables' && !empty($section['tables']) && is_array($section['tables'])) {
+		foreach ($section['tables'] as $table) {
+			if (!is_array($table) || empty($table['rows']) || !is_array($table['rows'])) {
+				continue;
+			}
+			$tableTitleKey = !empty($table['title_key']) ? (string) $table['title_key'] : '';
+			if ($tableTitleKey !== '') {
+				print '<div class="titre marginbottomonlyshort">'.dol_escape_htmltag($langs->trans($tableTitleKey)).'</div>';
+			}
+			powerplantpvReportRenderSummaryTable(isset($table['columns']) && is_array($table['columns']) ? $table['columns'] : array(), $table['rows']);
+		}
+	}
+}
+
+/**
+ * Render key/value summary rows.
+ *
+ * @param	array<int,array<string,mixed>>	$rows	Rows
+ * @return	void
+ */
+function powerplantpvReportRenderSummaryKeyValueRows($rows)
+{
+	global $langs;
+
+	if (empty($rows)) {
+		return;
+	}
+	print '<div class="div-table-responsive-no-min">';
+	print '<table class="border centpercent tableforfield powerplantpv-report-summary-table">';
+	foreach ($rows as $row) {
+		if (!is_array($row) || !array_key_exists('value', $row) || trim((string) $row['value']) === '') {
+			continue;
+		}
+		$labelKey = !empty($row['label_key']) ? (string) $row['label_key'] : '';
+		$label = $labelKey !== '' ? $langs->trans($labelKey) : '';
+		print '<tr>';
+		print '<td class="titlefield">'.dol_escape_htmltag($label).'</td>';
+		print '<td>'.dol_htmlentitiesbr((string) $row['value']).'</td>';
+		print '</tr>';
+	}
+	print '</table>';
+	print '</div>';
+}
+
+/**
+ * Render a generic summary table.
+ *
+ * @param	array<int,array<string,mixed>>	$columns	Columns
+ * @param	array<int,array<string,mixed>>	$rows		Rows
+ * @return	void
+ */
+function powerplantpvReportRenderSummaryTable($columns, $rows)
+{
+	global $langs;
+
+	if (empty($columns) || empty($rows)) {
+		return;
+	}
+	print '<div class="div-table-responsive-no-min">';
+	print '<table class="noborder centpercent powerplantpv-report-summary-table">';
+	print '<tr class="liste_titre">';
+	foreach ($columns as $column) {
+		if (!is_array($column) || empty($column['key'])) {
+			continue;
+		}
+		$labelKey = !empty($column['label_key']) ? (string) $column['label_key'] : (string) $column['key'];
+		print '<th>'.dol_escape_htmltag($langs->trans($labelKey)).'</th>';
+	}
+	print '</tr>';
+	foreach ($rows as $row) {
+		if (!is_array($row)) {
+			continue;
+		}
+		print '<tr class="oddeven">';
+		foreach ($columns as $column) {
+			if (!is_array($column) || empty($column['key'])) {
+				continue;
+			}
+			$key = (string) $column['key'];
+			$value = isset($row[$key]) ? (string) $row[$key] : '';
+			print '<td>'.dol_htmlentitiesbr($value).'</td>';
+		}
+		print '</tr>';
+	}
+	print '</table>';
+	print '</div>';
 }
 
 /**
