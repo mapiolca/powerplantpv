@@ -1199,21 +1199,23 @@ class PowerPlantPVReportBuilder
 		}
 
 		$position = 0;
+		$hasMappedSections = !empty($context['mapped_section_ids']);
 		foreach ($context['template_sections'] as $section) {
 			$sectionId = (int) $section->id;
 			if (empty($section->active) || empty($section->visible_form)) {
 				continue;
 			}
-			if (empty($section->is_required) && empty($context['mapped_section_ids'][$sectionId])) {
+			if ($hasMappedSections && empty($section->is_required) && empty($context['mapped_section_ids'][$sectionId])) {
 				continue;
 			}
 			$fields = isset($fieldsBySection[$sectionId]) ? $fieldsBySection[$sectionId] : array();
-			if (empty($fields)) {
+			$isDcMeasureSection = ((string) $section->code === 'DC_ELECTRICAL_MEASURE');
+			if (empty($fields) && !$isDcMeasureSection) {
 				continue;
 			}
 			$occurrences = $this->buildSectionOccurrences($section, $context);
 			foreach ($occurrences as $occurrence) {
-				if (empty($section->is_required) && !$this->isSectionMappedForPowerplant($sectionId, (int) $occurrence['fk_powerplant'], $context)) {
+				if ($hasMappedSections && empty($section->is_required) && !$this->isSectionMappedForPowerplant($sectionId, (int) $occurrence['fk_powerplant'], $context)) {
 					continue;
 				}
 				$plans[] = array(
@@ -1935,7 +1937,10 @@ class PowerPlantPVReportBuilder
 	{
 		$fieldIds = array();
 		foreach ($fields as $field) {
-			$fieldIds[(int) $field->id] = (int) $field->id;
+			$fieldId = powerplantpvGetCommonObjectId($field);
+			if ($fieldId > 0) {
+				$fieldIds[$fieldId] = $fieldId;
+			}
 		}
 		if (empty($fieldIds)) {
 			return array();
