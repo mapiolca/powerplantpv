@@ -14,7 +14,7 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_powerplantpv_report_template(
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_template(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,
 	code varchar(64) NOT NULL,

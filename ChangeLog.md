@@ -2,6 +2,7 @@
 
 ## 1.3.0
 
+- Correction de l'idempotence d'activation/réactivation : les scripts SQL de création de tables utilisent `IF NOT EXISTS` et les extrafields déjà conformes ne sont plus réenregistrés inutilement.
 - Stabilisation finale v1.3 Maintenance : audit de cohérence, documentation utilisateur, administrateur, technique et checklist de release.
 - Harmonisation de l'onglet `Rapport` des interventions : boutons de soumission alignés sur les formulaires Dolibarr, sans modifier le workflow de sauvegarde, upload, suppression de fichier ou ajout de mesure DC.
 - Conservation renforcée des modèles documentaires lors de l'activation/réactivation : les modèles PowerPlantPV et Attestation manquants sont ajoutés sans suppression/réinsertion des lignes déjà présentes.

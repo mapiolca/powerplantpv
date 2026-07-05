@@ -14,7 +14,7 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_powerplantpv_powerplantcomp(
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_powerplantcomp(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_powerplant integer NOT NULL,
 	fk_product integer NOT NULL,

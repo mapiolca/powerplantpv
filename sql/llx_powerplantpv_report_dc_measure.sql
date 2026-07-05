@@ -14,7 +14,7 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_powerplantpv_report_dc_measure(
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_dc_measure(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,
 	fk_report integer NOT NULL,

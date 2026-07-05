@@ -2068,9 +2068,14 @@ class modPowerPlantPV extends DolibarrModules
 
 		$method = 'addExtraField';
 		if (!empty($extrafields->attributes[$elementtype]['label'][$attrname])) {
+			$currenttype = !empty($extrafields->attributes[$elementtype]['type'][$attrname]) ? (string) $extrafields->attributes[$elementtype]['type'][$attrname] : '';
+			if ($currenttype === 'link') {
+				return 1;
+			}
+
 			$method = 'updateExtraField';
 
-			if (!empty($extrafields->attributes[$elementtype]['type'][$attrname]) && $extrafields->attributes[$elementtype]['type'][$attrname] != 'link') {
+			if ($currenttype !== '') {
 				$result = $this->cleanTicketPowerPlantExtrafieldBeforeTypeChange($attrname);
 				if ($result < 0) {
 					return -1;
@@ -2146,6 +2151,12 @@ class modPowerPlantPV extends DolibarrModules
 
 		$method = 'addExtraField';
 		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_peak_power'])) {
+			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power'] : '';
+			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8') {
+				return 1;
+			}
+
 			$method = 'updateExtraField';
 		}
 
