@@ -2064,12 +2064,12 @@ class modPowerPlantPV extends DolibarrModules
 			array('code' => 'EQUIPMENT_SUMMARY', 'label' => 'Matériel / installation', 'label_en' => 'Equipment / installation', 'description' => 'Synthèse du matériel et de l’installation.', 'description_en' => 'Equipment and installation summary.', 'scope_type' => 'powerplant', 'equipment_type' => '', 'repeat_mode' => 'per_powerplant', 'is_base' => 1, 'is_required' => 1, 'active' => 1, 'position' => 20),
 			array('code' => 'INSTALLATION_DESCRIPTION', 'label' => 'Descriptif installation', 'label_en' => 'Installation description', 'description' => 'Description de l’installation photovoltaïque.', 'description_en' => 'Photovoltaic installation description.', 'scope_type' => 'powerplant', 'equipment_type' => '', 'repeat_mode' => 'per_powerplant', 'is_base' => 1, 'is_required' => 1, 'active' => 1, 'position' => 30),
 			array('code' => 'PANEL_CLEANING', 'label' => 'Nettoyage panneaux', 'label_en' => 'Panel cleaning', 'description' => 'Contrôles et nettoyage des panneaux.', 'description_en' => 'Panel cleaning and checks.', 'scope_type' => 'powerplant', 'equipment_type' => 'panel', 'repeat_mode' => 'per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 40),
-			array('code' => 'INVERTER', 'label' => 'Onduleur', 'label_en' => 'Inverter', 'description' => 'Contrôles par onduleur.', 'description_en' => 'Checks for each inverter.', 'scope_type' => 'equipment', 'equipment_type' => 'inverter', 'repeat_mode' => 'per_equipment', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 50),
-			array('code' => 'ELECTRICAL_BOX', 'label' => 'Vérifications coffrets', 'label_en' => 'Electrical box checks', 'description' => 'Vérifications coffrets AC/DC.', 'description_en' => 'AC/DC box checks.', 'scope_type' => 'equipment', 'equipment_type' => 'electrical_box', 'repeat_mode' => 'per_equipment', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 60),
+			array('code' => 'INVERTER', 'label' => 'Onduleur', 'label_en' => 'Inverter', 'description' => 'Contrôles par onduleur.', 'description_en' => 'Checks for each inverter.', 'scope_type' => 'inverter', 'equipment_type' => '', 'repeat_mode' => 'per_equipment', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 50),
+			array('code' => 'ELECTRICAL_BOX', 'label' => 'Vérifications coffrets', 'label_en' => 'Electrical box checks', 'description' => 'Vérifications coffrets AC/DC.', 'description_en' => 'AC/DC box checks.', 'scope_type' => 'electrical_box', 'equipment_type' => '', 'repeat_mode' => 'per_equipment', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 60),
 			array('code' => 'DC_ELECTRICAL_MEASURE', 'label' => 'Mesures électriques DC', 'label_en' => 'DC electrical measurements', 'description' => 'Mesures DC par onduleur, MPPT et entrée PV.', 'description_en' => 'DC measurements by inverter, MPPT and PV input.', 'scope_type' => 'dc_measure', 'equipment_type' => 'inverter', 'repeat_mode' => 'dynamic_rows', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 70),
 			array('code' => 'PRODUCTION_READING', 'label' => 'Relevés production/consommation', 'label_en' => 'Production/consumption readings', 'description' => 'Relevés de production, injection et consommation.', 'description_en' => 'Production, injection and consumption readings.', 'scope_type' => 'powerplant', 'equipment_type' => '', 'repeat_mode' => 'per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 80),
-			array('code' => 'ROOF', 'label' => 'Opérations en toiture', 'label_en' => 'Roof operations', 'description' => 'Contrôles et opérations en toiture.', 'description_en' => 'Roof checks and operations.', 'scope_type' => 'roof', 'equipment_type' => 'roof', 'repeat_mode' => 'per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 90),
-			array('code' => 'THERMOGRAPHY', 'label' => 'Thermographie', 'label_en' => 'Thermography', 'description' => 'Données et photos thermographiques.', 'description_en' => 'Thermography data and photos.', 'scope_type' => 'thermography', 'equipment_type' => '', 'repeat_mode' => 'dynamic_rows', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 100),
+			array('code' => 'ROOF', 'label' => 'Opérations en toiture', 'label_en' => 'Roof operations', 'description' => 'Contrôles et opérations en toiture.', 'description_en' => 'Roof checks and operations.', 'scope_type' => 'roof_area', 'equipment_type' => '', 'repeat_mode' => 'per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 90),
+			array('code' => 'THERMOGRAPHY', 'label' => 'Thermographie', 'label_en' => 'Thermography', 'description' => 'Données et photos thermographiques.', 'description_en' => 'Thermography data and photos.', 'scope_type' => 'free_line', 'equipment_type' => '', 'repeat_mode' => 'dynamic_rows', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 100),
 			array('code' => 'GENERAL_OBSERVATIONS', 'label' => 'Observations générales', 'label_en' => 'General observations', 'description' => 'Observations générales de l’intervention.', 'description_en' => 'General intervention observations.', 'scope_type' => 'intervention', 'equipment_type' => '', 'repeat_mode' => 'once', 'is_base' => 1, 'is_required' => 1, 'active' => 1, 'position' => 110),
 			array('code' => 'CUSTOMER_SIGNATURE', 'label' => 'Signature client', 'label_en' => 'Customer signature', 'description' => 'Signature du client final.', 'description_en' => 'End customer signature.', 'scope_type' => 'intervention', 'equipment_type' => '', 'repeat_mode' => 'once', 'is_base' => 1, 'is_required' => 1, 'active' => 1, 'position' => 120),
 		);
@@ -2202,6 +2202,10 @@ class modPowerPlantPV extends DolibarrModules
 	{
 		$template = 'preventive_maintenance';
 		$rows = array(
+			array('section' => 'GENERAL_INFORMATION', 'service' => '', 'code' => 'GENERAL_INTERVENTION_CONTEXT', 'label' => 'Contexte de l’intervention', 'label_en' => 'Intervention context', 'field_type' => 'textarea', 'scope_type' => 'intervention', 'unit' => '', 'position' => 10),
+			array('section' => 'EQUIPMENT_SUMMARY', 'service' => '', 'code' => 'EQUIPMENT_SUMMARY_OBSERVATION', 'label' => 'Synthèse matériel / installation', 'label_en' => 'Equipment / installation summary', 'field_type' => 'textarea', 'scope_type' => 'powerplant', 'unit' => '', 'position' => 20),
+			array('section' => 'INSTALLATION_DESCRIPTION', 'service' => '', 'code' => 'INSTALLATION_DESCRIPTION_TEXT', 'label' => 'Descriptif installation', 'label_en' => 'Installation description', 'field_type' => 'textarea', 'scope_type' => 'powerplant', 'unit' => '', 'position' => 30),
+			array('section' => 'PANEL_CLEANING', 'service' => 'PANEL_CLEANING', 'code' => 'PANEL_CLEANING_OBSERVATION', 'label' => 'Observation nettoyage panneaux', 'label_en' => 'Panel cleaning observation', 'field_type' => 'textarea', 'scope_type' => 'powerplant', 'unit' => '', 'position' => 910),
 			array('section' => 'INVERTER', 'service' => 'INVERTER_CHECK', 'code' => 'INVERTER_DC_SWITCH', 'label' => 'Manipulation interrupteur DC', 'label_en' => 'DC switch operation', 'field_type' => 'boolean', 'scope_type' => 'inverter', 'unit' => '', 'position' => 1010),
 			array('section' => 'INVERTER', 'service' => 'INVERTER_CHECK', 'code' => 'INVERTER_VENTILATION_CLEANING', 'label' => 'Nettoyage ventilations / dissipateur thermique', 'label_en' => 'Ventilation / heat sink cleaning', 'field_type' => 'boolean', 'scope_type' => 'inverter', 'unit' => '', 'position' => 1020),
 			array('section' => 'INVERTER', 'service' => 'EARTHING_CHECK', 'code' => 'INVERTER_EARTHING_CONTINUITY', 'label' => 'Continuité MALT', 'label_en' => 'Earthing continuity', 'field_type' => 'status', 'scope_type' => 'inverter', 'unit' => '', 'position' => 1030),
@@ -2232,11 +2236,20 @@ class modPowerPlantPV extends DolibarrModules
 			array('section' => 'DC_ELECTRICAL_MEASURE', 'service' => 'DC_ELECTRICAL_MEASURE', 'code' => 'DC_INSULATION_POSITIVE_GROUND', 'label' => 'Isolement + / terre', 'label_en' => 'Positive / ground insulation', 'field_type' => 'double', 'scope_type' => 'dc_measure', 'unit' => 'MOhm', 'position' => 4050),
 			array('section' => 'DC_ELECTRICAL_MEASURE', 'service' => 'DC_ELECTRICAL_MEASURE', 'code' => 'DC_INSULATION_NEGATIVE_GROUND', 'label' => 'Isolement - / terre', 'label_en' => 'Negative / ground insulation', 'field_type' => 'double', 'scope_type' => 'dc_measure', 'unit' => 'MOhm', 'position' => 4060),
 			array('section' => 'DC_ELECTRICAL_MEASURE', 'service' => 'DC_ELECTRICAL_MEASURE', 'code' => 'DC_MEASURE_OBSERVATION', 'label' => 'Observation', 'label_en' => 'Observation', 'field_type' => 'text', 'scope_type' => 'dc_measure', 'unit' => '', 'position' => 4070),
-			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'INVERTER_PRODUCTION', 'label' => 'Relevé production onduleur', 'label_en' => 'Inverter production reading', 'field_type' => 'double', 'scope_type' => 'production_reading', 'unit' => 'kWh', 'position' => 5010),
-			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'PRODUCTION_INDEX', 'label' => 'Index production', 'label_en' => 'Production index', 'field_type' => 'double', 'scope_type' => 'production_reading', 'unit' => 'kWh', 'position' => 5020),
-			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'INJECTION_INDEX', 'label' => 'Index injection', 'label_en' => 'Injection index', 'field_type' => 'double', 'scope_type' => 'production_reading', 'unit' => 'kWh', 'position' => 5030),
-			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'CONSUMPTION_INDEX', 'label' => 'Index consommation', 'label_en' => 'Consumption index', 'field_type' => 'double', 'scope_type' => 'production_reading', 'unit' => 'kWh', 'position' => 5040),
-			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'ANNUAL_PRODUCTION', 'label' => 'Production annuelle', 'label_en' => 'Annual production', 'field_type' => 'double', 'scope_type' => 'production_reading', 'unit' => 'kWh', 'position' => 5050),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'INVERTER_PRODUCTION_N_MINUS_1', 'label' => 'Relevé production onduleur N-1', 'label_en' => 'Inverter production reading N-1', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5005),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'INVERTER_PRODUCTION', 'label' => 'Relevé production onduleur N', 'label_en' => 'Inverter production reading N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5010),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'PRODUCTION_INDEX_N_MINUS_1', 'label' => 'Index production N-1', 'label_en' => 'Production index N-1', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5015),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'PRODUCTION_INDEX', 'label' => 'Index production N', 'label_en' => 'Production index N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5020),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'INJECTION_INDEX_N_MINUS_1', 'label' => 'Index injection N-1', 'label_en' => 'Injection index N-1', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5025),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'INJECTION_INDEX', 'label' => 'Index injection N', 'label_en' => 'Injection index N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5030),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'CONSUMPTION_INDEX_N_MINUS_1', 'label' => 'Index consommation N-1', 'label_en' => 'Consumption index N-1', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5035),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'CONSUMPTION_INDEX', 'label' => 'Index consommation N', 'label_en' => 'Consumption index N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5040),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'ANNUAL_PRODUCTION_N_MINUS_1', 'label' => 'Production annuelle N-1', 'label_en' => 'Annual production N-1', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5045),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'ANNUAL_PRODUCTION', 'label' => 'Production annuelle N', 'label_en' => 'Annual production N', 'field_type' => 'double', 'scope_type' => 'powerplant', 'unit' => 'kWh', 'position' => 5050),
+			array('section' => 'PRODUCTION_READING', 'service' => 'PRODUCTION_READING', 'code' => 'PRODUCTION_READING_OBSERVATION', 'label' => 'Observation', 'label_en' => 'Observation', 'field_type' => 'text', 'scope_type' => 'powerplant', 'unit' => '', 'position' => 5060),
+			array('section' => 'GENERAL_OBSERVATIONS', 'service' => '', 'code' => 'GENERAL_OBSERVATIONS_TEXT', 'label' => 'Observations générales', 'label_en' => 'General observations', 'field_type' => 'textarea', 'scope_type' => 'intervention', 'unit' => '', 'position' => 7010),
+			array('section' => 'CUSTOMER_SIGNATURE', 'service' => '', 'code' => 'CUSTOMER_SIGNATORY_NAME', 'label' => 'Nom du signataire client', 'label_en' => 'Customer signatory name', 'field_type' => 'varchar', 'scope_type' => 'intervention', 'unit' => '', 'position' => 8010),
+			array('section' => 'CUSTOMER_SIGNATURE', 'service' => '', 'code' => 'CUSTOMER_SIGNATURE_CAPTURE', 'label' => 'Signature client', 'label_en' => 'Customer signature', 'field_type' => 'signature', 'scope_type' => 'intervention', 'unit' => '', 'position' => 8020),
 			array('section' => 'THERMOGRAPHY', 'service' => 'THERMOGRAPHY', 'code' => 'THERMO_DONE', 'label' => 'Thermographie réalisée', 'label_en' => 'Thermography performed', 'field_type' => 'boolean', 'scope_type' => 'thermography', 'unit' => '', 'position' => 6010),
 			array('section' => 'THERMOGRAPHY', 'service' => 'THERMOGRAPHY', 'code' => 'THERMO_DATETIME', 'label' => 'Date et heure du relevé', 'label_en' => 'Reading date and time', 'field_type' => 'datetime', 'scope_type' => 'thermography', 'unit' => '', 'position' => 6020),
 			array('section' => 'THERMOGRAPHY', 'service' => 'THERMOGRAPHY', 'code' => 'THERMO_WEATHER', 'label' => 'Conditions météo', 'label_en' => 'Weather conditions', 'field_type' => 'varchar', 'scope_type' => 'thermography', 'unit' => '', 'position' => 6030),
@@ -2259,12 +2272,15 @@ class modPowerPlantPV extends DolibarrModules
 		$serviceTable = $this->db->prefix().'c_powerplantpv_maintenance_service';
 		foreach ($rows as $row) {
 			$section = $this->db->escape($row['section']);
-			$service = $this->db->escape($row['service']);
+			$serviceCode = isset($row['service']) ? (string) $row['service'] : '';
+			$service = $this->db->escape($serviceCode);
 			$code = $this->db->escape($row['code']);
 			$sql = "INSERT INTO ".$table." (entity, report_template_code, fk_report_section, fk_maintenance_service, code, label, label_en, field_type, scope_type, unit, is_required, active, position)";
-			$sql .= " SELECT ".$entity.", '".$this->db->escape($template)."', rs.rowid, s.rowid, '".$code."', '".$this->db->escape($row['label'])."', '".$this->db->escape($row['label_en'])."', '".$this->db->escape($row['field_type'])."', '".$this->db->escape($row['scope_type'])."', '".$this->db->escape($row['unit'])."', 0, 1, ".((int) $row['position']);
+			$sql .= " SELECT ".$entity.", '".$this->db->escape($template)."', rs.rowid, ".($serviceCode !== '' ? "s.rowid" : "NULL").", '".$code."', '".$this->db->escape($row['label'])."', '".$this->db->escape($row['label_en'])."', '".$this->db->escape($row['field_type'])."', '".$this->db->escape($row['scope_type'])."', '".$this->db->escape($row['unit'])."', 0, 1, ".((int) $row['position']);
 			$sql .= " FROM ".$sectionTable." as rs";
-			$sql .= " INNER JOIN ".$serviceTable." as s ON s.entity = rs.entity AND s.code = '".$service."'";
+			if ($serviceCode !== '') {
+				$sql .= " INNER JOIN ".$serviceTable." as s ON s.entity = rs.entity AND s.code = '".$service."'";
+			}
 			$sql .= " WHERE rs.entity = ".$entity." AND rs.code = '".$section."'";
 			$sql .= " AND NOT EXISTS (SELECT 1 FROM ".$table." as tf WHERE tf.entity = ".$entity." AND tf.report_template_code = '".$this->db->escape($template)."' AND tf.code = '".$code."')";
 			$resql = $this->db->query($sql);
@@ -2290,8 +2306,8 @@ class modPowerPlantPV extends DolibarrModules
 		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
 			'entity' => $entity,
 			'code' => 'preventive_maintenance',
-			'label' => 'Maintenance préventive',
-			'label_en' => 'Preventive maintenance',
+			'label' => 'Rapport de maintenance préventive',
+			'label_en' => 'Preventive maintenance report',
 			'description' => 'Modèle préinstallé pour les rapports d’intervention de maintenance préventive.',
 			'description_en' => 'Preinstalled template for preventive maintenance intervention reports.',
 			'target_element' => 'fichinter',
@@ -2326,6 +2342,10 @@ class modPowerPlantPV extends DolibarrModules
 		if ($result < 0) {
 			return -1;
 		}
+		$result = $this->applyPreventiveTemplateConservativeUpdates($entity, $templateId);
+		if ($result < 0) {
+			return -1;
+		}
 
 		return $this->seedMaintenanceReportFieldOptions($entity, $templateId);
 	}
@@ -2356,6 +2376,150 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		return (int) $obj->rowid;
+	}
+
+	/**
+	 * Update only legacy default values that are known to come from previous seeds.
+	 *
+	 * @param	int	$entity		Entity id
+	 * @param	int	$templateId	Template id
+	 * @return	int				1 if OK, <0 if KO
+	 */
+	private function applyPreventiveTemplateConservativeUpdates($entity, $templateId)
+	{
+		$templateTable = $this->db->prefix().'powerplantpv_report_template';
+		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
+		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
+		$templateWhere = "entity = ".((int) $entity)." AND code = 'preventive_maintenance'";
+
+		$result = $this->updateMaintenanceDefaultValue($templateTable, 'label', 'Rapport de maintenance préventive', $templateWhere, array('Maintenance préventive'));
+		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->updateMaintenanceDefaultValue($templateTable, 'label_en', 'Preventive maintenance report', $templateWhere, array('Preventive maintenance'));
+		if ($result < 0) {
+			return -1;
+		}
+
+		$sectionDefaults = array(
+			'INVERTER' => array('scope_type' => array('value' => 'inverter', 'old' => array('equipment')), 'equipment_type' => array('value' => '', 'old' => array('INVERTER'))),
+			'ELECTRICAL_BOX' => array('scope_type' => array('value' => 'electrical_box', 'old' => array('equipment')), 'equipment_type' => array('value' => '', 'old' => array('DC_BOX'))),
+		);
+		foreach ($sectionDefaults as $sectionCode => $columns) {
+			$where = "entity = ".((int) $entity)." AND fk_report_template = ".((int) $templateId)." AND code = '".$this->db->escape($sectionCode)."'";
+			foreach ($columns as $column => $definition) {
+				$result = $this->updateMaintenanceDefaultValue($sectionTable, $column, $definition['value'], $where, $definition['old']);
+				if ($result < 0) {
+					return -1;
+				}
+			}
+		}
+
+		$fieldDefaults = array(
+			'INVERTER_PRODUCTION' => array('label' => array('value' => 'Relevé production onduleur N', 'old' => array('Relevé production onduleur')), 'label_en' => array('value' => 'Inverter production reading N', 'old' => array('Inverter production reading')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),
+			'PRODUCTION_INDEX' => array('label' => array('value' => 'Index production N', 'old' => array('Index production')), 'label_en' => array('value' => 'Production index N', 'old' => array('Production index')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),
+			'INJECTION_INDEX' => array('label' => array('value' => 'Index injection N', 'old' => array('Index injection')), 'label_en' => array('value' => 'Injection index N', 'old' => array('Injection index')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),
+			'CONSUMPTION_INDEX' => array('label' => array('value' => 'Index consommation N', 'old' => array('Index consommation')), 'label_en' => array('value' => 'Consumption index N', 'old' => array('Consumption index')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),
+			'ANNUAL_PRODUCTION' => array('label' => array('value' => 'Production annuelle N', 'old' => array('Production annuelle')), 'label_en' => array('value' => 'Annual production N', 'old' => array('Annual production')), 'scope_type' => array('value' => 'powerplant', 'old' => array('', 'production_reading'))),
+		);
+		foreach ($fieldDefaults as $fieldCode => $columns) {
+			$where = "entity = ".((int) $entity)." AND fk_report_template = ".((int) $templateId)." AND code = '".$this->db->escape($fieldCode)."'";
+			foreach ($columns as $column => $definition) {
+				$result = $this->updateMaintenanceDefaultValue($fieldTable, $column, $definition['value'], $where, $definition['old']);
+				if ($result < 0) {
+					return -1;
+				}
+			}
+		}
+
+		$optionDefaults = array(
+			array('field' => 'THERMO_ANOMALY_TYPE', 'option' => 'CELL_DEFECT', 'column' => 'label', 'value' => 'Cellule défectueuse', 'old' => array('Défaut cellule')),
+			array('field' => 'THERMO_ANOMALY_TYPE', 'option' => 'CELL_DEFECT', 'column' => 'label_en', 'value' => 'Defective cell', 'old' => array('Cell defect')),
+			array('field' => 'THERMO_ANOMALY_TYPE', 'option' => 'CONNECTION_HEATING', 'column' => 'label', 'value' => 'Connectique échauffée', 'old' => array('Échauffement connexion')),
+			array('field' => 'THERMO_ANOMALY_TYPE', 'option' => 'CONNECTION_HEATING', 'column' => 'label_en', 'value' => 'Heated connector', 'old' => array('Connection heating')),
+		);
+		foreach ($optionDefaults as $optionDefault) {
+			$result = $this->updatePreventiveFieldOptionDefaultValue(
+				(int) $entity,
+				(int) $templateId,
+				(string) $optionDefault['field'],
+				(string) $optionDefault['option'],
+				(string) $optionDefault['column'],
+				(string) $optionDefault['value'],
+				$optionDefault['old']
+			);
+			if ($result < 0) {
+				return -1;
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Update one value only when the current value still matches a known old default.
+	 *
+	 * @param	string				$table		Table name with prefix
+	 * @param	string				$column		Column name
+	 * @param	mixed				$newValue	New value
+	 * @param	string				$where		SQL predicate
+	 * @param	array<int,mixed>	$oldValues	Known old values
+	 * @return	int								1 if OK, <0 if KO
+	 */
+	private function updateMaintenanceDefaultValue($table, $column, $newValue, $where, $oldValues)
+	{
+		if (empty($oldValues)) {
+			return 1;
+		}
+
+		$columnSql = $this->db->sanitize($column);
+		$oldConditions = array();
+		foreach ($oldValues as $oldValue) {
+			if ($oldValue === null) {
+				$oldConditions[] = $columnSql." IS NULL";
+			} else {
+				$oldConditions[] = $columnSql." = ".$this->maintenanceSqlValue($oldValue);
+			}
+		}
+
+		$sql = "UPDATE ".$this->db->sanitize($table);
+		$sql .= " SET ".$columnSql." = ".$this->maintenanceSqlValue($newValue);
+		$sql .= " WHERE ".$where;
+		$sql .= " AND (".implode(' OR ', $oldConditions).")";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Update one option value for a preventive template field.
+	 *
+	 * @param	int					$entity		Entity id
+	 * @param	int					$templateId	Template id
+	 * @param	string				$fieldCode	Field code
+	 * @param	string				$optionCode	Option code
+	 * @param	string				$column		Column name
+	 * @param	mixed				$newValue	New value
+	 * @param	array<int,mixed>	$oldValues	Known old values
+	 * @return	int								1 if OK, <0 if KO
+	 */
+	private function updatePreventiveFieldOptionDefaultValue($entity, $templateId, $fieldCode, $optionCode, $column, $newValue, $oldValues)
+	{
+		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
+		$optionTable = $this->db->prefix().'powerplantpv_report_template_field_option';
+		$where = "entity = ".((int) $entity);
+		$where .= " AND code = '".$this->db->escape($optionCode)."'";
+		$where .= " AND fk_report_template_field IN (";
+		$where .= "SELECT rowid FROM ".$fieldTable;
+		$where .= " WHERE entity = ".((int) $entity);
+		$where .= " AND fk_report_template = ".((int) $templateId);
+		$where .= " AND code = '".$this->db->escape($fieldCode)."'";
+		$where .= ")";
+
+		return $this->updateMaintenanceDefaultValue($optionTable, $column, $newValue, $where, $oldValues);
 	}
 
 	/**
@@ -2433,8 +2597,10 @@ class modPowerPlantPV extends DolibarrModules
 	{
 		$sql = "UPDATE ".$this->db->prefix()."c_powerplantpv_intervention_nature";
 		$sql .= " SET fk_report_template = ".((int) $templateId);
+		$sql .= ", report_template_code = CASE WHEN report_template_code IS NULL OR report_template_code = '' THEN 'preventive_maintenance' ELSE report_template_code END";
 		$sql .= " WHERE entity = ".((int) $entity);
-		$sql .= " AND report_template_code = 'preventive_maintenance'";
+		$sql .= " AND code = 'PREVENTIVE_MAINTENANCE'";
+		$sql .= " AND (report_template_code = 'preventive_maintenance' OR report_template_code IS NULL OR report_template_code = '')";
 		$sql .= " AND (fk_report_template IS NULL OR fk_report_template = 0)";
 		if (!$this->db->query($sql)) {
 			$this->errors[] = $this->db->lasterror();
@@ -2457,7 +2623,7 @@ class modPowerPlantPV extends DolibarrModules
 		$sourceSectionTable = $this->db->prefix().'c_powerplantpv_report_section';
 		$templateSectionTable = $this->db->prefix().'powerplantpv_report_template_section';
 
-		$sql = "SELECT m.rowid, ts.rowid as fk_report_template_section, ts.is_required";
+		$sql = "SELECT m.rowid, ts.rowid as fk_report_template_section";
 		$sql .= " FROM ".$mappingTable." as m";
 		$sql .= " INNER JOIN ".$sourceSectionTable." as rs ON rs.rowid = m.fk_report_section AND rs.entity = m.entity";
 		$sql .= " INNER JOIN ".$templateSectionTable." as ts ON ts.entity = m.entity AND ts.fk_report_template = ".((int) $templateId)." AND ts.code = rs.code";
@@ -2472,7 +2638,6 @@ class modPowerPlantPV extends DolibarrModules
 			$update = "UPDATE ".$mappingTable;
 			$update .= " SET fk_report_template = ".((int) $templateId);
 			$update .= ", fk_report_template_section = ".((int) $obj->fk_report_template_section);
-			$update .= ", is_required = ".((int) $obj->is_required);
 			$update .= " WHERE rowid = ".((int) $obj->rowid);
 			$update .= " AND entity = ".((int) $entity);
 			if (!$this->db->query($update)) {
@@ -2526,9 +2691,6 @@ class modPowerPlantPV extends DolibarrModules
 			$update .= ", fk_report_template_section = ".((int) $obj->fk_report_template_section);
 			$update .= ", field_type = '".$this->db->escape($fieldType)."'";
 			$update .= ", scope_type = '".$this->db->escape($scope)."'";
-			$update .= ", visible_form = 1";
-			$update .= ", visible_pdf = 1";
-			$update .= ", readonly = 0";
 			$update .= ", date_creation = COALESCE(date_creation, '".$this->db->idate(dol_now())."')";
 			$update .= " WHERE rowid = ".((int) $obj->rowid);
 			$update .= " AND entity = ".((int) $entity);
@@ -2569,9 +2731,12 @@ class modPowerPlantPV extends DolibarrModules
 		);
 		$thermographyOptions = array(
 			array('code' => 'HOT_SPOT', 'label' => 'Point chaud', 'label_en' => 'Hot spot', 'position' => 10),
-			array('code' => 'CELL_DEFECT', 'label' => 'Défaut cellule', 'label_en' => 'Cell defect', 'position' => 20),
-			array('code' => 'CONNECTION_HEATING', 'label' => 'Échauffement connexion', 'label_en' => 'Connection heating', 'position' => 30),
-			array('code' => 'SHADING', 'label' => 'Ombrage', 'label_en' => 'Shading', 'position' => 40),
+			array('code' => 'CELL_DEFECT', 'label' => 'Cellule défectueuse', 'label_en' => 'Defective cell', 'position' => 20),
+			array('code' => 'BYPASS_DIODE_SUSPECT', 'label' => 'Diode bypass suspecte', 'label_en' => 'Suspected bypass diode', 'position' => 30),
+			array('code' => 'CONNECTION_HEATING', 'label' => 'Connectique échauffée', 'label_en' => 'Heated connector', 'position' => 40),
+			array('code' => 'SHADING', 'label' => 'Ombrage', 'label_en' => 'Shading', 'position' => 50),
+			array('code' => 'SOILING', 'label' => 'Encrassement', 'label_en' => 'Soiling', 'position' => 60),
+			array('code' => 'PERFORMANCE_DIFFERENCE', 'label' => 'Différence de performance', 'label_en' => 'Performance difference', 'position' => 70),
 			array('code' => 'OTHER', 'label' => 'Autre', 'label_en' => 'Other', 'position' => 999),
 		);
 

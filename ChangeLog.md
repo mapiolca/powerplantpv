@@ -19,6 +19,8 @@
 - Ajout des tables de rapport généré `powerplantpv_report`, sections, champs, fichiers, équipements, centrales et prestations sources, avec snapshot figé au premier enregistrement.
 - Ajout de la sauvegarde brouillon/simple, du recalcul depuis le modèle avec conservation des valeurs par clé stable et du verrouillage en lecture seule quand l'intervention est signée ou clôturée.
 - Ajout de la documentation technique `docs/technical/v1.3-pr6-intervention-report-tab.md`.
+- Complétude du modèle préinstallé `preventive_maintenance` : sections de base, sections conditionnelles, champs N-1/N, options thermographie et mappings prestations -> sections, avec seed d'activation non destructif.
+- Ajout de la documentation technique `docs/technical/v1.3-pr7-preventive-template.md`.
 
 ## 1.2.1
 
