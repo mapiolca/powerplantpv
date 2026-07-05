@@ -1012,11 +1012,16 @@ class ActionsPowerplantpv
 		$colspan = !empty($parameters['colspan']) ? (string) $parameters['colspan'] : '';
 
 		$html = '<tr class="oddeven powerplantpv-quick-powerplants">';
-		$html .= '<td class="titlefield">'.$langs->trans('PowerPlantPVCentrals');
+		$html .= '<td class="titlefield">';
+		$html .= '<table class="nobordernopadding centpercent"><tr>';
+		$html .= '<td>'.$langs->trans('PowerPlantPVCentrals').'</td>';
+		$html .= '<td class="right">';
 		if ($canedit && !$isedit) {
 			$url = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=powerplantpv_edit_powerplants&token='.newToken();
-			$html .= '<span class="floatright"><a class="editfielda reposition" href="'.dol_escape_htmltag($url).'">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a></span>';
+			$html .= '<a class="reposition editfielda" href="'.dol_escape_htmltag($url).'">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a>';
 		}
+		$html .= '</td>';
+		$html .= '</tr></table>';
 		$html .= '</td>';
 		$html .= '<td'.$colspan.'>';
 		if ($isedit) {
