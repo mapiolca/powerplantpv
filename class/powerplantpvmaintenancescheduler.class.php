@@ -596,12 +596,34 @@ class PowerPlantPVMaintenanceScheduler
 			&& $this->tableExists($natureTable);
 		$hasContractColumn = $this->columnExists($fichinterTable, 'fk_contrat');
 		$hasSignedStatusColumn = $this->columnExists($fichinterTable, 'signed_status');
+		$hasDateValidColumn = $this->columnExists($fichinterTable, 'date_valid');
+		$closingDateColumns = $this->getExistingColumns($fichinterTable, array('date_cloture', 'date_close', 'date_closed', 'date_closing'));
+		$signatureDateColumns = $this->getExistingColumns(
+			$fichinterTable,
+			array(
+				'date_signature',
+				'signature_date',
+				'date_signed',
+				'signed_date',
+				'online_sign_date',
+				'date_online_signature',
+				'date_sign',
+				'sign_date',
+			)
+		);
 		$powerPlantTypes = $this->getSqlStringList(powerplantpvGetPowerPlantLinkTypes());
 
 		$sql = "SELECT DISTINCT f.rowid, f.ref, f.ref_client, f.fk_soc, f.fk_projet, f.fk_statut, f.entity";
 		$sql .= ", f.dateo, f.datee, f.datei, f.datet";
 		$sql .= ($hasContractColumn ? ", f.fk_contrat" : ", 0 as fk_contrat");
 		$sql .= ($hasSignedStatusColumn ? ", f.signed_status" : ", 0 as signed_status");
+		$sql .= ($hasDateValidColumn ? ", f.date_valid" : ", NULL as date_valid");
+		foreach ($closingDateColumns as $idx => $column) {
+			$sql .= ", f.".$column." as powerplantpv_closing_date_".((int) $idx);
+		}
+		foreach ($signatureDateColumns as $idx => $column) {
+			$sql .= ", f.".$column." as powerplantpv_signature_date_".((int) $idx);
+		}
 		if ($hasFichinterExtra) {
 			$sql .= ", fe.powerplantpv_intervention_nature as intervention_nature_id";
 			$sql .= ", n.code as nature_code, n.label as nature_label, n.label_en as nature_label_en";
@@ -641,8 +663,40 @@ class PowerPlantPVMaintenanceScheduler
 		}
 
 		while (is_object($obj = $this->db->fetch_object($resql))) {
-			$interventionStart = $this->firstDateTimestamp(array($obj->dateo, $obj->line_start, $obj->datei, $obj->datet), false);
-			$interventionEnd = $this->firstDateTimestamp(array($obj->datee, $obj->line_end, $obj->dateo, $obj->line_start, $obj->datei, $obj->datet), true);
+			$isClosed = ((int) $obj->fk_statut === $this->getFichinterClosedStatus());
+			$isSignedCovering = in_array((int) $obj->signed_status, $this->getFichinterCoveringSignedStatuses(), true);
+			$interventionStart = $this->firstDateTimestamp(array($obj->dateo, $obj->line_start, $obj->datei), false);
+			$interventionEnd = $this->firstDateTimestamp(array($obj->datee, $obj->line_end, $obj->dateo, $obj->line_start, $obj->datei), true);
+			if ($interventionStart <= 0 || $interventionEnd <= 0) {
+				$fallbackStart = $this->getInterventionFinalizationTimestamp(
+					$obj,
+					$isClosed,
+					$isSignedCovering,
+					$closingDateColumns,
+					$signatureDateColumns,
+					false
+				);
+				$fallbackEnd = $this->getInterventionFinalizationTimestamp(
+					$obj,
+					$isClosed,
+					$isSignedCovering,
+					$closingDateColumns,
+					$signatureDateColumns,
+					true
+				);
+				if ($interventionStart <= 0 && $fallbackStart > 0) {
+					$interventionStart = $fallbackStart;
+				}
+				if ($interventionEnd <= 0 && $fallbackEnd > 0) {
+					$interventionEnd = $fallbackEnd;
+				}
+				if ($interventionStart > 0 && $interventionEnd > 0 && $interventionStart > $interventionEnd
+					&& $fallbackStart > 0 && $fallbackEnd > 0
+				) {
+					$interventionStart = $fallbackStart;
+					$interventionEnd = $fallbackEnd;
+				}
+			}
 			$interventions[(int) $obj->rowid] = array(
 				'id' => (int) $obj->rowid,
 				'ref' => (string) $obj->ref,
@@ -661,8 +715,8 @@ class PowerPlantPVMaintenanceScheduler
 				'nature_is_maintenance' => (int) $obj->nature_is_maintenance,
 				'nature_active' => (int) $obj->nature_active,
 				'contract_ids' => array(),
-				'is_closed' => ((int) $obj->fk_statut === $this->getFichinterClosedStatus()),
-				'is_signed_covering' => in_array((int) $obj->signed_status, $this->getFichinterCoveringSignedStatuses(), true),
+				'is_closed' => $isClosed,
+				'is_signed_covering' => $isSignedCovering,
 			);
 		}
 		$this->db->free($resql);
@@ -1032,6 +1086,69 @@ class PowerPlantPVMaintenanceScheduler
 	}
 
 	/**
+	 * Return existing columns from a fixed candidate list.
+	 *
+	 * @param	string	$table		Full table name
+	 * @param	string[]	$columns	Candidate column names
+	 * @return	string[]				Existing column names
+	 */
+	private function getExistingColumns($table, $columns)
+	{
+		$existing = array();
+		foreach ($columns as $column) {
+			if ($this->columnExists($table, (string) $column)) {
+				$existing[] = (string) $column;
+			}
+		}
+
+		return $existing;
+	}
+
+	/**
+	 * Return the finalization timestamp used as fallback when an intervention has no explicit period.
+	 *
+	 * @param	stdClass	$obj					SQL intervention row
+	 * @param	bool		$isClosed				True when intervention is closed
+	 * @param	bool		$isSignedCovering		True when intervention has a covering signature status
+	 * @param	string[]		$closingDateColumns		Detected closing date columns
+	 * @param	string[]		$signatureDateColumns	Detected signature date columns
+	 * @param	bool		$endOfDay				Use end of day
+	 * @return	int									Timestamp or 0
+	 */
+	private function getInterventionFinalizationTimestamp(
+		$obj,
+		$isClosed,
+		$isSignedCovering,
+		$closingDateColumns,
+		$signatureDateColumns,
+		$endOfDay
+	)
+	{
+		$values = array();
+
+		if ($isSignedCovering) {
+			foreach ($signatureDateColumns as $idx => $column) {
+				$property = 'powerplantpv_signature_date_'.((int) $idx);
+				$values[] = isset($obj->{$property}) ? $obj->{$property} : '';
+			}
+		}
+
+		if ($isClosed) {
+			foreach ($closingDateColumns as $idx => $column) {
+				$property = 'powerplantpv_closing_date_'.((int) $idx);
+				$values[] = isset($obj->{$property}) ? $obj->{$property} : '';
+			}
+			$values[] = isset($obj->datet) ? $obj->datet : '';
+		}
+
+		if ($isSignedCovering || $isClosed) {
+			$values[] = isset($obj->date_valid) ? $obj->date_valid : '';
+		}
+
+		return $this->firstDateTimestamp($values, $endOfDay);
+	}
+
+	/**
 	 * Return first valid timestamp from date values.
 	 *
 	 * @param	array<int,mixed>	$values		Date values
@@ -1198,8 +1315,11 @@ class PowerPlantPVMaintenanceScheduler
 	private function getFichinterCoveringSignedStatuses()
 	{
 		$receiver = (class_exists('Fichinter') && defined('Fichinter::STATUS_SIGNED_RECEIVER')) ? (int) constant('Fichinter::STATUS_SIGNED_RECEIVER') : 2;
+		$receiverOnline = (class_exists('Fichinter') && defined('Fichinter::STATUS_SIGNED_RECEIVER_ONLINE'))
+			? (int) constant('Fichinter::STATUS_SIGNED_RECEIVER_ONLINE')
+			: 3;
 		$all = (class_exists('Fichinter') && defined('Fichinter::STATUS_SIGNED_ALL')) ? (int) constant('Fichinter::STATUS_SIGNED_ALL') : 9;
 
-		return array($receiver, $all);
+		return array_values(array_unique(array($receiver, $receiverOnline, $all)));
 	}
 }
