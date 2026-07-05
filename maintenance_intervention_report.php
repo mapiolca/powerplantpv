@@ -58,6 +58,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportbuilder.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfield.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvreportdcmeasure.class.php');
 dol_include_once('/fichinter/class/fichinter.class.php');
 if (is_readable(DOL_DOCUMENT_ROOT.'/fichinter/lib/fichinter.lib.php')) {
 	require_once DOL_DOCUMENT_ROOT.'/fichinter/lib/fichinter.lib.php';
@@ -70,6 +71,7 @@ $action = GETPOST('action', 'aZ09');
 $token = GETPOST('token', 'alphanohtml');
 $fieldId = GETPOSTINT('field_id');
 $fileId = GETPOSTINT('file_id');
+$dcSectionId = GETPOSTINT('add_dc_section_id');
 $manualServiceIds = powerplantpvSanitizeIdArray(GETPOST('manual_services', 'array:int'));
 
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
@@ -103,7 +105,7 @@ if ($reportFetch < 0) {
 	setEventMessages($report->error, $report->errors, 'errors');
 }
 
-$sensitiveActions = array('save_draft', 'save', 'recalculate', 'upload_file', 'delete_file');
+$sensitiveActions = array('save_draft', 'save', 'recalculate', 'upload_file', 'delete_file', 'add_dc_measure_line');
 if (in_array($action, $sensitiveActions, true)) {
 	if (!$caneditreport) {
 		accessforbidden();
@@ -127,7 +129,11 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 	if ($reportFetch > 0) {
 		$values = powerplantpvReportGetSubmittedValues();
 		$dateValues = powerplantpvReportGetSubmittedDateValues();
+		$dcValues = powerplantpvReportGetSubmittedDcMeasures();
 		$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $status);
+		if ($result >= 0) {
+			$result = $builder->saveDcMeasureValues((int) $report->id, $dcValues, $user);
+		}
 		if ($result < 0) {
 			setEventMessages($builder->error, $builder->errors, 'errors');
 		} else {
@@ -135,6 +141,26 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 			header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
 			exit;
 		}
+	}
+}
+
+if ($action === 'add_dc_measure_line' && $caneditreport && $reportFetch > 0) {
+	$values = powerplantpvReportGetSubmittedValues();
+	$dateValues = powerplantpvReportGetSubmittedDateValues();
+	$dcValues = powerplantpvReportGetSubmittedDcMeasures();
+	$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, PowerPlantPVReport::STATUS_DRAFT);
+	if ($result >= 0) {
+		$result = $builder->saveDcMeasureValues((int) $report->id, $dcValues, $user);
+	}
+	if ($result >= 0) {
+		$result = $builder->addManualDcMeasureLine((int) $report->id, $dcSectionId, $user);
+	}
+	if ($result < 0) {
+		setEventMessages($builder->error, $builder->errors, 'errors');
+	} else {
+		setEventMessages($langs->trans('PowerPlantPVDcMeasureLineAdded'), null, 'mesgs');
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
+		exit;
 	}
 }
 
@@ -376,6 +402,42 @@ function powerplantpvReportGetSubmittedDateValues()
 }
 
 /**
+ * Return submitted DC measure values.
+ *
+ * @return	array<string,array<string,mixed>>	DC values
+ */
+function powerplantpvReportGetSubmittedDcMeasures()
+{
+	$raw = GETPOST('dc_measures', 'array');
+	if (!is_array($raw)) {
+		return array();
+	}
+	$values = array();
+	foreach ($raw as $key => $row) {
+		if (!is_array($row)) {
+			continue;
+		}
+		$clean = array();
+		$clean['id'] = !empty($row['id']) ? (int) $row['id'] : 0;
+		$clean['stable_key'] = !empty($row['stable_key']) ? dol_string_nohtmltag((string) $row['stable_key']) : '';
+		$clean['inverter_label'] = isset($row['inverter_label']) ? dol_string_nohtmltag((string) $row['inverter_label']) : '';
+		$clean['mppt_number'] = isset($row['mppt_number']) ? dol_string_nohtmltag((string) $row['mppt_number']) : '';
+		$clean['pv_input_number'] = isset($row['pv_input_number']) ? dol_string_nohtmltag((string) $row['pv_input_number']) : '';
+		$clean['string_ref'] = isset($row['string_ref']) ? dol_string_nohtmltag((string) $row['string_ref']) : '';
+		$clean['is_connected'] = !empty($row['is_connected']) ? 1 : 0;
+		$clean['open_circuit_voltage'] = isset($row['open_circuit_voltage']) ? dol_string_nohtmltag((string) $row['open_circuit_voltage']) : '';
+		$clean['polarity_checked'] = !empty($row['polarity_checked']) ? 1 : 0;
+		$clean['insulation_status'] = isset($row['insulation_status']) ? dol_string_nohtmltag((string) $row['insulation_status']) : '';
+		$clean['insulation_positive_to_ground'] = isset($row['insulation_positive_to_ground']) ? dol_string_nohtmltag((string) $row['insulation_positive_to_ground']) : '';
+		$clean['insulation_negative_to_ground'] = isset($row['insulation_negative_to_ground']) ? dol_string_nohtmltag((string) $row['insulation_negative_to_ground']) : '';
+		$clean['observation'] = isset($row['observation']) ? dol_string_nohtmltag((string) $row['observation']) : '';
+		$values[(string) $key] = $clean;
+	}
+
+	return $values;
+}
+
+/**
  * Render report sections.
  *
  * @param	array<int,array<string,mixed>>	$sections	Sections
@@ -394,23 +456,178 @@ function powerplantpvReportRenderSections($sections, $editable, $form)
 		return;
 	}
 
+	$groups = array();
 	foreach ($sections as $row) {
-		$section = $row['section'];
-		$fields = isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array();
-		$label = powerplantpvReportLocalizedObjectLabel($section, 'section_label');
-		print '<details class="powerplantpv-report-section" open>';
-		print '<summary><span>'.dol_escape_htmltag($label).'</span>';
-		if (!empty($section->is_required)) {
-			print '<span class="badge marginleftonlyshort">'.$langs->trans('Required').'</span>';
+		$key = 'general';
+		if (!empty($row['powerplant'])) {
+			$key = 'powerplant:'.powerplantpvReportPowerplantSourceId($row['powerplant']);
 		}
-		print '</summary>';
-		print '<div class="powerplantpv-report-fields">';
-		foreach ($fields as $field) {
-			powerplantpvReportRenderField($field, $editable, $form);
+		if (!isset($groups[$key])) {
+			$groups[$key] = array('powerplant' => !empty($row['powerplant']) ? $row['powerplant'] : null, 'sections' => array());
+		}
+		$groups[$key]['sections'][] = $row;
+	}
+
+	foreach ($groups as $group) {
+		if (!empty($group['powerplant'])) {
+			print load_fiche_titre(dol_escape_htmltag(powerplantpvReportPowerplantLabel($group['powerplant'])), '', 'fa-industry');
+		}
+		foreach ($group['sections'] as $row) {
+			$section = $row['section'];
+			$fields = isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array();
+			$label = powerplantpvReportLocalizedObjectLabel($section, 'section_label');
+			print '<details class="powerplantpv-report-section" open>';
+			print '<summary><span>'.dol_escape_htmltag($label).'</span>';
+			if (!empty($section->is_required)) {
+				print '<span class="badge marginleftonlyshort">'.$langs->trans('Required').'</span>';
+			}
+			print '</summary>';
+			if (!empty($row['equipment'])) {
+				print '<div class="refidno">'.dol_escape_htmltag(powerplantpvReportEquipmentLabel($row['equipment'])).'</div>';
+			}
+			if ((string) $section->section_code === 'DC_ELECTRICAL_MEASURE') {
+				$dcMeasures = isset($row['dc_measures']) && is_array($row['dc_measures']) ? $row['dc_measures'] : array();
+				powerplantpvReportRenderDcMeasures($section, $dcMeasures, $editable, $form);
+				print '</details>';
+				continue;
+			}
+			print '<div class="powerplantpv-report-fields">';
+			foreach ($fields as $field) {
+				powerplantpvReportRenderField($field, $editable, $form);
+			}
+			print '</div>';
+			print '</details>';
+		}
+	}
+}
+
+/**
+ * Render DC measure rows grouped by inverter and MPPT.
+ *
+ * @param	PowerPlantPVReportSection			$section	Section
+ * @param	array<int,PowerPlantPVReportDcMeasure>	$measures	Measure rows
+ * @param	bool								$editable	Editable flag
+ * @param	Form								$form		Form helper
+ * @return	void
+ */
+function powerplantpvReportRenderDcMeasures($section, $measures, $editable, $form)
+{
+	global $langs;
+
+	if (empty($measures)) {
+		print '<div class="opacitymedium powerplantpv-report-manual">'.$langs->trans('PowerPlantPVDcMeasureNoConfigurationManualMode').'</div>';
+		if ($editable && !empty($section->id)) {
+			print '<button type="submit" class="button" name="action" value="add_dc_measure_line" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&add_dc_section_id='.((int) $section->id).'">'.$langs->trans('PowerPlantPVAddDcMeasureLine').'</button>';
+		} elseif ($editable) {
+			print '<div class="opacitymedium">'.$langs->trans('PowerPlantPVReportManualLineAfterFirstSave').'</div>';
+		}
+		return;
+	}
+
+	$grouped = array();
+	foreach ($measures as $measure) {
+		$inverterKey = trim((string) $measure->inverter_label) !== '' ? (string) $measure->inverter_label : (string) $measure->inverter_ref;
+		if ($inverterKey === '') {
+			$inverterKey = $langs->trans('PowerPlantPVManualDcLine');
+		}
+		$mpptKey = $measure->mppt_number !== null && (string) $measure->mppt_number !== '' ? (string) $measure->mppt_number : $langs->trans('PowerPlantPVManual');
+		if (!isset($grouped[$inverterKey])) {
+			$grouped[$inverterKey] = array();
+		}
+		if (!isset($grouped[$inverterKey][$mpptKey])) {
+			$grouped[$inverterKey][$mpptKey] = array();
+		}
+		$grouped[$inverterKey][$mpptKey][] = $measure;
+	}
+
+	print '<div class="powerplantpv-dc-measures">';
+	foreach ($grouped as $inverterLabel => $mppts) {
+		print '<div class="powerplantpv-dc-inverter">';
+		print '<div class="liste_titre">'.dol_escape_htmltag($langs->trans('PowerPlantPVInverter')).' : '.dol_escape_htmltag((string) $inverterLabel).'</div>';
+		foreach ($mppts as $mpptLabel => $rows) {
+			print '<div class="powerplantpv-dc-mppt">';
+			print '<div class="opacitymedium">'.dol_escape_htmltag($langs->trans('PowerPlantPVMPPT')).' '.dol_escape_htmltag((string) $mpptLabel).'</div>';
+			print '<div class="powerplantpv-dc-measure-grid">';
+			foreach ($rows as $measure) {
+				powerplantpvReportRenderDcMeasureCard($measure, $editable, $form);
+			}
+			print '</div>';
+			print '</div>';
 		}
 		print '</div>';
-		print '</details>';
 	}
+	if ($editable && !empty($section->id)) {
+		print '<div class="powerplantpv-report-actions">';
+		print '<button type="submit" class="button" name="action" value="add_dc_measure_line" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&add_dc_section_id='.((int) $section->id).'">'.$langs->trans('PowerPlantPVAddDcMeasureLine').'</button>';
+		print '</div>';
+	}
+	print '</div>';
+}
+
+/**
+ * Render one DC measure card.
+ *
+ * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+ * @param	bool						$editable	Editable flag
+ * @param	Form						$form		Form helper
+ * @return	void
+ */
+function powerplantpvReportRenderDcMeasureCard($measure, $editable, $form)
+{
+	global $langs;
+
+	$key = md5((string) $measure->stable_key);
+	$name = 'dc_measures['.$key.']';
+	$isManual = (strpos((string) $measure->stable_key, ':dc:manual:') !== false);
+	$insulationOptions = array(
+		'' => '',
+		'valid' => $langs->trans('PowerPlantPVReportConformityValid'),
+		'observation' => $langs->trans('PowerPlantPVReportConformityObservation'),
+		'not_applicable' => $langs->trans('PowerPlantPVReportConformityNotApplicable'),
+	);
+
+	print '<div class="powerplantpv-dc-card">';
+	print '<input type="hidden" name="'.$name.'[id]" value="'.((int) $measure->id).'">';
+	print '<input type="hidden" name="'.$name.'[stable_key]" value="'.dol_escape_htmltag((string) $measure->stable_key).'">';
+	print '<div class="powerplantpv-dc-card-title">';
+	print dol_escape_htmltag($langs->trans('PowerPlantPVPVInput')).' '.dol_escape_htmltag((string) $measure->pv_input_number);
+	if ((string) $measure->string_ref !== '') {
+		print ' - '.dol_escape_htmltag((string) $measure->string_ref);
+	}
+	print '</div>';
+	if (!$editable) {
+		$insulationLabel = isset($insulationOptions[(string) $measure->insulation_status]) ? $insulationOptions[(string) $measure->insulation_status] : (string) $measure->insulation_status;
+		print '<div class="powerplantpv-dc-readonly">';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVStringRef')).' : '.dol_escape_htmltag((string) $measure->string_ref).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVPVInputConnected')).' : '.$langs->trans(!empty($measure->is_connected) ? 'Yes' : 'No').'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVOpenCircuitVoltage')).' : '.($measure->open_circuit_voltage !== null ? price($measure->open_circuit_voltage).' V' : '').'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVPolarityChecked')).' : '.$langs->trans(!empty($measure->polarity_checked) ? 'Yes' : 'No').'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationStatus')).' : '.dol_escape_htmltag($insulationLabel).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationPositiveToGround')).' : '.($measure->insulation_positive_to_ground !== null ? price($measure->insulation_positive_to_ground).' MOhm' : '').'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationNegativeToGround')).' : '.($measure->insulation_negative_to_ground !== null ? price($measure->insulation_negative_to_ground).' MOhm' : '').'</span>';
+		print '<span>'.dol_htmlentitiesbr((string) $measure->observation).'</span>';
+		print '</div></div>';
+		return;
+	}
+
+	if ($isManual) {
+		print '<label>'.$langs->trans('PowerPlantPVInverter').'<input type="text" class="flat minwidth100" name="'.$name.'[inverter_label]" value="'.dol_escape_htmltag((string) $measure->inverter_label).'"></label>';
+		print '<label>'.$langs->trans('PowerPlantPVMPPT').'<input type="text" class="flat maxwidth75" name="'.$name.'[mppt_number]" value="'.dol_escape_htmltag((string) $measure->mppt_number).'"></label>';
+		print '<label>'.$langs->trans('PowerPlantPVPVInput').'<input type="text" class="flat maxwidth75" name="'.$name.'[pv_input_number]" value="'.dol_escape_htmltag((string) $measure->pv_input_number).'"></label>';
+	} else {
+		print '<input type="hidden" name="'.$name.'[inverter_label]" value="'.dol_escape_htmltag((string) $measure->inverter_label).'">';
+		print '<input type="hidden" name="'.$name.'[mppt_number]" value="'.dol_escape_htmltag((string) $measure->mppt_number).'">';
+		print '<input type="hidden" name="'.$name.'[pv_input_number]" value="'.dol_escape_htmltag((string) $measure->pv_input_number).'">';
+	}
+	print '<label>'.$langs->trans('PowerPlantPVStringRef').'<input type="text" class="flat minwidth100" name="'.$name.'[string_ref]" value="'.dol_escape_htmltag((string) $measure->string_ref).'"></label>';
+	print '<label>'.$langs->trans('PowerPlantPVPVInputConnected').$form->selectarray($name.'[is_connected]', array(0 => $langs->trans('No'), 1 => $langs->trans('Yes')), (int) $measure->is_connected, 0, 0, 0, '', 0, 0, 0, '', 'maxwidth100').'</label>';
+	print '<label>'.$langs->trans('PowerPlantPVOpenCircuitVoltage').'<input type="text" class="flat maxwidth100 right" name="'.$name.'[open_circuit_voltage]" value="'.dol_escape_htmltag($measure->open_circuit_voltage !== null ? price($measure->open_circuit_voltage) : '').'"> V</label>';
+	print '<label>'.$langs->trans('PowerPlantPVPolarityChecked').$form->selectarray($name.'[polarity_checked]', array(0 => $langs->trans('No'), 1 => $langs->trans('Yes')), (int) $measure->polarity_checked, 0, 0, 0, '', 0, 0, 0, '', 'maxwidth100').'</label>';
+	print '<label>'.$langs->trans('PowerPlantPVInsulationStatus').$form->selectarray($name.'[insulation_status]', $insulationOptions, (string) $measure->insulation_status, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150').'</label>';
+	print '<label>'.$langs->trans('PowerPlantPVInsulationPositiveToGround').'<input type="text" class="flat maxwidth100 right" name="'.$name.'[insulation_positive_to_ground]" value="'.dol_escape_htmltag($measure->insulation_positive_to_ground !== null ? price($measure->insulation_positive_to_ground) : '').'"> MOhm</label>';
+	print '<label>'.$langs->trans('PowerPlantPVInsulationNegativeToGround').'<input type="text" class="flat maxwidth100 right" name="'.$name.'[insulation_negative_to_ground]" value="'.dol_escape_htmltag($measure->insulation_negative_to_ground !== null ? price($measure->insulation_negative_to_ground) : '').'"> MOhm</label>';
+	print '<label class="powerplantpv-dc-observation">'.$langs->trans('Observation').'<textarea class="flat" rows="2" name="'.$name.'[observation]">'.dol_escape_htmltag((string) $measure->observation).'</textarea></label>';
+	print '</div>';
 }
 
 /**
@@ -509,6 +726,79 @@ function powerplantpvReportLocalizedObjectLabel($object, $baseProperty)
 	}
 
 	return $label;
+}
+
+/**
+ * Return source power plant id from a preview row or snapshot object.
+ *
+ * @param	mixed	$powerplant	Power plant row
+ * @return	int					Power plant id
+ */
+function powerplantpvReportPowerplantSourceId($powerplant)
+{
+	if (is_array($powerplant)) {
+		return !empty($powerplant['id']) ? (int) $powerplant['id'] : 0;
+	}
+	if (is_object($powerplant)) {
+		if (!empty($powerplant->fk_powerplant)) {
+			return (int) $powerplant->fk_powerplant;
+		}
+		if (!empty($powerplant->id)) {
+			return (int) $powerplant->id;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * Return a readable power plant label from a preview row or snapshot object.
+ *
+ * @param	mixed	$powerplant	Power plant row
+ * @return	string				Label
+ */
+function powerplantpvReportPowerplantLabel($powerplant)
+{
+	if (is_array($powerplant)) {
+		$ref = !empty($powerplant['ref']) ? (string) $powerplant['ref'] : '';
+		$label = !empty($powerplant['label']) ? (string) $powerplant['label'] : '';
+		return trim($ref.($label !== '' ? ' - '.$label : ''));
+	}
+	if (is_object($powerplant)) {
+		$ref = !empty($powerplant->powerplant_ref) ? (string) $powerplant->powerplant_ref : (!empty($powerplant->ref) ? (string) $powerplant->ref : '');
+		$label = !empty($powerplant->powerplant_label) ? (string) $powerplant->powerplant_label : (!empty($powerplant->label) ? (string) $powerplant->label : '');
+		return trim($ref.($label !== '' ? ' - '.$label : ''));
+	}
+
+	return '';
+}
+
+/**
+ * Return a readable equipment label from a preview row or snapshot object.
+ *
+ * @param	mixed	$equipment	Equipment row
+ * @return	string				Label
+ */
+function powerplantpvReportEquipmentLabel($equipment)
+{
+	if (is_array($equipment)) {
+		$ref = !empty($equipment['equipment_ref']) ? (string) $equipment['equipment_ref'] : (!empty($equipment['product_ref']) ? (string) $equipment['product_ref'] : '');
+		$label = !empty($equipment['equipment_label']) ? (string) $equipment['equipment_label'] : (!empty($equipment['product_label']) ? (string) $equipment['product_label'] : '');
+		$serial = !empty($equipment['serial_number']) ? (string) $equipment['serial_number'] : '';
+	} elseif (is_object($equipment)) {
+		$ref = !empty($equipment->equipment_ref) ? (string) $equipment->equipment_ref : (!empty($equipment->product_ref) ? (string) $equipment->product_ref : '');
+		$label = !empty($equipment->equipment_label) ? (string) $equipment->equipment_label : (!empty($equipment->product_label) ? (string) $equipment->product_label : '');
+		$serial = !empty($equipment->serial_number) ? (string) $equipment->serial_number : '';
+	} else {
+		return '';
+	}
+
+	$output = trim($ref.($label !== '' ? ' - '.$label : ''));
+	if ($serial !== '') {
+		$output .= ($output !== '' ? ' / ' : '').$serial;
+	}
+
+	return $output;
 }
 
 /**

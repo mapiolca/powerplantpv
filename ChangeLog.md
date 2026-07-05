@@ -21,6 +21,11 @@
 - Ajout de la documentation technique `docs/technical/v1.3-pr6-intervention-report-tab.md`.
 - Complétude du modèle préinstallé `preventive_maintenance` : sections de base, sections conditionnelles, champs N-1/N, options thermographie et mappings prestations -> sections, avec seed d'activation non destructif.
 - Ajout de la documentation technique `docs/technical/v1.3-pr7-preventive-template.md`.
+- Ajout du support multi-centrales dans le rapport d'intervention : prestations résolues par centrale, sections groupées par centrale et sections équipement répétées uniquement sur les équipements concernés.
+- Ajout de la configuration installée MPPT / entrées PV / strings sur les onduleurs de composition centrale, avec préremplissage non destructif depuis les caractéristiques produit.
+- Ajout des mesures DC spécialisées `powerplantpv_report_dc_measure`, générées automatiquement depuis la topologie installée, avec mode manuel et conservation des valeurs au recalcul par clé stable.
+- Extension du snapshot équipement de rapport avec source équipement, marque, modèle, position et snapshot technique JSON.
+- Ajout de la documentation technique `docs/technical/v1.3-pr8-multi-equipment-dc-measures.md`.
 
 ## 1.2.1
 

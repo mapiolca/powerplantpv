@@ -199,6 +199,53 @@ ALTER TABLE llx_powerplantpv_powerplantcomp ADD COLUMN IF NOT EXISTS commissioni
 ALTER TABLE llx_powerplantpv_powerplantcomp CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE llx_powerplantpv_powerplantcomp DROP COLUMN IF EXISTS nature_code;
 
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_equipment_mppt(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_powerplant integer NOT NULL,
+	fk_inverter integer NOT NULL,
+	mppt_number integer NOT NULL,
+	pv_input_count integer DEFAULT 0 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	date_creation datetime,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer,
+	fk_user_modif integer,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_equipment_mppt ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_equipment_mppt (entity, fk_powerplant, fk_inverter, mppt_number);
+ALTER TABLE llx_powerplantpv_equipment_mppt ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_mppt_entity (entity);
+ALTER TABLE llx_powerplantpv_equipment_mppt ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_mppt_powerplant (fk_powerplant);
+ALTER TABLE llx_powerplantpv_equipment_mppt ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_mppt_inverter (fk_inverter);
+ALTER TABLE llx_powerplantpv_equipment_mppt ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_mppt_position (position);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_equipment_string(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_powerplant integer NOT NULL,
+	fk_inverter integer NOT NULL,
+	mppt_number integer NOT NULL,
+	pv_input_number integer NOT NULL,
+	string_ref varchar(128),
+	module_count integer,
+	module_power double(24,8),
+	orientation varchar(64),
+	tilt double(24,8),
+	is_connected smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	date_creation datetime,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer,
+	fk_user_modif integer,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_equipment_string ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_equipment_string_input (entity, fk_powerplant, fk_inverter, mppt_number, pv_input_number);
+ALTER TABLE llx_powerplantpv_equipment_string ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_string_entity (entity);
+ALTER TABLE llx_powerplantpv_equipment_string ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_string_powerplant (fk_powerplant);
+ALTER TABLE llx_powerplantpv_equipment_string ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_string_inverter (fk_inverter);
+ALTER TABLE llx_powerplantpv_equipment_string ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_string_mppt (mppt_number);
+ALTER TABLE llx_powerplantpv_equipment_string ADD INDEX IF NOT EXISTS idx_powerplantpv_equipment_string_position (position);
+
 INSERT INTO llx_c_product_nature (code, label, active)
 SELECT '50', 'ProductNaturePVModules', 1
 WHERE NOT EXISTS (SELECT 1 FROM llx_c_product_nature WHERE code = '50');
@@ -565,15 +612,20 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_equipment(
 	fk_report_powerplant integer,
 	fk_powerplant integer,
 	fk_powerplant_line integer,
+	fk_source_equipment integer,
 	fk_product integer,
 	product_ref varchar(128),
 	product_label varchar(255),
+	equipment_brand varchar(128),
+	equipment_model varchar(128),
 	equipment_type varchar(32),
 	equipment_ref varchar(128),
 	equipment_label varchar(255),
 	serial_number varchar(128),
 	qty double(24,8),
 	technical_key varchar(255),
+	equipment_position varchar(255),
+	technical_snapshot mediumtext,
 	position integer DEFAULT 0 NOT NULL,
 	date_creation datetime,
 	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -581,11 +633,17 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_equipment(
 	fk_user_modif integer,
 	import_key varchar(14)
 ) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_report_equipment ADD COLUMN IF NOT EXISTS fk_source_equipment integer;
+ALTER TABLE llx_powerplantpv_report_equipment ADD COLUMN IF NOT EXISTS equipment_brand varchar(128);
+ALTER TABLE llx_powerplantpv_report_equipment ADD COLUMN IF NOT EXISTS equipment_model varchar(128);
+ALTER TABLE llx_powerplantpv_report_equipment ADD COLUMN IF NOT EXISTS equipment_position varchar(255);
+ALTER TABLE llx_powerplantpv_report_equipment ADD COLUMN IF NOT EXISTS technical_snapshot mediumtext;
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_entity (entity);
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_report (fk_report);
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_report_powerplant (fk_report_powerplant);
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_powerplant (fk_powerplant);
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_powerplant_line (fk_powerplant_line);
+ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_source_equipment (fk_source_equipment);
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_product (fk_product);
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_type (equipment_type);
 ALTER TABLE llx_powerplantpv_report_equipment ADD INDEX IF NOT EXISTS idx_powerplantpv_report_equipment_technical_key (technical_key);
@@ -669,6 +727,46 @@ ALTER TABLE llx_powerplantpv_report_field ADD INDEX IF NOT EXISTS idx_powerplant
 ALTER TABLE llx_powerplantpv_report_field ADD INDEX IF NOT EXISTS idx_powerplantpv_report_field_template_field (fk_report_template_field);
 ALTER TABLE llx_powerplantpv_report_field ADD INDEX IF NOT EXISTS idx_powerplantpv_report_field_code (field_code);
 ALTER TABLE llx_powerplantpv_report_field ADD INDEX IF NOT EXISTS idx_powerplantpv_report_field_type (field_type);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_dc_measure(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_report integer NOT NULL,
+	fk_report_section integer NOT NULL,
+	fk_report_powerplant integer,
+	fk_report_equipment integer,
+	fk_powerplant integer,
+	fk_inverter integer,
+	inverter_ref varchar(128),
+	inverter_label varchar(255),
+	inverter_serial varchar(128),
+	mppt_number integer,
+	pv_input_number integer,
+	string_ref varchar(128),
+	is_connected smallint DEFAULT 1 NOT NULL,
+	open_circuit_voltage double(24,8),
+	polarity_checked smallint DEFAULT 0 NOT NULL,
+	insulation_status varchar(32),
+	insulation_positive_to_ground double(24,8),
+	insulation_negative_to_ground double(24,8),
+	observation text,
+	stable_key varchar(255) NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	date_creation datetime,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer,
+	fk_user_modif integer,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_report_dc_measure_stable (entity, fk_report, stable_key);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_entity (entity);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_report (fk_report);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_section (fk_report_section);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_report_powerplant (fk_report_powerplant);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_report_equipment (fk_report_equipment);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_powerplant (fk_powerplant);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_inverter (fk_inverter);
+ALTER TABLE llx_powerplantpv_report_dc_measure ADD INDEX IF NOT EXISTS idx_powerplantpv_report_dc_measure_position (position);
 
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_file(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,

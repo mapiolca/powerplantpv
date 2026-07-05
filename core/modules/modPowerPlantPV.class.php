@@ -1388,7 +1388,93 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	private function ensureGeneratedReportSchema()
 	{
+		$createSqls = array(
+			"CREATE TABLE IF NOT EXISTS ".$this->db->prefix()."powerplantpv_equipment_mppt(
+				rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+				entity integer DEFAULT 1 NOT NULL,
+				fk_powerplant integer NOT NULL,
+				fk_inverter integer NOT NULL,
+				mppt_number integer NOT NULL,
+				pv_input_count integer DEFAULT 0 NOT NULL,
+				position integer DEFAULT 0 NOT NULL,
+				date_creation datetime,
+				tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				fk_user_creat integer,
+				fk_user_modif integer,
+				import_key varchar(14)
+			) ENGINE=innodb",
+			"CREATE TABLE IF NOT EXISTS ".$this->db->prefix()."powerplantpv_equipment_string(
+				rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+				entity integer DEFAULT 1 NOT NULL,
+				fk_powerplant integer NOT NULL,
+				fk_inverter integer NOT NULL,
+				mppt_number integer NOT NULL,
+				pv_input_number integer NOT NULL,
+				string_ref varchar(128),
+				module_count integer,
+				module_power double(24,8),
+				orientation varchar(64),
+				tilt double(24,8),
+				is_connected smallint DEFAULT 1 NOT NULL,
+				position integer DEFAULT 0 NOT NULL,
+				date_creation datetime,
+				tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				fk_user_creat integer,
+				fk_user_modif integer,
+				import_key varchar(14)
+			) ENGINE=innodb",
+			"CREATE TABLE IF NOT EXISTS ".$this->db->prefix()."powerplantpv_report_dc_measure(
+				rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+				entity integer DEFAULT 1 NOT NULL,
+				fk_report integer NOT NULL,
+				fk_report_section integer NOT NULL,
+				fk_report_powerplant integer,
+				fk_report_equipment integer,
+				fk_powerplant integer,
+				fk_inverter integer,
+				inverter_ref varchar(128),
+				inverter_label varchar(255),
+				inverter_serial varchar(128),
+				mppt_number integer,
+				pv_input_number integer,
+				string_ref varchar(128),
+				is_connected smallint DEFAULT 1 NOT NULL,
+				open_circuit_voltage double(24,8),
+				polarity_checked smallint DEFAULT 0 NOT NULL,
+				insulation_status varchar(32),
+				insulation_positive_to_ground double(24,8),
+				insulation_negative_to_ground double(24,8),
+				observation text,
+				stable_key varchar(255) NOT NULL,
+				position integer DEFAULT 0 NOT NULL,
+				date_creation datetime,
+				tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				fk_user_creat integer,
+				fk_user_modif integer,
+				import_key varchar(14)
+			) ENGINE=innodb",
+		);
+		foreach ($createSqls as $sql) {
+			if (!$this->db->query($sql)) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
 		$tables = array(
+			$this->db->prefix().'powerplantpv_equipment_mppt' => array(
+				'fk_powerplant' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_inverter' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'mppt_number' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'pv_input_count' => array('type' => 'integer', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+			),
+			$this->db->prefix().'powerplantpv_equipment_string' => array(
+				'fk_powerplant' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_inverter' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'mppt_number' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'pv_input_number' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'is_connected' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 1 NOT NULL'),
+			),
 			$this->db->prefix().'powerplantpv_report' => array(
 				'fk_fichinter' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'source_mode' => array('type' => 'varchar', 'value' => '16', 'null' => "DEFAULT 'contract' NOT NULL"),
@@ -1406,7 +1492,12 @@ class modPowerPlantPV extends DolibarrModules
 			),
 			$this->db->prefix().'powerplantpv_report_equipment' => array(
 				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_source_equipment' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'equipment_brand' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'equipment_model' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
 				'technical_key' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'equipment_position' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
+				'technical_snapshot' => array('type' => 'mediumtext', 'value' => '', 'null' => ''),
 			),
 			$this->db->prefix().'powerplantpv_report_section' => array(
 				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
@@ -1428,6 +1519,13 @@ class modPowerPlantPV extends DolibarrModules
 				'fk_report_field' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'filepath' => array('type' => 'varchar', 'value' => '255', 'null' => 'NOT NULL'),
 			),
+			$this->db->prefix().'powerplantpv_report_dc_measure' => array(
+				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'fk_report_section' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
+				'stable_key' => array('type' => 'varchar', 'value' => '255', 'null' => 'NOT NULL'),
+				'is_connected' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 1 NOT NULL'),
+				'polarity_checked' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 0 NOT NULL'),
+			),
 		);
 
 		foreach ($tables as $table => $fields) {
@@ -1447,6 +1545,19 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		$indexes = array(
+			$this->db->prefix().'powerplantpv_equipment_mppt' => array(
+				'idx_powerplantpv_equipment_mppt_entity' => 'entity',
+				'idx_powerplantpv_equipment_mppt_powerplant' => 'fk_powerplant',
+				'idx_powerplantpv_equipment_mppt_inverter' => 'fk_inverter',
+				'idx_powerplantpv_equipment_mppt_position' => 'position',
+			),
+			$this->db->prefix().'powerplantpv_equipment_string' => array(
+				'idx_powerplantpv_equipment_string_entity' => 'entity',
+				'idx_powerplantpv_equipment_string_powerplant' => 'fk_powerplant',
+				'idx_powerplantpv_equipment_string_inverter' => 'fk_inverter',
+				'idx_powerplantpv_equipment_string_mppt' => 'mppt_number',
+				'idx_powerplantpv_equipment_string_position' => 'position',
+			),
 			$this->db->prefix().'powerplantpv_report' => array(
 				'idx_powerplantpv_report_fichinter_guard' => 'fk_fichinter',
 				'idx_powerplantpv_report_status' => 'status',
@@ -1462,6 +1573,7 @@ class modPowerPlantPV extends DolibarrModules
 			$this->db->prefix().'powerplantpv_report_equipment' => array(
 				'idx_powerplantpv_report_equipment_report' => 'fk_report',
 				'idx_powerplantpv_report_equipment_technical_key' => 'technical_key',
+				'idx_powerplantpv_report_equipment_source_equipment' => 'fk_source_equipment',
 			),
 			$this->db->prefix().'powerplantpv_report_section' => array(
 				'idx_powerplantpv_report_section_report' => 'fk_report',
@@ -1476,6 +1588,16 @@ class modPowerPlantPV extends DolibarrModules
 				'idx_powerplantpv_report_file_report' => 'fk_report',
 				'idx_powerplantpv_report_file_field' => 'fk_report_field',
 			),
+			$this->db->prefix().'powerplantpv_report_dc_measure' => array(
+				'idx_powerplantpv_report_dc_measure_entity' => 'entity',
+				'idx_powerplantpv_report_dc_measure_report' => 'fk_report',
+				'idx_powerplantpv_report_dc_measure_section' => 'fk_report_section',
+				'idx_powerplantpv_report_dc_measure_report_powerplant' => 'fk_report_powerplant',
+				'idx_powerplantpv_report_dc_measure_report_equipment' => 'fk_report_equipment',
+				'idx_powerplantpv_report_dc_measure_powerplant' => 'fk_powerplant',
+				'idx_powerplantpv_report_dc_measure_inverter' => 'fk_inverter',
+				'idx_powerplantpv_report_dc_measure_position' => 'position',
+			),
 		);
 
 		foreach ($indexes as $table => $tableindexes) {
@@ -1487,6 +1609,33 @@ class modPowerPlantPV extends DolibarrModules
 					continue;
 				}
 				$sql = "ALTER TABLE ".$this->db->sanitize($table)." ADD INDEX ".$this->db->sanitize($indexname)." (".$this->db->sanitize($fieldname).")";
+				if (!$this->db->query($sql)) {
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+
+		$customIndexes = array(
+			$this->db->prefix().'powerplantpv_equipment_mppt' => array(
+				'uk_powerplantpv_equipment_mppt' => 'UNIQUE INDEX uk_powerplantpv_equipment_mppt (entity, fk_powerplant, fk_inverter, mppt_number)',
+			),
+			$this->db->prefix().'powerplantpv_equipment_string' => array(
+				'uk_powerplantpv_equipment_string_input' => 'UNIQUE INDEX uk_powerplantpv_equipment_string_input (entity, fk_powerplant, fk_inverter, mppt_number, pv_input_number)',
+			),
+			$this->db->prefix().'powerplantpv_report_dc_measure' => array(
+				'uk_powerplantpv_report_dc_measure_stable' => 'UNIQUE INDEX uk_powerplantpv_report_dc_measure_stable (entity, fk_report, stable_key)',
+			),
+		);
+		foreach ($customIndexes as $table => $tableindexes) {
+			if (!$this->reportTemplateTableExists($table)) {
+				continue;
+			}
+			foreach ($tableindexes as $indexname => $definition) {
+				if ($this->reportTemplateIndexExists($table, $indexname)) {
+					continue;
+				}
+				$sql = "ALTER TABLE ".$this->db->sanitize($table)." ADD ".$definition;
 				if (!$this->db->query($sql)) {
 					$this->errors[] = $this->db->lasterror();
 					return -1;
@@ -2066,7 +2215,7 @@ class modPowerPlantPV extends DolibarrModules
 			array('code' => 'PANEL_CLEANING', 'label' => 'Nettoyage panneaux', 'label_en' => 'Panel cleaning', 'description' => 'Contrôles et nettoyage des panneaux.', 'description_en' => 'Panel cleaning and checks.', 'scope_type' => 'powerplant', 'equipment_type' => 'panel', 'repeat_mode' => 'per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 40),
 			array('code' => 'INVERTER', 'label' => 'Onduleur', 'label_en' => 'Inverter', 'description' => 'Contrôles par onduleur.', 'description_en' => 'Checks for each inverter.', 'scope_type' => 'inverter', 'equipment_type' => '', 'repeat_mode' => 'per_equipment', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 50),
 			array('code' => 'ELECTRICAL_BOX', 'label' => 'Vérifications coffrets', 'label_en' => 'Electrical box checks', 'description' => 'Vérifications coffrets AC/DC.', 'description_en' => 'AC/DC box checks.', 'scope_type' => 'electrical_box', 'equipment_type' => '', 'repeat_mode' => 'per_equipment', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 60),
-			array('code' => 'DC_ELECTRICAL_MEASURE', 'label' => 'Mesures électriques DC', 'label_en' => 'DC electrical measurements', 'description' => 'Mesures DC par onduleur, MPPT et entrée PV.', 'description_en' => 'DC measurements by inverter, MPPT and PV input.', 'scope_type' => 'dc_measure', 'equipment_type' => 'inverter', 'repeat_mode' => 'dynamic_rows', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 70),
+			array('code' => 'DC_ELECTRICAL_MEASURE', 'label' => 'Mesures électriques DC', 'label_en' => 'DC electrical measurements', 'description' => 'Mesures DC par onduleur, MPPT et entrée PV.', 'description_en' => 'DC measurements by inverter, MPPT and PV input.', 'scope_type' => 'pv_input', 'equipment_type' => 'INVERTER', 'repeat_mode' => 'once_per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 70),
 			array('code' => 'PRODUCTION_READING', 'label' => 'Relevés production/consommation', 'label_en' => 'Production/consumption readings', 'description' => 'Relevés de production, injection et consommation.', 'description_en' => 'Production, injection and consumption readings.', 'scope_type' => 'powerplant', 'equipment_type' => '', 'repeat_mode' => 'per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 80),
 			array('code' => 'ROOF', 'label' => 'Opérations en toiture', 'label_en' => 'Roof operations', 'description' => 'Contrôles et opérations en toiture.', 'description_en' => 'Roof checks and operations.', 'scope_type' => 'roof_area', 'equipment_type' => '', 'repeat_mode' => 'per_powerplant', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 90),
 			array('code' => 'THERMOGRAPHY', 'label' => 'Thermographie', 'label_en' => 'Thermography', 'description' => 'Données et photos thermographiques.', 'description_en' => 'Thermography data and photos.', 'scope_type' => 'free_line', 'equipment_type' => '', 'repeat_mode' => 'dynamic_rows', 'is_base' => 0, 'is_required' => 0, 'active' => 1, 'position' => 100),
@@ -2404,6 +2553,7 @@ class modPowerPlantPV extends DolibarrModules
 		$sectionDefaults = array(
 			'INVERTER' => array('scope_type' => array('value' => 'inverter', 'old' => array('equipment')), 'equipment_type' => array('value' => '', 'old' => array('INVERTER'))),
 			'ELECTRICAL_BOX' => array('scope_type' => array('value' => 'electrical_box', 'old' => array('equipment')), 'equipment_type' => array('value' => '', 'old' => array('DC_BOX'))),
+			'DC_ELECTRICAL_MEASURE' => array('scope_type' => array('value' => 'pv_input', 'old' => array('dc_measure')), 'equipment_type' => array('value' => 'INVERTER', 'old' => array('inverter')), 'repeat_mode' => array('value' => 'once_per_powerplant', 'old' => array('dynamic_rows', 'user_defined_lines'))),
 		);
 		foreach ($sectionDefaults as $sectionCode => $columns) {
 			$where = "entity = ".((int) $entity)." AND fk_report_template = ".((int) $templateId)." AND code = '".$this->db->escape($sectionCode)."'";

@@ -14,27 +14,13 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_powerplantpv_report_equipment(
+CREATE TABLE llx_powerplantpv_equipment_mppt(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,
-	fk_report integer NOT NULL,
-	fk_report_powerplant integer,
-	fk_powerplant integer,
-	fk_powerplant_line integer,
-	fk_source_equipment integer,
-	fk_product integer,
-	product_ref varchar(128),
-	product_label varchar(255),
-	equipment_brand varchar(128),
-	equipment_model varchar(128),
-	equipment_type varchar(32),
-	equipment_ref varchar(128),
-	equipment_label varchar(255),
-	serial_number varchar(128),
-	qty double(24,8),
-	technical_key varchar(255),
-	equipment_position varchar(255),
-	technical_snapshot mediumtext,
+	fk_powerplant integer NOT NULL,
+	fk_inverter integer NOT NULL,
+	mppt_number integer NOT NULL,
+	pv_input_count integer DEFAULT 0 NOT NULL,
 	position integer DEFAULT 0 NOT NULL,
 	date_creation datetime,
 	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

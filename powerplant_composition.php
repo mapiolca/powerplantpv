@@ -55,6 +55,8 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/powerplant.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvequipmentmppt.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvequipmentstring.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_serialnumber.lib.php');
 
@@ -97,9 +99,10 @@ if (!function_exists('powerplantCompositionFetchLine')) {
 		}
 		$entity = ($entity > 0 ? (int) $entity : (int) $conf->entity);
 
-		$sql = "SELECT c.rowid, c.fk_product, c.fk_status, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label";
+		$sql = "SELECT c.rowid, c.fk_product, c.fk_status, c.serial_number, c.commissioning_date, p.ref as product_ref, p.label as product_label, inv.rowid as inverter_catalog_id";
 		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
 		$sql .= " JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
+		$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_product_inverter as inv ON inv.fk_product = c.fk_product";
 		$sql .= " WHERE c.rowid = ".((int) $lineid);
 		$sql .= " AND c.fk_powerplant = ".((int) $powerplantid);
 		$sql .= " AND c.entity = ".$entity;
@@ -135,6 +138,62 @@ if (!function_exists('powerplantCompositionLineLabel')) {
 		}
 
 		return ($label !== '' ? $label : '#'.((int) $line->rowid));
+	}
+}
+
+if (!function_exists('powerplantCompositionLineIsInverter')) {
+	/**
+	 * Return true if a composition line is an installed inverter.
+	 *
+	 * @param	stdClass	$line	Composition line
+	 * @return	bool			True if inverter
+	 */
+	function powerplantCompositionLineIsInverter($line)
+	{
+		if (!empty($line->inverter_catalog_id)) {
+			return true;
+		}
+		$text = strtoupper((string) $line->product_ref.' '.(string) $line->product_label);
+
+		return (strpos($text, 'ONDULEUR') !== false || strpos($text, 'INVERTER') !== false);
+	}
+}
+
+if (!function_exists('powerplantCompositionFetchMpptConfig')) {
+	/**
+	 * Fetch installed MPPT configuration rows.
+	 *
+	 * @param	int	$powerplantid	Power plant id
+	 * @param	int	$lineid			Installed inverter line id
+	 * @return	array<int,PowerPlantPVEquipmentMppt>	Rows
+	 */
+	function powerplantCompositionFetchMpptConfig($powerplantid, $lineid)
+	{
+		global $db;
+
+		$object = new PowerPlantPVEquipmentMppt($db);
+		$rows = $object->fetchAllByInverter((int) $powerplantid, (int) $lineid);
+
+		return is_array($rows) ? $rows : array();
+	}
+}
+
+if (!function_exists('powerplantCompositionFetchStringConfig')) {
+	/**
+	 * Fetch installed string configuration rows.
+	 *
+	 * @param	int	$powerplantid	Power plant id
+	 * @param	int	$lineid			Installed inverter line id
+	 * @return	array<int,PowerPlantPVEquipmentString>	Rows
+	 */
+	function powerplantCompositionFetchStringConfig($powerplantid, $lineid)
+	{
+		global $db;
+
+		$object = new PowerPlantPVEquipmentString($db);
+		$rows = $object->fetchAllByInverter((int) $powerplantid, (int) $lineid);
+
+		return is_array($rows) ? $rows : array();
 	}
 }
 
@@ -501,6 +560,124 @@ if ($action === 'updateline' && $canmanagecomposition && $lineid > 0) {
 	$action = 'view';
 }
 
+if (in_array($action, array('save_mppt_config', 'delete_mppt_config', 'save_string_config', 'delete_string_config', 'prefill_mppt_config'), true) && $canmanagecomposition && $lineid > 0) {
+	if (!powerplantpv_check_token()) {
+		accessforbidden();
+	}
+	$line = powerplantCompositionFetchLine($object->id, $lineid, $powerplantentity);
+	if (!$line || !powerplantCompositionLineIsInverter($line)) {
+		setEventMessages($langs->trans('PowerPlantPVOnlyInverterMpptConfig'), null, 'errors');
+		$action = 'view';
+	} elseif ($action === 'save_mppt_config') {
+		$mpptNumber = GETPOSTINT('mppt_number');
+		$pvInputCount = GETPOSTINT('pv_input_count');
+		$mpptPosition = GETPOSTINT('mppt_position');
+		if ($mpptNumber <= 0) {
+			setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentitiesnoconv('PowerPlantPVMPPT')), null, 'errors');
+		} else {
+			$sql = "INSERT INTO ".$db->prefix()."powerplantpv_equipment_mppt(entity, fk_powerplant, fk_inverter, mppt_number, pv_input_count, position, date_creation, fk_user_creat)";
+			$sql .= " VALUES (".$powerplantentity.", ".((int) $object->id).", ".((int) $lineid).", ".$mpptNumber.", ".max(0, $pvInputCount).", ".$mpptPosition.", '".$db->idate(dol_now())."', ".((int) $user->id).")";
+			$sql .= " ON DUPLICATE KEY UPDATE pv_input_count = ".max(0, $pvInputCount).", position = ".$mpptPosition.", fk_user_modif = ".((int) $user->id);
+			if (!$db->query($sql)) {
+				setEventMessages($db->lasterror(), null, 'errors');
+			} else {
+				setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+			}
+		}
+		$action = 'configdc';
+	} elseif ($action === 'delete_mppt_config') {
+		$mpptNumber = GETPOSTINT('mppt_number');
+		if ($mpptNumber > 0) {
+			$db->begin();
+			$sql = "DELETE FROM ".$db->prefix()."powerplantpv_equipment_string WHERE entity = ".$powerplantentity." AND fk_powerplant = ".((int) $object->id)." AND fk_inverter = ".((int) $lineid)." AND mppt_number = ".$mpptNumber;
+			$resstring = $db->query($sql);
+			$sql = "DELETE FROM ".$db->prefix()."powerplantpv_equipment_mppt WHERE entity = ".$powerplantentity." AND fk_powerplant = ".((int) $object->id)." AND fk_inverter = ".((int) $lineid)." AND mppt_number = ".$mpptNumber;
+			$resmppt = $db->query($sql);
+			if ($resstring && $resmppt) {
+				$db->commit();
+				setEventMessages($langs->trans('RecordDeleted'), null, 'mesgs');
+			} else {
+				$db->rollback();
+				setEventMessages($db->lasterror(), null, 'errors');
+			}
+		}
+		$action = 'configdc';
+	} elseif ($action === 'save_string_config') {
+		$mpptNumber = GETPOSTINT('string_mppt_number');
+		$pvInputNumber = GETPOSTINT('pv_input_number');
+		$stringRef = GETPOST('string_ref', 'alphanohtml');
+		$moduleCount = GETPOSTINT('module_count');
+		$modulePower = price2num(GETPOST('module_power', 'restricthtml'));
+		$orientation = GETPOST('orientation', 'alphanohtml');
+		$tilt = price2num(GETPOST('tilt', 'restricthtml'));
+		$isConnected = GETPOSTINT('is_connected') ? 1 : 0;
+		$stringPosition = GETPOSTINT('string_position');
+		if ($mpptNumber <= 0 || $pvInputNumber <= 0) {
+			setEventMessages($langs->trans('ErrorFieldRequired', $langs->transnoentitiesnoconv('PowerPlantPVPVInput')), null, 'errors');
+		} else {
+			$sql = "INSERT INTO ".$db->prefix()."powerplantpv_equipment_string(entity, fk_powerplant, fk_inverter, mppt_number, pv_input_number, string_ref, module_count, module_power, orientation, tilt, is_connected, position, date_creation, fk_user_creat)";
+			$sql .= " VALUES (".$powerplantentity.", ".((int) $object->id).", ".((int) $lineid).", ".$mpptNumber.", ".$pvInputNumber.", '".$db->escape($stringRef)."', ".($moduleCount > 0 ? $moduleCount : 'NULL').", ".((float) $modulePower).", '".$db->escape($orientation)."', ".((float) $tilt).", ".$isConnected.", ".$stringPosition.", '".$db->idate(dol_now())."', ".((int) $user->id).")";
+			$sql .= " ON DUPLICATE KEY UPDATE string_ref = '".$db->escape($stringRef)."', module_count = ".($moduleCount > 0 ? $moduleCount : 'NULL').", module_power = ".((float) $modulePower).", orientation = '".$db->escape($orientation)."', tilt = ".((float) $tilt).", is_connected = ".$isConnected.", position = ".$stringPosition.", fk_user_modif = ".((int) $user->id);
+			if (!$db->query($sql)) {
+				setEventMessages($db->lasterror(), null, 'errors');
+			} else {
+				setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+			}
+		}
+		$action = 'configdc';
+	} elseif ($action === 'delete_string_config') {
+		$mpptNumber = GETPOSTINT('mppt_number');
+		$pvInputNumber = GETPOSTINT('pv_input_number');
+		if ($mpptNumber > 0 && $pvInputNumber > 0) {
+			$sql = "DELETE FROM ".$db->prefix()."powerplantpv_equipment_string";
+			$sql .= " WHERE entity = ".$powerplantentity." AND fk_powerplant = ".((int) $object->id)." AND fk_inverter = ".((int) $lineid)." AND mppt_number = ".$mpptNumber." AND pv_input_number = ".$pvInputNumber;
+			if (!$db->query($sql)) {
+				setEventMessages($db->lasterror(), null, 'errors');
+			} else {
+				setEventMessages($langs->trans('RecordDeleted'), null, 'mesgs');
+			}
+		}
+		$action = 'configdc';
+	} elseif ($action === 'prefill_mppt_config') {
+		$sql = "SELECT pim.position, COUNT(pip.rowid) as input_count";
+		$sql .= " FROM ".$db->prefix()."powerplantpv_product_inverter as inv";
+		$sql .= " INNER JOIN ".$db->prefix()."powerplantpv_product_inverter_mppt as pim ON pim.fk_inverter = inv.rowid";
+		$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_product_inverter_pvinput as pip ON pip.fk_mppt = pim.rowid";
+		$sql .= " WHERE inv.fk_product = ".((int) $line->fk_product);
+		$sql .= " AND inv.entity IN (".getEntity('product').")";
+		$sql .= " GROUP BY pim.rowid, pim.position";
+		$sql .= " ORDER BY pim.position ASC, pim.rowid ASC";
+		$resprefill = $db->query($sql);
+		$nbcreated = 0;
+		if ($resprefill) {
+			while ($objprefill = $db->fetch_object($resprefill)) {
+				$mpptNumber = (int) $objprefill->position;
+				$inputCount = (int) $objprefill->input_count;
+				if ($mpptNumber <= 0) {
+					continue;
+				}
+				$sqlexists = "SELECT rowid FROM ".$db->prefix()."powerplantpv_equipment_mppt WHERE entity = ".$powerplantentity." AND fk_powerplant = ".((int) $object->id)." AND fk_inverter = ".((int) $lineid)." AND mppt_number = ".$mpptNumber;
+					$resexists = $db->query($sqlexists);
+					if ($resexists && $db->num_rows($resexists) > 0) {
+						$db->free($resexists);
+						continue;
+					}
+					if ($resexists) {
+						$db->free($resexists);
+					}
+					$sqlinsert = "INSERT INTO ".$db->prefix()."powerplantpv_equipment_mppt(entity, fk_powerplant, fk_inverter, mppt_number, pv_input_count, position, date_creation, fk_user_creat)";
+					$sqlinsert .= " VALUES (".$powerplantentity.", ".((int) $object->id).", ".((int) $lineid).", ".$mpptNumber.", ".$inputCount.", ".$mpptNumber.", '".$db->idate(dol_now())."', ".((int) $user->id).")";
+					if ($db->query($sqlinsert)) {
+						$nbcreated++;
+					}
+				}
+				$db->free($resprefill);
+			}
+		setEventMessages($langs->trans('PowerPlantPVMPPTPrefillDone', $nbcreated), null, 'mesgs');
+		$action = 'configdc';
+	}
+}
+
 if (($action === '' || $action === 'view' || $action === 'list') && $massaction !== '' && is_array($toselect) && count($toselect) > 0) {
 	if (!powerplantpv_check_token()) {
 		accessforbidden();
@@ -818,11 +995,12 @@ if ($rescount) {
 	$nbtotalofrecords = (int) $objcount->nb;
 }
 
-$sql = 'SELECT c.rowid, c.fk_status, c.commissioning_date, p.rowid as fk_product, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique';
+$sql = 'SELECT c.rowid, c.fk_status, c.commissioning_date, p.rowid as fk_product, p.ref as product_ref, p.label as product_label, cpv.label as category_label, pe.categorie_photovoltaique, inv.rowid as inverter_catalog_id';
 $sql .= ' FROM '.$db->prefix().'powerplantpv_powerplantcomp as c';
 $sql .= ' JOIN '.$db->prefix().'product as p ON p.rowid = c.fk_product';
 $sql .= ' LEFT JOIN '.$db->prefix().'product_extrafields as pe ON pe.fk_object = p.rowid';
 $sql .= ' LEFT JOIN '.$db->prefix().'c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique';
+$sql .= ' LEFT JOIN '.$db->prefix().'powerplantpv_product_inverter as inv ON inv.fk_product = p.rowid';
 $sql .= $sqlwhere;
 $sql .= $db->order($sortfield, $sortorder);
 $sql .= $db->plimit($limit + 1, $offset);
@@ -1302,6 +1480,121 @@ if ($id > 0 || !empty($ref)) {
 			print '<br>';
 		}
 
+		if ($canmanagecomposition && $action === 'configdc' && $lineid > 0) {
+			$configline = powerplantCompositionFetchLine($object->id, $lineid, $powerplantentity);
+			if ($configline && powerplantCompositionLineIsInverter($configline)) {
+				$mpptRows = powerplantCompositionFetchMpptConfig($object->id, $lineid);
+				$stringRows = powerplantCompositionFetchStringConfig($object->id, $lineid);
+				$mpptOptions = array();
+				foreach ($mpptRows as $mpptRow) {
+					$mpptOptions[(int) $mpptRow->mppt_number] = $langs->trans('PowerPlantPVMPPT').' '.((int) $mpptRow->mppt_number);
+				}
+
+				print load_fiche_titre($langs->trans('PowerPlantPVMPPTStringConfiguration').' - '.dol_escape_htmltag(powerplantCompositionLineLabel($configline)), '', 'fa-bolt');
+				print '<div class="div-table-responsive-no-min">';
+				print '<table class="noborder centpercent">';
+				print '<tr class="oddeven">';
+				print '<td>';
+				print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVMPPTInstalledConfigurationHelp').'</span>';
+				print '</td>';
+				print '<td class="right nowraponall">';
+				print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'" class="powerplantpv-inline-form">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="prefill_mppt_config">';
+				print '<input type="hidden" name="lineid" value="'.((int) $lineid).'">';
+				print '<button type="submit" class="button">'.$langs->trans('PowerPlantPVPrefillFromProductInverter').'</button>';
+				print '</form>';
+				print '</td>';
+				print '</tr>';
+				print '</table>';
+				print '</div>';
+
+				print '<div class="fichecenter">';
+				print '<div class="fichehalfleft">';
+				print '<div class="div-table-responsive-no-min">';
+				print '<table class="noborder centpercent">';
+				print '<tr class="liste_titre"><td>'.$langs->trans('PowerPlantPVMPPT').'</td><td>'.$langs->trans('PowerPlantPVPVInputCount').'</td><td>'.$langs->trans('Position').'</td><td class="center"></td></tr>';
+				if (!empty($mpptRows)) {
+					foreach ($mpptRows as $mpptRow) {
+						print '<tr class="oddeven">';
+						print '<td>'.dol_escape_htmltag((string) $mpptRow->mppt_number).'</td>';
+						print '<td>'.dol_escape_htmltag((string) $mpptRow->pv_input_count).'</td>';
+						print '<td>'.dol_escape_htmltag((string) $mpptRow->position).'</td>';
+						print '<td class="center">';
+						print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delete_mppt_config&lineid='.(int) $lineid.'&mppt_number='.(int) $mpptRow->mppt_number.'&token='.newToken().'">'.img_delete($langs->trans('Delete')).'</a>';
+						print '</td>';
+						print '</tr>';
+					}
+				} else {
+					print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+				}
+				print '</table>';
+				print '</div>';
+				print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="save_mppt_config">';
+				print '<input type="hidden" name="lineid" value="'.((int) $lineid).'">';
+				print '<table class="noborder centpercent">';
+				print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('PowerPlantPVAddOrUpdateMPPT').'</td></tr>';
+				print '<tr><td class="titlefield">'.$langs->trans('PowerPlantPVMPPT').'</td><td><input type="number" min="1" class="flat maxwidth75" name="mppt_number" value=""></td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVPVInputCount').'</td><td><input type="number" min="0" class="flat maxwidth75" name="pv_input_count" value="2"></td></tr>';
+				print '<tr><td>'.$langs->trans('Position').'</td><td><input type="number" class="flat maxwidth75" name="mppt_position" value=""></td></tr>';
+				print '</table>';
+				print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"></div>';
+				print '</form>';
+				print '</div>';
+
+				print '<div class="fichehalfright">';
+				print '<div class="div-table-responsive-no-min">';
+				print '<table class="noborder centpercent">';
+				print '<tr class="liste_titre"><td>'.$langs->trans('PowerPlantPVMPPT').'</td><td>'.$langs->trans('PowerPlantPVPVInput').'</td><td>'.$langs->trans('PowerPlantPVStringRef').'</td><td>'.$langs->trans('PowerPlantPVPVInputConnected').'</td><td class="center"></td></tr>';
+				if (!empty($stringRows)) {
+					foreach ($stringRows as $stringRow) {
+						print '<tr class="oddeven">';
+						print '<td>'.dol_escape_htmltag((string) $stringRow->mppt_number).'</td>';
+						print '<td>'.dol_escape_htmltag((string) $stringRow->pv_input_number).'</td>';
+						print '<td>'.dol_escape_htmltag((string) $stringRow->string_ref).'</td>';
+						print '<td>'.$langs->trans(!empty($stringRow->is_connected) ? 'Yes' : 'No').'</td>';
+						print '<td class="center">';
+						print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delete_string_config&lineid='.(int) $lineid.'&mppt_number='.(int) $stringRow->mppt_number.'&pv_input_number='.(int) $stringRow->pv_input_number.'&token='.newToken().'">'.img_delete($langs->trans('Delete')).'</a>';
+						print '</td>';
+						print '</tr>';
+					}
+				} else {
+					print '<tr class="oddeven"><td colspan="5"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+				}
+				print '</table>';
+				print '</div>';
+				print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+				print '<input type="hidden" name="token" value="'.newToken().'">';
+				print '<input type="hidden" name="action" value="save_string_config">';
+				print '<input type="hidden" name="lineid" value="'.((int) $lineid).'">';
+				print '<table class="noborder centpercent">';
+				print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('PowerPlantPVAddOrUpdateString').'</td></tr>';
+				print '<tr><td class="titlefield">'.$langs->trans('PowerPlantPVMPPT').'</td><td>';
+				if (!empty($mpptOptions)) {
+					print $form->selectarray('string_mppt_number', $mpptOptions, 0, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth150');
+				} else {
+					print '<input type="number" min="1" class="flat maxwidth75" name="string_mppt_number" value="">';
+				}
+				print '</td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVPVInput').'</td><td><input type="number" min="1" class="flat maxwidth75" name="pv_input_number" value=""></td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVStringRef').'</td><td><input type="text" class="flat minwidth150" name="string_ref" value=""></td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVModuleCount').'</td><td><input type="number" min="0" class="flat maxwidth75" name="module_count" value=""></td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVModulePower').'</td><td><input type="text" class="flat maxwidth75 right" name="module_power" value=""> Wc</td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVOrientation').'</td><td><input type="text" class="flat maxwidth100" name="orientation" value=""></td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVTilt').'</td><td><input type="text" class="flat maxwidth75 right" name="tilt" value=""> °</td></tr>';
+				print '<tr><td>'.$langs->trans('PowerPlantPVPVInputConnected').'</td><td>'.$form->selectarray('is_connected', array(0 => $langs->trans('No'), 1 => $langs->trans('Yes')), 1, 0, 0, 0, '', 0, 0, 0, '', 'maxwidth100').'</td></tr>';
+				print '<tr><td>'.$langs->trans('Position').'</td><td><input type="number" class="flat maxwidth75" name="string_position" value=""></td></tr>';
+				print '</table>';
+				print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"></div>';
+				print '</form>';
+				print '</div>';
+				print '</div>';
+				print '<div class="clearboth"></div><br>';
+			}
+		}
+
 		print '<form method="POST" id="searchFormList" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="formfilteraction" id="formfilteraction" value="list">';
@@ -1371,6 +1664,9 @@ if ($id > 0 || !empty($ref)) {
 			if ($canmanagecomposition) {
 				print '<a class="editfielda reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&token='.newToken().'&lineid='.(int) $objline->rowid.'">'.img_edit().'</a>';
 				print '<a class="reposition marginleftonly marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=replaceline&lineid='.(int) $objline->rowid.'&token='.newToken().'" title="'.$langs->trans('PowerPlantReplace').'"><span class="fas fa-exchange-alt"></span></a>';
+				if (!empty($objline->inverter_catalog_id) || strpos(strtoupper((string) $objline->product_ref.' '.(string) $objline->product_label), 'ONDULEUR') !== false || strpos(strtoupper((string) $objline->product_ref.' '.(string) $objline->product_label), 'INVERTER') !== false) {
+					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=configdc&lineid='.(int) $objline->rowid.'" title="'.$langs->trans('PowerPlantPVMPPTStringConfiguration').'">'.img_picto('', 'fa-bolt').'</a>';
+				}
 			}
 			if ($canedit) {
 				print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delcomposition&lineid='.(int) $objline->rowid.'&token='.newToken().'">'.img_delete().'</a>';
