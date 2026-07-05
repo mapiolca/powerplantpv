@@ -1841,7 +1841,7 @@ class PowerPlantPVReportBuilder
 				'product_ref' => (string) $obj->product_ref,
 				'product_label' => $productLabel,
 				'equipment_brand' => $brand,
-				'equipment_model' => (string) $obj->product_ref,
+				'equipment_model' => $productLabel,
 				'equipment_type' => $type,
 				'equipment_ref' => (string) $obj->product_ref,
 				'equipment_label' => $productLabel,

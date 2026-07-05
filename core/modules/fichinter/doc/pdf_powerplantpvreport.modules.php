@@ -1069,8 +1069,8 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			$html .= '<tr>';
 			$html .= '<td>'.dol_escape_htmltag((string) $equipmentRow->equipment_type).'</td>';
 			$html .= '<td>'.dol_escape_htmltag((string) $equipmentRow->equipment_brand).'</td>';
-			$html .= '<td>'.dol_escape_htmltag((string) $equipmentRow->equipment_model).'</td>';
-			$html .= '<td>'.dol_escape_htmltag(trim((string) $equipmentRow->equipment_ref.' '.(string) $equipmentRow->product_ref)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatEquipmentProductLabel($equipmentRow)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatEquipmentProductRef($equipmentRow)).'</td>';
 			$html .= '<td>'.dol_escape_htmltag((string) $equipmentRow->serial_number).'</td>';
 			$html .= '<td>'.dol_escape_htmltag((string) $equipmentRow->equipment_position).'</td>';
 			$html .= '</tr>';
@@ -1093,12 +1093,44 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$rows = array(
 			array($outputlangs->transnoentities('PowerPlantPVEquipmentType'), (string) $equipment->equipment_type),
 			array($outputlangs->transnoentities('PowerPlantPVBrand'), (string) $equipment->equipment_brand),
-			array($outputlangs->transnoentities('PowerPlantPVModel'), (string) $equipment->equipment_model),
-			array($outputlangs->transnoentities('Ref'), trim((string) $equipment->equipment_ref.' '.(string) $equipment->product_ref)),
+			array($outputlangs->transnoentities('PowerPlantPVModel'), $this->formatEquipmentProductLabel($equipment)),
+			array($outputlangs->transnoentities('Ref'), $this->formatEquipmentProductRef($equipment)),
 			array($outputlangs->transnoentities('SerialNumber'), (string) $equipment->serial_number),
 			array($outputlangs->transnoentities('PowerPlantPVEquipmentPosition'), (string) $equipment->equipment_position),
 		);
 		$this->renderKeyValueTable($pdf, $this->filterRows($rows), '');
+	}
+
+	/**
+	 * Return the product label used as equipment model.
+	 *
+	 * @param	PowerPlantPVReportEquipment	$equipment	Equipment
+	 * @return	string									Model label
+	 */
+	protected function formatEquipmentProductLabel($equipment)
+	{
+		$productLabel = trim((string) $equipment->product_label);
+		if ($productLabel !== '') {
+			return $productLabel;
+		}
+
+		return trim((string) $equipment->equipment_model);
+	}
+
+	/**
+	 * Return the product reference used as equipment reference.
+	 *
+	 * @param	PowerPlantPVReportEquipment	$equipment	Equipment
+	 * @return	string									Reference
+	 */
+	protected function formatEquipmentProductRef($equipment)
+	{
+		$productRef = trim((string) $equipment->product_ref);
+		if ($productRef !== '') {
+			return $productRef;
+		}
+
+		return trim((string) $equipment->equipment_ref);
 	}
 
 	/**
