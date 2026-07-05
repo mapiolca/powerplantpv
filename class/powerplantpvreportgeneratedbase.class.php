@@ -92,7 +92,13 @@ abstract class PowerPlantPVReportGeneratedBase extends CommonObject
 			$this->fk_user_creat = (int) $user->id;
 		}
 
-		return $this->createCommon($user, $notrigger);
+		$result = $this->createCommon($user, $notrigger);
+		if ($result > 0) {
+			$this->rowid = (int) $result;
+			$this->syncPrimaryKey();
+		}
+
+		return $result;
 	}
 
 	/**
@@ -104,7 +110,12 @@ abstract class PowerPlantPVReportGeneratedBase extends CommonObject
 	 */
 	public function fetch($id, $ref = '')
 	{
-		return $this->fetchCommon($id, $ref);
+		$result = $this->fetchCommon($id, $ref);
+		if ($result > 0) {
+			$this->syncPrimaryKey();
+		}
+
+		return $result;
 	}
 
 	/**
@@ -116,6 +127,12 @@ abstract class PowerPlantPVReportGeneratedBase extends CommonObject
 	 */
 	public function update(User $user, $notrigger = 0)
 	{
+		$this->syncPrimaryKey();
+		if (empty($this->id) || empty($this->rowid)) {
+			$this->setError('ErrorRecordNotFound');
+			return -1;
+		}
+
 		if (array_key_exists('fk_user_modif', $this->fields)) {
 			$this->fk_user_modif = (int) $user->id;
 		}
@@ -216,12 +233,29 @@ abstract class PowerPlantPVReportGeneratedBase extends CommonObject
 			$class = get_class($this);
 			$row = new $class($this->db);
 			$row->setVarsFromFetchObj($obj);
-			$row->id = (int) $row->rowid;
+			if (isset($obj->rowid)) {
+				$row->rowid = (int) $obj->rowid;
+			}
+			$row->syncPrimaryKey();
 			$rows[] = $row;
 		}
 		$this->db->free($resql);
 
 		return $rows;
+	}
+
+	/**
+	 * Keep CommonObject id and SQL rowid synchronized after native hydration.
+	 *
+	 * @return	void
+	 */
+	protected function syncPrimaryKey()
+	{
+		if (!empty($this->rowid)) {
+			$this->id = (int) $this->rowid;
+		} elseif (!empty($this->id)) {
+			$this->rowid = (int) $this->id;
+		}
 	}
 
 	/**
