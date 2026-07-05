@@ -777,15 +777,15 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			}
 			$html .= '<tr>';
 			$html .= '<td>'.dol_escape_htmltag($inverter).'</td>';
-			$html .= '<td>'.dol_escape_htmltag((string) $measure->mppt_number).'</td>';
-			$html .= '<td>'.dol_escape_htmltag((string) $measure->pv_input_number).'</td>';
-			$html .= '<td>'.dol_escape_htmltag((string) $measure->string_ref).'</td>';
-			$html .= '<td>'.dol_escape_htmltag($this->formatOptionalNumber($measure->open_circuit_voltage, 'V')).'</td>';
-			$html .= '<td>'.dol_escape_htmltag(((int) $measure->polarity_checked) ? $outputlangs->transnoentities('Yes') : $outputlangs->transnoentities('No')).'</td>';
-			$html .= '<td>'.dol_escape_htmltag((string) $measure->insulation_status).'</td>';
-			$html .= '<td>'.dol_escape_htmltag($this->formatOptionalNumber($measure->insulation_positive_to_ground, 'MOhm')).'</td>';
-			$html .= '<td>'.dol_escape_htmltag($this->formatOptionalNumber($measure->insulation_negative_to_ground, 'MOhm')).'</td>';
-			$html .= '<td>'.dol_htmlentitiesbr((string) $measure->observation).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureIndex($measure->mppt_number, $outputlangs)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureIndex($measure->pv_input_number, $outputlangs)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureText($measure, $measure->string_ref, $outputlangs)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureNumber($measure, $measure->open_circuit_voltage, 'V', $outputlangs)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureBoolean($measure, $measure->polarity_checked, $outputlangs)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureInsulationStatus($measure, $outputlangs)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureNumber($measure, $measure->insulation_positive_to_ground, 'MOhm', $outputlangs)).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($this->formatDcMeasureNumber($measure, $measure->insulation_negative_to_ground, 'MOhm', $outputlangs)).'</td>';
+			$html .= '<td>'.dol_htmlentitiesbr($this->formatDcMeasureText($measure, $measure->observation, $outputlangs, false)).'</td>';
 			$html .= '</tr>';
 		}
 		$html .= '</table>';
@@ -1475,6 +1475,133 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		}
 
 		return price($value).' '.$unit;
+	}
+
+	/**
+	 * Check if a DC measure input is exploited by the power plant.
+	 *
+	 * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+	 * @return	bool								True if exploited
+	 */
+	protected function isDcMeasureUsed($measure)
+	{
+		return ((int) $measure->is_connected) > 0;
+	}
+
+	/**
+	 * Format a DC measure index value.
+	 *
+	 * @param	mixed		$value			Value
+	 * @param	Translate	$outputlangs	Output language
+	 * @return	string						Display value
+	 */
+	protected function formatDcMeasureIndex($value, $outputlangs)
+	{
+		$value = trim((string) $value);
+		if ($value === '' || $value === '-1') {
+			return $outputlangs->transnoentities('PowerPlantPVDataNotFilled');
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Format a DC measure text value.
+	 *
+	 * @param	PowerPlantPVReportDcMeasure	$measure		Measure
+	 * @param	mixed						$value			Value
+	 * @param	Translate					$outputlangs	Output language
+	 * @param	bool						$expected		Expected value flag
+	 * @return	string										Display value
+	 */
+	protected function formatDcMeasureText($measure, $value, $outputlangs, $expected = true)
+	{
+		if (!$this->isDcMeasureUsed($measure)) {
+			return $outputlangs->transnoentities('PowerPlantPVNotUsedByPowerPlant');
+		}
+
+		$value = trim((string) $value);
+		if ($value === '' || $value === '-1') {
+			return $outputlangs->transnoentities($expected ? 'PowerPlantPVDataNotFilled' : 'PowerPlantPVNotApplicableShort');
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Format a DC measure number value.
+	 *
+	 * @param	PowerPlantPVReportDcMeasure	$measure		Measure
+	 * @param	mixed						$value			Value
+	 * @param	string						$unit			Unit
+	 * @param	Translate					$outputlangs	Output language
+	 * @param	bool						$expected		Expected value flag
+	 * @return	string										Display value
+	 */
+	protected function formatDcMeasureNumber($measure, $value, $unit, $outputlangs, $expected = true)
+	{
+		if (!$this->isDcMeasureUsed($measure)) {
+			return $outputlangs->transnoentities('PowerPlantPVNotUsedByPowerPlant');
+		}
+		if ($value === null || (string) $value === '' || (is_numeric($value) && (float) $value < 0)) {
+			return $outputlangs->transnoentities($expected ? 'PowerPlantPVDataNotFilled' : 'PowerPlantPVNotApplicableShort');
+		}
+
+		return price($value).' '.$unit;
+	}
+
+	/**
+	 * Format a DC measure tri-state boolean value.
+	 *
+	 * @param	PowerPlantPVReportDcMeasure	$measure		Measure
+	 * @param	mixed						$value			Value
+	 * @param	Translate					$outputlangs	Output language
+	 * @return	string										Display value
+	 */
+	protected function formatDcMeasureBoolean($measure, $value, $outputlangs)
+	{
+		if (!$this->isDcMeasureUsed($measure)) {
+			return $outputlangs->transnoentities('PowerPlantPVNotUsedByPowerPlant');
+		}
+
+		$value = (string) $value;
+		if ($value === '1') {
+			return $outputlangs->transnoentities('Yes');
+		}
+		if ($value === '0') {
+			return $outputlangs->transnoentities('No');
+		}
+
+		return $outputlangs->transnoentities('PowerPlantPVDataNotFilled');
+	}
+
+	/**
+	 * Format a DC measure insulation status.
+	 *
+	 * @param	PowerPlantPVReportDcMeasure	$measure		Measure
+	 * @param	Translate					$outputlangs	Output language
+	 * @return	string										Display value
+	 */
+	protected function formatDcMeasureInsulationStatus($measure, $outputlangs)
+	{
+		if (!$this->isDcMeasureUsed($measure)) {
+			return $outputlangs->transnoentities('PowerPlantPVNotUsedByPowerPlant');
+		}
+
+		$value = (string) $measure->insulation_status;
+		if ($value === '' || $value === '-1') {
+			return $outputlangs->transnoentities('PowerPlantPVDataNotFilled');
+		}
+		if ($value === 'not_applicable') {
+			return $outputlangs->transnoentities('PowerPlantPVNotApplicableShort');
+		}
+
+		$options = array(
+			'valid' => $outputlangs->transnoentities('PowerPlantPVReportConformityValid'),
+			'observation' => $outputlangs->transnoentities('PowerPlantPVReportConformityObservation'),
+		);
+
+		return isset($options[$value]) ? $options[$value] : $value;
 	}
 
 	/**

@@ -769,9 +769,9 @@ function powerplantpvReportGetSubmittedDcMeasures()
 		$clean['mppt_number'] = isset($row['mppt_number']) ? dol_string_nohtmltag((string) $row['mppt_number']) : '';
 		$clean['pv_input_number'] = isset($row['pv_input_number']) ? dol_string_nohtmltag((string) $row['pv_input_number']) : '';
 		$clean['string_ref'] = isset($row['string_ref']) ? dol_string_nohtmltag((string) $row['string_ref']) : '';
-		$clean['is_connected'] = !empty($row['is_connected']) ? 1 : 0;
+		$clean['is_connected'] = isset($row['is_connected']) && in_array((string) $row['is_connected'], array('0', '1'), true) ? (int) $row['is_connected'] : '';
 		$clean['open_circuit_voltage'] = isset($row['open_circuit_voltage']) ? dol_string_nohtmltag((string) $row['open_circuit_voltage']) : '';
-		$clean['polarity_checked'] = !empty($row['polarity_checked']) ? 1 : 0;
+		$clean['polarity_checked'] = isset($row['polarity_checked']) && in_array((string) $row['polarity_checked'], array('-1', '0', '1'), true) ? (int) $row['polarity_checked'] : -1;
 		$clean['insulation_status'] = isset($row['insulation_status']) ? dol_string_nohtmltag((string) $row['insulation_status']) : '';
 		$clean['insulation_positive_to_ground'] = isset($row['insulation_positive_to_ground']) ? dol_string_nohtmltag((string) $row['insulation_positive_to_ground']) : '';
 		$clean['insulation_negative_to_ground'] = isset($row['insulation_negative_to_ground']) ? dol_string_nohtmltag((string) $row['insulation_negative_to_ground']) : '';
@@ -1213,7 +1213,7 @@ function powerplantpvReportRenderDcMeasures($section, $measures, $editable, $for
 		if ($inverterKey === '') {
 			$inverterKey = $langs->trans('PowerPlantPVManualDcLine');
 		}
-		$mpptKey = $measure->mppt_number !== null && (string) $measure->mppt_number !== '' ? (string) $measure->mppt_number : $langs->trans('PowerPlantPVManual');
+		$mpptKey = $measure->mppt_number !== null && (string) $measure->mppt_number !== '' ? powerplantpvReportDcDisplayIndex($measure->mppt_number) : $langs->trans('PowerPlantPVManual');
 		if (!isset($grouped[$inverterKey])) {
 			$grouped[$inverterKey] = array();
 		}
@@ -1248,6 +1248,160 @@ function powerplantpvReportRenderDcMeasures($section, $measures, $editable, $for
 }
 
 /**
+ * Check if a DC measure was added manually.
+ *
+ * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+ * @return	bool								True if manual
+ */
+function powerplantpvReportDcMeasureIsManual($measure)
+{
+	return strpos((string) $measure->stable_key, ':dc:manual:') !== false;
+}
+
+/**
+ * Check if a DC measure input is exploited by the power plant.
+ *
+ * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+ * @return	bool								True if exploited
+ */
+function powerplantpvReportDcMeasureIsUsed($measure)
+{
+	return ((int) $measure->is_connected) > 0;
+}
+
+/**
+ * Format a DC text value for read-only display.
+ *
+ * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+ * @param	mixed						$value		Value
+ * @param	bool						$expected	Expected value flag
+ * @return	string									Display value
+ */
+function powerplantpvReportDcDisplayText($measure, $value, $expected = true)
+{
+	global $langs;
+
+	if (!powerplantpvReportDcMeasureIsUsed($measure)) {
+		return $langs->trans('PowerPlantPVNotUsedByPowerPlant');
+	}
+
+	$value = trim((string) $value);
+	if ($value === '' || $value === '-1') {
+		return $langs->trans($expected ? 'PowerPlantPVDataNotFilled' : 'PowerPlantPVNotApplicableShort');
+	}
+
+	return $value;
+}
+
+/**
+ * Format a DC index value for display.
+ *
+ * @param	mixed	$value	Value
+ * @return	string			Display value
+ */
+function powerplantpvReportDcDisplayIndex($value)
+{
+	global $langs;
+
+	$value = trim((string) $value);
+	if ($value === '' || $value === '-1') {
+		return $langs->trans('PowerPlantPVDataNotFilled');
+	}
+
+	return $value;
+}
+
+/**
+ * Format a DC number value for read-only display.
+ *
+ * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+ * @param	mixed						$value		Value
+ * @param	string						$unit		Unit
+ * @param	bool						$expected	Expected value flag
+ * @return	string									Display value
+ */
+function powerplantpvReportDcDisplayNumber($measure, $value, $unit, $expected = true)
+{
+	global $langs;
+
+	if (!powerplantpvReportDcMeasureIsUsed($measure)) {
+		return $langs->trans('PowerPlantPVNotUsedByPowerPlant');
+	}
+	if ($value === null || (string) $value === '' || (is_numeric($value) && (float) $value < 0)) {
+		return $langs->trans($expected ? 'PowerPlantPVDataNotFilled' : 'PowerPlantPVNotApplicableShort');
+	}
+
+	return price($value).' '.$unit;
+}
+
+/**
+ * Format a DC number value for edition.
+ *
+ * @param	mixed	$value	Value
+ * @return	string			Input value
+ */
+function powerplantpvReportDcInputNumberValue($value)
+{
+	if ($value === null || (string) $value === '' || (is_numeric($value) && (float) $value < 0)) {
+		return '';
+	}
+
+	return price($value);
+}
+
+/**
+ * Format a DC tri-state boolean value for read-only display.
+ *
+ * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+ * @param	mixed						$value		Value
+ * @return	string									Display value
+ */
+function powerplantpvReportDcDisplayBoolean($measure, $value)
+{
+	global $langs;
+
+	if (!powerplantpvReportDcMeasureIsUsed($measure)) {
+		return $langs->trans('PowerPlantPVNotUsedByPowerPlant');
+	}
+
+	$value = (string) $value;
+	if ($value === '1') {
+		return $langs->trans('Yes');
+	}
+	if ($value === '0') {
+		return $langs->trans('No');
+	}
+
+	return $langs->trans('PowerPlantPVDataNotFilled');
+}
+
+/**
+ * Format a DC insulation status for read-only display.
+ *
+ * @param	PowerPlantPVReportDcMeasure	$measure	Measure
+ * @param	array<string,string>			$options	Status labels
+ * @return	string									Display value
+ */
+function powerplantpvReportDcDisplayInsulationStatus($measure, $options)
+{
+	global $langs;
+
+	if (!powerplantpvReportDcMeasureIsUsed($measure)) {
+		return $langs->trans('PowerPlantPVNotUsedByPowerPlant');
+	}
+
+	$value = (string) $measure->insulation_status;
+	if ($value === '' || $value === '-1') {
+		return $langs->trans('PowerPlantPVDataNotFilled');
+	}
+	if ($value === 'not_applicable') {
+		return $langs->trans('PowerPlantPVNotApplicableShort');
+	}
+
+	return isset($options[$value]) ? $options[$value] : $value;
+}
+
+/**
  * Render one DC measure card.
  *
  * @param	PowerPlantPVReportDcMeasure	$measure	Measure
@@ -1261,54 +1415,62 @@ function powerplantpvReportRenderDcMeasureCard($measure, $editable, $form)
 
 	$key = md5((string) $measure->stable_key);
 	$name = 'dc_measures['.$key.']';
-	$isManual = (strpos((string) $measure->stable_key, ':dc:manual:') !== false);
+	$isManual = powerplantpvReportDcMeasureIsManual($measure);
+	$isUsed = powerplantpvReportDcMeasureIsUsed($measure);
 	$insulationOptions = array(
-		'' => '',
+		'' => $langs->trans('PowerPlantPVDataNotFilled'),
 		'valid' => $langs->trans('PowerPlantPVReportConformityValid'),
 		'observation' => $langs->trans('PowerPlantPVReportConformityObservation'),
-		'not_applicable' => $langs->trans('PowerPlantPVReportConformityNotApplicable'),
+		'not_applicable' => $langs->trans('PowerPlantPVNotApplicableShort'),
 	);
 
 	print '<div class="powerplantpv-dc-card">';
-	print '<input type="hidden" name="'.$name.'[id]" value="'.((int) $measure->id).'">';
-	print '<input type="hidden" name="'.$name.'[stable_key]" value="'.dol_escape_htmltag((string) $measure->stable_key).'">';
 	print '<div class="powerplantpv-dc-card-title">';
-	print dol_escape_htmltag($langs->trans('PowerPlantPVPVInput')).' '.dol_escape_htmltag((string) $measure->pv_input_number);
+	print dol_escape_htmltag($langs->trans('PowerPlantPVPVInput')).' '.dol_escape_htmltag(powerplantpvReportDcDisplayIndex($measure->pv_input_number));
 	if ((string) $measure->string_ref !== '') {
 		print ' - '.dol_escape_htmltag((string) $measure->string_ref);
 	}
 	print '</div>';
+
+	if (!$isManual && !$isUsed) {
+		print '<div class="opacitymedium powerplantpv-dc-not-used">'.dol_escape_htmltag($langs->trans('PowerPlantPVNotUsedByPowerPlant')).'</div>';
+		print '</div>';
+		return;
+	}
+
 	if (!$editable) {
-		$insulationLabel = isset($insulationOptions[(string) $measure->insulation_status]) ? $insulationOptions[(string) $measure->insulation_status] : (string) $measure->insulation_status;
 		print '<div class="powerplantpv-dc-readonly">';
-		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVStringRef')).' : '.dol_escape_htmltag((string) $measure->string_ref).'</span>';
-		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVPVInputConnected')).' : '.$langs->trans(!empty($measure->is_connected) ? 'Yes' : 'No').'</span>';
-		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVOpenCircuitVoltage')).' : '.($measure->open_circuit_voltage !== null ? price($measure->open_circuit_voltage).' V' : '').'</span>';
-		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVPolarityChecked')).' : '.$langs->trans(!empty($measure->polarity_checked) ? 'Yes' : 'No').'</span>';
-		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationStatus')).' : '.dol_escape_htmltag($insulationLabel).'</span>';
-		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationPositiveToGround')).' : '.($measure->insulation_positive_to_ground !== null ? price($measure->insulation_positive_to_ground).' MOhm' : '').'</span>';
-		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationNegativeToGround')).' : '.($measure->insulation_negative_to_ground !== null ? price($measure->insulation_negative_to_ground).' MOhm' : '').'</span>';
-		print '<span>'.dol_htmlentitiesbr((string) $measure->observation).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVStringRef')).' : '.dol_escape_htmltag(powerplantpvReportDcDisplayText($measure, $measure->string_ref)).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVPVInputConnected')).' : '.dol_escape_htmltag($isUsed ? $langs->trans('Yes') : $langs->trans('No')).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVOpenCircuitVoltage')).' : '.dol_escape_htmltag(powerplantpvReportDcDisplayNumber($measure, $measure->open_circuit_voltage, 'V')).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVPolarityChecked')).' : '.dol_escape_htmltag(powerplantpvReportDcDisplayBoolean($measure, $measure->polarity_checked)).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationStatus')).' : '.dol_escape_htmltag(powerplantpvReportDcDisplayInsulationStatus($measure, $insulationOptions)).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationPositiveToGround')).' : '.dol_escape_htmltag(powerplantpvReportDcDisplayNumber($measure, $measure->insulation_positive_to_ground, 'MOhm')).'</span>';
+		print '<span>'.dol_escape_htmltag($langs->trans('PowerPlantPVInsulationNegativeToGround')).' : '.dol_escape_htmltag(powerplantpvReportDcDisplayNumber($measure, $measure->insulation_negative_to_ground, 'MOhm')).'</span>';
+		print '<span>'.dol_htmlentitiesbr(powerplantpvReportDcDisplayText($measure, $measure->observation, false)).'</span>';
 		print '</div></div>';
 		return;
 	}
 
+	print '<input type="hidden" name="'.$name.'[id]" value="'.((int) $measure->id).'">';
+	print '<input type="hidden" name="'.$name.'[stable_key]" value="'.dol_escape_htmltag((string) $measure->stable_key).'">';
 	if ($isManual) {
 		print '<label>'.$langs->trans('PowerPlantPVInverter').'<input type="text" class="flat powerplantpv-report-control" name="'.$name.'[inverter_label]" value="'.dol_escape_htmltag((string) $measure->inverter_label).'"></label>';
 		print '<label>'.$langs->trans('PowerPlantPVMPPT').'<input type="text" class="flat powerplantpv-report-control" name="'.$name.'[mppt_number]" value="'.dol_escape_htmltag((string) $measure->mppt_number).'"></label>';
 		print '<label>'.$langs->trans('PowerPlantPVPVInput').'<input type="text" class="flat powerplantpv-report-control" name="'.$name.'[pv_input_number]" value="'.dol_escape_htmltag((string) $measure->pv_input_number).'"></label>';
+		print '<label>'.$langs->trans('PowerPlantPVPVInputConnected').$form->selectarray($name.'[is_connected]', array(0 => $langs->trans('No'), 1 => $langs->trans('Yes')), (int) $measure->is_connected, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control').'</label>';
 	} else {
 		print '<input type="hidden" name="'.$name.'[inverter_label]" value="'.dol_escape_htmltag((string) $measure->inverter_label).'">';
 		print '<input type="hidden" name="'.$name.'[mppt_number]" value="'.dol_escape_htmltag((string) $measure->mppt_number).'">';
 		print '<input type="hidden" name="'.$name.'[pv_input_number]" value="'.dol_escape_htmltag((string) $measure->pv_input_number).'">';
+		print '<input type="hidden" name="'.$name.'[is_connected]" value="1">';
 	}
 	print '<label>'.$langs->trans('PowerPlantPVStringRef').'<input type="text" class="flat powerplantpv-report-control" name="'.$name.'[string_ref]" value="'.dol_escape_htmltag((string) $measure->string_ref).'"></label>';
-	print '<label>'.$langs->trans('PowerPlantPVPVInputConnected').$form->selectarray($name.'[is_connected]', array(0 => $langs->trans('No'), 1 => $langs->trans('Yes')), (int) $measure->is_connected, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control').'</label>';
-	print '<label>'.$langs->trans('PowerPlantPVOpenCircuitVoltage').'<span class="powerplantpv-control-with-unit"><input type="text" class="flat powerplantpv-report-control right" name="'.$name.'[open_circuit_voltage]" value="'.dol_escape_htmltag($measure->open_circuit_voltage !== null ? price($measure->open_circuit_voltage) : '').'"><span class="opacitymedium">V</span></span></label>';
-	print '<label>'.$langs->trans('PowerPlantPVPolarityChecked').$form->selectarray($name.'[polarity_checked]', array(0 => $langs->trans('No'), 1 => $langs->trans('Yes')), (int) $measure->polarity_checked, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control').'</label>';
+	print '<label>'.$langs->trans('PowerPlantPVOpenCircuitVoltage').'<span class="powerplantpv-control-with-unit"><input type="text" class="flat powerplantpv-report-control right" name="'.$name.'[open_circuit_voltage]" value="'.dol_escape_htmltag(powerplantpvReportDcInputNumberValue($measure->open_circuit_voltage)).'"><span class="opacitymedium">V</span></span></label>';
+	print '<label>'.$langs->trans('PowerPlantPVPolarityChecked').$form->selectarray($name.'[polarity_checked]', array(-1 => $langs->trans('PowerPlantPVDataNotFilled'), 0 => $langs->trans('No'), 1 => $langs->trans('Yes')), (int) $measure->polarity_checked, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control').'</label>';
 	print '<label>'.$langs->trans('PowerPlantPVInsulationStatus').$form->selectarray($name.'[insulation_status]', $insulationOptions, (string) $measure->insulation_status, 1, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control').'</label>';
-	print '<label>'.$langs->trans('PowerPlantPVInsulationPositiveToGround').'<span class="powerplantpv-control-with-unit"><input type="text" class="flat powerplantpv-report-control right" name="'.$name.'[insulation_positive_to_ground]" value="'.dol_escape_htmltag($measure->insulation_positive_to_ground !== null ? price($measure->insulation_positive_to_ground) : '').'"><span class="opacitymedium">MOhm</span></span></label>';
-	print '<label>'.$langs->trans('PowerPlantPVInsulationNegativeToGround').'<span class="powerplantpv-control-with-unit"><input type="text" class="flat powerplantpv-report-control right" name="'.$name.'[insulation_negative_to_ground]" value="'.dol_escape_htmltag($measure->insulation_negative_to_ground !== null ? price($measure->insulation_negative_to_ground) : '').'"><span class="opacitymedium">MOhm</span></span></label>';
+	print '<label>'.$langs->trans('PowerPlantPVInsulationPositiveToGround').'<span class="powerplantpv-control-with-unit"><input type="text" class="flat powerplantpv-report-control right" name="'.$name.'[insulation_positive_to_ground]" value="'.dol_escape_htmltag(powerplantpvReportDcInputNumberValue($measure->insulation_positive_to_ground)).'"><span class="opacitymedium">MOhm</span></span></label>';
+	print '<label>'.$langs->trans('PowerPlantPVInsulationNegativeToGround').'<span class="powerplantpv-control-with-unit"><input type="text" class="flat powerplantpv-report-control right" name="'.$name.'[insulation_negative_to_ground]" value="'.dol_escape_htmltag(powerplantpvReportDcInputNumberValue($measure->insulation_negative_to_ground)).'"><span class="opacitymedium">MOhm</span></span></label>';
 	print '<label class="powerplantpv-dc-observation">'.$langs->trans('Observation').'<textarea class="flat powerplantpv-report-control" rows="2" name="'.$name.'[observation]">'.dol_escape_htmltag((string) $measure->observation).'</textarea></label>';
 	print '</div>';
 }

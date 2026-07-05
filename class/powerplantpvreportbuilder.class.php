@@ -486,7 +486,7 @@ class PowerPlantPVReportBuilder
 		$row->pv_input_number = null;
 		$row->string_ref = '';
 		$row->is_connected = 1;
-		$row->polarity_checked = 0;
+		$row->polarity_checked = -1;
 		$row->insulation_status = '';
 		$row->stable_key = (string) $section->occurrence_key.':dc:manual:pending:'.dol_now().':'.random_int(1000, 999999);
 		$row->position = $position;
@@ -1011,6 +1011,7 @@ class PowerPlantPVReportBuilder
 			if (!empty($oldDcValues[$stableKey])) {
 				$this->copyStoredValueToDcMeasure($row, $oldDcValues[$stableKey]);
 			}
+			$row->is_connected = (int) $input['is_connected'];
 			$rows[] = $row;
 			$position += 10;
 		}
@@ -1087,7 +1088,7 @@ class PowerPlantPVReportBuilder
 		$row->string_ref = (string) $input['string_ref'];
 		$row->is_connected = (int) $input['is_connected'];
 		$row->open_circuit_voltage = null;
-		$row->polarity_checked = 0;
+		$row->polarity_checked = -1;
 		$row->insulation_status = '';
 		$row->insulation_positive_to_ground = null;
 		$row->insulation_negative_to_ground = null;
@@ -2439,7 +2440,7 @@ class PowerPlantPVReportBuilder
 				'string_ref' => isset($obj->string_ref) ? (string) $obj->string_ref : '',
 				'is_connected' => isset($obj->is_connected) ? (int) $obj->is_connected : 0,
 				'open_circuit_voltage' => isset($obj->open_circuit_voltage) ? $obj->open_circuit_voltage : null,
-				'polarity_checked' => isset($obj->polarity_checked) ? (int) $obj->polarity_checked : 0,
+				'polarity_checked' => isset($obj->polarity_checked) ? (int) $obj->polarity_checked : -1,
 				'insulation_status' => isset($obj->insulation_status) ? (string) $obj->insulation_status : '',
 				'insulation_positive_to_ground' => isset($obj->insulation_positive_to_ground) ? $obj->insulation_positive_to_ground : null,
 				'insulation_negative_to_ground' => isset($obj->insulation_negative_to_ground) ? $obj->insulation_negative_to_ground : null,
@@ -2522,9 +2523,9 @@ class PowerPlantPVReportBuilder
 			$measure->pv_input_number = $value['pv_input_number'] !== null ? (int) $value['pv_input_number'] : null;
 		}
 		$measure->string_ref = isset($value['string_ref']) ? (string) $value['string_ref'] : (string) $measure->string_ref;
-		$measure->is_connected = isset($value['is_connected']) ? (int) $value['is_connected'] : (int) $measure->is_connected;
+		$measure->is_connected = isset($value['is_connected']) ? $this->normalizeDcBooleanValue($value['is_connected'], (int) $measure->is_connected) : (int) $measure->is_connected;
 		$measure->open_circuit_voltage = isset($value['open_circuit_voltage']) && $value['open_circuit_voltage'] !== null ? (float) $value['open_circuit_voltage'] : null;
-		$measure->polarity_checked = isset($value['polarity_checked']) ? (int) $value['polarity_checked'] : 0;
+		$measure->polarity_checked = isset($value['polarity_checked']) ? $this->normalizeDcTriStateValue($value['polarity_checked'], -1) : -1;
 		$measure->insulation_status = isset($value['insulation_status']) ? (string) $value['insulation_status'] : '';
 		$measure->insulation_positive_to_ground = isset($value['insulation_positive_to_ground']) && $value['insulation_positive_to_ground'] !== null ? (float) $value['insulation_positive_to_ground'] : null;
 		$measure->insulation_negative_to_ground = isset($value['insulation_negative_to_ground']) && $value['insulation_negative_to_ground'] !== null ? (float) $value['insulation_negative_to_ground'] : null;
@@ -2544,13 +2545,49 @@ class PowerPlantPVReportBuilder
 		$measure->mppt_number = isset($row['mppt_number']) && (string) $row['mppt_number'] !== '' ? (int) $row['mppt_number'] : null;
 		$measure->pv_input_number = isset($row['pv_input_number']) && (string) $row['pv_input_number'] !== '' ? (int) $row['pv_input_number'] : null;
 		$measure->string_ref = isset($row['string_ref']) ? dol_string_nohtmltag((string) $row['string_ref']) : '';
-		$measure->is_connected = !empty($row['is_connected']) ? 1 : 0;
+		if (isset($row['is_connected'])) {
+			$measure->is_connected = $this->normalizeDcBooleanValue($row['is_connected'], (int) $measure->is_connected);
+		}
 		$measure->open_circuit_voltage = (isset($row['open_circuit_voltage']) && (string) $row['open_circuit_voltage'] !== '') ? (float) price2num((string) $row['open_circuit_voltage']) : null;
-		$measure->polarity_checked = !empty($row['polarity_checked']) ? 1 : 0;
+		$measure->polarity_checked = isset($row['polarity_checked']) ? $this->normalizeDcTriStateValue($row['polarity_checked'], -1) : -1;
 		$measure->insulation_status = isset($row['insulation_status']) ? dol_string_nohtmltag((string) $row['insulation_status']) : '';
 		$measure->insulation_positive_to_ground = (isset($row['insulation_positive_to_ground']) && (string) $row['insulation_positive_to_ground'] !== '') ? (float) price2num((string) $row['insulation_positive_to_ground']) : null;
 		$measure->insulation_negative_to_ground = (isset($row['insulation_negative_to_ground']) && (string) $row['insulation_negative_to_ground'] !== '') ? (float) price2num((string) $row['insulation_negative_to_ground']) : null;
 		$measure->observation = isset($row['observation']) ? dol_string_nohtmltag((string) $row['observation']) : '';
+	}
+
+	/**
+	 * Normalize a submitted boolean DC value.
+	 *
+	 * @param	mixed	$value		Value
+	 * @param	int		$default	Default value
+	 * @return	int					0 or 1
+	 */
+	private function normalizeDcBooleanValue($value, $default)
+	{
+		$value = (string) $value;
+		if ($value === '0' || $value === '1') {
+			return (int) $value;
+		}
+
+		return ((int) $default) ? 1 : 0;
+	}
+
+	/**
+	 * Normalize a submitted tri-state DC value.
+	 *
+	 * @param	mixed	$value		Value
+	 * @param	int		$default	Default value
+	 * @return	int					-1, 0 or 1
+	 */
+	private function normalizeDcTriStateValue($value, $default)
+	{
+		$value = (string) $value;
+		if ($value === '-1' || $value === '0' || $value === '1') {
+			return (int) $value;
+		}
+
+		return (int) $default;
 	}
 
 	/**

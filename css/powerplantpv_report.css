@@ -307,6 +307,12 @@
 	overflow-wrap: break-word;
 }
 
+.page-maintenance-intervention-report .powerplantpv-dc-not-used {
+	padding: 8px;
+	background: var(--colorbacklinepair1, transparent);
+	border-left: 3px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
+}
+
 .page-maintenance-intervention-report .powerplantpv-dc-card label {
 	display: grid;
 	grid-template-columns: minmax(118px, 34%) minmax(0, 1fr);

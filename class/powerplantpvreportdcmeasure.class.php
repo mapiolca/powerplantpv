@@ -44,7 +44,7 @@ class PowerPlantPVReportDcMeasure extends PowerPlantPVReportGeneratedBase
 		'string_ref' => array('type' => 'varchar(128)', 'label' => 'PowerPlantPVStringRef', 'enabled' => 1, 'position' => 120, 'notnull' => 0, 'visible' => 1),
 		'is_connected' => array('type' => 'smallint', 'label' => 'PowerPlantPVPVInputConnected', 'enabled' => 1, 'position' => 130, 'notnull' => 1, 'visible' => 1, 'default' => 1),
 		'open_circuit_voltage' => array('type' => 'double(24,8)', 'label' => 'PowerPlantPVOpenCircuitVoltage', 'enabled' => 1, 'position' => 140, 'notnull' => 0, 'visible' => 1),
-		'polarity_checked' => array('type' => 'smallint', 'label' => 'PowerPlantPVPolarityChecked', 'enabled' => 1, 'position' => 150, 'notnull' => 1, 'visible' => 1, 'default' => 0),
+		'polarity_checked' => array('type' => 'smallint', 'label' => 'PowerPlantPVPolarityChecked', 'enabled' => 1, 'position' => 150, 'notnull' => 1, 'visible' => 1, 'default' => -1),
 		'insulation_status' => array('type' => 'varchar(32)', 'label' => 'PowerPlantPVInsulationStatus', 'enabled' => 1, 'position' => 160, 'notnull' => 0, 'visible' => 1),
 		'insulation_positive_to_ground' => array('type' => 'double(24,8)', 'label' => 'PowerPlantPVInsulationPositiveToGround', 'enabled' => 1, 'position' => 170, 'notnull' => 0, 'visible' => 1),
 		'insulation_negative_to_ground' => array('type' => 'double(24,8)', 'label' => 'PowerPlantPVInsulationNegativeToGround', 'enabled' => 1, 'position' => 180, 'notnull' => 0, 'visible' => 1),
