@@ -13,6 +13,8 @@
 - Prepare the preventive maintenance data foundation with native dictionaries, rights and extra fields on contracts, products/services and interventions.
 - Configure intervention report templates for maintenance: report models, sections, fields, select options, service-to-section mappings, and intervention nature to model association.
 - Fill intervention reports from the `Rapport` tab, with a generated snapshot based on the intervention nature, active services, linked power plants and the configured report template.
+- Generate dynamic intervention PDFs from the saved maintenance report snapshot with the `powerplantpvreport` Fichinter document model.
+- Track production and consumption readings from power plant cards or finalized intervention reports.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}
@@ -101,15 +103,40 @@ Attestations use native Dolibarr rights, menus, document generation, file storag
 
 Signed attestations remain locked for standard write/delete users. Grant the specific `powerplantpv / attestation / manage_signed` right, together with read access, to allow modification, deletion and PDF regeneration of signed attestations.
 
-## Maintenance foundation
+## Maintenance v1.3
 
-Version 1.3.0 introduces the data foundation for preventive maintenance: entity-aware dictionaries, service-to-section mappings, report template field definitions, rights and extra fields. The power plant card now includes a `Maintenance` tab that reads linked contracts and interventions, displays active maintenance services, and calculates the next maintenance status from the explicitly configured contract period.
+Version 1.3.0 stabilizes the preventive maintenance workflow. It adds entity-aware dictionaries, report templates, service-to-section mappings, contract/product/intervention extra fields, generated report snapshots, production/consumption readings, dynamic intervention PDF generation, and global maintenance list/calendar/statistics pages.
 
-The report template engine turns preventive maintenance into a preinstalled configurable model named `preventive_maintenance`. Administrators can create, edit, disable, duplicate and reorder report templates, sections, fields, field options, service mappings and intervention nature associations from the PowerPlantPV settings tabs.
+Prerequisites:
 
-The intervention `Rapport` tab generates a mobile-friendly form from the intervention nature, its active report template, active maintenance services and linked power plants. The first save creates a snapshot of generated sections, fields, power plants, source services and equipment; later template changes do not alter an existing report unless an authorized user explicitly recalculates it before the intervention is signed or closed. Full PDF generation remains outside this step.
+- Dolibarr v20.0 or higher.
+- PHP 8.0 or higher.
+- Native contracts and interventions enabled for the operational workflow.
+- PowerPlantPV rights assigned to the target users.
 
-The global Maintenance pages provide the list, calendar and statistics views. Automatic recurrence date generation and maintenance PDF generation remain outside this step.
+Quick overview:
+
+1. Administrators configure maintenance services, report templates, sections, fields and intervention natures.
+2. A Dolibarr service is tagged with one or more PowerPlantPV maintenance services.
+3. A contract service is linked to a photovoltaic power plant and receives the maintenance period.
+4. A maintenance intervention is created from a power plant, the maintenance list or the calendar.
+5. The intervention `Rapport` tab creates a frozen snapshot on first save.
+6. The `powerplantpvreport` Fichinter PDF model renders the saved report without creating or recalculating a snapshot.
+7. Production/consumption readings can be entered manually or synchronized from finalized reports.
+
+Documentation:
+
+- [User guide v1.3 Maintenance](docs/user/v1.3-maintenance-user-guide.md)
+- [Administrator guide v1.3 Maintenance](docs/admin/v1.3-maintenance-admin-guide.md)
+- [Technical overview v1.3 Maintenance](docs/technical/v1.3-maintenance-technical-overview.md)
+- [Release checklist v1.3 Maintenance](docs/release/v1.3-maintenance-release-checklist.md)
+
+Known limits:
+
+- The module does not create maintenance interventions automatically.
+- The maintenance planning is calculated from source data and is not persisted as a cache.
+- The PDF model reads the report snapshot; it does not create or recalculate it.
+- No dedicated cron job is added for v1.3 Maintenance.
 
 
 

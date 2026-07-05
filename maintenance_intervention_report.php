@@ -74,6 +74,14 @@ $fileId = GETPOSTINT('file_id');
 $dcSectionId = GETPOSTINT('add_dc_section_id');
 $manualServiceIds = powerplantpvSanitizeIdArray(GETPOST('manual_services', 'array:int'));
 
+if ($action === '') {
+	if (GETPOSTISSET('save_draft_submit')) {
+		$action = 'save_draft';
+	} elseif (GETPOSTISSET('save_report_submit')) {
+		$action = 'save';
+	}
+}
+
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
 	accessforbidden();
 }
@@ -261,9 +269,9 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
-		print '<button type="submit" class="button button-save" name="action" value="save_draft">'.$langs->trans('PowerPlantPVReportSaveDraft').'</button>';
+		print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportSaveDraft')).'">';
 		print ' ';
-		print '<button type="submit" class="button button-save" name="action" value="save">'.$langs->trans('Save').'</button>';
+		print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
 		print '</div>';
 	}
 	print '</form>';
@@ -274,7 +282,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="id" value="'.((int) $id).'">';
 		print '<input type="hidden" name="action" value="recalculate">';
-		print '<button type="submit" class="butAction">'.$langs->trans('PowerPlantPVReportRecalculate').'</button>';
+		print '<input type="submit" class="butAction" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
 		print '</form>';
 		print '</div>';
 	}
@@ -517,7 +525,7 @@ function powerplantpvReportRenderDcMeasures($section, $measures, $editable, $for
 	if (empty($measures)) {
 		print '<div class="opacitymedium powerplantpv-report-manual">'.$langs->trans('PowerPlantPVDcMeasureNoConfigurationManualMode').'</div>';
 		if ($editable && !empty($section->id)) {
-			print '<button type="submit" class="button" name="action" value="add_dc_measure_line" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&add_dc_section_id='.((int) $section->id).'">'.$langs->trans('PowerPlantPVAddDcMeasureLine').'</button>';
+			print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=add_dc_measure_line&add_dc_section_id='.((int) $section->id).'" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVAddDcMeasureLine')).'">';
 		} elseif ($editable) {
 			print '<div class="opacitymedium">'.$langs->trans('PowerPlantPVReportManualLineAfterFirstSave').'</div>';
 		}
@@ -558,7 +566,7 @@ function powerplantpvReportRenderDcMeasures($section, $measures, $editable, $for
 	}
 	if ($editable && !empty($section->id)) {
 		print '<div class="powerplantpv-report-actions">';
-		print '<button type="submit" class="button" name="action" value="add_dc_measure_line" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&add_dc_section_id='.((int) $section->id).'">'.$langs->trans('PowerPlantPVAddDcMeasureLine').'</button>';
+		print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=add_dc_measure_line&add_dc_section_id='.((int) $section->id).'" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVAddDcMeasureLine')).'">';
 		print '</div>';
 	}
 	print '</div>';
@@ -691,7 +699,7 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		if (!empty($field->id)) {
 			print '<div class="powerplantpv-file-upload">';
 			print '<input type="file" name="report_file_'.$field->id.'" class="flat">';
-			print '<button type="submit" class="button" name="field_id" value="'.((int) $field->id).'" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=upload_file">'.$langs->trans('Upload').'</button>';
+			print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=upload_file&field_id='.((int) $field->id).'" value="'.dol_escape_htmltag($langs->trans('Upload')).'">';
 			print '</div>';
 		} else {
 			print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportFileAfterFirstSave').'</span>';
@@ -890,7 +898,7 @@ function powerplantpvReportRenderFiles($field, $editable)
 		print '<li>';
 		print '<a href="'.$url.'">'.dol_escape_htmltag((string) $file->filename).'</a>';
 		if ($editable) {
-			print ' <button type="submit" class="button small" name="action" value="delete_file" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&file_id='.(int) $file->id.'">'.$langs->trans('Delete').'</button>';
+			print ' <input type="submit" class="button small" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=delete_file&file_id='.(int) $file->id.'" value="'.dol_escape_htmltag($langs->trans('Delete')).'">';
 		}
 		print '</li>';
 	}

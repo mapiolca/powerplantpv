@@ -1019,14 +1019,23 @@ class modPowerPlantPV extends DolibarrModules
 					}
 				}
 
-				$sql = array_merge($sql, array(
-					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'standard_".strtolower($myTmpObjectKey)."' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
-					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('standard_".strtolower($myTmpObjectKey)."', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")",
-					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'centralepv_".strtolower($myTmpObjectKey)."' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
-					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('centralepv_".strtolower($myTmpObjectKey)."', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")",
-					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'generic_".strtolower($myTmpObjectKey)."_odt' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
-					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('generic_".strtolower($myTmpObjectKey)."_odt', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")"
-				));
+				$documentModelType = $this->db->escape(strtolower($myTmpObjectKey));
+				foreach (array(
+					'standard_'.strtolower($myTmpObjectKey),
+					'centralepv_'.strtolower($myTmpObjectKey),
+					'generic_'.strtolower($myTmpObjectKey).'_odt',
+				) as $documentModelName) {
+					$documentModelNameSql = $this->db->escape($documentModelName);
+					$sqlmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";
+					$sqlmodel .= " SELECT '".$documentModelNameSql."', '".$documentModelType."', ".((int) $conf->entity);
+					$sqlmodel .= " WHERE NOT EXISTS (";
+					$sqlmodel .= " SELECT 1 FROM ".$this->db->prefix()."document_model";
+					$sqlmodel .= " WHERE nom = '".$documentModelNameSql."'";
+					$sqlmodel .= " AND type = '".$documentModelType."'";
+					$sqlmodel .= " AND entity = ".((int) $conf->entity);
+					$sqlmodel .= ")";
+					$sql[] = $sqlmodel;
+				}
 			}
 		}
 
@@ -1037,8 +1046,16 @@ class modPowerPlantPV extends DolibarrModules
 			'attestation_installateur_inf100kwc',
 		);
 		foreach ($attestationModels as $attestationModel) {
-			$sql[] = "DELETE FROM ".$this->db->prefix()."document_model WHERE nom = '".$this->db->escape($attestationModel)."' AND type = 'attestation' AND entity = ".((int) $conf->entity);
-			$sql[] = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('".$this->db->escape($attestationModel)."', 'attestation', ".((int) $conf->entity).")";
+			$attestationModelSql = $this->db->escape($attestationModel);
+			$sqlmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";
+			$sqlmodel .= " SELECT '".$attestationModelSql."', 'attestation', ".((int) $conf->entity);
+			$sqlmodel .= " WHERE NOT EXISTS (";
+			$sqlmodel .= " SELECT 1 FROM ".$this->db->prefix()."document_model";
+			$sqlmodel .= " WHERE nom = '".$attestationModelSql."'";
+			$sqlmodel .= " AND type = 'attestation'";
+			$sqlmodel .= " AND entity = ".((int) $conf->entity);
+			$sqlmodel .= ")";
+			$sql[] = $sqlmodel;
 		}
 
 		$sqlreportmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";

@@ -2,6 +2,9 @@
 
 ## 1.3.0
 
+- Stabilisation finale v1.3 Maintenance : audit de cohérence, documentation utilisateur, administrateur, technique et checklist de release.
+- Harmonisation de l'onglet `Rapport` des interventions : boutons de soumission alignés sur les formulaires Dolibarr, sans modifier le workflow de sauvegarde, upload, suppression de fichier ou ajout de mesure DC.
+- Conservation renforcée des modèles documentaires lors de l'activation/réactivation : les modèles PowerPlantPV et Attestation manquants sont ajoutés sans suppression/réinsertion des lignes déjà présentes.
 - Ajout du socle données maintenance préventive : dictionnaires des natures d'intervention, services de maintenance, sections de rapport et types de relevés.
 - Ajout des tables de liaison services/sections et des champs de gabarit de rapport de maintenance, avec données par défaut idempotentes et par entité.
 - Ajout des droits Dolibarr dédiés à la maintenance et des champs complémentaires sur contrats, produits/services et interventions.
@@ -32,6 +35,9 @@
 - Ajout du modèle PDF Fichinter `powerplantpvreport`, généré dynamiquement depuis le snapshot du rapport d'intervention sans créer de snapshot pendant la génération.
 - Ajout du dataset PDF `PowerPlantPVReportPdfDataset`, du rendu multi-centrales, multi-équipements, mesures DC, relevés N-1/N, thermographie, fichiers et signatures.
 - Ajout du réglage par entité `POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE` pour les mentions légales du PDF et de la documentation technique `docs/technical/v1.3-pr10-dynamic-pdf.md`.
+- Ajout de la documentation consolidée `docs/user/v1.3-maintenance-user-guide.md`, `docs/admin/v1.3-maintenance-admin-guide.md`, `docs/technical/v1.3-maintenance-technical-overview.md` et `docs/release/v1.3-maintenance-release-checklist.md`.
+- Notes de migration : réactiver le module en recette avant release, vérifier l'absence de doublons de dictionnaires/modèles, vérifier que les personnalisations de modèles de rapport et modèles documentaires sont conservées, puis dérouler la checklist de release v1.3.
+- Dette historique conservée hors PR12 : les anciens triggers custom non-CRUD du périmètre PowerPlant/Attestation restent présents pour compatibilité Agenda/Notifications existante et ne sont pas étendus par la maintenance v1.3.
 
 ## 1.2.1
 
