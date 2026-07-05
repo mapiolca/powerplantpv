@@ -419,15 +419,20 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
-		print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportSaveDraft')).'">';
+		print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
 		print ' ';
-		print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
+		print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportFinalize')).'">';
 		print ' ';
 		$signatureUrl = powerplantpvReportGetInterventionOnlineSignatureUrl($intervention);
-		$signatureEnabled = ($reportFetch > 0 && !$snapshotNeedsRebuild && $signatureUrl !== '');
+		$reportIsFinalized = ($reportFetch > 0 && (string) $report->status === PowerPlantPVReport::STATUS_SAVED);
+		$signatureEnabled = ($reportIsFinalized && !$snapshotNeedsRebuild && $signatureUrl !== '');
+		$signatureTooltip = $langs->trans('PowerPlantPVReportSignatureUnavailable');
+		if (!$reportIsFinalized) {
+			$signatureTooltip = $langs->trans('PowerPlantPVReportSignatureRequiresFinalizedReport');
+		}
 		print dolGetButtonAction(
 			$langs->trans('PowerPlantPVReportSignButton'),
-			$signatureEnabled ? '' : $langs->trans('PowerPlantPVReportSignatureUnavailable'),
+			$signatureEnabled ? '' : $signatureTooltip,
 			'default',
 			$signatureEnabled ? $signatureUrl : '#',
 			'',
@@ -663,7 +668,7 @@ function powerplantpvReportGetSubmittedDcMeasures()
 }
 
 /**
- * Check if a loaded snapshot has non-DC sections without any field rows.
+ * Check if a loaded snapshot has non-DC sections but no non-DC field row at all.
  *
  * @param	array<string,mixed>	$tree	Loaded report tree
  * @return	bool						True when existing snapshot must be rebuilt
@@ -674,6 +679,8 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
 		return false;
 	}
 
+	$nonDcSectionCount = 0;
+	$nonDcFieldCount = 0;
 	foreach ($tree['sections'] as $row) {
 		if (!is_array($row) || empty($row['section']) || !is_object($row['section'])) {
 			continue;
@@ -681,13 +688,12 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
 		if ((string) $row['section']->section_code === 'DC_ELECTRICAL_MEASURE') {
 			continue;
 		}
+		$nonDcSectionCount++;
 		$fields = isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array();
-		if (empty($fields)) {
-			return true;
-		}
+		$nonDcFieldCount += count($fields);
 	}
 
-	return false;
+	return ($nonDcSectionCount > 0 && $nonDcFieldCount <= 0);
 }
 
 /**

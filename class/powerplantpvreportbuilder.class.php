@@ -132,6 +132,8 @@ class PowerPlantPVReportBuilder
 		$diagnostics = array(
 			'sections_loaded' => count($sections),
 			'fields_loaded' => 0,
+			'non_dc_sections_loaded' => 0,
+			'non_dc_fields_loaded' => 0,
 			'non_dc_sections_without_fields' => 0,
 		);
 		foreach ($sections as $section) {
@@ -141,8 +143,12 @@ class PowerPlantPVReportBuilder
 				return -1;
 			}
 			$diagnostics['fields_loaded'] += count($fields);
-			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
-				$diagnostics['non_dc_sections_without_fields']++;
+			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE') {
+				$diagnostics['non_dc_sections_loaded']++;
+				$diagnostics['non_dc_fields_loaded'] += count($fields);
+				if (empty($fields)) {
+					$diagnostics['non_dc_sections_without_fields']++;
+				}
 			}
 			foreach ($fields as $fieldKey => $field) {
 				$files = $fileObject->fetchAllByField((int) $field->id);
@@ -168,7 +174,8 @@ class PowerPlantPVReportBuilder
 				'equipment' => !empty($equipmentById[(int) $section->fk_report_equipment]) ? $equipmentById[(int) $section->fk_report_equipment] : null,
 			);
 		}
-		$this->logReportDiagnostics('load_report_tree', (int) $report->id, $diagnostics, !empty($diagnostics['non_dc_sections_without_fields']) ? LOG_WARNING : LOG_DEBUG);
+		$logLevel = (!empty($diagnostics['non_dc_sections_loaded']) && empty($diagnostics['non_dc_fields_loaded'])) ? LOG_WARNING : LOG_DEBUG;
+		$this->logReportDiagnostics('load_report_tree', (int) $report->id, $diagnostics, $logLevel);
 
 		return array(
 			'can_generate' => 1,
@@ -829,15 +836,27 @@ class PowerPlantPVReportBuilder
 			$this->setError('PowerPlantPVReportNoUsableTemplateSections');
 			return -1;
 		}
+		$nonDcSectionCount = 0;
+		$nonDcFieldCount = 0;
 		foreach ($plans as $plan) {
 			$templateSection = $plan['section'];
 			$plannedFields = isset($plan['fields']) && is_array($plan['fields']) ? $plan['fields'] : array();
 			if ((string) $templateSection->code !== 'DC_ELECTRICAL_MEASURE' && empty($plannedFields)) {
+				$nonDcSectionCount++;
 				$diagnostics['non_dc_sections_without_fields']++;
-				$this->setError('PowerPlantPVReportSnapshotSectionsWithoutFields');
-				$this->logReportDiagnostics('persist_section_field_snapshot', (int) $report->id, $diagnostics, LOG_WARNING);
-				return -1;
+			} elseif ((string) $templateSection->code !== 'DC_ELECTRICAL_MEASURE') {
+				$nonDcSectionCount++;
+				$nonDcFieldCount += count($plannedFields);
 			}
+		}
+		if ($nonDcSectionCount > 0 && $nonDcFieldCount <= 0) {
+			$this->setError('PowerPlantPVReportSnapshotSectionsWithoutFields');
+			$this->logReportDiagnostics('persist_section_field_snapshot', (int) $report->id, $diagnostics, LOG_WARNING);
+			return -1;
+		}
+		foreach ($plans as $plan) {
+			$templateSection = $plan['section'];
+			$plannedFields = isset($plan['fields']) && is_array($plan['fields']) ? $plan['fields'] : array();
 			$section = new PowerPlantPVReportSection($this->db);
 			$section->entity = (int) $report->entity;
 			$section->fk_report = (int) $report->id;
