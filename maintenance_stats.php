@@ -110,7 +110,7 @@ function powerplantpvMaintenanceStatsRenderDistribution($title, $buckets)
 	global $langs;
 
 	print '<div class="div-table-responsive-no-min">';
-	print '<table class="noborder centpercent">';
+	print '<table class="noborder centpercent liste">';
 	print '<tr class="liste_titre"><td>'.$title.'</td><td class="right">'.$langs->trans('Number').'</td></tr>';
 	if (empty($buckets)) {
 		print '<tr class="oddeven"><td colspan="2"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
@@ -199,7 +199,7 @@ print '</form>';
 print '<div class="fichecenter">';
 print '<div class="fichehalfleft">';
 print '<div class="div-table-responsive-no-min">';
-print '<table class="noborder centpercent">';
+print '<table class="noborder centpercent liste">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('PowerPlantPVMaintenanceSummary').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenancesToSchedule').'</td><td class="right">'.((int) $counts['to_schedule']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceStatusScheduled').'</td><td class="right">'.((int) $counts['scheduled']).'</td></tr>';

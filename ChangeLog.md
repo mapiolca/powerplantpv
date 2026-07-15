@@ -5,6 +5,7 @@
 - Maintenance : ajout du statut `scheduled` / `Programmée`, avec intervention programmée séparée de l'intervention couvrante et mode par entité `created` ou `validated`.
 - Rappels : fenêtres glissantes J+6/J+29, conservation de tous les retards, langue et droits par destinataire, liens absolus, rattrapage sans rafale, verrou par entité et gestion explicite des erreurs SMTP/persistance.
 - Liste maintenance : pagination dans le formulaire natif, tri en liste blanche avant pagination, totaux corrigés et colonne Environnement Multicompany filtrable.
+- Statistiques maintenance : alternance et surbrillance des lignes confiées aux classes de liste natives du thème Dolibarr.
 - Correction de l'idempotence d'activation/réactivation : les scripts SQL de création de tables utilisent `IF NOT EXISTS` et les extrafields déjà conformes ne sont plus réenregistrés inutilement.
 - Maintenance : ajout des rappels automatiques hebdomadaires et mensuels des maintenances à prévoir, en cours ou en retard, avec destinataires configurables, modèle d'email optionnel et délai de bascule `Couverte` vers `À prévoir`.
 - Maintenance : alignement des couleurs des badges d'état sur la grille métier et affichage du libellé dans les tableaux.
