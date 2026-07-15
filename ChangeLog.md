@@ -2,6 +2,10 @@
 
 ## 1.3.0
 
+- Tableau de bord maintenance : nouvelle page d'entrée `maintenance_index.php`, disposition de widgets personnalisable par utilisateur et par entité, filtre de période commun et réorganisation en deux colonnes avec repli mobile.
+- Statistiques maintenance : remplacement du tableau de bord personnalisable par une analyse fixe comparant deux ou trois années civiles, avec volumes mensuels, réalisations, natures, centrales et clients issus des interventions datées et dédoublonnées.
+- Statistiques maintenance : catalogue et service d'agrégation partagés pour les synthèses, échéances, retards, charge mensuelle, répartitions et qualité de configuration.
+- Accueil Dolibarr : ajout de boîtes natives de maintenance activables individuellement par chaque utilisateur, toutes déclarées sans activation par défaut.
 - Maintenance : ajout du statut `scheduled` / `Programmée`, avec intervention programmée séparée de l'intervention couvrante et mode par entité `created` ou `validated`.
 - Rappels : fenêtres glissantes J+6/J+29, conservation de tous les retards, langue et droits par destinataire, liens absolus, rattrapage sans rafale, verrou par entité et gestion explicite des erreurs SMTP/persistance.
 - Liste maintenance : pagination dans le formulaire natif, tri en liste blanche avant pagination, totaux corrigés et colonne Environnement Multicompany filtrable.

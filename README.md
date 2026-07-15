@@ -107,6 +107,10 @@ Signed attestations remain locked for standard write/delete users. Grant the spe
 
 Version 1.3.0 stabilizes the preventive maintenance workflow. It adds entity-aware dictionaries, report templates, service-to-section mappings, contract/product/intervention extra fields, generated report snapshots, production/consumption readings, dynamic intervention PDF generation, and global maintenance list/calendar/statistics pages.
 
+The Maintenance menu now opens a dedicated operational dashboard. Its widgets can be added, removed and reordered in two columns, with a layout stored independently for each user and entity. The same catalog is available as optional native Dolibarr home boxes; maintenance boxes are never enabled on home pages by default.
+
+The maintenance statistics page is a fixed comparative analysis based on dated intervention records. It overlays two or three calendar years for monthly intervention and completion volumes, and compares annual totals and breakdowns by intervention nature, power plant and customer. The current completion status is used; no historical end-of-year status is reconstructed.
+
 Prerequisites:
 
 - Dolibarr v20.0 or higher.

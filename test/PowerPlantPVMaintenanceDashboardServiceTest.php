@@ -1,0 +1,76 @@
+<?php
+/* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
+
+use PHPUnit\Framework\TestCase;
+
+require_once __DIR__.'/bootstrap.php';
+
+final class PowerPlantPVMaintenanceDashboardServiceTest extends TestCase
+{
+	/**
+	 * @param string $status Status
+	 * @param int $start Start
+	 * @param int $end End
+	 * @return array<string,mixed>
+	 */
+	private function row($status, $start, $end)
+	{
+		return array(
+			'status' => $status,
+			'period_start' => $start,
+			'period_end' => $end,
+			'powerplant_id' => 1,
+			'powerplant_ref' => 'PV-001',
+			'fk_soc' => 2,
+			'contract' => array('thirdparty_name' => 'Customer'),
+			'active_services' => array(array('maintenance_services' => array(array('id' => 3, 'label' => 'Preventive')))),
+			'recurrence' => PowerPlantPVMaintenanceScheduler::RECURRENCE_YEARLY,
+			'is_eligible' => true,
+			'covering_intervention' => null,
+			'scheduled_intervention' => array('intervention_nature_id' => 4, 'nature_label' => 'Maintenance'),
+		);
+	}
+
+	public function testCountsRateWindowsAndOverdueBucketsUseOneAggregation(): void
+	{
+		global $db;
+
+		$reference = dol_mktime(0, 0, 0, 7, 15, 2026);
+		$rows = array(
+			$this->row(PowerPlantPVMaintenanceScheduler::STATUS_DUE, $reference + (5 * 86400), $reference + (10 * 86400)),
+			$this->row(PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED, $reference + (20 * 86400), $reference + (25 * 86400)),
+			$this->row(PowerPlantPVMaintenanceScheduler::STATUS_OVERDUE, $reference - (20 * 86400), $reference - (10 * 86400)),
+		);
+		$service = new PowerPlantPVMaintenanceDashboardService($db);
+		$data = $service->aggregateRows($rows, $reference - (30 * 86400), $reference + (90 * 86400), $reference);
+
+		$this->assertSame(1, $data['counts']['to_schedule']);
+		$this->assertSame(1, $data['counts']['scheduled']);
+		$this->assertSame(1, $data['counts']['overdue']);
+		$this->assertEqualsWithDelta(33.33, (float) $data['programming_rate'], 0.02);
+		$this->assertSame(1, $data['due_windows']['7']);
+		$this->assertSame(2, $data['due_windows']['30']);
+		$this->assertSame(1, $data['overdue_age']['8_30']);
+	}
+
+	public function testCoveredNotRequiredAndIncompleteAreExcludedFromRate(): void
+	{
+		global $db;
+
+		$reference = dol_mktime(0, 0, 0, 7, 15, 2026);
+		$rows = array(
+			$this->row(PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED, $reference, $reference + 86400),
+			$this->row(PowerPlantPVMaintenanceScheduler::STATUS_COVERED, $reference, $reference + 86400),
+			$this->row(PowerPlantPVMaintenanceScheduler::STATUS_NOT_REQUIRED, 0, 0),
+			$this->row(PowerPlantPVMaintenanceScheduler::STATUS_INCOMPLETE, 0, 0),
+		);
+		$rows[3]['recurrence'] = '';
+		$service = new PowerPlantPVMaintenanceDashboardService($db);
+		$data = $service->aggregateRows($rows, $reference - 86400, $reference + (2 * 86400), $reference);
+
+		$this->assertEquals(100.0, (float) $data['programming_rate']);
+		$this->assertSame(1, $data['configuration_quality']['incomplete']);
+		$this->assertSame(1, $data['configuration_quality']['missing_period']);
+		$this->assertSame(1, $data['configuration_quality']['missing_recurrence']);
+	}
+}

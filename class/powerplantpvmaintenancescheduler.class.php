@@ -124,6 +124,25 @@ class PowerPlantPVMaintenanceScheduler
 	}
 
 	/**
+	 * Return whether an intervention is currently completed for maintenance statistics.
+	 *
+	 * @param int $status Native intervention status
+	 * @param int $signedStatus Native online-signature status
+	 * @return bool
+	 */
+	public static function isInterventionCompleted($status, $signedStatus)
+	{
+		$closed = (class_exists('Fichinter') && defined('Fichinter::STATUS_CLOSED')) ? (int) constant('Fichinter::STATUS_CLOSED') : 3;
+		$receiver = (class_exists('Fichinter') && defined('Fichinter::STATUS_SIGNED_RECEIVER')) ? (int) constant('Fichinter::STATUS_SIGNED_RECEIVER') : 2;
+		$receiverOnline = (class_exists('Fichinter') && defined('Fichinter::STATUS_SIGNED_RECEIVER_ONLINE'))
+			? (int) constant('Fichinter::STATUS_SIGNED_RECEIVER_ONLINE')
+			: 3;
+		$all = (class_exists('Fichinter') && defined('Fichinter::STATUS_SIGNED_ALL')) ? (int) constant('Fichinter::STATUS_SIGNED_ALL') : 9;
+
+		return (int) $status === $closed || in_array((int) $signedStatus, array($receiver, $receiverOnline, $all), true);
+	}
+
+	/**
 	 * Return the maintenance schedule for a power plant.
 	 *
 	 * @param	CommonObject	$powerplant		Power plant object
