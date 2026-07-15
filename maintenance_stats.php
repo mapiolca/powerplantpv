@@ -185,14 +185,12 @@ llxHeader('', $title, '', '', 0, 0, '', '', '', 'mod-powerplantpv page-maintenan
 print load_fiche_titre($title, '', 'fa-tools');
 
 print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
-print '<div class="liste_titre liste_titre_bydiv centpercent">';
-print '<div class="divsearchfield">';
+print '<div class="divsearchfield marginbottomonly">';
 print $langs->trans('Period').' ';
 print $form->selectDate($dateStart, 'date_start', 0, 0, 1, '', 1, 0, 0, '', '', '', '', 1, '', $langs->trans('From'));
 print ' ';
 print $form->selectDate($dateEnd, 'date_end', 0, 0, 1, '', 1, 0, 0, '', '', '', '', 1, '', $langs->trans('to'));
 print ' <input type="submit" class="button smallpaddingimp" value="'.dol_escape_htmltag($langs->trans('Search')).'">';
-print '</div>';
 print '</div>';
 print '</form>';
 
