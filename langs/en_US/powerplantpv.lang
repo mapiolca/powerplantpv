@@ -95,6 +95,7 @@ BoxPowerPlantPVInstalledPowerWeekly = Installed kWp weekly chart
 
 PowerPlant = Power plant
 PowerPlants = Power plants
+ShowPowerPlant = Show power plant
 New_PowerPlant = New power plant
 List_PowerPlant = List of power plants
 CreatePowerPlant = Create a power plant

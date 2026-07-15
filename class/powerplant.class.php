@@ -1371,6 +1371,7 @@ class PowerPlant extends CommonObject
 	public function getTooltipContentArray($params)
 	{
 		global $langs;
+		$langs->load('powerplantpv@powerplantpv');
 
 		$datas = [];
 
@@ -1633,7 +1634,7 @@ class PowerPlant extends CommonObject
 
 		if (empty($this->labelStatus) || empty($this->labelStatusShort)) {
 			global $langs;
-			//$langs->load("powerplantpv@powerplantpv");
+			$langs->load('powerplantpv@powerplantpv');
 			$this->labelStatus[self::STATUS_DRAFT] = $langs->transnoentitiesnoconv('Draft');
 			$this->labelStatus[self::STATUS_VALIDATED] = $langs->transnoentitiesnoconv('Validated');
 			$this->labelStatus[self::STATUS_IN_SERVICE] = $langs->transnoentitiesnoconv('PowerPlantInService');

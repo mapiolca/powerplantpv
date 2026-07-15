@@ -95,6 +95,7 @@ BoxPowerPlantPVInstalledPowerWeekly = Grafico settimanale kWp installati
 
 PowerPlant = Impianto
 PowerPlants = Impianti
+ShowPowerPlant = Mostra impianto
 New_PowerPlant = Nuovo impianto
 List_PowerPlant = Elenco impianti
 CreatePowerPlant = Creare impianto
