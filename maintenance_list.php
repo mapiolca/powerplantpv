@@ -60,6 +60,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_maintenance.lib.php');
+dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancescheduler.class.php');
 
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'other', 'companies', 'contracts', 'interventions'));
@@ -73,12 +74,22 @@ if (empty($page) || $page < 0 || GETPOST('button_search', 'alpha') || GETPOST('b
 $offset = $limit * $page;
 $pageprev = $page - 1;
 $pagenext = $page + 1;
+$sortfield = GETPOST('sortfield', 'aZ09');
+$sortorder = strtoupper(GETPOST('sortorder', 'aZ09'));
+$allowedSortFields = array('powerplant', 'thirdparty', 'contract', 'recurrence', 'period', 'last_intervention', 'status', 'entity');
+if (!in_array($sortfield, $allowedSortFields, true)) {
+	$sortfield = 'period';
+}
+if (!in_array($sortorder, array('ASC', 'DESC'), true)) {
+	$sortorder = 'ASC';
+}
 
 $searchPowerplant = GETPOSTINT('search_fk_powerplant');
 $searchSocid = GETPOSTINT('search_fk_soc');
 $searchStatus = GETPOST('search_status', 'alphanohtml');
 $searchNature = GETPOSTINT('search_intervention_nature');
 $searchService = GETPOSTINT('search_maintenance_service');
+$searchEntity = powerplantSanitizeEntityIdArray(GETPOST('search_entity', 'array:int'));
 $searchDateStart = dol_mktime(0, 0, 0, GETPOSTINT('search_date_startmonth'), GETPOSTINT('search_date_startday'), GETPOSTINT('search_date_startyear'));
 $searchDateEnd = dol_mktime(23, 59, 59, GETPOSTINT('search_date_endmonth'), GETPOSTINT('search_date_endday'), GETPOSTINT('search_date_endyear'));
 
@@ -90,6 +101,7 @@ if (GETPOST('button_removefilter', 'alpha') || GETPOST('button_removefilter_x', 
 	$searchService = 0;
 	$searchDateStart = 0;
 	$searchDateEnd = 0;
+	$searchEntity = array();
 }
 if (!empty($user->socid)) {
 	$searchSocid = (int) $user->socid;
@@ -102,6 +114,10 @@ if (!powerplantpvUserHasMaintenanceRight($user, 'read') || !powerplantpvUserHasR
 	accessforbidden();
 }
 
+$entityOptions = powerplantGetAccessibleEntityOptions();
+$searchEntity = array_values(array_intersect($searchEntity, array_keys($entityOptions)));
+$showEnvironment = count($entityOptions) > 1;
+
 $filters = array(
 	'fk_powerplant' => $searchPowerplant,
 	'fk_soc' => $searchSocid,
@@ -110,14 +126,16 @@ $filters = array(
 	'date_end' => $searchDateEnd,
 	'intervention_nature' => $searchNature,
 	'maintenance_service' => $searchService,
+	'entities' => $searchEntity,
 );
 
 $form = new Form($db);
 $scheduler = new PowerPlantPVMaintenanceScheduler($db);
 $rows = $scheduler->getMaintenanceRows($user, $filters);
+$rows = powerplantpvMaintenanceSortRows($rows, $sortfield, $sortorder);
 $nbtotalofrecords = count($rows);
-$num = ($limit > 0) ? min($limit + 1, max(0, $nbtotalofrecords - $offset)) : $nbtotalofrecords;
-$pagedRows = ($limit > 0) ? array_slice($rows, $offset, $limit + 1) : $rows;
+$pagedRows = ($limit > 0) ? array_slice($rows, $offset, $limit) : $rows;
+$num = count($pagedRows);
 
 $powerplantOptions = powerplantpvGetSelectablePowerPlantOptions(null, $searchPowerplant > 0 ? array($searchPowerplant) : array());
 $statusOptions = powerplantpvMaintenanceStatusOptions();
@@ -133,8 +151,9 @@ $arrayfields = array(
 	'prestations' => array('label' => 'PowerPlantPVMaintenancePrestations', 'checked' => 1, 'enabled' => 1, 'position' => 50),
 	'recurrence' => array('label' => 'PowerPlantPVMaintenanceRecurrence', 'checked' => 1, 'enabled' => 1, 'position' => 60),
 	'period' => array('label' => 'PowerPlantPVMaintenancePeriod', 'checked' => 1, 'enabled' => 1, 'position' => 70),
-	'last_intervention' => array('label' => 'PowerPlantPVLastCoveringIntervention', 'checked' => 1, 'enabled' => 1, 'position' => 80),
+	'last_intervention' => array('label' => 'PowerPlantPVMaintenanceIntervention', 'checked' => 1, 'enabled' => 1, 'position' => 80),
 	'status' => array('label' => 'MaintenanceStatus', 'checked' => 1, 'enabled' => 1, 'position' => 90),
+	'entity' => array('label' => 'Environment', 'checked' => $showEnvironment ? 1 : 0, 'enabled' => $showEnvironment ? 1 : 0, 'position' => 100, 'csslist' => 'center'),
 );
 
 $param = '';
@@ -162,17 +181,22 @@ if ($searchDateStart > 0) {
 if ($searchDateEnd > 0) {
 	$param .= '&search_date_endmonth='.GETPOSTINT('search_date_endmonth').'&search_date_endday='.GETPOSTINT('search_date_endday').'&search_date_endyear='.GETPOSTINT('search_date_endyear');
 }
+foreach ($searchEntity as $entityId) {
+	$param .= '&search_entity[]='.((int) $entityId);
+}
 
 $title = $langs->trans('ListMaintenances');
 llxHeader('', $title, '', '', 0, 0, '', '', '', 'mod-powerplantpv page-maintenance-list bodyforlist');
-
-$newcardbutton = dolGetButtonTitle($langs->trans('NewMaintenanceIntervention'), '', 'fa fa-plus-circle', dol_buildpath('/powerplantpv/maintenance_intervention_card.php', 1).'?action=create&backtopage='.urlencode($_SERVER['PHP_SELF'].($param ? '?'.ltrim($param, '&') : '')), '', $createAllowed);
-print_barre_liste($title, $page, $_SERVER['PHP_SELF'], $param, '', '', '', $num, $nbtotalofrecords, 'fa-tools', 0, $newcardbutton, '', $limit);
 
 print '<form method="POST" id="searchFormList" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="list">';
 print '<input type="hidden" name="page" value="'.$page.'">';
+print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
+print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
+
+$newcardbutton = dolGetButtonTitle($langs->trans('NewMaintenanceIntervention'), '', 'fa fa-plus-circle', dol_buildpath('/powerplantpv/maintenance_intervention_card.php', 1).'?action=create&backtopage='.urlencode($_SERVER['PHP_SELF'].($param ? '?'.ltrim($param, '&') : '')), '', $createAllowed);
+print_barre_liste($title, $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $nbtotalofrecords, 'fa-tools', 0, $newcardbutton, '', $limit);
 
 $selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, 'maintenance_list');
 $visibleColumnCount = 1;
@@ -219,13 +243,18 @@ if (!empty($arrayfields['last_intervention']['checked'])) {
 if (!empty($arrayfields['status']['checked'])) {
 	print '<td class="center">'.$form->selectarray('search_status', $statusOptions, $searchStatus, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth125').'</td>';
 }
+if (!empty($arrayfields['entity']['checked'])) {
+	print '<td class="center">'.$form->multiselectarray('search_entity', $entityOptions, $searchEntity, 0, 0, 'maxwidth150', 0, '100%').'</td>';
+}
 print '<td class="liste_titre center maxwidthsearch">'.$form->showFilterButtons().'</td>';
 print '</tr>';
 
 print '<tr class="liste_titre">';
-foreach ($arrayfields as $field) {
+foreach ($arrayfields as $key => $field) {
 	if (!empty($field['checked'])) {
-		print getTitleFieldOfList($field['label'], 0, $_SERVER['PHP_SELF'], '', '', $param, '', '', '', '')."\n";
+		$sortableField = in_array($key, $allowedSortFields, true) ? $key : '';
+		$css = !empty($field['csslist']) ? (string) $field['csslist'] : '';
+		print getTitleFieldOfList($field['label'], 0, $_SERVER['PHP_SELF'], $sortableField, '', $param, '', $sortfield, $sortorder, $css)."\n";
 	}
 }
 print getTitleFieldOfList($selectedfields, 0, $_SERVER['PHP_SELF'], '', '', '', '', '', '', 'center maxwidthsearch ')."\n";
@@ -240,6 +269,8 @@ if (empty($pagedRows)) {
 		$powerplant = $row['powerplant'];
 		$contract = (!empty($row['contract']) && is_array($row['contract'])) ? $row['contract'] : array();
 		$coveringIntervention = (!empty($row['covering_intervention']) && is_array($row['covering_intervention'])) ? $row['covering_intervention'] : null;
+		$scheduledIntervention = (!empty($row['scheduled_intervention']) && is_array($row['scheduled_intervention'])) ? $row['scheduled_intervention'] : null;
+		$displayedIntervention = is_array($coveringIntervention) ? $coveringIntervention : $scheduledIntervention;
 		print '<tr class="oddeven">';
 		if (!empty($arrayfields['powerplant']['checked'])) {
 			print '<td class="nowrap">'.powerplantpvMaintenancePowerPlantLink($powerplant).'</td>';
@@ -264,8 +295,8 @@ if (empty($pagedRows)) {
 		}
 		if (!empty($arrayfields['last_intervention']['checked'])) {
 			print '<td>';
-			if (is_array($coveringIntervention)) {
-				print powerplantpvMaintenanceInterventionLink((int) $coveringIntervention['id'], (string) $coveringIntervention['ref']);
+			if (is_array($displayedIntervention)) {
+				print powerplantpvMaintenanceInterventionDataLink($displayedIntervention);
 			} else {
 				print '<span class="opacitymedium">-</span>';
 			}
@@ -274,8 +305,11 @@ if (empty($pagedRows)) {
 		if (!empty($arrayfields['status']['checked'])) {
 			print '<td class="center">'.powerplantpvMaintenanceStatusBadge((string) $row['status']).'</td>';
 		}
+		if (!empty($arrayfields['entity']['checked'])) {
+			print '<td class="center">'.powerplantGetEntityBadgeHtml((int) $row['entity']).'</td>';
+		}
 		print '<td class="right nowrap">';
-		if (!empty($row['is_eligible'])) {
+		if (!empty($row['is_eligible']) && powerplantpvMaintenanceStatusAllowsCreation((string) $row['status'])) {
 			$urlCreate = powerplantpvMaintenanceBuildCreateInterventionUrl($powerplant, $row, dol_buildpath('/powerplantpv/maintenance_list.php', 1).($param ? '?'.ltrim($param, '&') : ''));
 			print dolGetButtonAction($langs->trans('PowerPlantPVCreateMaintenanceInterventionTooltip'), $langs->trans('Create'), 'default', $urlCreate, '', ($createAllowed && !empty($row['fk_soc'])));
 		} else {

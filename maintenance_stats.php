@@ -131,6 +131,7 @@ $rows = $scheduler->getMaintenanceRows($user);
 
 $counts = array(
 	'to_schedule' => 0,
+	'scheduled' => 0,
 	'overdue' => 0,
 	'covered' => 0,
 	'not_required' => 0,
@@ -151,6 +152,8 @@ foreach ($rows as $row) {
 
 	if ($status === PowerPlantPVMaintenanceScheduler::STATUS_PLANNED || $status === PowerPlantPVMaintenanceScheduler::STATUS_DUE) {
 		$counts['to_schedule']++;
+	} elseif ($status === PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED) {
+		$counts['scheduled']++;
 	} elseif ($status === PowerPlantPVMaintenanceScheduler::STATUS_OVERDUE) {
 		$counts['overdue']++;
 	} elseif ($status === PowerPlantPVMaintenanceScheduler::STATUS_COVERED) {
@@ -164,8 +167,9 @@ foreach ($rows as $row) {
 	powerplantpvMaintenanceStatsIncrement($byClient, 'soc_'.((int) $row['fk_soc']), powerplantpvMaintenanceThirdPartyLink((int) $row['fk_soc']));
 
 	$natureLabel = '';
-	if (!empty($row['covering_intervention']) && is_array($row['covering_intervention']) && !empty($row['covering_intervention']['nature_label'])) {
-		$natureLabel = dol_escape_htmltag((string) $row['covering_intervention']['nature_label']);
+	$displayedIntervention = (!empty($row['covering_intervention']) && is_array($row['covering_intervention'])) ? $row['covering_intervention'] : ((!empty($row['scheduled_intervention']) && is_array($row['scheduled_intervention'])) ? $row['scheduled_intervention'] : null);
+	if (is_array($displayedIntervention) && !empty($displayedIntervention['nature_label'])) {
+		$natureLabel = dol_escape_htmltag((string) $displayedIntervention['nature_label']);
 	} elseif (!empty($row['is_eligible'])) {
 		$natureLabel = $langs->trans('PowerPlantPVDefaultPreventiveMaintenanceNature');
 	} else {
@@ -198,6 +202,7 @@ print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('PowerPlantPVMaintenanceSummary').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenancesToSchedule').'</td><td class="right">'.((int) $counts['to_schedule']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceStatusScheduled').'</td><td class="right">'.((int) $counts['scheduled']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Overdue').'</td><td class="right">'.((int) $counts['overdue']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Covered').'</td><td class="right">'.((int) $counts['covered']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('NotRequired').'</td><td class="right">'.((int) $counts['not_required']).'</td></tr>';

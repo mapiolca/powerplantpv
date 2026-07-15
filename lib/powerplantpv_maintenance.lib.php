@@ -41,6 +41,7 @@ function powerplantpvMaintenanceStatusOptions()
 	foreach (array(
 		PowerPlantPVMaintenanceScheduler::STATUS_NOT_REQUIRED,
 		PowerPlantPVMaintenanceScheduler::STATUS_PLANNED,
+		PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED,
 		PowerPlantPVMaintenanceScheduler::STATUS_DUE,
 		PowerPlantPVMaintenanceScheduler::STATUS_OVERDUE,
 		PowerPlantPVMaintenanceScheduler::STATUS_COVERED,
@@ -50,6 +51,83 @@ function powerplantpvMaintenanceStatusOptions()
 	}
 
 	return $options;
+}
+
+/**
+ * Sort calculated maintenance rows with the list whitelist.
+ *
+ * @param	array<int,array<string,mixed>>	$rows		Rows to sort
+ * @param	string						$sortfield	Whitelisted sort field
+ * @param	string						$sortorder	ASC or DESC
+ * @return	array<int,array<string,mixed>>			Sorted rows
+ */
+function powerplantpvMaintenanceSortRows(array $rows, $sortfield, $sortorder)
+{
+	$allowed = array('powerplant', 'thirdparty', 'contract', 'recurrence', 'period', 'last_intervention', 'status', 'entity');
+	if (!in_array($sortfield, $allowed, true)) {
+		$sortfield = 'period';
+	}
+	$direction = (strtoupper((string) $sortorder) === 'DESC') ? -1 : 1;
+	$statusPriority = array(
+		PowerPlantPVMaintenanceScheduler::STATUS_OVERDUE => 10,
+		PowerPlantPVMaintenanceScheduler::STATUS_DUE => 20,
+		PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED => 30,
+		PowerPlantPVMaintenanceScheduler::STATUS_PLANNED => 40,
+		PowerPlantPVMaintenanceScheduler::STATUS_INCOMPLETE => 50,
+		PowerPlantPVMaintenanceScheduler::STATUS_COVERED => 60,
+		PowerPlantPVMaintenanceScheduler::STATUS_NOT_REQUIRED => 70,
+	);
+
+	usort($rows, static function (array $a, array $b) use ($sortfield, $direction, $statusPriority) {
+		$contractA = (!empty($a['contract']) && is_array($a['contract'])) ? $a['contract'] : array();
+		$contractB = (!empty($b['contract']) && is_array($b['contract'])) ? $b['contract'] : array();
+		$interventionA = (!empty($a['covering_intervention']) && is_array($a['covering_intervention'])) ? $a['covering_intervention'] : ((!empty($a['scheduled_intervention']) && is_array($a['scheduled_intervention'])) ? $a['scheduled_intervention'] : array());
+		$interventionB = (!empty($b['covering_intervention']) && is_array($b['covering_intervention'])) ? $b['covering_intervention'] : ((!empty($b['scheduled_intervention']) && is_array($b['scheduled_intervention'])) ? $b['scheduled_intervention'] : array());
+		$valueA = '';
+		$valueB = '';
+		switch ($sortfield) {
+			case 'powerplant':
+				$valueA = (string) $a['powerplant_ref'];
+				$valueB = (string) $b['powerplant_ref'];
+				break;
+			case 'thirdparty':
+				$valueA = isset($contractA['thirdparty_name']) ? (string) $contractA['thirdparty_name'] : '';
+				$valueB = isset($contractB['thirdparty_name']) ? (string) $contractB['thirdparty_name'] : '';
+				break;
+			case 'contract':
+				$valueA = isset($contractA['ref']) ? (string) $contractA['ref'] : '';
+				$valueB = isset($contractB['ref']) ? (string) $contractB['ref'] : '';
+				break;
+			case 'recurrence':
+				$valueA = (string) $a['recurrence'];
+				$valueB = (string) $b['recurrence'];
+				break;
+			case 'period':
+				$valueA = (int) $a['period_start'];
+				$valueB = (int) $b['period_start'];
+				break;
+			case 'last_intervention':
+				$valueA = isset($interventionA['ref']) ? (string) $interventionA['ref'] : '';
+				$valueB = isset($interventionB['ref']) ? (string) $interventionB['ref'] : '';
+				break;
+			case 'status':
+				$valueA = isset($statusPriority[(string) $a['status']]) ? $statusPriority[(string) $a['status']] : 99;
+				$valueB = isset($statusPriority[(string) $b['status']]) ? $statusPriority[(string) $b['status']] : 99;
+				break;
+			case 'entity':
+				$valueA = (int) $a['entity'];
+				$valueB = (int) $b['entity'];
+				break;
+		}
+		$result = (is_int($valueA) && is_int($valueB)) ? ($valueA <=> $valueB) : strnatcasecmp((string) $valueA, (string) $valueB);
+		if ($result === 0) {
+			$result = strnatcasecmp((string) $a['powerplant_ref'], (string) $b['powerplant_ref']);
+		}
+
+		return $direction * $result;
+	});
+
+	return $rows;
 }
 
 /**
@@ -194,6 +272,46 @@ function powerplantpvMaintenanceInterventionLink($interventionId, $fallbackRef)
 	}
 
 	return '<a href="'.DOL_URL_ROOT.'/fichinter/card.php?id='.((int) $interventionId).'">'.dol_escape_htmltag($fallbackRef).'</a>';
+}
+
+/**
+ * Return whether a new intervention may be proposed for a scheduler status.
+ *
+ * @param	string	$status	Scheduler status
+ * @return	bool				True when no scheduled/covering intervention already exists
+ */
+function powerplantpvMaintenanceStatusAllowsCreation($status)
+{
+	return !in_array($status, array(
+		PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED,
+		PowerPlantPVMaintenanceScheduler::STATUS_COVERED,
+		PowerPlantPVMaintenanceScheduler::STATUS_NOT_REQUIRED,
+	), true);
+}
+
+/**
+ * Return an intervention link from scheduler data without an additional fetch.
+ *
+ * @param	array<string,mixed>	$intervention	Scheduler intervention row
+ * @return	string						HTML
+ */
+function powerplantpvMaintenanceInterventionDataLink(array $intervention)
+{
+	global $db;
+
+	$interventionId = !empty($intervention['id']) ? (int) $intervention['id'] : 0;
+	if ($interventionId <= 0) {
+		return '<span class="opacitymedium">-</span>';
+	}
+	$fichinter = new Fichinter($db);
+	$fichinter->id = $interventionId;
+	$fichinter->rowid = $interventionId;
+	$fichinter->ref = isset($intervention['ref']) ? (string) $intervention['ref'] : '#'.$interventionId;
+	$fichinter->statut = isset($intervention['status']) ? (int) $intervention['status'] : 0;
+	$fichinter->status = $fichinter->statut;
+	$fichinter->entity = isset($intervention['entity']) ? (int) $intervention['entity'] : 0;
+
+	return $fichinter->getNomUrl(1);
 }
 
 /**

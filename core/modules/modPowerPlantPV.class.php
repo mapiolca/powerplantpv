@@ -206,6 +206,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_ENABLE', 'chaine', '1', 'Enable maintenance foundation features', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_DEFAULT_REPORT_TEMPLATE', 'chaine', 'preventive_maintenance', 'Default maintenance report template code', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 'chaine', '30', 'Maintenance planning lead time in days', 0, 'current');
+		$this->const[] = array('POWERPLANTPV_MAINTENANCE_SCHEDULED_INTERVENTION_MODE', 'chaine', 'created', 'PowerPlantPVMaintenanceScheduledInterventionModeHelp', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', 'chaine', '0', 'Enable weekly maintenance reminders', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME', 'chaine', '', 'Weekly maintenance reminder start time', 0, 'current');
 		$this->const[] = array('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', 'chaine', '0', 'Enable monthly maintenance reminders', 0, 'current');

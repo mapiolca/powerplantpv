@@ -33,6 +33,7 @@ class PowerPlantPVMaintenanceScheduler
 {
 	public const STATUS_NOT_REQUIRED = 'not_required';
 	public const STATUS_PLANNED = 'planned';
+	public const STATUS_SCHEDULED = 'scheduled';
 	public const STATUS_DUE = 'due';
 	public const STATUS_OVERDUE = 'overdue';
 	public const STATUS_COVERED = 'covered';
@@ -44,6 +45,9 @@ class PowerPlantPVMaintenanceScheduler
 	public const RECURRENCE_YEARLY = 'yearly';
 	public const RECURRENCE_BIENNIAL = 'biennial';
 	public const RECURRENCE_CUSTOM = 'custom';
+
+	public const SCHEDULED_MODE_CREATED = 'created';
+	public const SCHEDULED_MODE_VALIDATED = 'validated';
 
 	/**
 	 * @var DoliDB Database handler
@@ -88,6 +92,7 @@ class PowerPlantPVMaintenanceScheduler
 		$labels = array(
 			self::STATUS_NOT_REQUIRED => 'PowerPlantPVMaintenanceStatusNotRequired',
 			self::STATUS_PLANNED => 'PowerPlantPVMaintenanceStatusPlanned',
+			self::STATUS_SCHEDULED => 'PowerPlantPVMaintenanceStatusScheduled',
 			self::STATUS_DUE => 'PowerPlantPVMaintenanceStatusDue',
 			self::STATUS_OVERDUE => 'PowerPlantPVMaintenanceStatusOverdue',
 			self::STATUS_COVERED => 'PowerPlantPVMaintenanceStatusCovered',
@@ -108,6 +113,7 @@ class PowerPlantPVMaintenanceScheduler
 		$statusTypes = array(
 			self::STATUS_NOT_REQUIRED => 'status0',
 			self::STATUS_PLANNED => 'status2',
+			self::STATUS_SCHEDULED => 'status1',
 			self::STATUS_DUE => 'status3',
 			self::STATUS_OVERDUE => 'status8',
 			self::STATUS_COVERED => 'status4',
@@ -139,12 +145,16 @@ class PowerPlantPVMaintenanceScheduler
 			$periodStart = $this->sqlDateToTimestamp((string) $contract['period_start'], false);
 			$periodEnd = $this->sqlDateToTimestamp((string) $contract['period_end'], true);
 			$coveringIntervention = null;
+			$scheduledIntervention = null;
 
 			if ($maintenanceServiceCount > 0 && $periodStart > 0 && $periodEnd > 0 && $periodStart <= $periodEnd) {
 				$coveringIntervention = $this->findCoveringIntervention($contract, $interventions, $periodStart, $periodEnd);
+				if (!is_array($coveringIntervention)) {
+					$scheduledIntervention = $this->findScheduledIntervention($contract, $interventions, $periodStart, $periodEnd);
+				}
 			}
 
-			$status = $this->calculateStatus($maintenanceServiceCount, $periodStart, $periodEnd, $coveringIntervention, $referenceDate);
+			$status = $this->calculateStatus($maintenanceServiceCount, $periodStart, $periodEnd, $coveringIntervention, $scheduledIntervention, $referenceDate);
 			$items[] = array(
 				'contract' => $contract,
 				'active_services' => $services,
@@ -153,6 +163,7 @@ class PowerPlantPVMaintenanceScheduler
 				'period_start' => $periodStart,
 				'period_end' => $periodEnd,
 				'covering_intervention' => $coveringIntervention,
+				'scheduled_intervention' => $scheduledIntervention,
 				'status' => $status,
 				'is_eligible' => ($maintenanceServiceCount > 0),
 			);
@@ -192,6 +203,7 @@ class PowerPlantPVMaintenanceScheduler
 					'period_start' => 0,
 					'period_end' => 0,
 					'covering_intervention' => null,
+					'scheduled_intervention' => null,
 					'status' => self::STATUS_NOT_REQUIRED,
 					'is_eligible' => false,
 				);
@@ -238,6 +250,10 @@ class PowerPlantPVMaintenanceScheduler
 		$sql = "SELECT t.rowid, t.ref, t.label, t.fk_soc, t.fk_project, t.entity, t.status";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_powerplant AS t";
 		$sql .= " WHERE t.entity IN (".$this->db->sanitize(getEntity('powerplant')).")";
+		$entityFilters = $this->normalizeEntityFilters(isset($filters['entities']) ? $filters['entities'] : array());
+		if (!empty($entityFilters)) {
+			$sql .= " AND t.entity IN (".implode(',', $entityFilters).")";
+		}
 		if ($powerplantId > 0) {
 			$sql .= " AND t.rowid = ".$powerplantId;
 		}
@@ -281,11 +297,13 @@ class PowerPlantPVMaintenanceScheduler
 	{
 		$contract = (!empty($item['contract']) && is_array($item['contract'])) ? $item['contract'] : array();
 		$coveringIntervention = (!empty($item['covering_intervention']) && is_array($item['covering_intervention'])) ? $item['covering_intervention'] : null;
+		$scheduledIntervention = (!empty($item['scheduled_intervention']) && is_array($item['scheduled_intervention'])) ? $item['scheduled_intervention'] : null;
 
 		return array(
 			'powerplant' => $powerplant,
 			'powerplant_id' => (int) $powerplant->id,
 			'powerplant_ref' => (string) $powerplant->ref,
+			'entity' => (int) $powerplant->entity,
 			'fk_soc' => !empty($contract['fk_soc']) ? (int) $contract['fk_soc'] : (int) $powerplant->fk_soc,
 			'contract' => $contract,
 			'contract_id' => !empty($contract['id']) ? (int) $contract['id'] : 0,
@@ -295,6 +313,7 @@ class PowerPlantPVMaintenanceScheduler
 			'period_start' => !empty($item['period_start']) ? (int) $item['period_start'] : 0,
 			'period_end' => !empty($item['period_end']) ? (int) $item['period_end'] : 0,
 			'covering_intervention' => $coveringIntervention,
+			'scheduled_intervention' => $scheduledIntervention,
 			'status' => isset($item['status']) ? (string) $item['status'] : self::STATUS_NOT_REQUIRED,
 			'is_eligible' => !empty($item['is_eligible']),
 			'item' => $item,
@@ -314,6 +333,10 @@ class PowerPlantPVMaintenanceScheduler
 		$contract = (!empty($item['contract']) && is_array($item['contract'])) ? $item['contract'] : array();
 		$status = isset($item['status']) ? (string) $item['status'] : self::STATUS_NOT_REQUIRED;
 		$socid = !empty($contract['fk_soc']) ? (int) $contract['fk_soc'] : (int) $powerplant->fk_soc;
+		$entityFilters = $this->normalizeEntityFilters(isset($filters['entities']) ? $filters['entities'] : array());
+		if (!empty($entityFilters) && !in_array((int) $powerplant->entity, $entityFilters, true)) {
+			return false;
+		}
 
 		$statusFilters = $this->normalizeStatusFilters($filters);
 		if (!empty($statusFilters) && !in_array($status, $statusFilters, true)) {
@@ -342,7 +365,9 @@ class PowerPlantPVMaintenanceScheduler
 		$natureId = !empty($filters['intervention_nature']) ? (int) $filters['intervention_nature'] : 0;
 		if ($natureId > 0) {
 			$coveringIntervention = (!empty($item['covering_intervention']) && is_array($item['covering_intervention'])) ? $item['covering_intervention'] : null;
-			if (!is_array($coveringIntervention) || (int) $coveringIntervention['intervention_nature_id'] !== $natureId) {
+			$scheduledIntervention = (!empty($item['scheduled_intervention']) && is_array($item['scheduled_intervention'])) ? $item['scheduled_intervention'] : null;
+			$matchingIntervention = is_array($coveringIntervention) ? $coveringIntervention : $scheduledIntervention;
+			if (!is_array($matchingIntervention) || (int) $matchingIntervention['intervention_nature_id'] !== $natureId) {
 				return false;
 			}
 		}
@@ -404,6 +429,26 @@ class PowerPlantPVMaintenanceScheduler
 	}
 
 	/**
+	 * Normalize entity filters.
+	 *
+	 * @param	mixed	$value	Raw entity ids
+	 * @return	int[]			Positive entity ids
+	 */
+	private function normalizeEntityFilters($value)
+	{
+		$values = is_array($value) ? $value : explode(',', (string) $value);
+		$entities = array();
+		foreach ($values as $entityId) {
+			$entityId = (int) $entityId;
+			if ($entityId > 0) {
+				$entities[$entityId] = $entityId;
+			}
+		}
+
+		return array_values($entities);
+	}
+
+	/**
 	 * Normalize a timestamp or SQL date filter.
 	 *
 	 * @param	mixed	$value		Filter value
@@ -435,10 +480,11 @@ class PowerPlantPVMaintenanceScheduler
 		$statusPriority = array(
 			self::STATUS_OVERDUE => 10,
 			self::STATUS_DUE => 20,
-			self::STATUS_PLANNED => 30,
-			self::STATUS_INCOMPLETE => 40,
-			self::STATUS_COVERED => 50,
-			self::STATUS_NOT_REQUIRED => 60,
+			self::STATUS_SCHEDULED => 30,
+			self::STATUS_PLANNED => 40,
+			self::STATUS_INCOMPLETE => 50,
+			self::STATUS_COVERED => 60,
+			self::STATUS_NOT_REQUIRED => 70,
 		);
 		$periodA = !empty($a['period_start']) ? (int) $a['period_start'] : PHP_INT_MAX;
 		$periodB = !empty($b['period_start']) ? (int) $b['period_start'] : PHP_INT_MAX;
@@ -480,6 +526,7 @@ class PowerPlantPVMaintenanceScheduler
 		$powerPlantTypes = $this->getSqlStringList(powerplantpvGetPowerPlantLinkTypes());
 
 		$sql = "SELECT DISTINCT c.rowid, c.ref, c.ref_customer, c.fk_soc, c.fk_projet, c.statut, c.entity";
+		$sql .= ", s.nom as thirdparty_name";
 		if ($hasContractExtra) {
 			$sql .= ", ce.powerplantpv_maintenance_recurrence as recurrence";
 			$sql .= ", ce.powerplantpv_next_maintenance_period_start as period_start";
@@ -493,6 +540,7 @@ class PowerPlantPVMaintenanceScheduler
 		$sql .= " OR ";
 		$sql .= "(ee.targettype = 'contrat' AND ee.fk_target = c.rowid AND ee.sourcetype IN (".$powerPlantTypes.") AND ee.fk_source = ".((int) $powerplant->id).")";
 		$sql .= ")";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."societe AS s ON s.rowid = c.fk_soc";
 		if ($hasContractExtra) {
 			$sql .= " LEFT JOIN ".$contractExtraTable." AS ce ON ce.fk_object = c.rowid";
 		}
@@ -519,6 +567,7 @@ class PowerPlantPVMaintenanceScheduler
 				'fk_project' => (int) $obj->fk_projet,
 				'status' => (int) $obj->statut,
 				'entity' => (int) $obj->entity,
+				'thirdparty_name' => (string) $obj->thirdparty_name,
 				'recurrence' => isset($obj->recurrence) ? (string) $obj->recurrence : '',
 				'period_start' => isset($obj->period_start) ? (string) $obj->period_start : '',
 				'period_end' => isset($obj->period_end) ? (string) $obj->period_end : '',
@@ -797,6 +846,32 @@ class PowerPlantPVMaintenanceScheduler
 	}
 
 	/**
+	 * Find the latest scheduled intervention for a period.
+	 *
+	 * @param	array<string,mixed>			$contract		Contract row
+	 * @param	array<int,array<string,mixed>>	$interventions	Linked interventions
+	 * @param	int							$periodStart	Period start timestamp
+	 * @param	int							$periodEnd		Period end timestamp
+	 * @return	array<string,mixed>|null					Scheduled intervention, if any
+	 */
+	private function findScheduledIntervention($contract, $interventions, $periodStart, $periodEnd)
+	{
+		$scheduled = null;
+		$contractId = (int) $contract['id'];
+
+		foreach ($interventions as $intervention) {
+			if (!$this->isInterventionScheduledForPeriod($intervention, $contractId, $periodStart, $periodEnd)) {
+				continue;
+			}
+			if ($scheduled === null || (int) $intervention['date_end'] > (int) $scheduled['date_end']) {
+				$scheduled = $intervention;
+			}
+		}
+
+		return $scheduled;
+	}
+
+	/**
 	 * Check whether an intervention covers a maintenance period.
 	 *
 	 * @param	array<string,mixed>	$intervention	Intervention row
@@ -807,18 +882,96 @@ class PowerPlantPVMaintenanceScheduler
 	 */
 	private function isInterventionCoveringPeriod($intervention, $contractId, $periodStart, $periodEnd)
 	{
-		if (empty($intervention['nature_active']) || empty($intervention['nature_is_maintenance'])) {
+		if (empty($intervention['is_closed']) && empty($intervention['is_signed_covering'])) {
 			return false;
 		}
-		if (empty($intervention['is_closed']) && empty($intervention['is_signed_covering'])) {
+
+		return $this->interventionMatchesMaintenancePeriod($intervention, $contractId, $periodStart, $periodEnd);
+	}
+
+	/**
+	 * Check whether an intervention schedules a maintenance period.
+	 *
+	 * @param	array<string,mixed>	$intervention	Intervention row
+	 * @param	int					$contractId		Contract id
+	 * @param	int					$periodStart	Expected period start
+	 * @param	int					$periodEnd		Expected period end
+	 * @return	bool							True if the intervention schedules the period
+	 */
+	private function isInterventionScheduledForPeriod($intervention, $contractId, $periodStart, $periodEnd)
+	{
+		$mode = getDolGlobalString('POWERPLANTPV_MAINTENANCE_SCHEDULED_INTERVENTION_MODE', self::SCHEDULED_MODE_CREATED);
+		if (!in_array($mode, array(self::SCHEDULED_MODE_CREATED, self::SCHEDULED_MODE_VALIDATED), true)) {
+			$mode = self::SCHEDULED_MODE_CREATED;
+		}
+
+		return self::isScheduledInterventionMatchingPeriod($intervention, $contractId, $periodStart, $periodEnd, $mode);
+	}
+
+	/**
+	 * Evaluate the scheduled-intervention policy without database access.
+	 *
+	 * @param	array<string,mixed>	$intervention	Intervention row
+	 * @param	int					$contractId		Contract id
+	 * @param	int					$periodStart	Period start
+	 * @param	int					$periodEnd		Period end
+	 * @param	string				$mode			created or validated
+	 * @return	bool							True when scheduled
+	 */
+	public static function isScheduledInterventionMatchingPeriod(array $intervention, $contractId, $periodStart, $periodEnd, $mode)
+	{
+		if (!empty($intervention['is_closed']) || !empty($intervention['is_signed_covering'])) {
+			return false;
+		}
+		$draft = (class_exists('Fichinter') && defined('Fichinter::STATUS_DRAFT')) ? (int) constant('Fichinter::STATUS_DRAFT') : 0;
+		$validated = (class_exists('Fichinter') && defined('Fichinter::STATUS_VALIDATED')) ? (int) constant('Fichinter::STATUS_VALIDATED') : 1;
+		$billed = (class_exists('Fichinter') && defined('Fichinter::STATUS_BILLED')) ? (int) constant('Fichinter::STATUS_BILLED') : 2;
+		$allowedStatuses = ($mode === self::SCHEDULED_MODE_VALIDATED) ? array($validated, $billed) : array($draft, $validated, $billed);
+		$interventionStatus = isset($intervention['status']) ? (int) $intervention['status'] : -1;
+		if (!in_array($interventionStatus, $allowedStatuses, true)) {
+			return false;
+		}
+
+		return self::isMaintenanceInterventionMatchingPeriod($intervention, $contractId, $periodStart, $periodEnd);
+	}
+
+	/**
+	 * Check common maintenance nature, link, date and overlap rules.
+	 *
+	 * @param	array<string,mixed>	$intervention	Intervention row
+	 * @param	int					$contractId		Contract id
+	 * @param	int					$periodStart	Expected period start
+	 * @param	int					$periodEnd		Expected period end
+	 * @return	bool							True if all common rules match
+	 */
+	private function interventionMatchesMaintenancePeriod($intervention, $contractId, $periodStart, $periodEnd)
+	{
+		return self::isMaintenanceInterventionMatchingPeriod($intervention, $contractId, $periodStart, $periodEnd);
+	}
+
+	/**
+	 * Evaluate common nature, linkage, dates and overlap rules without database access.
+	 *
+	 * @param	array<string,mixed>	$intervention	Intervention row
+	 * @param	int					$contractId		Contract id
+	 * @param	int					$periodStart	Period start
+	 * @param	int					$periodEnd		Period end
+	 * @return	bool							True when matching
+	 */
+	public static function isMaintenanceInterventionMatchingPeriod(array $intervention, $contractId, $periodStart, $periodEnd)
+	{
+		if (empty($intervention['nature_active']) || empty($intervention['nature_is_maintenance'])) {
 			return false;
 		}
 		if (empty($intervention['date_start']) || empty($intervention['date_end'])) {
 			return false;
 		}
+		if ((int) $intervention['date_start'] > (int) $intervention['date_end'] || $periodStart <= 0 || $periodEnd <= 0 || $periodStart > $periodEnd) {
+			return false;
+		}
 
 		$contractIds = isset($intervention['contract_ids']) && is_array($intervention['contract_ids']) ? $intervention['contract_ids'] : array();
-		if (!empty($contractIds) && !in_array($contractId, array_map('intval', $contractIds), true)) {
+		if (empty($contractIds) || !in_array($contractId, array_map('intval', $contractIds), true)) {
 			return false;
 		}
 
@@ -832,10 +985,30 @@ class PowerPlantPVMaintenanceScheduler
 	 * @param	int						$periodStart			Period start timestamp
 	 * @param	int						$periodEnd				Period end timestamp
 	 * @param	array<string,mixed>|null	$coveringIntervention	Covering intervention
+	 * @param	array<string,mixed>|null	$scheduledIntervention	Scheduled intervention
 	 * @param	int						$referenceDate			Reference timestamp
 	 * @return	string											Scheduler status
 	 */
-	private function calculateStatus($maintenanceServiceCount, $periodStart, $periodEnd, $coveringIntervention, $referenceDate)
+	private function calculateStatus($maintenanceServiceCount, $periodStart, $periodEnd, $coveringIntervention, $scheduledIntervention, $referenceDate)
+	{
+		$leadDays = max(0, getDolGlobalInt('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 30));
+
+		return self::resolveMaintenanceStatus($maintenanceServiceCount, $periodStart, $periodEnd, $coveringIntervention, $scheduledIntervention, $referenceDate, $leadDays);
+	}
+
+	/**
+	 * Resolve one maintenance status without database access.
+	 *
+	 * @param	int						$maintenanceServiceCount	Maintenance prestation count
+	 * @param	int						$periodStart			Period start
+	 * @param	int						$periodEnd				Period end
+	 * @param	array<string,mixed>|null	$coveringIntervention	Covering intervention
+	 * @param	array<string,mixed>|null	$scheduledIntervention	Scheduled intervention
+	 * @param	int						$referenceDate			Reference date
+	 * @param	int						$leadDays				Planning lead time
+	 * @return	string									Maintenance status
+	 */
+	public static function resolveMaintenanceStatus($maintenanceServiceCount, $periodStart, $periodEnd, $coveringIntervention, $scheduledIntervention, $referenceDate, $leadDays)
 	{
 		if ($maintenanceServiceCount <= 0) {
 			return self::STATUS_NOT_REQUIRED;
@@ -846,18 +1019,21 @@ class PowerPlantPVMaintenanceScheduler
 		if ($periodStart <= 0 || $periodEnd <= 0 || $periodStart > $periodEnd) {
 			return self::STATUS_INCOMPLETE;
 		}
+		if (is_array($scheduledIntervention)) {
+			return self::STATUS_SCHEDULED;
+		}
 
-		$todayStart = $this->dayBoundary($referenceDate, false);
-		$todayEnd = $this->dayBoundary($referenceDate, true);
+		$todayStart = self::timestampDayBoundary($referenceDate, false);
+		$todayEnd = self::timestampDayBoundary($referenceDate, true);
 		if ($periodEnd < $todayStart) {
 			return self::STATUS_OVERDUE;
 		}
 		if ($periodStart > $todayEnd) {
-			$leadDays = max(0, getDolGlobalInt('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 30));
+			$leadDays = max(0, (int) $leadDays);
 			if ($leadDays <= 0) {
 				return self::STATUS_COVERED;
 			}
-			$plannedFrom = $this->dayBoundary(dol_time_plus_duree($periodStart, -$leadDays, 'd'), false);
+			$plannedFrom = self::timestampDayBoundary(dol_time_plus_duree($periodStart, -$leadDays, 'd'), false);
 
 			return ($todayStart >= $plannedFrom) ? self::STATUS_PLANNED : self::STATUS_COVERED;
 		}
@@ -877,6 +1053,7 @@ class PowerPlantPVMaintenanceScheduler
 		$counts = array(
 			self::STATUS_NOT_REQUIRED => 0,
 			self::STATUS_PLANNED => 0,
+			self::STATUS_SCHEDULED => 0,
 			self::STATUS_DUE => 0,
 			self::STATUS_OVERDUE => 0,
 			self::STATUS_COVERED => 0,
@@ -885,6 +1062,7 @@ class PowerPlantPVMaintenanceScheduler
 		$priority = array(
 			self::STATUS_OVERDUE,
 			self::STATUS_DUE,
+			self::STATUS_SCHEDULED,
 			self::STATUS_PLANNED,
 			self::STATUS_INCOMPLETE,
 			self::STATUS_COVERED,
@@ -1242,6 +1420,18 @@ class PowerPlantPVMaintenanceScheduler
 	 * @return	int					Boundary timestamp
 	 */
 	private function dayBoundary($timestamp, $endOfDay)
+	{
+		return self::timestampDayBoundary($timestamp, $endOfDay);
+	}
+
+	/**
+	 * Return a day boundary timestamp without database access.
+	 *
+	 * @param	int		$timestamp	Timestamp
+	 * @param	bool	$endOfDay	Use end of day
+	 * @return	int					Boundary timestamp
+	 */
+	public static function timestampDayBoundary($timestamp, $endOfDay)
 	{
 		$hour = $endOfDay ? 23 : 0;
 		$minute = $endOfDay ? 59 : 0;

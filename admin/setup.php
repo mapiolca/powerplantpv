@@ -729,6 +729,10 @@ if ($action == 'updateMask') {
 	if ($leadDays < 0) {
 		$leadDays = 0;
 	}
+	$scheduledInterventionMode = GETPOST('maintenance_scheduled_intervention_mode', 'alpha');
+	if (!in_array($scheduledInterventionMode, array(PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED, PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_VALIDATED), true)) {
+		$scheduledInterventionMode = PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED;
+	}
 	$weeklyStart = powerplantpvSetupReadDateTimeFromPost('maintenance_weekly_reminder_start');
 	$monthlyStart = powerplantpvSetupReadDateTimeFromPost('maintenance_monthly_reminder_start');
 	$templateId = GETPOSTINT('maintenance_reminder_email_template');
@@ -759,6 +763,7 @@ if ($action == 'updateMask') {
 
 	if (!$error) {
 		$res = dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', (string) $leadDays, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_SCHEDULED_INTERVENTION_MODE', $scheduledInterventionMode, 'chaine', 0, '', (int) $conf->entity);
 		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME', (string) $weeklyStart, 'chaine', 0, '', (int) $conf->entity);
 		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_STARTTIME', (string) $monthlyStart, 'chaine', 0, '', (int) $conf->entity);
 		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_REMINDER_USER_IDS', implode(',', array_values($selectedUserIds)), 'chaine', 0, '', (int) $conf->entity);
@@ -851,6 +856,10 @@ if (!empty($formSetup->items)) {
 $conf->global->POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', 0);
 $conf->global->POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', 0);
 $maintenanceleadtime = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 30);
+$maintenancescheduledmode = getDolGlobalString('POWERPLANTPV_MAINTENANCE_SCHEDULED_INTERVENTION_MODE', PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED);
+if (!in_array($maintenancescheduledmode, array(PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED, PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_VALIDATED), true)) {
+	$maintenancescheduledmode = PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED;
+}
 $maintenanceweeklystart = powerplantpvSetupGetTimestampConst('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME');
 $maintenancemonthlystart = powerplantpvSetupGetTimestampConst('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_STARTTIME');
 $maintenancereminderusers = array_filter(array_map('intval', explode(',', getDolGlobalString('POWERPLANTPV_MAINTENANCE_REMINDER_USER_IDS', ''))));
@@ -867,6 +876,12 @@ print '<input type="hidden" name="action" value="save_maintenance_reminder_setti
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Name').'</td><td>'.$langs->trans('Value').'</td></tr>';
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVMaintenancePlanningLeadDays').'</td><td><input type="number" min="0" class="flat maxwidth100 right" name="maintenance_planning_lead_days" value="'.((int) $maintenanceleadtime).'"> '.$langs->trans('PowerPlantPVDays').'<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenancePlanningLeadDaysHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVMaintenanceScheduledInterventionMode').'</td><td>';
+print $form->selectarray('maintenance_scheduled_intervention_mode', array(
+	PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED => $langs->trans('PowerPlantPVMaintenanceScheduledInterventionModeCreated'),
+	PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_VALIDATED => $langs->trans('PowerPlantPVMaintenanceScheduledInterventionModeValidated'),
+), $maintenancescheduledmode, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth300');
+print '<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceScheduledInterventionModeHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceWeeklyReminderEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceWeeklyReminderStartTime').'</td><td>'.$form->selectDate($maintenanceweeklystart, 'maintenance_weekly_reminder_start', 1, 1, 1, '', 1, 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceMonthlyReminderEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
@@ -892,7 +907,7 @@ print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">
 print '</div>';
 print '</form>';
 if ($conf->use_javascript_ajax) {
-	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#maintenance_reminder_user_ids,#maintenance_reminder_email_template").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
+	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#maintenance_reminder_user_ids,#maintenance_reminder_email_template,#maintenance_scheduled_intervention_mode").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
 }
 print '<br>';
 

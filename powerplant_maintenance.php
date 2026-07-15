@@ -148,9 +148,13 @@ $summary = (isset($schedule['summary']) && is_array($schedule['summary'])) ? $sc
 $summaryStatus = isset($summary['status']) ? (string) $summary['status'] : PowerPlantPVMaintenanceScheduler::STATUS_NOT_REQUIRED;
 $summaryPrimaryItem = (!empty($summary['primary_item']) && is_array($summary['primary_item'])) ? $summary['primary_item'] : array();
 $coveringInterventionIds = array();
+$scheduledInterventionIds = array();
 foreach ($items as $item) {
 	if (!empty($item['covering_intervention']) && is_array($item['covering_intervention'])) {
 		$coveringInterventionIds[(int) $item['covering_intervention']['id']] = 1;
+	}
+	if (!empty($item['scheduled_intervention']) && is_array($item['scheduled_intervention'])) {
+		$scheduledInterventionIds[(int) $item['scheduled_intervention']['id']] = 1;
 	}
 }
 
@@ -199,7 +203,7 @@ print '<td>'.$langs->trans('PowerPlantPVMaintenanceActiveServices').'</td>';
 print '<td>'.$langs->trans('PowerPlantPVMaintenancePrestations').'</td>';
 print '<td>'.$langs->trans('PowerPlantPVMaintenanceRecurrence').'</td>';
 print '<td>'.$langs->trans('PowerPlantPVMaintenancePeriod').'</td>';
-print '<td>'.$langs->trans('PowerPlantPVLastCoveringIntervention').'</td>';
+print '<td>'.$langs->trans('PowerPlantPVMaintenanceIntervention').'</td>';
 print '<td class="center">'.$langs->trans('PowerPlantPVMaintenanceStatus').'</td>';
 print '<td class="right">'.$langs->trans('Action').'</td>';
 print '</tr>';
@@ -210,10 +214,12 @@ if (empty($items)) {
 	foreach ($items as $item) {
 		$contract = $item['contract'];
 		$coveringIntervention = (!empty($item['covering_intervention']) && is_array($item['covering_intervention'])) ? $item['covering_intervention'] : null;
+		$scheduledIntervention = (!empty($item['scheduled_intervention']) && is_array($item['scheduled_intervention'])) ? $item['scheduled_intervention'] : null;
+		$displayedIntervention = is_array($coveringIntervention) ? $coveringIntervention : $scheduledIntervention;
 		$recurrenceLabels = PowerPlantPVMaintenanceScheduler::getRecurrenceLabelKeys();
 		$recurrence = (string) $item['recurrence'];
 		$recurrenceLabel = isset($recurrenceLabels[$recurrence]) ? $langs->trans($recurrenceLabels[$recurrence]) : $langs->trans('PowerPlantPVNotConfigured');
-		$createAllowed = $permissiontocreateintervention && !empty($item['is_eligible']) && !empty($object->fk_soc);
+		$createAllowed = $permissiontocreateintervention && !empty($item['is_eligible']) && !empty($object->fk_soc) && powerplantpvMaintenanceStatusAllowsCreation((string) $item['status']);
 
 		print '<tr class="oddeven">';
 		print '<td class="nowrap">'.powerplantpvMaintenanceContractLink((int) $contract['id'], (string) $contract['ref']).'</td>';
@@ -222,15 +228,15 @@ if (empty($items)) {
 		print '<td>'.dol_escape_htmltag($recurrenceLabel).'</td>';
 		print '<td>'.powerplantpvMaintenanceFormatPeriod((int) $item['period_start'], (int) $item['period_end']).'</td>';
 		print '<td>';
-		if (is_array($coveringIntervention)) {
-			print powerplantpvMaintenanceInterventionLink((int) $coveringIntervention['id'], (string) $coveringIntervention['ref']);
+		if (is_array($displayedIntervention)) {
+			print powerplantpvMaintenanceInterventionDataLink($displayedIntervention);
 		} else {
 			print '<span class="opacitymedium">-</span>';
 		}
 		print '</td>';
 		print '<td class="center">'.powerplantpvMaintenanceStatusBadge((string) $item['status']).'</td>';
 		print '<td class="right nowrap">';
-		if (!empty($item['is_eligible'])) {
+		if (!empty($item['is_eligible']) && powerplantpvMaintenanceStatusAllowsCreation((string) $item['status'])) {
 			$urlCreate = powerplantpvMaintenanceBuildCreateInterventionUrl($object, $item);
 			print dolGetButtonAction($langs->trans('PowerPlantPVCreateMaintenanceInterventionTooltip'), $langs->trans('PowerPlantPVCreateMaintenanceIntervention'), 'default', $urlCreate, '', $createAllowed);
 		} else {
@@ -278,6 +284,8 @@ if (empty($interventions)) {
 		print '<td class="center">';
 		if (!empty($coveringInterventionIds[(int) $intervention['id']])) {
 			print powerplantpvMaintenanceStatusBadge(PowerPlantPVMaintenanceScheduler::STATUS_COVERED);
+		} elseif (!empty($scheduledInterventionIds[(int) $intervention['id']])) {
+			print powerplantpvMaintenanceStatusBadge(PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED);
 		} else {
 			print '<span class="opacitymedium">-</span>';
 		}

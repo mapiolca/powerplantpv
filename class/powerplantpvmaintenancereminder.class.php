@@ -211,6 +211,7 @@ class PowerPlantPVMaintenanceReminder
 			return 0;
 		}
 
+		$executionTimestamp = dol_now();
 		$periodKey = $this->getReminderPeriodKey($frequency, $startTimestamp);
 		$lockName = $this->getReminderLockName($frequency, $periodKey);
 		$lockAcquired = false;
@@ -223,24 +224,14 @@ class PowerPlantPVMaintenanceReminder
 			}
 		}
 
-		$rows = $this->fetchReminderRows();
-		if (empty($rows)) {
-			if (!$forceExecution) {
-				$this->scheduleNextStart($frequency, $startTimestamp);
-			}
-			$this->output = $langs->trans('PowerPlantPVMaintenanceReminderNoMaintenance');
-			dol_syslog(__METHOD__.' frequency='.$frequency.' '.$this->output, LOG_INFO);
-			if ($lockAcquired) {
-				$this->releaseMysqlLock($lockName);
-			}
-			return 0;
-		}
-
-		$digest = $this->buildDigest($rows);
 		$template = $this->fetchConfiguredTemplate();
 		$emailsSent = 0;
 		$emailsSkipped = 0;
-		$errors = 0;
+		$sendErrors = 0;
+		$markerErrors = 0;
+		$totalRows = 0;
+		$hasMaintenance = false;
+		$defaultLangs = $langs;
 
 		foreach ($recipients as $recipientUser) {
 			$recipient = trim((string) $recipientUser->email);
@@ -252,36 +243,88 @@ class PowerPlantPVMaintenanceReminder
 				continue;
 			}
 
-			$mailContent = $this->prepareMailContent($frequency, $template, $digest, $recipientUser);
+			$recipientLangs = $this->buildRecipientLangs($recipientUser, $defaultLangs);
+			$langs = $recipientLangs;
+			$rows = $this->fetchReminderRows($recipientUser, $frequency, $executionTimestamp);
+			if (empty($rows)) {
+				continue;
+			}
+			$hasMaintenance = true;
+			$totalRows += count($rows);
+			$digest = $this->buildDigest($rows, $recipientLangs);
+			$mailContent = $this->prepareMailContent($frequency, $template, $digest, $recipientUser, $recipientLangs);
 			if ($this->sendMail($recipient, $mailContent['subject'], $mailContent['body'], $mailContent['is_html'])) {
 				$emailsSent++;
-				if (!$forceExecution) {
-					$this->markRecipientSent($frequency, $recipientUser, $periodKey);
+				if (!$forceExecution && !$this->markRecipientSent($frequency, $recipientUser, $periodKey)) {
+					$markerErrors++;
+					dol_syslog(__METHOD__.' frequency='.$frequency.' marker_write_failed recipient_hash='.$this->getRecipientLogHash($recipient), LOG_ERR);
 				}
 			} else {
-				$errors++;
+				$sendErrors++;
 			}
 		}
+		$langs = $defaultLangs;
 
+		if (!self::shouldAdvanceAfterDelivery($sendErrors)) {
+			if ($lockAcquired) {
+				$this->releaseMysqlLock($lockName);
+			}
+			$this->error = $langs->trans('PowerPlantPVMaintenanceReminderSendFailed', $sendErrors);
+			$this->output = $this->error;
+			dol_syslog(__METHOD__.' frequency='.$frequency.' send_errors='.(int) $sendErrors.' marker_errors='.(int) $markerErrors.' sent='.(int) $emailsSent, LOG_ERR);
+			return -max(1, $sendErrors + $markerErrors);
+		}
+
+		$scheduleResult = 1;
+		if (!$forceExecution) {
+			$scheduleResult = $this->scheduleNextStart($frequency, $startTimestamp, $executionTimestamp);
+		}
 		if ($lockAcquired) {
 			$this->releaseMysqlLock($lockName);
 		}
-
-		if ($errors > 0) {
-			$this->error = $langs->trans('PowerPlantPVMaintenanceReminderSendFailed', $errors);
+		if ($markerErrors > 0 || $scheduleResult < 0) {
+			$this->error = $langs->trans('PowerPlantPVMaintenanceReminderPersistenceFailed');
 			$this->output = $this->error;
-			dol_syslog(__METHOD__.' frequency='.$frequency.' errors='.(int) $errors.' sent='.(int) $emailsSent, LOG_ERR);
-			return -$errors;
+			dol_syslog(__METHOD__.' frequency='.$frequency.' marker_errors='.(int) $markerErrors.' schedule_result='.(int) $scheduleResult, LOG_ERR);
+			return -self::getPersistenceFailureCount($markerErrors, $scheduleResult);
 		}
 
-		if (!$forceExecution) {
-			$this->scheduleNextStart($frequency, $startTimestamp);
+		if (!$hasMaintenance) {
+			$this->output = $langs->trans('PowerPlantPVMaintenanceReminderNoMaintenance');
+			dol_syslog(__METHOD__.' frequency='.$frequency.' '.$this->output, LOG_INFO);
+			return 0;
 		}
 
 		$this->output = $langs->trans('PowerPlantPVMaintenanceReminderSendSuccess', $emailsSent, $emailsSkipped);
-		dol_syslog(__METHOD__.' frequency='.$frequency.' '.$this->output.' rows='.count($rows).' parameters='.$parameters, LOG_INFO);
+		dol_syslog(__METHOD__.' frequency='.$frequency.' '.$this->output.' rows='.(int) $totalRows.' parameters='.$parameters, LOG_INFO);
 
 		return 0;
+	}
+
+	/**
+	 * Return whether the reminder occurrence may advance after delivery.
+	 *
+	 * Successful recipient markers are preserved by the caller. Any SMTP failure keeps
+	 * the current occurrence active so only unmarked recipients are retried.
+	 *
+	 * @param	int	$sendErrors	SMTP failure count
+	 * @return	bool				True when the occurrence may advance
+	 */
+	public static function shouldAdvanceAfterDelivery($sendErrors)
+	{
+		return ((int) $sendErrors === 0);
+	}
+
+	/**
+	 * Count persistence failures for a negative cron return.
+	 *
+	 * @param	int	$markerErrors	Marker write failures
+	 * @param	int	$scheduleResult	Next-start persistence result
+	 * @return	int					At least one failure
+	 */
+	public static function getPersistenceFailureCount($markerErrors, $scheduleResult)
+	{
+		return max(1, (int) $markerErrors + ((int) $scheduleResult < 0 ? 1 : 0));
 	}
 
 	/**
@@ -360,6 +403,10 @@ class PowerPlantPVMaintenanceReminder
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$recipientUser = new User($this->db);
 			if ($recipientUser->fetch((int) $obj->rowid) > 0 && trim((string) $recipientUser->email) !== '') {
+				if (method_exists($recipientUser, 'getrights') && $recipientUser->getrights() < 0) {
+					$this->registerError(__METHOD__.' recipient rights lookup failed for user_id='.(int) $recipientUser->id);
+					continue;
+				}
 				$users[(int) $recipientUser->id] = $recipientUser;
 			}
 		}
@@ -373,18 +420,108 @@ class PowerPlantPVMaintenanceReminder
 	 *
 	 * @return	array<int,array<string,mixed>>	Maintenance rows
 	 */
-	private function fetchReminderRows()
+	private function fetchReminderRows(User $runUser, $frequency, $executionTimestamp)
 	{
-		$runUser = $this->buildSystemUser();
 		$scheduler = new PowerPlantPVMaintenanceScheduler($this->db);
-
-		return $scheduler->getMaintenanceRows($runUser, array(
+		$window = $this->getReminderWindow($frequency, $executionTimestamp);
+		$rows = $scheduler->getMaintenanceRows($runUser, array(
 			'statuses' => array(
 				PowerPlantPVMaintenanceScheduler::STATUS_PLANNED,
 				PowerPlantPVMaintenanceScheduler::STATUS_DUE,
+				PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED,
+			),
+			'date_start' => $window['start'],
+			'date_end' => $window['end'],
+		), $executionTimestamp);
+		$overdueRows = $scheduler->getMaintenanceRows($runUser, array(
+			'statuses' => array(
 				PowerPlantPVMaintenanceScheduler::STATUS_OVERDUE,
 			),
-		), dol_now());
+		), $executionTimestamp);
+
+		return self::mergeWindowAndOverdueRows($rows, $overdueRows);
+	}
+
+	/**
+	 * Merge rolling-window rows with the complete overdue stock.
+	 *
+	 * @param	array<int,array<string,mixed>>	$windowRows	Rows inside the rolling window
+	 * @param	array<int,array<string,mixed>>	$overdueRows	All overdue rows, without age limit
+	 * @return	array<int,array<string,mixed>>				Merged rows
+	 */
+	public static function mergeWindowAndOverdueRows(array $windowRows, array $overdueRows)
+	{
+		return self::deduplicateReminderRows(array_merge($windowRows, $overdueRows));
+	}
+
+	/**
+	 * Deduplicate reminder rows by power plant, contract and period.
+	 *
+	 * @param	array<int,array<string,mixed>>	$rows	Reminder rows
+	 * @return	array<int,array<string,mixed>>			Deduplicated rows
+	 */
+	public static function deduplicateReminderRows(array $rows)
+	{
+		$deduplicated = array();
+		foreach ($rows as $row) {
+			$key = ((int) (isset($row['powerplant_id']) ? $row['powerplant_id'] : 0));
+			$key .= '|'.((int) (isset($row['contract_id']) ? $row['contract_id'] : 0));
+			$key .= '|'.((int) (isset($row['period_start']) ? $row['period_start'] : 0));
+			$key .= '|'.((int) (isset($row['period_end']) ? $row['period_end'] : 0));
+			$deduplicated[$key] = $row;
+		}
+
+		return array_values($deduplicated);
+	}
+
+	/**
+	 * Return the rolling reminder window from the actual execution date.
+	 *
+	 * @param	string	$frequency		Frequency code
+	 * @param	int		$executionTimestamp	Execution timestamp
+	 * @return	array{start:int,end:int}	Window boundaries
+	 */
+	private function getReminderWindow($frequency, $executionTimestamp)
+	{
+		return self::calculateReminderWindow($frequency, $executionTimestamp);
+	}
+
+	/**
+	 * Calculate rolling reminder boundaries without database access.
+	 *
+	 * @param	string	$frequency		Frequency code
+	 * @param	int		$executionTimestamp	Execution timestamp
+	 * @return	array{start:int,end:int}	Window boundaries
+	 */
+	public static function calculateReminderWindow($frequency, $executionTimestamp)
+	{
+		$start = dol_mktime(0, 0, 0, (int) date('m', $executionTimestamp), (int) date('d', $executionTimestamp), (int) date('Y', $executionTimestamp));
+		$days = ($frequency === self::FREQUENCY_MONTHLY) ? 29 : 6;
+		$lastDay = dol_time_plus_duree($start, $days, 'd');
+
+		return array(
+			'start' => $start,
+			'end' => dol_mktime(23, 59, 59, (int) date('m', $lastDay), (int) date('d', $lastDay), (int) date('Y', $lastDay)),
+		);
+	}
+
+	/**
+	 * Build a language context for one recipient.
+	 *
+	 * @param	User		$recipientUser	Recipient user
+	 * @param	Translate	$defaultLangs	Default cron language context
+	 * @return	Translate				Recipient language context
+	 */
+	private function buildRecipientLangs(User $recipientUser, $defaultLangs)
+	{
+		$outputlangs = clone $defaultLangs;
+		$recipientLanguage = trim((string) $recipientUser->lang);
+		if ($recipientLanguage !== '') {
+			$outputlangs->setDefaultLang($recipientLanguage);
+		}
+		$outputlangs->loadLangs(array('main', 'contracts', 'interventions', 'powerplantpv@powerplantpv'));
+
+		return $outputlangs;
 	}
 
 	/**
@@ -393,38 +530,43 @@ class PowerPlantPVMaintenanceReminder
 	 * @param	array<int,array<string,mixed>>	$rows	Maintenance rows
 	 * @return	array{html:string,text:string,count:int}	Digest
 	 */
-	private function buildDigest(array $rows)
+	private function buildDigest(array $rows, $outputlangs)
 	{
-		global $langs;
-
 		$html = '<table class="noborder centpercent" border="1" cellpadding="4" cellspacing="0">';
 		$html .= '<tr>';
-		$html .= '<th>'.$langs->trans('PowerPlant').'</th>';
-		$html .= '<th>'.$langs->trans('Contract').'</th>';
-		$html .= '<th>'.$langs->trans('PowerPlantPVMaintenancePeriod').'</th>';
-		$html .= '<th>'.$langs->trans('PowerPlantPVMaintenanceStatus').'</th>';
-		$html .= '<th>'.$langs->trans('PowerPlantPVMaintenancePrestations').'</th>';
+		$html .= '<th>'.$outputlangs->trans('PowerPlant').'</th>';
+		$html .= '<th>'.$outputlangs->trans('Contract').'</th>';
+		$html .= '<th>'.$outputlangs->trans('PowerPlantPVMaintenancePeriod').'</th>';
+		$html .= '<th>'.$outputlangs->trans('PowerPlantPVMaintenanceStatus').'</th>';
+		$html .= '<th>'.$outputlangs->trans('Intervention').'</th>';
+		$html .= '<th>'.$outputlangs->trans('PowerPlantPVMaintenancePrestations').'</th>';
 		$html .= '</tr>';
 
 		$textLines = array();
 		foreach ($rows as $row) {
 			$powerPlantLabel = $this->formatPowerPlantLabel($row);
 			$contractLabel = $this->formatContractLabel($row);
-			$periodLabel = powerplantpvMaintenanceFormatPeriod((int) $row['period_start'], (int) $row['period_end']);
-			$textPeriodLabel = $this->formatPeriodText((int) $row['period_start'], (int) $row['period_end']);
-			$statusLabel = $langs->trans(PowerPlantPVMaintenanceScheduler::getStatusLabelKey((string) $row['status']));
+			$periodLabel = $this->formatPeriodText((int) $row['period_start'], (int) $row['period_end'], $outputlangs);
+			$textPeriodLabel = $periodLabel;
+			$statusLabel = $outputlangs->trans(PowerPlantPVMaintenanceScheduler::getStatusLabelKey((string) $row['status']));
 			$prestationsHtml = powerplantpvMaintenanceRenderPrestations($row['active_services']);
-			$prestationsText = $this->formatPrestationsText($row['active_services']);
+			$prestationsText = $this->formatPrestationsText($row['active_services'], $outputlangs);
+			$powerPlantUrl = self::buildAbsoluteObjectUrl('/powerplantpv/powerplant_card.php', (int) $row['powerplant_id']);
+			$contractUrl = self::buildAbsoluteObjectUrl('/contrat/card.php', (int) $row['contract_id']);
+			$intervention = $this->getDisplayedIntervention($row);
+			$interventionLabel = is_array($intervention) ? (string) $intervention['ref'] : '-';
+			$interventionUrl = is_array($intervention) ? self::buildAbsoluteObjectUrl('/fichinter/card.php', (int) $intervention['id']) : '';
 
 			$html .= '<tr>';
-			$html .= '<td>'.dol_escape_htmltag($powerPlantLabel).'</td>';
-			$html .= '<td>'.dol_escape_htmltag($contractLabel).'</td>';
-			$html .= '<td>'.$periodLabel.'</td>';
+			$html .= '<td>'.$this->formatEmailLink($powerPlantLabel, $powerPlantUrl).'</td>';
+			$html .= '<td>'.$this->formatEmailLink($contractLabel, $contractUrl).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($periodLabel).'</td>';
 			$html .= '<td>'.dol_escape_htmltag($statusLabel).'</td>';
+			$html .= '<td>'.$this->formatEmailLink($interventionLabel, $interventionUrl).'</td>';
 			$html .= '<td>'.$prestationsHtml.'</td>';
 			$html .= '</tr>';
 
-			$textLines[] = $powerPlantLabel.' | '.$contractLabel.' | '.$textPeriodLabel.' | '.$statusLabel.' | '.$prestationsText;
+			$textLines[] = $powerPlantLabel.' ('.$powerPlantUrl.') | '.$contractLabel.' ('.$contractUrl.') | '.$textPeriodLabel.' | '.$statusLabel.' | '.$interventionLabel.($interventionUrl !== '' ? ' ('.$interventionUrl.')' : '').' | '.$prestationsText;
 		}
 		$html .= '</table>';
 
@@ -433,6 +575,57 @@ class PowerPlantPVMaintenanceReminder
 			'text' => implode("\n", $textLines),
 			'count' => count($rows),
 		);
+	}
+
+	/**
+	 * Return the intervention displayed in the digest.
+	 *
+	 * @param	array<string,mixed>	$row	Maintenance row
+	 * @return	array<string,mixed>|null	Intervention
+	 */
+	private function getDisplayedIntervention(array $row)
+	{
+		if (!empty($row['covering_intervention']) && is_array($row['covering_intervention'])) {
+			return $row['covering_intervention'];
+		}
+		if (!empty($row['scheduled_intervention']) && is_array($row['scheduled_intervention'])) {
+			return $row['scheduled_intervention'];
+		}
+
+		return null;
+	}
+
+	/**
+	 * Build an absolute object card URL.
+	 *
+	 * @param	string	$path	Card path
+	 * @param	int		$id		Object id
+	 * @return	string			Absolute URL or empty string
+	 */
+	public static function buildAbsoluteObjectUrl($path, $id)
+	{
+		if ($id <= 0) {
+			return '';
+		}
+
+		return dol_buildpath($path, 2).'?id='.((int) $id);
+	}
+
+	/**
+	 * Render one safe email link.
+	 *
+	 * @param	string	$label	Link label
+	 * @param	string	$url	Absolute URL
+	 * @return	string			HTML
+	 */
+	private function formatEmailLink($label, $url)
+	{
+		$escapedLabel = dol_escape_htmltag($label);
+		if ($url === '') {
+			return $escapedLabel;
+		}
+
+		return '<a href="'.dol_escape_htmltag($url).'">'.$escapedLabel.'</a>';
 	}
 
 	/**
@@ -483,16 +676,14 @@ class PowerPlantPVMaintenanceReminder
 	 * @param	User						$recipientUser	Recipient user
 	 * @return	array{subject:string,body:string,is_html:int}	Mail content
 	 */
-	private function prepareMailContent($frequency, array $template, array $digest, User $recipientUser)
+	private function prepareMailContent($frequency, array $template, array $digest, User $recipientUser, $outputlangs)
 	{
-		global $langs;
-
-		$frequencyLabel = $this->getFrequencyLabel($frequency);
+		$frequencyLabel = $this->getFrequencyLabel($frequency, $outputlangs);
 		$defaultSubjectKey = ($frequency === self::FREQUENCY_MONTHLY) ? 'PowerPlantPVMaintenanceReminderMonthlySubject' : 'PowerPlantPVMaintenanceReminderWeeklySubject';
-		$subject = !empty($template['topic']) ? (string) $template['topic'] : $langs->transnoentities($defaultSubjectKey, (int) $digest['count']);
+		$subject = !empty($template['topic']) ? (string) $template['topic'] : $outputlangs->transnoentities($defaultSubjectKey, (int) $digest['count']);
 		$body = !empty($template['content']) ? (string) $template['content'] : '';
 		if ($body === '') {
-			$body = '<p>'.$langs->trans('PowerPlantPVMaintenanceReminderDefaultIntro', $frequencyLabel, (int) $digest['count']).'</p>';
+			$body = '<p>'.$outputlangs->trans('PowerPlantPVMaintenanceReminderDefaultIntro', $frequencyLabel, (int) $digest['count']).'</p>';
 			$body .= '__POWERPLANTPV_MAINTENANCE_REMINDER_HTML__';
 		} elseif (strpos($body, '__POWERPLANTPV_MAINTENANCE_REMINDER_HTML__') === false
 			&& strpos($body, '__POWERPLANTPV_MAINTENANCE_REMINDER_TEXT__') === false
@@ -500,7 +691,7 @@ class PowerPlantPVMaintenanceReminder
 			$body .= "\n\n".'__POWERPLANTPV_MAINTENANCE_REMINDER_HTML__';
 		}
 
-		$substitutions = $this->getSubstitutions($frequencyLabel, $digest, $recipientUser);
+		$substitutions = $this->getSubstitutions($frequencyLabel, $digest, $recipientUser, $outputlangs);
 		if (function_exists('make_substitutions')) {
 			$subject = make_substitutions($subject, $substitutions);
 			$body = make_substitutions($body, $substitutions);
@@ -531,13 +722,11 @@ class PowerPlantPVMaintenanceReminder
 	 * @param	User	$recipientUser	Recipient user
 	 * @return	array<string,string>	Substitutions
 	 */
-	private function getSubstitutions($frequencyLabel, array $digest, User $recipientUser)
+	private function getSubstitutions($frequencyLabel, array $digest, User $recipientUser, $outputlangs)
 	{
-		global $langs;
-
 		$substitutions = array();
 		if (function_exists('getCommonSubstitutionArray')) {
-			$substitutions = getCommonSubstitutionArray($langs, 0, null, null, null);
+			$substitutions = getCommonSubstitutionArray($outputlangs, 0, null, null, null);
 		}
 		$substitutions['__POWERPLANTPV_MAINTENANCE_REMINDER_FREQUENCY__'] = $frequencyLabel;
 		$substitutions['__POWERPLANTPV_MAINTENANCE_REMINDER_COUNT__'] = (string) $digest['count'];
@@ -548,7 +737,7 @@ class PowerPlantPVMaintenanceReminder
 		$substitutions['__USER_FULLNAME__'] = dolGetFirstLastname($recipientUser->firstname, $recipientUser->lastname);
 		$substitutions['__USER_EMAIL__'] = (string) $recipientUser->email;
 		if (function_exists('complete_substitutions_array')) {
-			complete_substitutions_array($substitutions, $langs, null, $recipientUser);
+			complete_substitutions_array($substitutions, $outputlangs, null, $recipientUser);
 		}
 
 		return $substitutions;
@@ -591,17 +780,41 @@ class PowerPlantPVMaintenanceReminder
 	 * @param	int		$currentStart		Current start timestamp
 	 * @return	int							Next timestamp
 	 */
-	private function scheduleNextStart($frequency, $currentStart)
+	private function scheduleNextStart($frequency, $currentStart, $executionTimestamp)
 	{
 		global $conf, $user;
 
-		$nextStart = ($frequency === self::FREQUENCY_MONTHLY)
-			? dol_time_plus_duree((int) $currentStart, 1, 'm', 1)
-			: dol_time_plus_duree((int) $currentStart, 1, 'w');
-		dolibarr_set_const($this->db, $this->getStartConstName($frequency), (string) $nextStart, 'chaine', 0, '', (int) $conf->entity);
-		self::updateCronStartTime($this->db, $frequency, $nextStart, $user);
+		$nextStart = self::calculateNextFutureStart($frequency, $currentStart, $executionTimestamp);
+		if ($nextStart <= (int) $executionTimestamp || dolibarr_set_const($this->db, $this->getStartConstName($frequency), (string) $nextStart, 'chaine', 0, '', (int) $conf->entity) <= 0) {
+			return -1;
+		}
+		if (self::updateCronStartTime($this->db, $frequency, $nextStart, $user) <= 0) {
+			return -1;
+		}
 
 		return $nextStart;
+	}
+
+	/**
+	 * Calculate the first future start after a catch-up.
+	 *
+	 * @param	string	$frequency		Frequency code
+	 * @param	int		$currentStart		Configured occurrence
+	 * @param	int		$executionTimestamp	Execution timestamp
+	 * @return	int						First future occurrence or 0
+	 */
+	public static function calculateNextFutureStart($frequency, $currentStart, $executionTimestamp)
+	{
+		$nextStart = (int) $currentStart;
+		$guard = 0;
+		do {
+			$nextStart = ($frequency === self::FREQUENCY_MONTHLY)
+				? dol_time_plus_duree($nextStart, 1, 'm', 1)
+				: dol_time_plus_duree($nextStart, 1, 'w');
+			$guard++;
+		} while ($nextStart <= (int) $executionTimestamp && $guard < 10000);
+
+		return ($nextStart > (int) $executionTimestamp) ? $nextStart : 0;
 	}
 
 	/**
@@ -641,9 +854,22 @@ class PowerPlantPVMaintenanceReminder
 	 */
 	private function getRecipientMarkerConstName($frequency, User $recipientUser)
 	{
-		$key = strtolower($frequency).'|'.((int) $recipientUser->id).'|'.strtolower(trim((string) $recipientUser->email));
+		return self::buildRecipientMarkerConstName($frequency, (int) $recipientUser->id, (string) $recipientUser->email);
+	}
 
-		return 'POWERPLANTPV_MAINTENANCE_REMINDER_SENT_'.strtoupper($frequency).'_'.strtoupper(substr(hash('sha256', $key), 0, 24));
+	/**
+	 * Build a stable recipient marker constant name.
+	 *
+	 * @param	string	$frequency	Frequency code
+	 * @param	int		$userId		User id
+	 * @param	string	$email		Recipient email
+	 * @return	string				Constant name
+	 */
+	public static function buildRecipientMarkerConstName($frequency, $userId, $email)
+	{
+		$key = strtolower((string) $frequency).'|'.((int) $userId).'|'.strtolower(trim((string) $email));
+
+		return 'POWERPLANTPV_MAINTENANCE_REMINDER_SENT_'.strtoupper((string) $frequency).'_'.strtoupper(substr(hash('sha256', $key), 0, 24));
 	}
 
 	/**
@@ -678,7 +904,22 @@ class PowerPlantPVMaintenanceReminder
 	 */
 	private function getReminderLockName($frequency, $periodKey)
 	{
-		return 'powerplantpv_maintenance_reminder_'.substr(hash('sha256', $frequency.'|'.$periodKey), 0, 24);
+		global $conf;
+
+		return self::buildEntityLockName((int) $conf->entity, $frequency, $periodKey);
+	}
+
+	/**
+	 * Build an entity-specific advisory lock name.
+	 *
+	 * @param	int		$entity		Entity id
+	 * @param	string	$frequency	Frequency code
+	 * @param	string	$periodKey	Period key
+	 * @return	string				Lock name
+	 */
+	public static function buildEntityLockName($entity, $frequency, $periodKey)
+	{
+		return 'powerplantpv_maintenance_reminder_'.substr(hash('sha256', ((int) $entity).'|'.$frequency.'|'.$periodKey), 0, 24);
 	}
 
 	/**
@@ -749,32 +990,9 @@ class PowerPlantPVMaintenanceReminder
 	 * @param	string	$frequency	Frequency code
 	 * @return	string				Label
 	 */
-	private function getFrequencyLabel($frequency)
+	private function getFrequencyLabel($frequency, $outputlangs)
 	{
-		global $langs;
-
-		return $langs->trans($frequency === self::FREQUENCY_MONTHLY ? 'PowerPlantPVMaintenanceReminderMonthly' : 'PowerPlantPVMaintenanceReminderWeekly');
-	}
-
-	/**
-	 * Build a system user for scheduler scans.
-	 *
-	 * @return	User	System user
-	 */
-	private function buildSystemUser()
-	{
-		global $user;
-
-		if ($user instanceof User && empty($user->socid)) {
-			return $user;
-		}
-
-		$runUser = new User($this->db);
-		$runUser->id = 0;
-		$runUser->admin = 1;
-		$runUser->socid = 0;
-
-		return $runUser;
+		return $outputlangs->trans($frequency === self::FREQUENCY_MONTHLY ? 'PowerPlantPVMaintenanceReminderMonthly' : 'PowerPlantPVMaintenanceReminderWeekly');
 	}
 
 	/**
@@ -820,15 +1038,13 @@ class PowerPlantPVMaintenanceReminder
 	 * @param	int	$periodEnd		End timestamp
 	 * @return	string				Plain text
 	 */
-	private function formatPeriodText($periodStart, $periodEnd)
+	private function formatPeriodText($periodStart, $periodEnd, $outputlangs)
 	{
-		global $langs;
-
 		if ($periodStart <= 0 || $periodEnd <= 0) {
-			return $langs->trans('PowerPlantPVMaintenancePeriodMissing');
+			return $outputlangs->trans('PowerPlantPVMaintenancePeriodMissing');
 		}
 
-		return dol_print_date($periodStart, 'day').' - '.dol_print_date($periodEnd, 'day');
+		return dol_print_date($periodStart, 'day', 'tzuser', $outputlangs).' - '.dol_print_date($periodEnd, 'day', 'tzuser', $outputlangs);
 	}
 
 	/**
@@ -837,10 +1053,8 @@ class PowerPlantPVMaintenanceReminder
 	 * @param	array<int,array<string,mixed>>	$services	Service lines
 	 * @return	string										Plain text
 	 */
-	private function formatPrestationsText($services)
+	private function formatPrestationsText($services, $outputlangs)
 	{
-		global $langs;
-
 		$labels = array();
 		foreach ($services as $service) {
 			if (empty($service['maintenance_services']) || !is_array($service['maintenance_services'])) {
@@ -854,7 +1068,7 @@ class PowerPlantPVMaintenanceReminder
 			}
 		}
 
-		return empty($labels) ? $langs->trans('PowerPlantPVNoMaintenanceServiceOnActiveServices') : implode(', ', array_values($labels));
+		return empty($labels) ? $outputlangs->trans('PowerPlantPVNoMaintenanceServiceOnActiveServices') : implode(', ', array_values($labels));
 	}
 
 	/**

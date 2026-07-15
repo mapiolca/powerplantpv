@@ -103,7 +103,7 @@ $allRows = $scheduler->getMaintenanceRows($user);
 $calendarRows = array();
 foreach ($allRows as $row) {
 	$status = (string) $row['status'];
-	if (!in_array($status, array(PowerPlantPVMaintenanceScheduler::STATUS_PLANNED, PowerPlantPVMaintenanceScheduler::STATUS_DUE, PowerPlantPVMaintenanceScheduler::STATUS_OVERDUE), true)) {
+	if (!in_array($status, array(PowerPlantPVMaintenanceScheduler::STATUS_PLANNED, PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED, PowerPlantPVMaintenanceScheduler::STATUS_DUE, PowerPlantPVMaintenanceScheduler::STATUS_OVERDUE), true)) {
 		continue;
 	}
 	$periodStart = (int) $row['period_start'];
@@ -156,7 +156,7 @@ if (empty($calendarRows)) {
 		print '<td>'.powerplantpvMaintenanceFormatPeriod((int) $row['period_start'], (int) $row['period_end']).'</td>';
 		print '<td class="center">'.powerplantpvMaintenanceStatusBadge((string) $row['status']).'</td>';
 		print '<td class="right nowrap">';
-		if (!empty($row['is_eligible'])) {
+		if (!empty($row['is_eligible']) && powerplantpvMaintenanceStatusAllowsCreation((string) $row['status'])) {
 			$urlCreate = powerplantpvMaintenanceBuildCreateInterventionUrl($powerplant, $row, dol_buildpath('/powerplantpv/maintenance_calendar.php', 1).'?year='.$year.'&month='.$month);
 			print dolGetButtonAction($langs->trans('PowerPlantPVCreateMaintenanceInterventionTooltip'), $langs->trans('Create'), 'default', $urlCreate, '', ($createAllowed && !empty($row['fk_soc'])));
 		} else {
