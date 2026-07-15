@@ -16,34 +16,11 @@
 }
 
 .powerplantpv-maintenance-widget-card {
-	border: 1px solid var(--colortextbackhmenu, #ddd);
-	border-radius: .35rem;
-	margin-bottom: 1rem;
-	background: var(--colorbackbody, #fff);
-	overflow: hidden;
+	width: 100%;
 }
 
 .powerplantpv-maintenance-widget-card.is-dragging {
 	opacity: .45;
-}
-
-.powerplantpv-maintenance-widget-title {
-	display: flex;
-	align-items: center;
-	gap: .35rem;
-	padding: .75rem;
-}
-
-.powerplantpv-maintenance-widget-title > span:nth-child(2) {
-	flex: 1;
-}
-
-.powerplantpv-maintenance-widget-handle {
-	cursor: grab;
-}
-
-.powerplantpv-maintenance-widget-content {
-	padding: .5rem .75rem .75rem;
 }
 
 .powerplantpv-maintenance-indicator {

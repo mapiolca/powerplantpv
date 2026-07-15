@@ -88,7 +88,7 @@
 				if (!option && select) {
 					option = document.createElement('option');
 					option.value = card.dataset.widgetCode;
-					option.textContent = card.querySelector('.powerplantpv-maintenance-widget-title > span:nth-child(2)').textContent;
+					option.textContent = card.querySelector('.powerplantpv-maintenance-widget-label').textContent;
 					select.appendChild(option);
 				}
 				if (option) option.hidden = false;

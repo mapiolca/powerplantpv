@@ -87,6 +87,45 @@ $manager = new PowerPlantPVMaintenanceWidgetManager($db);
 $dashboard = $service->getDashboard($user, $dateStart, $dateEnd);
 $layout = $manager->getLayout((int) $user->id, (int) $conf->entity);
 $catalog = PowerPlantPVMaintenanceWidget::getCatalog();
+
+/**
+ * Render one dashboard widget with the native Dolibarr box structure.
+ *
+ * @param string $code Widget code
+ * @param array<string,mixed> $definition Widget definition
+ * @param array<string,mixed> $dashboard Dashboard data
+ * @param string $periodHelp Period help text
+ * @param Translate $langs Language handler
+ * @return string
+ */
+function powerplantpvMaintenanceRenderDashboardWidget($code, array $definition, array $dashboard, $periodHelp, $langs)
+{
+	$label = $langs->trans((string) $definition['label']);
+	$escapedCode = dol_escape_htmltag($code);
+	$html = '<div class="box divboxtable boxdraggable powerplantpv-maintenance-widget-card" data-widget-code="'.$escapedCode.'">';
+	$html .= '<table summary="powerplantpv-maintenance-widget-'.$escapedCode.'" class="noborder boxtable centpercent">';
+	$html .= '<tr class="liste_titre box_titre"><th title="'.dolPrintHTMLForAttribute($label).'">';
+	$html .= '<div class="tdoverflowmax400 maxwidth250onsmartphone float powerplantpv-maintenance-widget-label">'.$label.'</div>';
+	$html .= '<div class="nocellnopadd boxclose floatright nowraponall">';
+	$html .= img_picto($periodHelp, 'help', 'class="opacitymedium marginleftonly classfortooltip"');
+	$html .= img_picto(
+		$langs->trans('MoveBox', $label),
+		'grip_title',
+		'class="opacitymedium boxhandle hideonsmartphone cursormove marginleftonly powerplantpv-maintenance-widget-handle" draggable="true"'
+	);
+	$html .= img_picto(
+		$langs->trans('CloseBox', $label),
+		'close_title',
+		'class="opacitymedium boxclose cursorpointer marginleftonly powerplantpv-maintenance-widget-remove"'
+	);
+	$html .= '</div></th></tr>';
+	$html .= '<tr class="oddeven nohover"><td class="nohover powerplantpv-maintenance-widget-content">';
+	$html .= PowerPlantPVMaintenanceWidget::renderContent($code, $dashboard);
+	$html .= '</td></tr></table></div>';
+
+	return $html;
+}
+
 $visibleCodes = array();
 foreach ($layout as $item) {
 	$visibleCodes[$item['code']] = true;
@@ -133,14 +172,7 @@ for ($column = 0; $column <= 1; $column++) {
 			continue;
 		}
 		$definition = $catalog[$item['code']];
-		print '<section class="powerplantpv-maintenance-widget-card" draggable="true" data-widget-code="'.dol_escape_htmltag($item['code']).'">';
-		print '<div class="liste_titre powerplantpv-maintenance-widget-title">';
-		print '<span class="fa fa-grip-vertical powerplantpv-maintenance-widget-handle" aria-hidden="true"></span> ';
-		print '<span class="classfortooltip" title="'.dol_escape_htmltag($periodHelp).'">'.$langs->trans($definition['label']).'</span>';
-		print '<a href="#" class="powerplantpv-maintenance-widget-remove" title="'.dol_escape_htmltag($langs->trans('Remove')).'">'.img_delete().'</a>';
-		print '</div>';
-		print '<div class="powerplantpv-maintenance-widget-content">'.PowerPlantPVMaintenanceWidget::renderContent($item['code'], $dashboard).'</div>';
-		print '</section>';
+		print powerplantpvMaintenanceRenderDashboardWidget($item['code'], $definition, $dashboard, $periodHelp, $langs);
 	}
 	print '</div>';
 }
@@ -149,12 +181,8 @@ print '</div>';
 print '<div id="powerplantpv-maintenance-widget-templates" class="hidden">';
 foreach ($catalog as $code => $definition) {
 	print '<div class="powerplantpv-maintenance-widget-template" data-widget-code="'.dol_escape_htmltag($code).'">';
-	print '<section class="powerplantpv-maintenance-widget-card" draggable="true" data-widget-code="'.dol_escape_htmltag($code).'">';
-	print '<div class="liste_titre powerplantpv-maintenance-widget-title"><span class="fa fa-grip-vertical powerplantpv-maintenance-widget-handle"></span> ';
-	print '<span class="classfortooltip" title="'.dol_escape_htmltag($periodHelp).'">'.$langs->trans($definition['label']).'</span>';
-	print '<a href="#" class="powerplantpv-maintenance-widget-remove" title="'.dol_escape_htmltag($langs->trans('Remove')).'">'.img_delete().'</a></div>';
-	print '<div class="powerplantpv-maintenance-widget-content">'.PowerPlantPVMaintenanceWidget::renderContent($code, $dashboard).'</div>';
-	print '</section></div>';
+	print powerplantpvMaintenanceRenderDashboardWidget($code, $definition, $dashboard, $periodHelp, $langs);
+	print '</div>';
 }
 print '</div>';
 print '</div>';

@@ -2,6 +2,7 @@
 
 ## 1.3.0
 
+- Tableau de bord maintenance : alignement des widgets personnalisables sur la structure et les icônes natives des boîtes Dolibarr, avec aide, poignée de déplacement et fermeture dans le bandeau du widget.
 - Tableau de bord maintenance : nouvelle page d'entrée `maintenance_index.php`, disposition de widgets personnalisable par utilisateur et par entité, filtre de période commun et réorganisation en deux colonnes avec repli mobile.
 - Tableau de bord maintenance : correction du passage de décembre à janvier dans les séries mensuelles, sans transmettre de date vide à PHP 8.
 - Statistiques maintenance : remplacement du tableau de bord personnalisable par une analyse fixe comparant deux ou trois années civiles, avec volumes mensuels, réalisations, natures, centrales et clients issus des interventions datées et dédoublonnées.
