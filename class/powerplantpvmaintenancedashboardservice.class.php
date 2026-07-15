@@ -77,7 +77,14 @@ class PowerPlantPVMaintenanceDashboardService
 		$quality = array('incomplete' => 0, 'missing_period' => 0, 'missing_recurrence' => 0);
 		$distributions = array('by_powerplant' => array(), 'by_customer' => array(), 'by_nature' => array(), 'by_service' => array(), 'by_recurrence' => array());
 		$monthly = $this->initializeMonths($dateStart, $dateEnd);
-		$today = dol_mktime(0, 0, 0, (int) date('m', $referenceDate), (int) date('d', $referenceDate), (int) date('Y', $referenceDate));
+		$today = (int) dol_mktime(
+			0,
+			0,
+			0,
+			(int) dol_print_date((int) $referenceDate, '%m'),
+			(int) dol_print_date((int) $referenceDate, '%d'),
+			(int) dol_print_date((int) $referenceDate, '%Y')
+		);
 
 		foreach ($rows as $row) {
 			$status = isset($row['status']) ? (string) $row['status'] : PowerPlantPVMaintenanceScheduler::STATUS_NOT_REQUIRED;
@@ -136,7 +143,7 @@ class PowerPlantPVMaintenanceDashboardService
 			}
 
 			if (!$isNotRequired && !$isIncomplete) {
-				$monthKey = $periodStart > 0 ? date('Y-m', $periodStart) : '';
+				$monthKey = $periodStart > 0 ? dol_print_date($periodStart, '%Y-%m') : '';
 				if (isset($monthly[$monthKey])) {
 					$monthly[$monthKey]['count']++;
 				}
@@ -178,14 +185,43 @@ class PowerPlantPVMaintenanceDashboardService
 	private function initializeMonths($dateStart, $dateEnd)
 	{
 		$months = array();
-		$cursor = dol_mktime(0, 0, 0, (int) date('m', $dateStart), 1, (int) date('Y', $dateStart));
-		$last = dol_mktime(0, 0, 0, (int) date('m', $dateEnd), 1, (int) date('Y', $dateEnd));
+		$dateStart = (int) $dateStart;
+		$dateEnd = (int) $dateEnd;
+		if ($dateStart <= 0 || $dateEnd <= 0 || $dateEnd < $dateStart) {
+			return $months;
+		}
+		$cursor = (int) dol_mktime(
+			0,
+			0,
+			0,
+			(int) dol_print_date($dateStart, '%m'),
+			1,
+			(int) dol_print_date($dateStart, '%Y')
+		);
+		$last = (int) dol_mktime(
+			0,
+			0,
+			0,
+			(int) dol_print_date($dateEnd, '%m'),
+			1,
+			(int) dol_print_date($dateEnd, '%Y')
+		);
 		for ($index = 0; $cursor <= $last && $index < 24; $index++) {
-			$key = date('Y-m', $cursor);
+			$key = dol_print_date($cursor, '%Y-%m');
 			$months[$key] = array('label' => dol_print_date($cursor, '%b %Y'), 'count' => 0);
-			$month = (int) date('m', $cursor) + 1;
-			$year = (int) date('Y', $cursor);
-			$cursor = dol_mktime(0, 0, 0, $month, 1, $year);
+			$month = (int) dol_print_date($cursor, '%m');
+			$year = (int) dol_print_date($cursor, '%Y');
+			if ($month === 12) {
+				$month = 1;
+				$year++;
+			} else {
+				$month++;
+			}
+			$nextCursor = (int) dol_mktime(0, 0, 0, $month, 1, $year);
+			if ($nextCursor <= $cursor) {
+				break;
+			}
+			$cursor = $nextCursor;
 		}
 		return $months;
 	}

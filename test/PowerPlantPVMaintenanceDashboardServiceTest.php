@@ -73,4 +73,17 @@ final class PowerPlantPVMaintenanceDashboardServiceTest extends TestCase
 		$this->assertSame(1, $data['configuration_quality']['missing_period']);
 		$this->assertSame(1, $data['configuration_quality']['missing_recurrence']);
 	}
+
+	public function testMonthlyBucketsCrossDecemberWithoutInvalidTimestamp(): void
+	{
+		global $db;
+
+		$dateStart = dol_mktime(0, 0, 0, 1, 1, 2026);
+		$dateEnd = dol_mktime(23, 59, 59, 12, 31, 2026);
+		$service = new PowerPlantPVMaintenanceDashboardService($db);
+		$data = $service->aggregateRows(array(), $dateStart, $dateEnd, $dateStart);
+
+		$this->assertCount(12, $data['monthly_load']);
+		$this->assertSame(0, array_sum(array_column($data['monthly_load'], 'count')));
+	}
 }

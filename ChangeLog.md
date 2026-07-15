@@ -3,6 +3,7 @@
 ## 1.3.0
 
 - Tableau de bord maintenance : nouvelle page d'entrée `maintenance_index.php`, disposition de widgets personnalisable par utilisateur et par entité, filtre de période commun et réorganisation en deux colonnes avec repli mobile.
+- Tableau de bord maintenance : correction du passage de décembre à janvier dans les séries mensuelles, sans transmettre de date vide à PHP 8.
 - Statistiques maintenance : remplacement du tableau de bord personnalisable par une analyse fixe comparant deux ou trois années civiles, avec volumes mensuels, réalisations, natures, centrales et clients issus des interventions datées et dédoublonnées.
 - Statistiques maintenance : catalogue et service d'agrégation partagés pour les synthèses, échéances, retards, charge mensuelle, répartitions et qualité de configuration.
 - Accueil Dolibarr : ajout de boîtes natives de maintenance activables individuellement par chaque utilisateur, toutes déclarées sans activation par défaut.
