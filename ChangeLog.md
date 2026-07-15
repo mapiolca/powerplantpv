@@ -12,6 +12,7 @@
 - Ajout du modèle PDF d'intervention `powerplantpvreport`, incluant équipements, mesures, relevés, thermographie, fichiers, signatures et mentions légales configurables par entité.
 - Ajout des écrans d'administration, traductions, partages Multicompany et documentations nécessaires au paramétrage et à l'exploitation de la maintenance.
 - Fiabilisation de l'activation/réactivation, de la pagination, des changements d'année et de la conservation des modèles et réglages existants.
+- Optimisation du rapport de maintenance sur iOS afin d'éviter le zoom automatique à la saisie, sans désactiver le zoom manuel d'accessibilité.
 
 ## 1.2.1
 

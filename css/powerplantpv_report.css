@@ -346,6 +346,26 @@
 }
 
 @media (max-width: 767px) {
+	.page-maintenance-intervention-report .powerplantpv-report-control:not([type="file"]),
+	.page-maintenance-intervention-report .powerplantpv-report-input input[type="text"],
+	.page-maintenance-intervention-report .powerplantpv-report-input input[type="number"],
+	.page-maintenance-intervention-report .powerplantpv-report-input input[type="search"],
+	.page-maintenance-intervention-report .powerplantpv-report-input input[type="email"],
+	.page-maintenance-intervention-report .powerplantpv-report-input input[type="tel"],
+	.page-maintenance-intervention-report .powerplantpv-report-input input[type="url"],
+	.page-maintenance-intervention-report .powerplantpv-report-input textarea,
+	.page-maintenance-intervention-report .powerplantpv-report-input select,
+	.page-maintenance-intervention-report .powerplantpv-report-date input:not([type="hidden"]),
+	.page-maintenance-intervention-report .powerplantpv-report-date select,
+	.page-maintenance-intervention-report .powerplantpv-dc-card input[type="text"],
+	.page-maintenance-intervention-report .powerplantpv-dc-card input[type="number"],
+	.page-maintenance-intervention-report .powerplantpv-dc-card textarea,
+	.page-maintenance-intervention-report .powerplantpv-dc-card select,
+	.page-maintenance-intervention-report .select2-selection,
+	.page-maintenance-intervention-report .select2-search__field {
+		font-size: 16px !important;
+	}
+
 	.page-maintenance-intervention-report .powerplantpv-report-fields {
 		grid-template-columns: 1fr;
 		padding: 8px;
