@@ -23,15 +23,6 @@
 	opacity: .45;
 }
 
-.powerplantpv-maintenance-indicator {
-	padding: 1.5rem .5rem;
-}
-
-.powerplantpv-maintenance-indicator-value {
-	font-size: 2.2rem;
-	font-weight: 600;
-}
-
 .powerplantpv-maintenance-bar-row {
 	display: grid;
 	grid-template-columns: minmax(6rem, 9rem) 1fr 2.5rem;

@@ -128,9 +128,10 @@ function powerplantpvMaintenanceStatsAnnualTable(array $annual, array $years, $l
  * @param string $graphId Graph identifier
  * @param Conf $conf Configuration
  * @param Translate $langs Language handler
+ * @param string $help Translated graph explanation
  * @return string
  */
-function powerplantpvMaintenanceStatsGraph($title, array $data, array $legend, $type, $graphId, $conf, $langs)
+function powerplantpvMaintenanceStatsGraph($title, array $data, array $legend, $type, $graphId, $conf, $langs, $help = '')
 {
 	$total = 0;
 	foreach ($data as $line) {
@@ -139,7 +140,11 @@ function powerplantpvMaintenanceStatsGraph($title, array $data, array $legend, $
 		}
 	}
 	$out = '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
-	$out .= '<tr class="liste_titre"><th>'.$title.'</th></tr><tr><td class="center">';
+	$out .= '<tr class="liste_titre"><th>'.$title;
+	if ($help !== '') {
+		$out .= '<span class="floatright">'.img_picto($help, 'help', 'class="classfortooltip opacitymedium"').'</span>';
+	}
+	$out .= '</th></tr><tr><td class="center">';
 	if ($total <= 0) {
 		$out .= '<span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span>';
 	} else {
@@ -288,7 +293,8 @@ print powerplantpvMaintenanceStatsGraph(
 	'lines',
 	'powerplantpv_maintenance_monthly_total'.$graphSuffix,
 	$conf,
-	$langs
+	$langs,
+	$langs->trans('PowerPlantPVMaintenanceStatisticsMonthlyVolumeHelp')
 );
 print '</div>';
 print '<div class="fichehalfright">';
@@ -299,7 +305,8 @@ print powerplantpvMaintenanceStatsGraph(
 	'lines',
 	'powerplantpv_maintenance_monthly_completed'.$graphSuffix,
 	$conf,
-	$langs
+	$langs,
+	$langs->trans('PowerPlantPVMaintenanceStatisticsMonthlyCompletedHelp')
 );
 print '</div>';
 print '</div>';

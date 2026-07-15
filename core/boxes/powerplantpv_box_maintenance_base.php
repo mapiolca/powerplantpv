@@ -77,20 +77,19 @@ abstract class PowerPlantPVMaintenanceBoxBase extends ModeleBoxes
 		$range = $this->getHomeRange($catalog[$this->widgetCode]['home_period']);
 		$service = new PowerPlantPVMaintenanceDashboardService($this->db);
 		$data = $service->getDashboard($user, $range['start'], $range['end'], $range['reference']);
-		$period = $langs->trans('PowerPlantPVMaintenancePeriodHelp', dol_print_date($range['start'], 'day'), dol_print_date($range['end'], 'day'));
-		if ($catalog[$this->widgetCode]['home_period'] === 'all_active_overdue') {
-			$period = $langs->trans('PowerPlantPVMaintenanceAllActiveOverdueHelp');
-		}
 		$this->info_box_head = array(
 			'text' => $langs->trans($catalog[$this->widgetCode]['label']),
+			'nbcol' => 2,
 			'limit' => 0,
 			'subpicto' => 'help',
-			'subtext' => dol_escape_htmltag($period),
+			'subtext' => dol_escape_htmltag($langs->trans($catalog[$this->widgetCode]['help'])),
 			'subclass' => 'classfortooltip',
 		);
-		$this->info_box_contents = array(
-			array(0 => array('td' => 'class="nohover"', 'asis' => 1, 'text' => PowerPlantPVMaintenanceWidget::renderContent($this->widgetCode, $data))),
-		);
+		$this->info_box_contents = array(array(0 => array(
+			'td' => 'class="nohover"',
+			'asis' => 1,
+			'text' => PowerPlantPVMaintenanceWidget::renderBoxContents($this->widgetCode, $data),
+		)));
 	}
 
 	/**
