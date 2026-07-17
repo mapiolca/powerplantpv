@@ -66,6 +66,7 @@ dol_include_once('/powerplantpv/class/powerplantpvmaintenancescheduler.class.php
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'other', 'companies', 'contracts', 'interventions'));
 
 $action = GETPOST('action', 'aZ09');
+$contextpage = 'maintenance_list';
 $limit = GETPOSTINT('limit') ? GETPOSTINT('limit') : $conf->liste_limit;
 $page = GETPOSTISSET('pageplusone') ? (GETPOSTINT('pageplusone') - 1) : GETPOSTINT('page');
 if (empty($page) || $page < 0 || GETPOST('button_search', 'alpha') || GETPOST('button_removefilter', 'alpha')) {
@@ -114,6 +115,9 @@ if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_MAINTENANCE_
 if (!powerplantpvUserHasMaintenanceRight($user, 'read') || !powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'))) {
 	accessforbidden();
 }
+
+// Save the selected list columns with the native Dolibarr user preference mechanism.
+include DOL_DOCUMENT_ROOT.'/core/actions_changeselectedfields.inc.php';
 
 $entityOptions = powerplantGetAccessibleEntityOptions();
 $searchEntity = array_values(array_intersect($searchEntity, array_keys($entityOptions)));
@@ -191,6 +195,7 @@ llxHeader('', $title, '', '', 0, 0, '', '', '', 'mod-powerplantpv page-maintenan
 
 print '<form method="POST" id="searchFormList" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="formfilteraction" id="formfilteraction" value="list">';
 print '<input type="hidden" name="action" value="list">';
 print '<input type="hidden" name="page" value="'.$page.'">';
 print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
@@ -199,7 +204,8 @@ print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortor
 $newcardbutton = dolGetButtonTitle($langs->trans('NewMaintenanceIntervention'), '', 'fa fa-plus-circle', dol_buildpath('/powerplantpv/maintenance_intervention_card.php', 1).'?action=create&backtopage='.urlencode($_SERVER['PHP_SELF'].($param ? '?'.ltrim($param, '&') : '')), '', $createAllowed);
 print_barre_liste($title, $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $nbtotalofrecords, 'fa-tools', 0, $newcardbutton, '', $limit);
 
-$selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, 'maintenance_list');
+$actionColumnOnLeft = !empty($conf->main_checkbox_left_column);
+$selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, $contextpage, $conf->main_checkbox_left_column);
 $visibleColumnCount = 1;
 foreach ($arrayfields as $field) {
 	if (!empty($field['checked'])) {
@@ -210,6 +216,9 @@ foreach ($arrayfields as $field) {
 print '<div class="div-table-responsive">';
 print '<table class="tagtable nobottomiftotal noborder liste listwithfilterbefore">';
 print '<tr class="liste_titre_filter">';
+if ($actionColumnOnLeft) {
+	print '<td class="liste_titre center maxwidthsearch">'.$form->showFilterButtons('left').'</td>';
+}
 if (!empty($arrayfields['powerplant']['checked'])) {
 	print '<td>'.$form->selectarray('search_fk_powerplant', $powerplantOptions, $searchPowerplant, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth150').'</td>';
 }
@@ -247,10 +256,15 @@ if (!empty($arrayfields['status']['checked'])) {
 if (!empty($arrayfields['entity']['checked'])) {
 	print '<td class="center">'.$form->multiselectarray('search_entity', $entityOptions, $searchEntity, 0, 0, 'maxwidth150', 0, '100%').'</td>';
 }
-print '<td class="liste_titre center maxwidthsearch">'.$form->showFilterButtons().'</td>';
+if (!$actionColumnOnLeft) {
+	print '<td class="liste_titre center maxwidthsearch">'.$form->showFilterButtons().'</td>';
+}
 print '</tr>';
 
 print '<tr class="liste_titre">';
+if ($actionColumnOnLeft) {
+	print getTitleFieldOfList($selectedfields, 0, $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ')."\n";
+}
 foreach ($arrayfields as $key => $field) {
 	if (!empty($field['checked'])) {
 		$sortableField = in_array($key, $allowedSortFields, true) ? $key : '';
@@ -258,7 +272,9 @@ foreach ($arrayfields as $key => $field) {
 		print getTitleFieldOfList($field['label'], 0, $_SERVER['PHP_SELF'], $sortableField, '', $param, '', $sortfield, $sortorder, $css)."\n";
 	}
 }
-print getTitleFieldOfList($selectedfields, 0, $_SERVER['PHP_SELF'], '', '', '', '', '', '', 'center maxwidthsearch ')."\n";
+if (!$actionColumnOnLeft) {
+	print getTitleFieldOfList($selectedfields, 0, $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ')."\n";
+}
 print '</tr>';
 
 if (empty($pagedRows)) {
@@ -272,7 +288,15 @@ if (empty($pagedRows)) {
 		$coveringIntervention = (!empty($row['covering_intervention']) && is_array($row['covering_intervention'])) ? $row['covering_intervention'] : null;
 		$scheduledIntervention = (!empty($row['scheduled_intervention']) && is_array($row['scheduled_intervention'])) ? $row['scheduled_intervention'] : null;
 		$displayedIntervention = is_array($coveringIntervention) ? $coveringIntervention : $scheduledIntervention;
+		$actionCellHtml = '<span class="opacitymedium">-</span>';
+		if (!empty($row['is_eligible']) && powerplantpvMaintenanceStatusAllowsCreation((string) $row['status'])) {
+			$urlCreate = powerplantpvMaintenanceBuildCreateInterventionUrl($powerplant, $row, dol_buildpath('/powerplantpv/maintenance_list.php', 1).($param ? '?'.ltrim($param, '&') : ''));
+			$actionCellHtml = dolGetButtonAction($langs->trans('PowerPlantPVCreateMaintenanceInterventionTooltip'), $langs->trans('Create'), 'default', $urlCreate, '', ($createAllowed && !empty($row['fk_soc'])));
+		}
 		print '<tr class="oddeven">';
+		if ($actionColumnOnLeft) {
+			print '<td class="center nowrap">'.$actionCellHtml.'</td>';
+		}
 		if (!empty($arrayfields['powerplant']['checked'])) {
 			print '<td class="nowrap">'.powerplantpvMaintenancePowerPlantLink($powerplant).'</td>';
 		}
@@ -309,14 +333,9 @@ if (empty($pagedRows)) {
 		if (!empty($arrayfields['entity']['checked'])) {
 			print '<td class="center">'.powerplantGetEntityBadgeHtml((int) $row['entity']).'</td>';
 		}
-		print '<td class="right nowrap">';
-		if (!empty($row['is_eligible']) && powerplantpvMaintenanceStatusAllowsCreation((string) $row['status'])) {
-			$urlCreate = powerplantpvMaintenanceBuildCreateInterventionUrl($powerplant, $row, dol_buildpath('/powerplantpv/maintenance_list.php', 1).($param ? '?'.ltrim($param, '&') : ''));
-			print dolGetButtonAction($langs->trans('PowerPlantPVCreateMaintenanceInterventionTooltip'), $langs->trans('Create'), 'default', $urlCreate, '', ($createAllowed && !empty($row['fk_soc'])));
-		} else {
-			print '<span class="opacitymedium">-</span>';
+		if (!$actionColumnOnLeft) {
+			print '<td class="center nowrap">'.$actionCellHtml.'</td>';
 		}
-		print '</td>';
 		print '</tr>';
 	}
 }
