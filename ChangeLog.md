@@ -1,5 +1,61 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.3.0
+
+- Composition matérielle : ajout d'un accès direct à la configuration MPPT / strings pour chaque onduleur installé sur la centrale.
+- Liste maintenance : positionnement natif des boutons de filtre et du sélecteur de colonnes selon le réglage Dolibarr, avec enregistrement automatique des colonnes lors de la fermeture du menu.
+- Liste maintenance : exclusion des valeurs vides `-1` envoyées par les sélecteurs Dolibarr, centrage de l'entête `Statut` et maintien des centrales non éligibles en fin de liste.
+- Maintenance : les prestations associées à un service partagé suivent désormais le périmètre Multicompany natif des produits/services.
+- Maintenance : ajout du statut `scheduled` / `Programmée`, avec intervention programmée séparée de l'intervention couvrante et mode par entité `created` ou `validated`.
+- Rappels : fenêtres glissantes J+6/J+29, conservation de tous les retards, langue et droits par destinataire, liens absolus, rattrapage sans rafale, verrou par entité et gestion explicite des erreurs SMTP/persistance.
+- Liste maintenance : pagination dans le formulaire natif, tri en liste blanche avant pagination, totaux corrigés et colonne Environnement Multicompany filtrable.
+- Statistiques maintenance : alternance et surbrillance des lignes confiées aux classes de liste natives du thème Dolibarr.
+- Correction de l'idempotence d'activation/réactivation : les scripts SQL de création de tables utilisent `IF NOT EXISTS` et les extrafields déjà conformes ne sont plus réenregistrés inutilement.
+- Maintenance : ajout des rappels automatiques hebdomadaires et mensuels des maintenances à prévoir, en cours ou en retard, avec destinataires configurables, modèle d'email optionnel et délai de bascule `Couverte` vers `À prévoir`.
+- Maintenance : alignement des couleurs des badges d'état sur la grille métier et affichage du libellé dans les tableaux.
+- Administration maintenance : séparation des switches d'activation dans une colonne dédiée sur les listes de modèles de rapport, prestations déclenchant des sections et natures d'intervention.
+- Maintenance : liaison automatique d'une intervention de maintenance au contrat actif de la centrale via les liens natifs Dolibarr, sans remplacer un contrat déjà fourni.
+- Maintenance : avancement automatique d'une période de contrat récurrente lorsqu'une intervention clôturée ou signée couvre la période courante, avec travail planifié natif de rattrapage pour les signatures sans trigger Dolibarr.
+- Maintenance : une intervention clôturée ou signée sans période native peut désormais couvrir une période contractuelle via un fallback sur sa date de finalisation disponible.
+- Maintenance : correction de la navigation du calendrier en décembre, qui pouvait provoquer une erreur fatale sur le mois suivant.
+- Stabilisation finale v1.3 Maintenance : audit de cohérence, documentation utilisateur, administrateur, technique et checklist de release.
+- Harmonisation de l'onglet `Rapport` des interventions : boutons de soumission alignés sur les formulaires Dolibarr, sans modifier le workflow de sauvegarde, upload, suppression de fichier ou ajout de mesure DC.
+- Conservation renforcée des modèles documentaires lors de l'activation/réactivation : les modèles PowerPlantPV et Attestation manquants sont ajoutés sans suppression/réinsertion des lignes déjà présentes.
+- Ajout du socle données maintenance préventive : dictionnaires des natures d'intervention, services de maintenance, sections de rapport et types de relevés.
+- Ajout des tables de liaison services/sections et des champs de gabarit de rapport de maintenance, avec données par défaut idempotentes et par entité.
+- Ajout des droits Dolibarr dédiés à la maintenance et des champs complémentaires sur contrats, produits/services et interventions.
+- Déclaration des dictionnaires maintenance dans le partage Multicompany et dans l'onglet de compatibilité.
+- Ajout du moteur configurable de modèles de rapports d'intervention : modèles, sections, champs, options de champs, mappings prestations -> sections et association nature d'intervention -> modèle.
+- Migration du socle PR1 pour que la maintenance préventive soit portée par le modèle préinstallé `preventive_maintenance`, sans logique de rapport codée en dur.
+- Ajout des écrans d'administration internes aux réglages PowerPlantPV pour créer, modifier, désactiver, dupliquer et réordonner les éléments du moteur de modèles.
+- Retrait du dictionnaire historique `c_powerplantpv_report_section` de l'administration active ; il reste conservé comme source de migration.
+- Ajout de la documentation technique `docs/technical/v1.3-pr2-report-template-engine.md`.
+- Ajout de l'onglet `Maintenance` sur la fiche centrale, avec affichage des contrats liés, services actifs, prestations de maintenance, interventions liées et statut de prochaine maintenance.
+- Ajout du moteur `PowerPlantPVMaintenanceScheduler` calculant les statuts `not_required`, `planned`, `due`, `overdue`, `covered` et `incomplete` depuis les liens natifs, les périodes configurées sur contrat et les interventions couvrantes clôturées/signées.
+- Ajout d'un bouton de création d'intervention de maintenance préventive depuis l'onglet centrale, avec préremplissage centrale, contrat, nature et période de contexte.
+- Ajout de la documentation technique `docs/technical/v1.3-pr4-maintenance-tab-scheduler.md`.
+- Ajout de l'onglet `Rapport` sur les fiches interventions, généré depuis la nature d'intervention, le modèle associé, les prestations actives et les centrales liées.
+- Ajout des tables de rapport généré `powerplantpv_report`, sections, champs, fichiers, équipements, centrales et prestations sources, avec snapshot figé au premier enregistrement.
+- Ajout de la sauvegarde brouillon/simple, du recalcul depuis le modèle avec conservation des valeurs par clé stable et du verrouillage en lecture seule quand l'intervention est signée ou clôturée.
+- Ajout de la documentation technique `docs/technical/v1.3-pr6-intervention-report-tab.md`.
+- Complétude du modèle préinstallé `preventive_maintenance` : sections de base, sections conditionnelles, champs N-1/N, options thermographie et mappings prestations -> sections, avec seed d'activation non destructif.
+- Ajout de la documentation technique `docs/technical/v1.3-pr7-preventive-template.md`.
+- Ajout du support multi-centrales dans le rapport d'intervention : prestations résolues par centrale, sections groupées par centrale et sections équipement répétées uniquement sur les équipements concernés.
+- Ajout de la configuration installée MPPT / entrées PV / strings sur les onduleurs de composition centrale, avec préremplissage non destructif depuis les caractéristiques produit.
+- Ajout des mesures DC spécialisées `powerplantpv_report_dc_measure`, générées automatiquement depuis la topologie installée, avec mode manuel et conservation des valeurs au recalcul par clé stable.
+- Extension du snapshot équipement de rapport avec source équipement, marque, modèle, position et snapshot technique JSON.
+- Ajout de la documentation technique `docs/technical/v1.3-pr8-multi-equipment-dc-measures.md`.
+- Ajout de l'onglet centrale `Production/consommation`, de l'archive `powerplantpv_index_reading`, de la saisie manuelle des relevés et de la synchronisation des champs `PRODUCTION_READING` des rapports finalisés.
+- Préremplissage non éditable des champs `N-1` depuis le dernier relevé archivé et ajout des champs `SELF_CONSUMPTION_N_MINUS_1` / `SELF_CONSUMPTION` au modèle préinstallé.
+- Ajout de la documentation technique `docs/technical/v1.3-pr9-production-consumption.md`.
+- Ajout du modèle PDF Fichinter `powerplantpvreport`, généré dynamiquement depuis le snapshot du rapport d'intervention sans créer de snapshot pendant la génération.
+- Ajout du dataset PDF `PowerPlantPVReportPdfDataset`, du rendu multi-centrales, multi-équipements, mesures DC, relevés N-1/N, thermographie, fichiers et signatures.
+- Ajout du réglage par entité `POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE` pour les mentions légales du PDF et de la documentation technique `docs/technical/v1.3-pr10-dynamic-pdf.md`.
+- Ajout de la documentation consolidée `docs/user/v1.3-maintenance-user-guide.md`, `docs/admin/v1.3-maintenance-admin-guide.md`, `docs/technical/v1.3-maintenance-technical-overview.md` et `docs/release/v1.3-maintenance-release-checklist.md`.
+- Notes de migration : réactiver le module en recette avant release, vérifier l'absence de doublons de dictionnaires/modèles, vérifier que les personnalisations de modèles de rapport et modèles documentaires sont conservées, puis dérouler la checklist de release v1.3.
+- Dette historique conservée hors PR12 : les anciens triggers custom non-CRUD du périmètre PowerPlant/Attestation restent présents pour compatibilité Agenda/Notifications existante et ne sont pas étendus par la maintenance v1.3.
+
+
 ## 1.2.1
 
 - Complétude des modèles et de la mécanique d'import CSV/XLSX des onduleurs avec tous les champs généraux peuplables, hors lignes MPPT et entrées PV.

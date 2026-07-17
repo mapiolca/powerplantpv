@@ -33,6 +33,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	public $phpmin = array(8, 0);
 	public $version = 'dolibarr';
 	public $emetteur;
+	protected $descriptionKey = 'PowerPlantPVAttestationPdfModel';
 	protected $titleKey = 'Attestation';
 	protected $validationWarningKey = '';
 	protected $heightforfooter = 0;
@@ -52,7 +53,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 
 		$this->db = $db;
 		$langs->loadLangs(array('main', 'companies', 'powerplantpv@powerplantpv'));
-		$this->description = $langs->trans('PowerPlantPVAttestationPdfModel');
+		$this->description = $langs->trans($this->descriptionKey);
 
 		$formatarray = pdf_getFormat();
 		$this->page_largeur = $formatarray['width'];
@@ -63,6 +64,33 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		$this->marge_haute = getDolGlobalInt('MAIN_PDF_MARGIN_TOP', 10);
 		$this->marge_basse = getDolGlobalInt('MAIN_PDF_MARGIN_BOTTOM', 10);
 		$this->emetteur = $mysoc;
+	}
+
+	/**
+	 * Set translated labels used by administration pages.
+	 *
+	 * @param	string	$nameKey		Translation key for the model name
+	 * @param	string	$descriptionKey	Translation key for the model description
+	 * @return	void
+	 */
+	protected function setModelTranslationKeys($nameKey, $descriptionKey)
+	{
+		global $langs;
+
+		$this->name = $langs->trans($nameKey);
+		$this->descriptionKey = $descriptionKey;
+		$this->description = $langs->trans($descriptionKey);
+	}
+
+	/**
+	 * Return model information.
+	 *
+	 * @param	Translate	$langs	Language object
+	 * @return	string				Description
+	 */
+	public function info($langs)
+	{
+		return $langs->trans($this->descriptionKey);
 	}
 
 	/**

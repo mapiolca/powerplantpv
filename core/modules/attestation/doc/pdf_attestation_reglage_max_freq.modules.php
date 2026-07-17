@@ -11,7 +11,7 @@ class pdf_attestation_reglage_max_freq extends pdf_attestation_bridage_dynamique
 	public function __construct($db)
 	{
 		parent::__construct($db);
-		$this->name = 'attestation_reglage_max_freq';
+		$this->setModelTranslationKeys('AttestationPdfModelReglageMaxFreqName', 'AttestationPdfModelReglageMaxFreqDescription');
 		$this->titleKey = 'AttestationTypeReglageMaxFreq515Hz';
 	}
 

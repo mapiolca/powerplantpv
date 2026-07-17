@@ -14,7 +14,7 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_c_powerplantpv_categorypv(
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_categorypv(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	code varchar(64) NOT NULL,
 	label varchar(255) NOT NULL,

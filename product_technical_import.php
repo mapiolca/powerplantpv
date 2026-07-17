@@ -258,6 +258,20 @@ function powerplantpv_technical_import_field_label($field, $type)
 {
 	global $langs;
 
+	if (preg_match('/^mppt_([0-9]+)\.input_([0-9]+)\.(.+)$/', (string) $field, $matches)) {
+		$inputfields = ProductInverter::getPvInputFields();
+		$fieldkey = (string) $matches[3];
+		$fieldlabel = isset($inputfields[$fieldkey]['label']) ? $langs->trans($inputfields[$fieldkey]['label']) : dol_escape_htmltag($fieldkey);
+		return $langs->trans('PVInverterMPPT').' '.((int) $matches[1]).' / '.$langs->trans('PowerPlantPVPVInput').' '.((int) $matches[2]).' - '.$fieldlabel;
+	}
+
+	if (preg_match('/^mppt_([0-9]+)\.(.+)$/', (string) $field, $matches)) {
+		$mpptfields = ProductInverter::getMpptFields();
+		$fieldkey = (string) $matches[2];
+		$fieldlabel = isset($mpptfields[$fieldkey]['label']) ? $langs->trans($mpptfields[$fieldkey]['label']) : dol_escape_htmltag($fieldkey);
+		return $langs->trans('PVInverterMPPT').' '.((int) $matches[1]).' - '.$fieldlabel;
+	}
+
 	$modulelabels = array(
 		'pmax' => 'PVPanelNominalPower',
 		'power_tolerance' => 'PVPanelPowerTolerance',
@@ -717,6 +731,9 @@ if ($action === 'confirm_import' && is_array($metadata) && is_array($selectedrow
 	if ($result['result'] > 0) {
 		powerplantpv_technical_import_delete_temp($metadata, $importtoken);
 		setEventMessages($langs->trans('ProductTechnicalImportConfirmed'), null, 'mesgs');
+		if (!empty($result['message'])) {
+			setEventMessages($langs->trans($result['message']), null, 'mesgs');
+		}
 		if (!empty($result['warning'])) {
 			setEventMessages($langs->trans($result['warning']), null, 'warnings');
 		}
@@ -837,6 +854,10 @@ if (is_array($metadata) && is_array($selectedrow) && is_array($normalizedData) &
 
 	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsModified', $preview['changes'], $categoryCode, false, 'fa-check-circle');
 	powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportFieldsIgnored', $preview['ignored'], $categoryCode, true, 'fa-ban');
+	if (!empty($preview['mppt_changes']) || !empty($preview['mppt_ignored'])) {
+		powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportMPPTFieldsModified', isset($preview['mppt_changes']) && is_array($preview['mppt_changes']) ? $preview['mppt_changes'] : array(), $categoryCode, false, 'fa-check-circle');
+		powerplantpv_technical_import_print_preview_rows('ProductTechnicalImportMPPTFieldsIgnored', isset($preview['mppt_ignored']) && is_array($preview['mppt_ignored']) ? $preview['mppt_ignored'] : array(), $categoryCode, true, 'fa-ban');
+	}
 
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -845,7 +866,8 @@ if (is_array($metadata) && is_array($selectedrow) && is_array($normalizedData) &
 	print '<input type="hidden" name="line_index" value="'.((int) $lineindex).'">';
 	print '<input type="hidden" name="strategy" value="'.dol_escape_htmltag($strategy).'">';
 	print '<div class="tabsAction">';
-	print '<input type="submit" class="butAction" value="'.$langs->trans('ProductTechnicalImportConfirm').'"'.(empty($preview['changes']) ? ' disabled' : '').'>';
+	$haspreviewchanges = (!empty($preview['changes']) || !empty($preview['mppt_changes']));
+	print '<input type="submit" class="butAction" value="'.$langs->trans('ProductTechnicalImportConfirm').'"'.($haspreviewchanges ? '' : ' disabled').'>';
 	print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=cancel_import&import_token='.urlencode($importtoken).'&token='.newToken(), '', true);
 	print '</div>';
 	print '</form>';

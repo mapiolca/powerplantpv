@@ -107,6 +107,32 @@ function powerplantPrepareHead($object)
 		$h++;
 	}
 
+	if (getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+		if (!function_exists('powerplantpvUserHasMaintenanceRight') || powerplantpvUserHasMaintenanceRight($user, 'read')) {
+			$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_maintenance.php', 1), ['id' => $object->id]);
+			$head[$h][1] = $langs->trans('PowerPlantPVMaintenance');
+			$head[$h][2] = 'maintenance';
+			$h++;
+		}
+	}
+
+	dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+	if (
+		!function_exists('powerplantpvUserHasRightPath')
+		|| powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'))
+		|| (function_exists('powerplantpvUserHasMaintenanceRight') && powerplantpvUserHasMaintenanceRight($user, 'read'))
+	) {
+		$nbIndexReadings = powerplantCountIndexReadings($object);
+		$head[$h][0] = dolBuildUrl(dol_buildpath('/powerplantpv/powerplant_production_consumption.php', 1), ['id' => $object->id]);
+		$head[$h][1] = $langs->trans('PowerPlantPVProductionConsumption');
+		if ($nbIndexReadings > 0) {
+			$head[$h][1] .= '<span class="badge marginleftonlyshort">'.$nbIndexReadings.'</span>';
+		}
+		$head[$h][2] = 'production_consumption';
+		$h++;
+	}
+
 	// Show more tabs from modules
 	// Entries must be declared in modules descriptor with line
 	//$this->tabs = array(
@@ -272,6 +298,39 @@ function powerplantCountAgendaEvents($object)
 		$obj = $db->fetch_object($resql);
 		$db->free($resql);
 		return (int) $obj->nb;
+	}
+
+	return 0;
+}
+
+/**
+ * Count active archived index readings linked to a power plant.
+ *
+ * @param	PowerPlant	$object	PowerPlant
+ * @return	int					Number of active readings
+ */
+function powerplantCountIndexReadings($object)
+{
+	global $db;
+
+	if (empty($object->id)) {
+		return 0;
+	}
+	if (function_exists('powerplantpvDatabaseTableExists') && !powerplantpvDatabaseTableExists($db->prefix().'powerplantpv_index_reading')) {
+		return 0;
+	}
+
+	$sql = "SELECT COUNT(t.rowid) as nb";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_index_reading as t";
+	$sql .= " WHERE t.fk_powerplant = ".((int) $object->id);
+	$sql .= " AND t.active = 1";
+	$sql .= " AND t.entity IN (".$db->sanitize(getEntity('powerplant')).")";
+
+	$resql = $db->query($sql);
+	if ($resql) {
+		$obj = $db->fetch_object($resql);
+		$db->free($resql);
+		return is_object($obj) ? (int) $obj->nb : 0;
 	}
 
 	return 0;

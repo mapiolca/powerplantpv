@@ -5,7 +5,7 @@
 -- the Free Software Foundation, either version 3 of the License, or
 -- (at your option) any later version.
 
-CREATE TABLE llx_powerplantpv_attestation(
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_attestation(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer NOT NULL DEFAULT 1,
 	ref varchar(128) NOT NULL,

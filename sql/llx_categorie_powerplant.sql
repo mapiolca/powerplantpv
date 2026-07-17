@@ -13,7 +13,7 @@
 -- You should have received a copy of the GNU General Public License
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
-CREATE TABLE llx_categorie_powerplant(
+CREATE TABLE IF NOT EXISTS llx_categorie_powerplant(
 	fk_categorie integer NOT NULL,
 	fk_powerplant integer NOT NULL,
 	import_key varchar(14)

@@ -11,7 +11,7 @@ class pdf_attestation_installateur_inf100kwc extends pdf_attestation_base
 	public function __construct($db)
 	{
 		parent::__construct($db);
-		$this->name = 'attestation_installateur_inf100kwc';
+		$this->setModelTranslationKeys('AttestationPdfModelInstallateurInf100kwcName', 'AttestationPdfModelInstallateurInf100kwcDescription');
 		$this->titleKey = 'AttestationTypeInstallateurInf100kwc';
 	}
 

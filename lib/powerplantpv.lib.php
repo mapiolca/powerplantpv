@@ -24,6 +24,39 @@
  */
 
 /**
+ * Return the native sharing element used by maintenance service metadata.
+ *
+ * Maintenance services are selected on products/services, so their visibility
+ * must follow the product sharing scope when a shared contract line is read.
+ *
+ * @return string Native Dolibarr element name
+ */
+function powerplantpvMaintenanceServiceEntityElement()
+{
+	return 'product';
+}
+
+/**
+ * Remove inactive values from maintenance list filters.
+ *
+ * Native Dolibarr selects submit -1 for their empty option. These values must
+ * not reach the scheduler as effective filters.
+ *
+ * @param array<string,mixed> $filters Raw list filters
+ * @return array<string,mixed> Active list filters
+ */
+function powerplantpvMaintenanceActiveListFilters(array $filters)
+{
+	return array_filter($filters, static function ($value) {
+		if (is_array($value)) {
+			return !empty($value);
+		}
+
+		return !in_array($value, array(null, '', 0, '0', -1, '-1'), true);
+	});
+}
+
+/**
  * Prepare admin pages header
  *
  * @return array<array{string,string,string}>
@@ -49,6 +82,21 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/attestation.php", 1));
 	$head[$h][1] = $langs->trans("Attestations");
 	$head[$h][2] = 'attestation';
+	$h++;
+
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_report_templates.php", 1));
+	$head[$h][1] = $langs->trans("PowerPlantPVReportTemplates");
+	$head[$h][2] = 'maintenance_report_templates';
+	$h++;
+
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_service_sections.php", 1));
+	$head[$h][1] = $langs->trans("PowerPlantPVMaintenanceServiceSections");
+	$head[$h][2] = 'maintenance_service_sections';
+	$h++;
+
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_intervention_natures.php", 1));
+	$head[$h][1] = $langs->trans("InterventionNatureDictionary");
+	$head[$h][2] = 'maintenance_intervention_natures';
 	$h++;
 
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/compatibility.php", 1));
@@ -279,6 +327,9 @@ function powerplantpvNormalizeElementType($elementtype)
 	}
 	if ($elementtype == 'contract') {
 		return 'contrat';
+	}
+	if ($elementtype == 'intervention' || $elementtype == 'ficheinter') {
+		return 'fichinter';
 	}
 	if ($elementtype == 'propale') {
 		return 'propal';
@@ -1494,30 +1545,241 @@ function powerplantpvGetObjectElementTypes($object)
 }
 
 /**
- * Return power plants linked to a Dolibarr object.
+ * Check a permission path with Dolibarr administrator bypass.
  *
- * @param	CommonObject	$object		Object with links
- * @return	PowerPlant[]				Linked power plants indexed by id
+ * @param	User		$user		Current user
+ * @param	string[]	$rightpath	Path accepted by User::hasRight()
+ * @return	int<0,1>				1 if allowed, 0 otherwise
  */
-function powerplantpvGetLinkedPowerPlants($object)
+function powerplantpvUserHasRightPath($user, $rightpath)
 {
-	if (!is_object($object) || empty($object->id) || !isModEnabled('powerplantpv')) {
+	if (!is_object($user) || empty($rightpath) || !is_array($rightpath)) {
+		return 0;
+	}
+	if (!empty($user->admin)) {
+		return 1;
+	}
+	if (method_exists($user, 'hasRight')) {
+		return (int) (bool) call_user_func_array(array($user, 'hasRight'), $rightpath);
+	}
+	if (empty($user->rights)) {
+		return 0;
+	}
+
+	$cursor = $user->rights;
+	foreach ($rightpath as $pathpart) {
+		if (!is_object($cursor) || !isset($cursor->{$pathpart})) {
+			return 0;
+		}
+		$cursor = $cursor->{$pathpart};
+	}
+
+	return !empty($cursor) ? 1 : 0;
+}
+
+/**
+ * Check a maintenance permission with administrator bypass.
+ *
+ * @param	User	$user	Current user
+ * @param	string	$right	Permission subkey
+ * @return	int<0,1>		1 if allowed, 0 otherwise
+ */
+function powerplantpvUserHasMaintenanceRight($user, $right = 'read')
+{
+	return powerplantpvUserHasRightPath($user, array('powerplantpv', 'maintenance', $right));
+}
+
+/**
+ * Return the canonical element_element type for power plants.
+ *
+ * @return	string	Canonical linked-object type
+ */
+function powerplantpvGetCanonicalPowerPlantLinkType()
+{
+	return 'powerplantpv_powerplant';
+}
+
+/**
+ * Return every supported power plant element type found in legacy/native links.
+ *
+ * @return	string[]	Power plant link types
+ */
+function powerplantpvGetPowerPlantLinkTypes()
+{
+	return array(powerplantpvGetCanonicalPowerPlantLinkType(), 'powerplant@powerplantpv', 'powerplant');
+}
+
+/**
+ * Check if an element type is a supported power plant type.
+ *
+ * @param	string	$elementtype	Element type
+ * @return	bool					True if this is a power plant link type
+ */
+function powerplantpvIsPowerPlantLinkType($elementtype)
+{
+	return in_array((string) $elementtype, powerplantpvGetPowerPlantLinkTypes(), true);
+}
+
+/**
+ * Return the canonical object type used for quick power plant links.
+ *
+ * @param	CommonObject	$object	Object
+ * @return	string					Canonical linked-object type, empty if unsupported
+ */
+function powerplantpvGetCanonicalNativePowerPlantLinkedObjectType($object)
+{
+	if (!is_object($object)) {
+		return '';
+	}
+
+	$elementtypes = powerplantpvGetObjectElementTypes($object);
+	foreach ($elementtypes as $elementtype) {
+		$normalized = powerplantpvNormalizeElementType($elementtype);
+		if ($normalized == 'contrat') {
+			return 'contrat';
+		}
+		if ($normalized == 'fichinter') {
+			return 'fichinter';
+		}
+	}
+
+	return '';
+}
+
+/**
+ * Check if an object supports native quick power plant links.
+ *
+ * @param	CommonObject	$object	Object
+ * @return	bool					True if supported
+ */
+function powerplantpvSupportsNativePowerPlantLinks($object)
+{
+	return powerplantpvGetCanonicalNativePowerPlantLinkedObjectType($object) !== '';
+}
+
+/**
+ * Return the object id in a CommonObject-compatible way.
+ *
+ * @param	CommonObject	$object	Object
+ * @return	int					Object id
+ */
+function powerplantpvGetCommonObjectId($object)
+{
+	if (!is_object($object)) {
+		return 0;
+	}
+	if (!empty($object->id)) {
+		return (int) $object->id;
+	}
+	if (!empty($object->rowid)) {
+		return (int) $object->rowid;
+	}
+
+	return 0;
+}
+
+/**
+ * Return the third party id carried by a Dolibarr object.
+ *
+ * @param	CommonObject|null	$object	Object
+ * @return	int							Third party id
+ */
+function powerplantpvGetObjectSocId($object)
+{
+	if (!is_object($object)) {
+		return 0;
+	}
+	if (!empty($object->socid)) {
+		return (int) $object->socid;
+	}
+	if (!empty($object->fk_soc)) {
+		return (int) $object->fk_soc;
+	}
+
+	return 0;
+}
+
+/**
+ * Normalize a list of ids.
+ *
+ * @param	mixed	$values	Values from GETPOST() or internal code
+ * @return	int[]			Unique positive ids
+ */
+function powerplantpvSanitizeIdArray($values)
+{
+	if (!is_array($values)) {
+		$values = array($values);
+	}
+
+	$ids = array();
+	foreach ($values as $value) {
+		if (is_array($value)) {
+			$ids = array_merge($ids, powerplantpvSanitizeIdArray($value));
+			continue;
+		}
+		foreach (explode(',', (string) $value) as $part) {
+			$id = (int) trim($part);
+			if ($id > 0) {
+				$ids[] = $id;
+			}
+		}
+	}
+
+	return array_values(array_unique($ids));
+}
+
+/**
+ * Return entity ids currently allowed for power plants.
+ *
+ * @return	int[]	Entity ids
+ */
+function powerplantpvGetAccessiblePowerPlantEntityIds()
+{
+	$entityids = array();
+	foreach (explode(',', (string) getEntity('powerplant')) as $entityid) {
+		$entityid = (int) trim($entityid);
+		if ($entityid > 0) {
+			$entityids[] = $entityid;
+		}
+	}
+
+	return array_values(array_unique($entityids));
+}
+
+/**
+ * Return linked power plant rows in llx_element_element.
+ *
+ * @param	CommonObject	$object	Object with links
+ * @return	array<int,array{rowid:int,powerplant_id:int,powerplant_type:string,object_type:string,direction:string,is_canonical:int}>	Link rows
+ */
+function powerplantpvGetLinkedPowerPlantRows($object)
+{
+	if (!is_object($object) || !isModEnabled('powerplantpv')) {
+		return array();
+	}
+
+	$objectid = powerplantpvGetCommonObjectId($object);
+	if ($objectid <= 0) {
 		return array();
 	}
 
 	$db = (!empty($object->db) ? $object->db : (isset($GLOBALS['db']) ? $GLOBALS['db'] : null));
 	$objecttypes = powerplantpvGetObjectElementTypes($object);
+	$canonicalobjecttype = powerplantpvGetCanonicalNativePowerPlantLinkedObjectType($object);
+	if ($canonicalobjecttype !== '') {
+		$objecttypes[] = $canonicalobjecttype;
+	}
+	$objecttypes = array_values(array_unique(array_filter($objecttypes)));
 	if (empty($db) || empty($objecttypes)) {
 		return array();
 	}
-	dol_include_once('/powerplantpv/class/powerplant.class.php');
 
 	$escapedobjecttypes = array();
 	foreach ($objecttypes as $objecttype) {
 		$escapedobjecttypes[] = "'".$db->escape($objecttype)."'";
 	}
 
-	$powerplanttypes = array('powerplantpv_powerplant', 'powerplant@powerplantpv', 'powerplant');
+	$powerplanttypes = powerplantpvGetPowerPlantLinkTypes();
 	$escapedpowerplanttypes = array();
 	foreach ($powerplanttypes as $powerplanttype) {
 		$escapedpowerplanttypes[] = "'".$db->escape($powerplanttype)."'";
@@ -1525,35 +1787,323 @@ function powerplantpvGetLinkedPowerPlants($object)
 
 	$sql = "SELECT ee.rowid, ee.fk_source, ee.sourcetype, ee.fk_target, ee.targettype";
 	$sql .= " FROM ".$db->prefix()."element_element as ee";
-	$sql .= " WHERE (ee.fk_source = ".((int) $object->id);
+	$sql .= " WHERE ((ee.fk_source = ".$objectid;
 	$sql .= " AND ee.sourcetype IN (".implode(',', $escapedobjecttypes).")";
 	$sql .= " AND ee.targettype IN (".implode(',', $escapedpowerplanttypes)."))";
-	$sql .= " OR (ee.fk_target = ".((int) $object->id);
+	$sql .= " OR (ee.fk_target = ".$objectid;
 	$sql .= " AND ee.targettype IN (".implode(',', $escapedobjecttypes).")";
-	$sql .= " AND ee.sourcetype IN (".implode(',', $escapedpowerplanttypes)."))";
+	$sql .= " AND ee.sourcetype IN (".implode(',', $escapedpowerplanttypes).")))";
 	$sql .= " ORDER BY ee.rowid ASC";
 
-	$powerplants = array();
+	$rows = array();
 	$resql = $db->query($sql);
 	if ($resql) {
 		while ($obj = $db->fetch_object($resql)) {
 			$powerplantid = 0;
-			if (in_array($obj->targettype, $powerplanttypes)) {
+			$powerplanttype = '';
+			$objecttype = '';
+			$direction = '';
+			if (powerplantpvIsPowerPlantLinkType((string) $obj->targettype)) {
 				$powerplantid = (int) $obj->fk_target;
-			} elseif (in_array($obj->sourcetype, $powerplanttypes)) {
+				$powerplanttype = (string) $obj->targettype;
+				$objecttype = (string) $obj->sourcetype;
+				$direction = 'object_source';
+			} elseif (powerplantpvIsPowerPlantLinkType((string) $obj->sourcetype)) {
 				$powerplantid = (int) $obj->fk_source;
+				$powerplanttype = (string) $obj->sourcetype;
+				$objecttype = (string) $obj->targettype;
+				$direction = 'object_target';
 			}
-			if ($powerplantid <= 0 || isset($powerplants[$powerplantid])) {
+			if ($powerplantid <= 0) {
 				continue;
 			}
 
-			$powerplant = new PowerPlant($db);
-			if ($powerplant->fetch($powerplantid) > 0) {
-				$powerplants[$powerplantid] = $powerplant;
-			}
+			$rows[] = array(
+				'rowid' => (int) $obj->rowid,
+				'powerplant_id' => $powerplantid,
+				'powerplant_type' => $powerplanttype,
+				'object_type' => $objecttype,
+				'direction' => $direction,
+				'is_canonical' => (
+					$powerplanttype === powerplantpvGetCanonicalPowerPlantLinkType()
+					&& ($canonicalobjecttype === '' || powerplantpvNormalizeElementType($objecttype) === $canonicalobjecttype)
+					&& $direction === 'object_source'
+				) ? 1 : 0,
+			);
 		}
 		$db->free($resql);
 	}
 
+	return $rows;
+}
+
+/**
+ * Return power plants linked to a Dolibarr object.
+ *
+ * @param	CommonObject	$object		Object with links
+ * @return	PowerPlant[]				Linked power plants indexed by id
+ */
+function powerplantpvGetLinkedPowerPlants($object)
+{
+	global $user;
+
+	if (!is_object($object) || powerplantpvGetCommonObjectId($object) <= 0 || !isModEnabled('powerplantpv')) {
+		return array();
+	}
+
+	$db = (!empty($object->db) ? $object->db : (isset($GLOBALS['db']) ? $GLOBALS['db'] : null));
+	if (empty($db)) {
+		return array();
+	}
+	dol_include_once('/powerplantpv/class/powerplant.class.php');
+
+	$entityids = powerplantpvGetAccessiblePowerPlantEntityIds();
+	$linkedrows = powerplantpvGetLinkedPowerPlantRows($object);
+
+	$powerplants = array();
+	foreach ($linkedrows as $linkedrow) {
+		$powerplantid = (int) $linkedrow['powerplant_id'];
+		if ($powerplantid <= 0 || isset($powerplants[$powerplantid])) {
+			continue;
+		}
+
+		$powerplant = new PowerPlant($db);
+		if ($powerplant->fetch($powerplantid) > 0) {
+			if (!empty($entityids) && !in_array((int) $powerplant->entity, $entityids, true)) {
+				continue;
+			}
+			if (is_object($user) && !empty($user->socid) && (int) $powerplant->fk_soc !== (int) $user->socid) {
+				continue;
+			}
+			$powerplants[$powerplantid] = $powerplant;
+		}
+	}
+
 	return $powerplants;
+}
+
+/**
+ * Return selectable power plants for a native object quick link.
+ *
+ * @param	CommonObject|null	$object		Object used to restrict third party
+ * @param	int[]				$includeids	Power plant ids to keep in the options when already linked
+ * @return	array<int,string>				Options indexed by power plant id
+ */
+function powerplantpvGetSelectablePowerPlantOptions($object = null, $includeids = array())
+{
+	global $db, $user;
+
+	if (!isModEnabled('powerplantpv') || !powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'))) {
+		return array();
+	}
+
+	$includeids = powerplantpvSanitizeIdArray($includeids);
+	$includeidssql = !empty($includeids) ? implode(',', array_map('intval', $includeids)) : '';
+	$socid = powerplantpvGetObjectSocId($object);
+	if (!empty($user->socid)) {
+		$socid = (int) $user->socid;
+	}
+
+	$sql = "SELECT t.rowid, t.ref, t.label, t.fk_soc, s.nom as socname";
+	$sql .= " FROM ".$db->prefix()."powerplantpv_powerplant as t";
+	$sql .= " LEFT JOIN ".$db->prefix()."societe as s ON s.rowid = t.fk_soc";
+	$sql .= " WHERE t.entity IN (".getEntity('powerplant').")";
+	if ($socid > 0) {
+		$sql .= " AND (t.fk_soc = ".$socid;
+		if ($includeidssql !== '' && empty($user->socid)) {
+			$sql .= " OR t.rowid IN (".$includeidssql.")";
+		}
+		$sql .= ")";
+	}
+	$sql .= " ORDER BY t.ref ASC, t.rowid ASC";
+
+	$options = array();
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$label = (string) $obj->ref;
+			if (!empty($obj->label)) {
+				$label .= ' - '.(string) $obj->label;
+			}
+			if (!empty($obj->socname)) {
+				$label .= ' ('.(string) $obj->socname.')';
+			}
+			$options[(int) $obj->rowid] = $label;
+		}
+		$db->free($resql);
+	}
+
+	return $options;
+}
+
+/**
+ * Keep only selected power plants allowed for the current object and user.
+ *
+ * @param	int[]				$selectedids		Posted ids
+ * @param	CommonObject|null	$object				Object
+ * @param	int[]				$currentlinkedids	Current linked ids
+ * @return	int[]									Allowed ids
+ */
+function powerplantpvFilterSelectablePowerPlantIds($selectedids, $object = null, $currentlinkedids = array())
+{
+	$selectedids = powerplantpvSanitizeIdArray($selectedids);
+	if (empty($selectedids)) {
+		return array();
+	}
+
+	$options = powerplantpvGetSelectablePowerPlantOptions($object, array_merge($selectedids, $currentlinkedids));
+	$allowed = array();
+	foreach ($selectedids as $selectedid) {
+		if (isset($options[$selectedid])) {
+			$allowed[] = $selectedid;
+		}
+	}
+
+	return array_values(array_unique($allowed));
+}
+
+/**
+ * Return power plant ids passed by URL/POST or inherited from linked objects.
+ *
+ * @param	CommonObject|null	$object				Current object
+ * @param	int<0,1>			$fallbacklinked		1 to use current object links when no request value exists
+ * @return	int[]									Power plant ids
+ */
+function powerplantpvGetRequestedPowerPlantIds($object = null, $fallbacklinked = 0)
+{
+	$ids = powerplantpvSanitizeIdArray(GETPOST('powerplantpv_powerplants', 'array:int'));
+	$singlepowerplantid = GETPOSTINT('fk_powerplant');
+	if ($singlepowerplantid > 0) {
+		$ids[] = $singlepowerplantid;
+	}
+
+	$origin = powerplantpvNormalizeElementType(GETPOST('origin', 'alphanohtml'));
+	$originid = GETPOSTINT('originid') > 0 ? GETPOSTINT('originid') : GETPOSTINT('origin_id');
+	if ($originid > 0 && powerplantpvIsPowerPlantLinkType($origin)) {
+		$ids[] = $originid;
+	}
+
+	$contractid = GETPOSTINT('fk_contrat') > 0 ? GETPOSTINT('fk_contrat') : GETPOSTINT('contratid');
+	if ($origin == 'contrat' && $originid > 0) {
+		$contractid = $originid;
+	}
+	if ($contractid > 0) {
+		$contract = powerplantpvFetchOriginObject('contrat', $contractid);
+		if (is_object($contract)) {
+			foreach (powerplantpvGetLinkedPowerPlants($contract) as $powerplant) {
+				$ids[] = powerplantpvGetCommonObjectId($powerplant);
+			}
+		}
+	}
+
+	if (empty($ids) && $fallbacklinked && is_object($object) && powerplantpvGetCommonObjectId($object) > 0) {
+		foreach (powerplantpvGetLinkedPowerPlants($object) as $powerplant) {
+			$ids[] = powerplantpvGetCommonObjectId($powerplant);
+		}
+	}
+
+	return array_values(array_unique(array_filter(array_map('intval', $ids))));
+}
+
+/**
+ * Synchronize native llx_element_element links between an object and power plants.
+ *
+ * @param	CommonObject	$object		Contract or intervention object
+ * @param	int[]			$selectedids	Selected power plant ids
+ * @param	User			$user		User applying the change
+ * @return	int							>0 if OK, <0 if KO
+ */
+function powerplantpvSyncNativePowerPlantLinks($object, $selectedids, $user)
+{
+	if (!is_object($object) || powerplantpvGetCommonObjectId($object) <= 0 || !powerplantpvSupportsNativePowerPlantLinks($object)) {
+		return 0;
+	}
+
+	$db = (!empty($object->db) ? $object->db : (isset($GLOBALS['db']) ? $GLOBALS['db'] : null));
+	if (empty($db)) {
+		$object->error = 'ErrorNoDatabaseHandler';
+		$object->errors[] = $object->error;
+		return -1;
+	}
+
+	dol_include_once('/powerplantpv/class/powerplant.class.php');
+
+	$objectid = powerplantpvGetCommonObjectId($object);
+	$objecttype = powerplantpvGetCanonicalNativePowerPlantLinkedObjectType($object);
+	$currentrows = powerplantpvGetLinkedPowerPlantRows($object);
+	$currentlinkedids = array();
+	foreach ($currentrows as $currentrow) {
+		$currentlinkedids[] = (int) $currentrow['powerplant_id'];
+	}
+
+	$manageableoptions = powerplantpvGetSelectablePowerPlantOptions($object, $currentlinkedids);
+	$manageableids = array_fill_keys(array_keys($manageableoptions), 1);
+	$selectedids = powerplantpvFilterSelectablePowerPlantIds($selectedids, $object, $currentlinkedids);
+	$selectedindex = array_fill_keys($selectedids, 1);
+	$currentbyid = array();
+	foreach ($currentrows as $currentrow) {
+		$powerplantid = (int) $currentrow['powerplant_id'];
+		if (!isset($currentbyid[$powerplantid])) {
+			$currentbyid[$powerplantid] = array();
+		}
+		$currentbyid[$powerplantid][] = $currentrow;
+	}
+
+	foreach ($currentbyid as $powerplantid => $rows) {
+		if (empty($manageableids[$powerplantid])) {
+			continue;
+		}
+		$canonicalkept = false;
+		foreach ($rows as $row) {
+			$mustdelete = empty($selectedindex[$powerplantid]);
+			if (!$mustdelete && !empty($row['is_canonical']) && !$canonicalkept) {
+				$canonicalkept = true;
+				continue;
+			}
+			if (!$mustdelete && (empty($row['is_canonical']) || $canonicalkept)) {
+				$mustdelete = true;
+			}
+			if ($mustdelete) {
+				$resultdelete = $object->deleteObjectLinked(null, '', null, '', (int) $row['rowid'], $user, 0);
+				if ($resultdelete <= 0) {
+					$object->error = !empty($object->error) ? $object->error : 'ErrorFailedToDeleteLink';
+					$object->errors[] = $object->error;
+					return -1;
+				}
+			}
+		}
+	}
+
+	$currentrowsafterdelete = powerplantpvGetLinkedPowerPlantRows($object);
+	$canonicalids = array();
+	foreach ($currentrowsafterdelete as $row) {
+		if (!empty($row['is_canonical'])) {
+			$canonicalids[(int) $row['powerplant_id']] = 1;
+		}
+	}
+
+	foreach ($selectedids as $powerplantid) {
+		if (!empty($canonicalids[$powerplantid])) {
+			continue;
+		}
+
+		$powerplant = new PowerPlant($db);
+		$resultfetch = $powerplant->fetch((int) $powerplantid);
+		if ($resultfetch <= 0) {
+			continue;
+		}
+
+		$resultadd = $powerplant->add_object_linked($objecttype, $objectid, $user, 0);
+		if ($resultadd <= 0) {
+			$object->error = !empty($powerplant->error) ? $powerplant->error : 'ErrorFailedToAddLink';
+			if (!empty($powerplant->errors) && is_array($powerplant->errors)) {
+				$object->errors = array_merge($object->errors, $powerplant->errors);
+			} else {
+				$object->errors[] = $object->error;
+			}
+			return -1;
+		}
+	}
+
+	return 1;
 }

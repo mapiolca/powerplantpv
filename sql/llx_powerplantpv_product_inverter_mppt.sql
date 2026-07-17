@@ -14,7 +14,7 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_powerplantpv_product_inverter_mppt(
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter_mppt(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	fk_inverter integer NOT NULL,
 	entity integer NOT NULL DEFAULT 1,

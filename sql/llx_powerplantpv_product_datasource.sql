@@ -14,7 +14,7 @@
 -- along with this program.  If not, see https://www.gnu.org/licenses/.
 
 
-CREATE TABLE llx_powerplantpv_product_datasource (
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_datasource (
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer NOT NULL DEFAULT 1,
 	fk_product integer NOT NULL,

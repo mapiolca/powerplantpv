@@ -10,6 +10,11 @@
 - Export recorded serial numbers as CSV or XLSX.
 - Manage PowerPlantPV attestations for dynamic inverter curtailment, static inverter curtailment, maximum frequency 51.5 Hz, and installer under 100 kWc workflows.
 - Generate attestation PDF skeletons from power plant, site, installer, writer and equipment data. Online signature uses Dolibarr's native `/public/onlinesign/newonlinesign.php` page when the installed core explicitly supports the `powerplantpv_attestation` source, otherwise it falls back to the module public signature page.
+- Prepare the preventive maintenance data foundation with native dictionaries, rights and extra fields on contracts, products/services and interventions.
+- Configure intervention report templates for maintenance: report models, sections, fields, select options, service-to-section mappings, and intervention nature to model association.
+- Fill intervention reports from the `Rapport` tab, with a generated snapshot based on the intervention nature, active services, linked power plants and the configured report template.
+- Generate dynamic intervention PDFs from the saved maintenance report snapshot with the `powerplantpvreport` Fichinter document model.
+- Track production and consumption readings from power plant cards or finalized intervention reports.
 
 <!--
 ![Screenshot powerplantpv](img/screenshot_powerplantpv.png?raw=true "PowerPlantPV"){imgmd}
@@ -97,6 +102,45 @@ The attestation feature is enabled from the module settings tab `Attestations`. 
 Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The signature link uses Dolibarr's native online signature URL pattern when the installed core supports the `powerplantpv_attestation` source in `/public/onlinesign/newonlinesign.php` and `/core/ajax/onlineSign.php`. When the core does not support this source, PowerPlantPV exposes its own public fallback page with the same visual and functional flow, secured by `ref`, `entity` and `securekey`. It is not a qualified external e-signature provider workflow.
 
 Signed attestations remain locked for standard write/delete users. Grant the specific `powerplantpv / attestation / manage_signed` right, together with read access, to allow modification, deletion and PDF regeneration of signed attestations.
+
+## Maintenance v1.3
+
+Version 1.3.0 stabilizes the preventive maintenance workflow. It adds entity-aware dictionaries, report templates, service-to-section mappings, contract/product/intervention extra fields, generated report snapshots, production/consumption readings, dynamic intervention PDF generation, and global maintenance list/calendar/statistics pages.
+
+The Maintenance menu now opens a dedicated operational dashboard. Its widgets can be added, removed and reordered in two columns, with a layout stored independently for each user and entity. Widget contents use native Dolibarr box rows and each dashboard widget provides translated contextual help. The same catalog is available as optional native Dolibarr home boxes; maintenance boxes are never enabled on home pages by default.
+
+The maintenance statistics page is a fixed comparative analysis based on dated intervention records. It overlays two or three calendar years for monthly intervention and completion volumes, and compares annual totals and breakdowns by intervention nature, power plant and customer. The current completion status is used; no historical end-of-year status is reconstructed.
+
+Prerequisites:
+
+- Dolibarr v20.0 or higher.
+- PHP 8.0 or higher.
+- Native contracts and interventions enabled for the operational workflow.
+- PowerPlantPV rights assigned to the target users.
+
+Quick overview:
+
+1. Administrators configure maintenance services, report templates, sections, fields and intervention natures.
+2. A Dolibarr service is tagged with one or more PowerPlantPV maintenance services.
+3. A contract service is linked to a photovoltaic power plant and receives the maintenance period.
+4. A maintenance intervention is created from a power plant, the maintenance list or the calendar.
+5. The intervention `Rapport` tab creates a frozen snapshot on first save.
+6. The `powerplantpvreport` Fichinter PDF model renders the saved report without creating or recalculating a snapshot.
+7. Production/consumption readings can be entered manually or synchronized from finalized reports.
+
+Documentation:
+
+- [User guide v1.3 Maintenance](docs/user/v1.3-maintenance-user-guide.md)
+- [Administrator guide v1.3 Maintenance](docs/admin/v1.3-maintenance-admin-guide.md)
+- [Technical overview v1.3 Maintenance](docs/technical/v1.3-maintenance-technical-overview.md)
+- [Release checklist v1.3 Maintenance](docs/release/v1.3-maintenance-release-checklist.md)
+
+Known limits:
+
+- The module does not create maintenance interventions automatically.
+- The maintenance planning is calculated from source data and is not persisted as a cache.
+- The PDF model reads the report snapshot; it does not create or recalculate it.
+- No dedicated cron job is added for v1.3 Maintenance.
 
 
 

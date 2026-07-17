@@ -1395,6 +1395,25 @@ $k_purchase_tariff = 'buyback_tariff';
 				print dolGetButtonAction('', $langs->trans('CreateAttestation'), 'default', $urlCreateAttestation);
 			}
 
+			if (!empty($object->id) && isModEnabled('ficheinter') && function_exists('powerplantpvUserHasMaintenanceRight')) {
+				$canCreateIntervention = powerplantpvUserHasMaintenanceRight($user, 'write') && $user->hasRight('ficheinter', 'creer');
+				$urlCreateIntervention = dol_buildpath('/fichinter/card.php', 1);
+				$urlCreateIntervention .= '?action=create';
+				$urlCreateIntervention .= '&origin='.urlencode('powerplantpv_powerplant');
+				$urlCreateIntervention .= '&originid='.((int) $object->id);
+				$urlCreateIntervention .= '&fk_powerplant='.((int) $object->id);
+				$urlCreateIntervention .= '&powerplantpv_powerplants[]='.((int) $object->id);
+				if (!empty($object->fk_soc)) {
+					$urlCreateIntervention .= '&socid='.((int) $object->fk_soc);
+				}
+				if (!empty($object->fk_project)) {
+					$urlCreateIntervention .= '&projectid='.((int) $object->fk_project);
+				}
+				$urlCreateIntervention .= '&backtopage='.urlencode($_SERVER['PHP_SELF'].'?id='.(int) $object->id);
+				$createInterventionTooltip = empty($object->fk_soc) ? $langs->trans('ErrorFieldRequired', $langs->trans('ThirdParty')) : '';
+				print dolGetButtonAction($createInterventionTooltip, $langs->trans('CreateMaintenanceIntervention'), 'default', $urlCreateIntervention, '', ($canCreateIntervention && !empty($object->fk_soc)));
+			}
+
 			// Back to draft
 			if ($object->status > $object::STATUS_DRAFT && $object->status != $object::STATUS_CANCELED) {
 				print dolGetButtonAction('', $langs->trans('SetToDraft'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=confirm_setdraft&confirm=yes&token='.newToken(), '', $permissiontoadd);

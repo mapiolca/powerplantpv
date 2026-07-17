@@ -108,6 +108,36 @@ class PowerPlantPVProductImport
 	}
 
 	/**
+	 * Return sample MPPT composition fields for generic inverter CSV/XLSX templates.
+	 *
+	 * @param int $mpptCount  Number of MPPT groups
+	 * @param int $inputCount Number of PV inputs per MPPT group
+	 * @return array<int,string> Fields
+	 */
+	public static function getInverterMPPTCompositionTemplateFields($mpptCount = 4, $inputCount = 2)
+	{
+		$fields = array();
+		for ($mppt = 1; $mppt <= $mpptCount; $mppt++) {
+			$prefix = 'mppt_'.$mppt.'_';
+			$fields[] = $prefix.'label';
+			$fields[] = $prefix.'voltage_min';
+			$fields[] = $prefix.'voltage_max';
+			$fields[] = $prefix.'max_input_current';
+			$fields[] = $prefix.'max_short_circuit_current';
+			$fields[] = $prefix.'max_dc_power';
+			for ($input = 1; $input <= $inputCount; $input++) {
+				$inputprefix = $prefix.'input_'.$input.'_';
+				$fields[] = $inputprefix.'label';
+				$fields[] = $inputprefix.'max_input_current';
+				$fields[] = $inputprefix.'max_short_circuit_current';
+				$fields[] = $inputprefix.'connector_type';
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
 	 * Return PV Free module fields from connector V1.
 	 *
 	 * @return array<int,string> Fields
@@ -247,7 +277,10 @@ class PowerPlantPVProductImport
 		}
 
 		$fields = (isset($normalizedData['_dataset']) && $normalizedData['_dataset'] === 'pvinverter') ? self::getPVFreeInverterImportFields() : self::getInverterImportFields();
-		return $this->buildPreview($fields, $current, $normalizedData, $strategy);
+		$preview = $this->buildPreview($fields, $current, $normalizedData, $strategy);
+		$preview = array_merge($preview, $this->buildMpptCompositionPreview($fkProduct, $normalizedData, $strategy));
+
+		return $preview;
 	}
 
 	/**
@@ -328,16 +361,27 @@ class PowerPlantPVProductImport
 		if ($this->error) {
 			return array('result' => -1, 'preview' => $preview);
 		}
-		if (empty($preview['changes'])) {
+		$hasmpptchanges = !empty($preview['mppt_changes']);
+		if (empty($preview['changes']) && !$hasmpptchanges) {
 			return array('result' => 0, 'preview' => $preview, 'message' => ($isgenericimport ? 'ProductTechnicalImportNoFieldToImport' : 'PVFreeNoFieldToImport'));
 		}
 
 		$this->db->begin();
 
-		$result = $this->saveInverterChanges($fkProduct, $preview['changes'], $user);
-		if ($result < 0) {
-			$this->db->rollback();
-			return array('result' => -1, 'preview' => $preview);
+		if (!empty($preview['changes'])) {
+			$result = $this->saveInverterChanges($fkProduct, $preview['changes'], $user);
+			if ($result < 0) {
+				$this->db->rollback();
+				return array('result' => -1, 'preview' => $preview);
+			}
+		}
+
+		if ($hasmpptchanges) {
+			$result = $this->saveMpptCompositionChanges($fkProduct, $normalizedData, $user, $strategy);
+			if ($result < 0) {
+				$this->db->rollback();
+				return array('result' => -1, 'preview' => $preview);
+			}
 		}
 
 		if (empty($sourceData)) {
@@ -351,7 +395,14 @@ class PowerPlantPVProductImport
 
 		$this->db->commit();
 
-		return array('result' => 1, 'preview' => $preview, 'warning' => ($isgenericimport ? 'ProductTechnicalImportMPPTManualCheckRequired' : 'PVFreeMPPTManualCheckRequired'));
+		$resultdata = array('result' => 1, 'preview' => $preview);
+		if (empty($normalizedData['_mppt_composition'])) {
+			$resultdata['warning'] = ($isgenericimport ? 'ProductTechnicalImportMPPTManualCheckRequired' : 'PVFreeMPPTManualCheckRequired');
+		} elseif ($hasmpptchanges) {
+			$resultdata['message'] = 'ProductTechnicalImportMPPTCompositionImported';
+		}
+
+		return $resultdata;
 	}
 
 	/**
@@ -501,6 +552,125 @@ class PowerPlantPVProductImport
 	}
 
 	/**
+	 * Build MPPT composition import preview.
+	 *
+	 * @param int                 $fkProduct      Product id
+	 * @param array<string,mixed> $normalizedData Normalized data
+	 * @param string              $strategy       Strategy
+	 * @return array<string,mixed> Preview data
+	 */
+	protected function buildMpptCompositionPreview($fkProduct, array $normalizedData, $strategy)
+	{
+		$composition = $this->getNormalizedMpptComposition($normalizedData);
+		$changes = array();
+		$ignored = array();
+		if (empty($composition)) {
+			return array('mppt_changes' => $changes, 'mppt_ignored' => $ignored);
+		}
+
+		$inverter = new ProductInverter($this->db);
+		$result = $inverter->fetchByProduct($fkProduct);
+		if ($result < 0) {
+			$this->error = $inverter->error;
+			$this->errors = array_merge($this->errors, $inverter->errors);
+			return array('mppt_changes' => $changes, 'mppt_ignored' => $ignored);
+		}
+
+		$current = ($result > 0) ? $this->fetchProductInverterComposition($inverter) : array('mppts' => array(), 'inputs' => array());
+		if ($this->error) {
+			return array('mppt_changes' => $changes, 'mppt_ignored' => $ignored);
+		}
+
+		$strategy = $this->sanitizeStrategy($strategy);
+		foreach ($composition as $mpptnumber => $mpptdata) {
+			$mpptnumber = (int) $mpptnumber;
+			if ($mpptnumber <= 0 || !is_array($mpptdata)) {
+				continue;
+			}
+			$currentmppt = isset($current['mppts'][$mpptnumber]) ? $current['mppts'][$mpptnumber] : null;
+			$mpptdata['position'] = $mpptnumber;
+			foreach (ProductInverter::getMpptFields() as $field => $spec) {
+				if (!array_key_exists($field, $mpptdata)) {
+					continue;
+				}
+				$this->appendImportedFieldPreview($changes, $ignored, 'mppt_'.$mpptnumber.'.'.$field, $currentmppt, $field, $mpptdata[$field], $strategy);
+			}
+
+			$inputs = isset($mpptdata['inputs']) && is_array($mpptdata['inputs']) ? $mpptdata['inputs'] : array();
+			foreach ($inputs as $inputnumber => $inputdata) {
+				$inputnumber = (int) $inputnumber;
+				if ($inputnumber <= 0 || !is_array($inputdata)) {
+					continue;
+				}
+				$currentinput = isset($current['inputs'][$mpptnumber][$inputnumber]) ? $current['inputs'][$mpptnumber][$inputnumber] : null;
+				$inputdata['position'] = $inputnumber;
+				foreach (ProductInverter::getPvInputFields() as $field => $spec) {
+					if (!array_key_exists($field, $inputdata)) {
+						continue;
+					}
+					$this->appendImportedFieldPreview($changes, $ignored, 'mppt_'.$mpptnumber.'.input_'.$inputnumber.'.'.$field, $currentinput, $field, $inputdata[$field], $strategy);
+				}
+			}
+		}
+
+		return array('mppt_changes' => $changes, 'mppt_ignored' => $ignored);
+	}
+
+	/**
+	 * Append one field preview.
+	 *
+	 * @param array<string,array<string,mixed>> $changes Changes
+	 * @param array<string,array<string,mixed>> $ignored Ignored values
+	 * @param string                           $key Preview key
+	 * @param object|null                      $current Current row
+	 * @param string                           $field Stored field
+	 * @param mixed                            $proposedvalue Proposed value
+	 * @param string                           $strategy Strategy
+	 * @return void
+	 */
+	protected function appendImportedFieldPreview(array &$changes, array &$ignored, $key, $current, $field, $proposedvalue, $strategy)
+	{
+		if ($proposedvalue === null || $proposedvalue === '') {
+			return;
+		}
+
+		$hascurrent = ($current && !empty($current->rowid));
+		$currentvalue = ($current && property_exists($current, $field)) ? $current->{$field} : null;
+
+		if ($strategy === self::STRATEGY_NEVER && $hascurrent) {
+			$ignored[$key] = array(
+				'current' => $currentvalue,
+				'proposed' => $proposedvalue,
+				'reason' => 'PVFreeOverwriteNever',
+			);
+			return;
+		}
+
+		if ($strategy === self::STRATEGY_EMPTY_ONLY && !$this->isEmptyValue($currentvalue)) {
+			$ignored[$key] = array(
+				'current' => $currentvalue,
+				'proposed' => $proposedvalue,
+				'reason' => 'PVFreeExistingValueKept',
+			);
+			return;
+		}
+
+		if ($this->valuesEqual($currentvalue, $proposedvalue)) {
+			$ignored[$key] = array(
+				'current' => $currentvalue,
+				'proposed' => $proposedvalue,
+				'reason' => 'PVFreeSameValue',
+			);
+			return;
+		}
+
+		$changes[$key] = array(
+			'current' => $currentvalue,
+			'proposed' => $proposedvalue,
+		);
+	}
+
+	/**
 	 * Save PV panel changes.
 	 *
 	 * @param int                 $fkProduct Product id
@@ -582,6 +752,229 @@ class PowerPlantPVProductImport
 		}
 
 		return 1;
+	}
+
+	/**
+	 * Save imported MPPT composition changes.
+	 *
+	 * @param int                 $fkProduct      Product id
+	 * @param array<string,mixed> $normalizedData Normalized data
+	 * @param User                $user           Current user
+	 * @param string              $strategy       Import strategy
+	 * @return int >0 on success, 0 when no composition, <0 on error
+	 */
+	protected function saveMpptCompositionChanges($fkProduct, array $normalizedData, User $user, $strategy)
+	{
+		$composition = $this->getNormalizedMpptComposition($normalizedData);
+		if (empty($composition)) {
+			return 0;
+		}
+
+		$strategy = $this->sanitizeStrategy($strategy);
+		$inverter = new ProductInverter($this->db);
+		$inverterid = $inverter->ensureForProduct($fkProduct, $user);
+		if ($inverterid < 0) {
+			$this->error = $inverter->error;
+			$this->errors = array_merge($this->errors, $inverter->errors);
+			return -1;
+		}
+
+		$current = $this->fetchProductInverterComposition($inverter);
+		if ($this->error) {
+			return -1;
+		}
+
+		foreach ($composition as $mpptnumber => $mpptdata) {
+			$mpptnumber = (int) $mpptnumber;
+			if ($mpptnumber <= 0 || !is_array($mpptdata)) {
+				continue;
+			}
+
+			$currentmppt = isset($current['mppts'][$mpptnumber]) ? $current['mppts'][$mpptnumber] : null;
+			$mpptid = ($currentmppt && !empty($currentmppt->rowid)) ? (int) $currentmppt->rowid : 0;
+			$data = $this->buildCurrentFieldData(ProductInverter::getMpptFields(), $currentmppt);
+			$data['position'] = $mpptnumber;
+			$changed = ($mpptid <= 0);
+			foreach (ProductInverter::getMpptFields() as $field => $spec) {
+				if ($field === 'position' || !array_key_exists($field, $mpptdata)) {
+					continue;
+				}
+				$proposed = $mpptdata[$field];
+				$currentvalue = $this->getCurrentFieldValue($currentmppt, $field);
+				if ($this->shouldApplyImportedValue($currentvalue, $proposed, $strategy, $mpptid > 0)) {
+					$data[$field] = $proposed;
+					$changed = true;
+				}
+			}
+
+			if ($changed || $mpptid <= 0) {
+				$mpptid = $inverter->saveMppt($inverterid, $mpptid, $data);
+				if ($mpptid < 0) {
+					$this->error = $inverter->error;
+					$this->errors = array_merge($this->errors, $inverter->errors);
+					return -1;
+				}
+			}
+
+			$inputs = isset($mpptdata['inputs']) && is_array($mpptdata['inputs']) ? $mpptdata['inputs'] : array();
+			foreach ($inputs as $inputnumber => $inputdata) {
+				$inputnumber = (int) $inputnumber;
+				if ($inputnumber <= 0 || !is_array($inputdata)) {
+					continue;
+				}
+
+				$currentinput = isset($current['inputs'][$mpptnumber][$inputnumber]) ? $current['inputs'][$mpptnumber][$inputnumber] : null;
+				$inputid = ($currentinput && !empty($currentinput->rowid)) ? (int) $currentinput->rowid : 0;
+				$inputsave = $this->buildCurrentFieldData(ProductInverter::getPvInputFields(), $currentinput);
+				$inputsave['position'] = $inputnumber;
+				$inputchanged = ($inputid <= 0);
+				foreach (ProductInverter::getPvInputFields() as $field => $spec) {
+					if ($field === 'position' || !array_key_exists($field, $inputdata)) {
+						continue;
+					}
+					$proposed = $inputdata[$field];
+					$currentvalue = $this->getCurrentFieldValue($currentinput, $field);
+					if ($this->shouldApplyImportedValue($currentvalue, $proposed, $strategy, $inputid > 0)) {
+						$inputsave[$field] = $proposed;
+						$inputchanged = true;
+					}
+				}
+
+				if ($inputchanged || $inputid <= 0) {
+					$result = $inverter->saveInput($mpptid, $inputid, $inputsave);
+					if ($result < 0) {
+						$this->error = $inverter->error;
+						$this->errors = array_merge($this->errors, $inverter->errors);
+						return -1;
+					}
+				}
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Return normalized MPPT composition from imported data.
+	 *
+	 * @param array<string,mixed> $normalizedData Normalized data
+	 * @return array<int,array<string,mixed>> Composition
+	 */
+	protected function getNormalizedMpptComposition(array $normalizedData)
+	{
+		return isset($normalizedData['_mppt_composition']) && is_array($normalizedData['_mppt_composition']) ? $normalizedData['_mppt_composition'] : array();
+	}
+
+	/**
+	 * Fetch current inverter MPPT composition indexed by positions.
+	 *
+	 * @param ProductInverter $inverter Inverter helper
+	 * @return array<string,mixed> Current rows
+	 */
+	protected function fetchProductInverterComposition(ProductInverter $inverter)
+	{
+		$mppts = array();
+		$inputs = array();
+		if (empty($inverter->id)) {
+			return array('mppts' => $mppts, 'inputs' => $inputs);
+		}
+
+		$mpptrows = $inverter->fetchMppts($inverter->id);
+		if ($inverter->error) {
+			$this->error = $inverter->error;
+			$this->errors = array_merge($this->errors, $inverter->errors);
+			return array('mppts' => $mppts, 'inputs' => $inputs);
+		}
+
+		$mpptids = array();
+		$mpptpositionsbyid = array();
+		foreach ($mpptrows as $mppt) {
+			$position = (int) $mppt->position;
+			if ($position <= 0) {
+				continue;
+			}
+			$mppts[$position] = $mppt;
+			$mpptids[] = (int) $mppt->rowid;
+			$mpptpositionsbyid[(int) $mppt->rowid] = $position;
+		}
+
+		$inputrows = $inverter->fetchInputsByMppts($mpptids);
+		if ($inverter->error) {
+			$this->error = $inverter->error;
+			$this->errors = array_merge($this->errors, $inverter->errors);
+			return array('mppts' => $mppts, 'inputs' => $inputs);
+		}
+
+		foreach ($inputrows as $mpptid => $rows) {
+			$mpptposition = isset($mpptpositionsbyid[(int) $mpptid]) ? (int) $mpptpositionsbyid[(int) $mpptid] : 0;
+			if ($mpptposition <= 0 || !is_array($rows)) {
+				continue;
+			}
+			if (empty($inputs[$mpptposition])) {
+				$inputs[$mpptposition] = array();
+			}
+			foreach ($rows as $input) {
+				$position = (int) $input->position;
+				if ($position > 0) {
+					$inputs[$mpptposition][$position] = $input;
+				}
+			}
+		}
+
+		return array('mppts' => $mppts, 'inputs' => $inputs);
+	}
+
+	/**
+	 * Build current field data for an update without resetting omitted fields.
+	 *
+	 * @param array<string,array<string,string>> $fields  Field specs
+	 * @param object|null                        $current Current row
+	 * @return array<string,mixed> Data
+	 */
+	protected function buildCurrentFieldData(array $fields, $current)
+	{
+		$data = array();
+		foreach ($fields as $field => $spec) {
+			$data[$field] = $this->getCurrentFieldValue($current, $field);
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Return a current object field value.
+	 *
+	 * @param object|null $current Current row
+	 * @param string      $field   Field name
+	 * @return mixed Value
+	 */
+	protected function getCurrentFieldValue($current, $field)
+	{
+		return ($current && property_exists($current, $field)) ? $current->{$field} : null;
+	}
+
+	/**
+	 * Tell whether an imported value must be applied.
+	 *
+	 * @param mixed  $current    Current value
+	 * @param mixed  $proposed   Proposed value
+	 * @param string $strategy   Import strategy
+	 * @param bool   $hasCurrent Current row exists
+	 * @return bool True when the value must be applied
+	 */
+	protected function shouldApplyImportedValue($current, $proposed, $strategy, $hasCurrent)
+	{
+		if ($proposed === null || $proposed === '') {
+			return false;
+		}
+		if ($strategy === self::STRATEGY_NEVER && $hasCurrent) {
+			return false;
+		}
+		if ($strategy === self::STRATEGY_EMPTY_ONLY && !$this->isEmptyValue($current)) {
+			return false;
+		}
+
+		return !$this->valuesEqual($current, $proposed);
 	}
 
 	/**

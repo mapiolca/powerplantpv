@@ -32,7 +32,10 @@ dol_include_once('/powerplantpv/class/powerplantpvproductimport.class.php');
 function powerplantpvProductTechnicalImportGetTemplateHeaders($categoryCode)
 {
 	if ($categoryCode === 'ONDULE') {
-		return PowerPlantPVProductImport::getInverterImportFields();
+		return array_merge(
+			PowerPlantPVProductImport::getInverterImportFields(),
+			PowerPlantPVProductImport::getInverterMPPTCompositionTemplateFields(4, 2)
+		);
 	}
 
 	return PowerPlantPVProductImport::getModuleImportFields();

@@ -62,6 +62,7 @@ require_once DOL_DOCUMENT_ROOT."/core/lib/ajax.lib.php";
 require_once '../lib/powerplantpv.lib.php';
 require_once '../lib/powerplantpv_powerplant.lib.php';
 require_once '../lib/powerplantpv_serialnumber.lib.php';
+dol_include_once('/powerplantpv/class/powerplantpvmaintenancereminder.class.php');
 //require_once "../class/myclass.class.php";
 
 /**
@@ -128,6 +129,377 @@ $myTmpObjects['powerplant'] = array('label' => 'PowerPlant', 'includerefgenerati
 $tmpobjectkey = GETPOST('object', 'aZ09');
 if ($tmpobjectkey && !array_key_exists($tmpobjectkey, $myTmpObjects)) {
 	accessforbidden('Bad value for object. Hack attempt ?');
+}
+
+/**
+ * Print native numbering and document model settings.
+ *
+ * @param	array<string,array<string,mixed>>	$myTmpObjects	Objects handled by setup
+ * @param	array<int,string>					$dirmodels		Model directories
+ * @param	string								$moduledir		Module directory
+ * @return	int												Number of printed setup sections
+ */
+function powerplantpvPrintPowerPlantModelSettings($myTmpObjects, $dirmodels, $moduledir)
+{
+	global $conf, $db, $form, $langs;
+
+	$printedsections = 0;
+
+	foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
+		if (!empty($myTmpObjectArray['includerefgeneration'])) {
+			$printedsections++;
+
+			print load_fiche_titre($langs->trans("NumberingModules", $myTmpObjectArray['label']), '', '');
+
+			print '<table class="noborder centpercent">';
+			print '<tr class="liste_titre">';
+			print '<td>'.$langs->trans("Name").'</td>';
+			print '<td>'.$langs->trans("Description").'</td>';
+			print '<td class="nowrap">'.$langs->trans("Example").'</td>';
+			print '<td class="center" width="60">'.$langs->trans("Status").'</td>';
+			print '<td class="center" width="16">'.$langs->trans("ShortInfo").'</td>';
+			print '</tr>'."\n";
+
+			clearstatcache();
+
+			foreach ($dirmodels as $reldir) {
+				$dir = dol_buildpath($reldir."core/modules/".$moduledir);
+
+				if (is_dir($dir)) {
+					$handle = opendir($dir);
+					if (is_resource($handle)) {
+						while (($file = readdir($handle)) !== false) {
+							if (strpos($file, 'mod_'.strtolower($myTmpObjectKey).'_') === 0 && substr($file, dol_strlen($file) - 3, 3) == 'php') {
+								$file = substr($file, 0, dol_strlen($file) - 4);
+
+								require_once $dir.'/'.$file.'.php';
+
+								$module = new $file($db);
+								'@phan-var-force ModeleNumRefMyObject $module';
+
+								if ($module->version == 'development' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 2) {
+									continue;
+								}
+								if ($module->version == 'experimental' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 1) {
+									continue;
+								}
+
+								if ($module->isEnabled()) {
+									dol_include_once('/'.$moduledir.'/class/'.strtolower($myTmpObjectKey).'.class.php');
+
+									print '<tr class="oddeven"><td>'.$module->getName($langs)."</td><td>\n";
+									print $module->info($langs);
+									print '</td>';
+
+									print '<td class="nowrap">';
+									$tmp = $module->getExample();
+									if (preg_match('/^Error/', $tmp)) {
+										$langs->load("errors");
+										print '<div class="error">'.$langs->trans($tmp).'</div>';
+									} elseif ($tmp == 'NotConfigured') {
+										print $langs->trans($tmp);
+									} else {
+										print $tmp;
+									}
+									print '</td>'."\n";
+
+									print '<td class="center">';
+									$constforvar = 'POWERPLANTPV_'.strtoupper($myTmpObjectKey).'_ADDON';
+									$defaultifnotset = 'mod_powerplant_standard';
+									$activenumberingmodel = getDolGlobalString($constforvar, $defaultifnotset);
+									if ($activenumberingmodel == $file) {
+										print img_picto($langs->trans("Activated"), 'switch_on');
+									} else {
+										print '<a href="'.$_SERVER["PHP_SELF"].'?action=setmod&token='.newToken().'&object='.strtolower($myTmpObjectKey).'&value='.urlencode($file).'">';
+										print img_picto($langs->trans("Disabled"), 'switch_off');
+										print '</a>';
+									}
+									print '</td>';
+
+									$className = $myTmpObjectArray['class'];
+									$mytmpinstance = new $className($db);
+									'@phan-var-force MyObject $mytmpinstance';
+									$mytmpinstance->initAsSpecimen();
+
+									$htmltooltip = '';
+									$htmltooltip .= ''.$langs->trans("Version").': <b>'.$module->getVersion().'</b><br>';
+
+									$nextval = $module->getNextValue($mytmpinstance);
+									if ("$nextval" != $langs->trans("NotAvailable")) {
+										$htmltooltip .= ''.$langs->trans("NextValue").': ';
+										if ($nextval) {
+											if (preg_match('/^Error/', $nextval) || $nextval == 'NotConfigured') {
+												$nextval = $langs->trans($nextval);
+											}
+											$htmltooltip .= $nextval.'<br>';
+										} else {
+											$htmltooltip .= $langs->trans($module->error).'<br>';
+										}
+									}
+
+									print '<td class="center">';
+									print $form->textwithpicto('', $htmltooltip, 1, 'info');
+									print '</td>';
+
+									print "</tr>\n";
+								}
+							}
+						}
+						closedir($handle);
+					}
+				}
+			}
+			print "</table><br>\n";
+		}
+
+		if (!empty($myTmpObjectArray['includedocgeneration'])) {
+			$printedsections++;
+			$type = strtolower($myTmpObjectKey);
+
+			print load_fiche_titre($langs->trans("DocumentModules", $myTmpObjectKey), '', '');
+
+			$def = array();
+			$sql = "SELECT nom";
+			$sql .= " FROM ".$db->prefix()."document_model";
+			$sql .= " WHERE type = '".$db->escape($type)."'";
+			$sql .= " AND entity = ".((int) $conf->entity);
+			$resql = $db->query($sql);
+			if ($resql) {
+				$i = 0;
+				$num_rows = $db->num_rows($resql);
+				while ($i < $num_rows) {
+					$array = $db->fetch_array($resql);
+					$def[] = $array[0];
+					$i++;
+				}
+			} else {
+				dol_print_error($db);
+			}
+
+			print '<table class="noborder centpercent">'."\n";
+			print '<tr class="liste_titre">'."\n";
+			print '<td>'.$langs->trans("Name").'</td>';
+			print '<td>'.$langs->trans("Description").'</td>';
+			print '<td class="center" width="60">'.$langs->trans("Status")."</td>\n";
+			print '<td class="center" width="60">'.$langs->trans("Default")."</td>\n";
+			print '<td class="center" width="38">'.$langs->trans("ShortInfo").'</td>';
+			print '<td class="center" width="38">'.$langs->trans("Preview").'</td>';
+			print "</tr>\n";
+
+			clearstatcache();
+
+			foreach ($dirmodels as $reldir) {
+				foreach (array('', '/doc') as $valdir) {
+					$realpath = $reldir."core/modules/".$moduledir.$valdir;
+					$dir = dol_buildpath($realpath);
+
+					if (is_dir($dir)) {
+						$handle = opendir($dir);
+						if (is_resource($handle)) {
+							$filelist = array();
+							while (($file = readdir($handle)) !== false) {
+								$filelist[] = $file;
+							}
+							closedir($handle);
+							arsort($filelist);
+
+							foreach ($filelist as $file) {
+								if (preg_match('/\.modules\.php$/i', $file) && preg_match('/^(pdf_|doc_)/', $file)) {
+									if (file_exists($dir.'/'.$file)) {
+										$name = substr($file, 4, dol_strlen($file) - 16);
+										$className = substr($file, 0, dol_strlen($file) - 12);
+
+										require_once $dir.'/'.$file;
+										$module = new $className($db);
+										'@phan-var-force ModelePDFMyObject $module';
+
+										$modulequalified = 1;
+										if ($module->version == 'development' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 2) {
+											$modulequalified = 0;
+										}
+										if ($module->version == 'experimental' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 1) {
+											$modulequalified = 0;
+										}
+
+										if ($modulequalified) {
+											$nameforurl = (string) $name;
+											$scandirforurl = (string) (isset($module->scandir) ? $module->scandir : '');
+											$labelforurl = (string) (isset($module->name) ? $module->name : '');
+											$objectforurl = strtolower((string) $myTmpObjectKey);
+
+											print '<tr class="oddeven"><td width="100">';
+											print(empty($module->name) ? $name : $module->name);
+											print "</td><td>\n";
+											if (method_exists($module, 'info')) {
+												print $module->info($langs);
+											} else {
+												print $module->description;
+											}
+											print '</td>';
+
+											if (in_array($name, $def)) {
+												print '<td class="center">'."\n";
+												print '<a href="'.$_SERVER["PHP_SELF"].'?action=del&token='.newToken().'&value='.urlencode($nameforurl).'">';
+												print img_picto($langs->trans("Enabled"), 'switch_on');
+												print '</a>';
+												print '</td>';
+											} else {
+												print '<td class="center">'."\n";
+												print '<a href="'.$_SERVER["PHP_SELF"].'?action=set&token='.newToken().'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'">'.img_picto($langs->trans("Disabled"), 'switch_off').'</a>';
+												print "</td>";
+											}
+
+											print '<td class="center">';
+											$constforvar = 'POWERPLANTPV_'.strtoupper($myTmpObjectKey).'_ADDON_PDF';
+											if (getDolGlobalString($constforvar) == $name) {
+												print '<a href="'.$_SERVER["PHP_SELF"].'?action=unsetdoc&token='.newToken().'&object='.urlencode($objectforurl).'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'&amp;type='.urlencode((string) $type).'" alt="'.$langs->trans("Disable").'">'.img_picto($langs->trans("Enabled"), 'on').'</a>';
+											} else {
+												print '<a href="'.$_SERVER["PHP_SELF"].'?action=setdoc&token='.newToken().'&object='.urlencode($objectforurl).'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
+											}
+											print '</td>';
+
+											$htmltooltip = ''.$langs->trans("Name").': '.$module->name;
+											$htmltooltip .= '<br>'.$langs->trans("Type").': '.($module->type ? $module->type : $langs->trans("Unknown"));
+											if ($module->type == 'pdf') {
+												$htmltooltip .= '<br>'.$langs->trans("Width").'/'.$langs->trans("Height").': '.$module->page_largeur.'/'.$module->page_hauteur;
+											}
+											$htmltooltip .= '<br>'.$langs->trans("Path").': '.preg_replace('/^\//', '', $realpath).'/'.$file;
+
+											$htmltooltip .= '<br><br><u>'.$langs->trans("FeaturesSupported").':</u>';
+											$htmltooltip .= '<br>'.$langs->trans("Logo").': '.yn($module->option_logo, 1, 1);
+											$htmltooltip .= '<br>'.$langs->trans("MultiLanguage").': '.yn($module->option_multilang, 1, 1);
+
+											print '<td class="center">';
+											print $form->textwithpicto('', $htmltooltip, 1, 'info');
+											print '</td>';
+
+											print '<td class="center">';
+											if ($module->type == 'pdf') {
+												$newname = preg_replace('/_'.preg_quote(strtolower($myTmpObjectKey), '/').'/', '', $name);
+												print '<a href="'.$_SERVER["PHP_SELF"].'?action=specimen&module='.urlencode($newname).'&object='.urlencode($myTmpObjectKey).'">'.img_object($langs->trans("Preview"), 'pdf').'</a>';
+											} else {
+												print img_object($langs->transnoentitiesnoconv("PreviewNotAvailable"), 'generic');
+											}
+											print '</td>';
+
+											print "</tr>\n";
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			print '</table><br>';
+		}
+	}
+
+	return $printedsections;
+}
+
+/**
+ * Read a date/time selected with Form::selectDate().
+ *
+ * @param	string	$prefix	Field prefix
+ * @return	int				Timestamp or 0
+ */
+function powerplantpvSetupReadDateTimeFromPost($prefix)
+{
+	$year = GETPOSTINT($prefix.'year');
+	$month = GETPOSTINT($prefix.'month');
+	$day = GETPOSTINT($prefix.'day');
+	$hour = GETPOSTINT($prefix.'hour');
+	$minute = GETPOSTINT($prefix.'min');
+	if ($year <= 0 || $month <= 0 || $day <= 0) {
+		return 0;
+	}
+
+	return dol_mktime($hour, $minute, 0, $month, $day, $year);
+}
+
+/**
+ * Return configured timestamp or a default value.
+ *
+ * @param	string	$constname	Constant name
+ * @return	int					Timestamp
+ */
+function powerplantpvSetupGetTimestampConst($constname)
+{
+	$value = getDolGlobalString($constname, '');
+	if ($value !== '') {
+		if (is_numeric($value)) {
+			return (int) $value;
+		}
+		$timestamp = dol_stringtotime($value, 0);
+		if ($timestamp > 0) {
+			return $timestamp;
+		}
+	}
+
+	return dol_now();
+}
+
+/**
+ * Return active email template options.
+ *
+ * @return	array<int,string>	Template options
+ */
+function powerplantpvSetupGetEmailTemplateOptions()
+{
+	global $conf, $db, $langs;
+
+	$options = array(0 => $langs->trans('PowerPlantPVMaintenanceReminderDefaultTemplate'));
+	$sql = 'SELECT rowid, label';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'c_email_templates';
+	$sql .= " WHERE enabled = '1'";
+	$sql .= ' AND entity IN (0, '.((int) $conf->entity).')';
+	$sql .= " AND type_template = 'actioncomm_send'";
+	$sql .= ' ORDER BY label ASC, rowid ASC';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return $options;
+	}
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$options[(int) $obj->rowid] = (string) $obj->label;
+	}
+	$db->free($resql);
+
+	return $options;
+}
+
+/**
+ * Return active internal users with an email address.
+ *
+ * @return	array<int,string>	User options
+ */
+function powerplantpvSetupGetMaintenanceReminderUserOptions()
+{
+	global $db;
+
+	$options = array();
+	$sql = 'SELECT rowid, lastname, firstname, login, email';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'user';
+	$sql .= ' WHERE statut = 1';
+	$sql .= " AND email IS NOT NULL AND email <> ''";
+	$sql .= ' AND entity IN ('.$db->sanitize(getEntity('user')).')';
+	$sql .= ' ORDER BY lastname ASC, firstname ASC, login ASC, rowid ASC';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return $options;
+	}
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$label = trim(dolGetFirstLastname($obj->firstname, $obj->lastname));
+		if ($label === '') {
+			$label = (string) $obj->login;
+		}
+		$label .= ' <'.(string) $obj->email.'>';
+		$options[(int) $obj->rowid] = $label;
+	}
+	$db->free($resql);
+
+	return $options;
 }
 
 
@@ -348,6 +720,89 @@ if ($action == 'updateMask') {
 	} else {
 		setEventMessages($db->lasterror(), null, 'errors');
 	}
+} elseif ($action == 'save_maintenance_reminder_settings') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$leadDays = GETPOSTINT('maintenance_planning_lead_days');
+	if ($leadDays < 0) {
+		$leadDays = 0;
+	}
+	$scheduledInterventionMode = GETPOST('maintenance_scheduled_intervention_mode', 'alpha');
+	if (!in_array($scheduledInterventionMode, array(PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED, PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_VALIDATED), true)) {
+		$scheduledInterventionMode = PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED;
+	}
+	$weeklyStart = powerplantpvSetupReadDateTimeFromPost('maintenance_weekly_reminder_start');
+	$monthlyStart = powerplantpvSetupReadDateTimeFromPost('maintenance_monthly_reminder_start');
+	$templateId = GETPOSTINT('maintenance_reminder_email_template');
+	$templateOptions = powerplantpvSetupGetEmailTemplateOptions();
+	if (!isset($templateOptions[$templateId])) {
+		$templateId = 0;
+	}
+	$userIds = GETPOST('maintenance_reminder_user_ids', 'array:int');
+	if (!is_array($userIds)) {
+		$userIds = array();
+	}
+
+	$userOptions = powerplantpvSetupGetMaintenanceReminderUserOptions();
+	$userOptionIds = array_flip(array_keys($userOptions));
+	$selectedUserIds = array();
+	foreach ($userIds as $userId) {
+		$userId = (int) $userId;
+		if ($userId > 0 && isset($userOptionIds[$userId])) {
+			$selectedUserIds[$userId] = $userId;
+		}
+	}
+
+	$error = 0;
+	if ($weeklyStart <= 0 || $monthlyStart <= 0) {
+		setEventMessages($langs->trans('PowerPlantPVMaintenanceReminderStartTimeInvalid'), null, 'errors');
+		$error++;
+	}
+
+	if (!$error) {
+		$res = dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', (string) $leadDays, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_SCHEDULED_INTERVENTION_MODE', $scheduledInterventionMode, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME', (string) $weeklyStart, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_STARTTIME', (string) $monthlyStart, 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_REMINDER_USER_IDS', implode(',', array_values($selectedUserIds)), 'chaine', 0, '', (int) $conf->entity);
+		$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_MAINTENANCE_REMINDER_EMAIL_TEMPLATE', (string) $templateId, 'chaine', 0, '', (int) $conf->entity);
+
+		if ($res > 0) {
+			$warnings = array();
+			$weeklyCronUpdate = PowerPlantPVMaintenanceReminder::updateCronStartTime($db, 'weekly', $weeklyStart, $user);
+			$monthlyCronUpdate = PowerPlantPVMaintenanceReminder::updateCronStartTime($db, 'monthly', $monthlyStart, $user);
+			if ($weeklyCronUpdate < 0 || $monthlyCronUpdate < 0) {
+				setEventMessages($db->lasterror(), null, 'errors');
+			} else {
+				if ($weeklyCronUpdate === 0) {
+					$warnings[] = $langs->trans('PowerPlantPVMaintenanceWeeklyReminderCronMissing');
+				}
+				if ($monthlyCronUpdate === 0) {
+					$warnings[] = $langs->trans('PowerPlantPVMaintenanceMonthlyReminderCronMissing');
+				}
+				setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+				if (!empty($warnings)) {
+					setEventMessages($langs->trans('Warning'), $warnings, 'warnings');
+				}
+			}
+		} else {
+			setEventMessages($db->lasterror(), null, 'errors');
+		}
+	}
+} elseif ($action == 'save_report_pdf_settings') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$legalnotice = trim(GETPOST('report_pdf_legal_notice', 'restricthtml'));
+	$res = dolibarr_set_const($db, 'POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE', $legalnotice, 'chaine', 0, '', (int) $conf->entity);
+	if ($res > 0) {
+		setEventMessages($langs->trans("SetupSaved"), null, 'mesgs');
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
 }
 
 $action = 'edit';
@@ -380,6 +835,8 @@ if (getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	powerplantpvAttestationPrintInstallationWarnings();
 }
 
+$setupnotempty += powerplantpvPrintPowerPlantModelSettings($myTmpObjects, $dirmodels, $moduledir);
+
 
 /*if ($action == 'edit') {
  print $formSetup->generateOutput(true);
@@ -395,6 +852,88 @@ if (!empty($formSetup->items)) {
 	print $formSetup->generateOutput(true);
 	print '<br>';
 }
+
+$conf->global->POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', 0);
+$conf->global->POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', 0);
+$maintenanceleadtime = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_PLANNING_LEAD_DAYS', 30);
+$maintenancescheduledmode = getDolGlobalString('POWERPLANTPV_MAINTENANCE_SCHEDULED_INTERVENTION_MODE', PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED);
+if (!in_array($maintenancescheduledmode, array(PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED, PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_VALIDATED), true)) {
+	$maintenancescheduledmode = PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED;
+}
+$maintenanceweeklystart = powerplantpvSetupGetTimestampConst('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_STARTTIME');
+$maintenancemonthlystart = powerplantpvSetupGetTimestampConst('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_STARTTIME');
+$maintenancereminderusers = array_filter(array_map('intval', explode(',', getDolGlobalString('POWERPLANTPV_MAINTENANCE_REMINDER_USER_IDS', ''))));
+$maintenancereminderuseroptions = powerplantpvSetupGetMaintenanceReminderUserOptions();
+$maintenancereminderusers = array_values(array_intersect($maintenancereminderusers, array_keys($maintenancereminderuseroptions)));
+$maintenanceremindertemplateoptions = powerplantpvSetupGetEmailTemplateOptions();
+$maintenanceremindertemplate = getDolGlobalInt('POWERPLANTPV_MAINTENANCE_REMINDER_EMAIL_TEMPLATE', 0);
+
+print load_fiche_titre($langs->trans('PowerPlantPVMaintenanceReminderSettings'), '', 'email');
+print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceReminderSettingsHelp').'</span>';
+print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_maintenance_reminder_settings">';
+print '<table class="noborder centpercent">';
+print '<tr class="liste_titre"><td>'.$langs->trans('Name').'</td><td>'.$langs->trans('Value').'</td></tr>';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVMaintenancePlanningLeadDays').'</td><td><input type="number" min="0" class="flat maxwidth100 right" name="maintenance_planning_lead_days" value="'.((int) $maintenanceleadtime).'"> '.$langs->trans('PowerPlantPVDays').'<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenancePlanningLeadDaysHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVMaintenanceScheduledInterventionMode').'</td><td>';
+print $form->selectarray('maintenance_scheduled_intervention_mode', array(
+	PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_CREATED => $langs->trans('PowerPlantPVMaintenanceScheduledInterventionModeCreated'),
+	PowerPlantPVMaintenanceScheduler::SCHEDULED_MODE_VALIDATED => $langs->trans('PowerPlantPVMaintenanceScheduledInterventionModeValidated'),
+), $maintenancescheduledmode, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth300');
+print '<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceScheduledInterventionModeHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceWeeklyReminderEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_MAINTENANCE_WEEKLY_REMINDER_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceWeeklyReminderStartTime').'</td><td>'.$form->selectDate($maintenanceweeklystart, 'maintenance_weekly_reminder_start', 1, 1, 1, '', 1, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceMonthlyReminderEnable').'</td><td>'.ajax_constantonoff('POWERPLANTPV_MAINTENANCE_MONTHLY_REMINDER_ENABLE', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceMonthlyReminderStartTime').'</td><td>'.$form->selectDate($maintenancemonthlystart, 'maintenance_monthly_reminder_start', 1, 1, 1, '', 1, 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceReminderRecipients').'</td><td>';
+if (empty($maintenancereminderuseroptions)) {
+	print '<span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span>';
+} else {
+	print '<select class="flat minwidth500" id="maintenance_reminder_user_ids" name="maintenance_reminder_user_ids[]" multiple>';
+	foreach ($maintenancereminderuseroptions as $userId => $userLabel) {
+		$selected = in_array((int) $userId, $maintenancereminderusers, true) ? ' selected' : '';
+		print '<option value="'.((int) $userId).'"'.$selected.'>'.dol_escape_htmltag($userLabel).'</option>';
+	}
+	print '</select>';
+}
+print '<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceReminderRecipientsHelp').'</span>';
+print '</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceReminderEmailTemplate').'</td><td>'.$form->selectarray('maintenance_reminder_email_template', $maintenanceremindertemplateoptions, $maintenanceremindertemplate, 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVMaintenanceReminderEmailTemplateHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVMaintenanceReminderSubstitutions').'</td><td><span class="opacitymedium">__POWERPLANTPV_MAINTENANCE_REMINDER_FREQUENCY__, __POWERPLANTPV_MAINTENANCE_REMINDER_COUNT__, __POWERPLANTPV_MAINTENANCE_REMINDER_HTML__, __POWERPLANTPV_MAINTENANCE_REMINDER_TEXT__</span></td></tr>';
+print '</table>';
+print '<div class="tabsAction">';
+print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+print '</div>';
+print '</form>';
+if ($conf->use_javascript_ajax) {
+	print '<script nonce="'.getNonce().'">jQuery(function(){jQuery("#maintenance_reminder_user_ids,#maintenance_reminder_email_template,#maintenance_scheduled_intervention_mode").select2({width:"resolve",minimumResultsForSearch:0});});</script>';
+}
+print '<br>';
+
+print load_fiche_titre($langs->trans('PowerPlantPVReportPdfSettings'), '', 'fa-file-pdf');
+print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportPdfSettingsHelp').'</span>';
+print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_report_pdf_settings">';
+print '<table class="noborder centpercent">';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVReportPdfLegalNotice').'</td><td>';
+$reportpdflegalnotice = getDolGlobalString('POWERPLANTPV_REPORT_PDF_LEGAL_NOTICE');
+if (isModEnabled('fckeditor')) {
+	require_once DOL_DOCUMENT_ROOT.'/core/class/doleditor.class.php';
+	$doleditor = new DolEditor('report_pdf_legal_notice', $reportpdflegalnotice, '', 140, 'dolibarr_notes', '', false, true, true, 4, '90%');
+	$doleditor->Create();
+} else {
+	print '<textarea class="flat centpercent" rows="4" name="report_pdf_legal_notice">'.dol_escape_htmltag($reportpdflegalnotice).'</textarea>';
+}
+print '<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVReportPdfLegalNoticeHelp').'</span>';
+print '</td></tr>';
+print '</table>';
+print '<div class="tabsAction">';
+print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+print '</div>';
+print '</form>';
+print '<br>';
 
 $serialnumbercategories = powerplantpvSerialNumberFetchPhotovoltaicCategories(true);
 $serialnumberignoredids = powerplantpvSerialNumberGetIgnoredCategoryIds((int) $conf->entity);
@@ -521,274 +1060,6 @@ print dolGetButtonAction(
 	true
 );
 print '</div>';
-
-
-foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
-	if (!empty($myTmpObjectArray['includerefgeneration'])) {
-		// Numbering models
-
-		$setupnotempty++;
-
-		print load_fiche_titre($langs->trans("NumberingModules", $myTmpObjectArray['label']), '', '');
-
-		print '<table class="noborder centpercent">';
-		print '<tr class="liste_titre">';
-		print '<td>'.$langs->trans("Name").'</td>';
-		print '<td>'.$langs->trans("Description").'</td>';
-		print '<td class="nowrap">'.$langs->trans("Example").'</td>';
-		print '<td class="center" width="60">'.$langs->trans("Status").'</td>';
-		print '<td class="center" width="16">'.$langs->trans("ShortInfo").'</td>';
-		print '</tr>'."\n";
-
-		clearstatcache();
-
-		foreach ($dirmodels as $reldir) {
-			$dir = dol_buildpath($reldir."core/modules/".$moduledir);
-
-			if (is_dir($dir)) {
-				$handle = opendir($dir);
-				if (is_resource($handle)) {
-					while (($file = readdir($handle)) !== false) {
-						if (strpos($file, 'mod_'.strtolower($myTmpObjectKey).'_') === 0 && substr($file, dol_strlen($file) - 3, 3) == 'php') {
-							$file = substr($file, 0, dol_strlen($file) - 4);
-
-							require_once $dir.'/'.$file.'.php';
-
-							$module = new $file($db);
-							'@phan-var-force ModeleNumRefMyObject $module';
-
-							// Show modules according to features level
-							if ($module->version == 'development' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 2) {
-								continue;
-							}
-							if ($module->version == 'experimental' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 1) {
-								continue;
-							}
-
-							if ($module->isEnabled()) {
-								dol_include_once('/'.$moduledir.'/class/'.strtolower($myTmpObjectKey).'.class.php');
-
-								print '<tr class="oddeven"><td>'.$module->getName($langs)."</td><td>\n";
-								print $module->info($langs);
-								print '</td>';
-
-								// Show example of numbering model
-								print '<td class="nowrap">';
-								$tmp = $module->getExample();
-								if (preg_match('/^Error/', $tmp)) {
-									$langs->load("errors");
-									print '<div class="error">'.$langs->trans($tmp).'</div>';
-								} elseif ($tmp == 'NotConfigured') {
-									print $langs->trans($tmp);
-								} else {
-									print $tmp;
-								}
-								print '</td>'."\n";
-
-								print '<td class="center">';
-								$constforvar = 'POWERPLANTPV_'.strtoupper($myTmpObjectKey).'_ADDON';
-								$defaultifnotset = 'mod_powerplant_standard';
-								$activenumberingmodel = getDolGlobalString($constforvar, $defaultifnotset);
-								if ($activenumberingmodel == $file) {
-									print img_picto($langs->trans("Activated"), 'switch_on');
-								} else {
-									print '<a href="'.$_SERVER["PHP_SELF"].'?action=setmod&token='.newToken().'&object='.strtolower($myTmpObjectKey).'&value='.urlencode($file).'">';
-									print img_picto($langs->trans("Disabled"), 'switch_off');
-									print '</a>';
-								}
-								print '</td>';
-
-								$className = $myTmpObjectArray['class'];
-								$mytmpinstance = new $className($db);
-								'@phan-var-force MyObject $mytmpinstance';
-								$mytmpinstance->initAsSpecimen();
-
-								// Info
-								$htmltooltip = '';
-								$htmltooltip .= ''.$langs->trans("Version").': <b>'.$module->getVersion().'</b><br>';
-
-								$nextval = $module->getNextValue($mytmpinstance);
-								if ("$nextval" != $langs->trans("NotAvailable")) {  // Keep " on nextval
-									$htmltooltip .= ''.$langs->trans("NextValue").': ';
-									if ($nextval) {
-										if (preg_match('/^Error/', $nextval) || $nextval == 'NotConfigured') {
-											$nextval = $langs->trans($nextval);
-										}
-										$htmltooltip .= $nextval.'<br>';
-									} else {
-										$htmltooltip .= $langs->trans($module->error).'<br>';
-									}
-								}
-
-								print '<td class="center">';
-								print $form->textwithpicto('', $htmltooltip, 1, 'info');
-								print '</td>';
-
-								print "</tr>\n";
-							}
-						}
-					}
-					closedir($handle);
-				}
-			}
-		}
-		print "</table><br>\n";
-	}
-
-	if (!empty($myTmpObjectArray['includedocgeneration'])) {
-		/*
-		 * Document templates generators
-		 */
-		$setupnotempty++;
-		$type = strtolower($myTmpObjectKey);
-
-		print load_fiche_titre($langs->trans("DocumentModules", $myTmpObjectKey), '', '');
-
-		// Load array def with activated templates
-		$def = array();
-		// TODO Replace with $def = getListOfModels($db, $type);
-		$sql = "SELECT nom";
-		$sql .= " FROM ".$db->prefix()."document_model";
-		$sql .= " WHERE type = '".$db->escape($type)."'";
-		$sql .= " AND entity = ".$conf->entity;
-		$resql = $db->query($sql);
-		if ($resql) {
-			$i = 0;
-			$num_rows = $db->num_rows($resql);
-			while ($i < $num_rows) {
-				$array = $db->fetch_array($resql);
-				array_push($def, $array[0]);
-				$i++;
-			}
-		} else {
-			dol_print_error($db);
-		}
-
-		print '<table class="noborder centpercent">'."\n";
-		print '<tr class="liste_titre">'."\n";
-		print '<td>'.$langs->trans("Name").'</td>';
-		print '<td>'.$langs->trans("Description").'</td>';
-		print '<td class="center" width="60">'.$langs->trans("Status")."</td>\n";
-		print '<td class="center" width="60">'.$langs->trans("Default")."</td>\n";
-		print '<td class="center" width="38">'.$langs->trans("ShortInfo").'</td>';
-		print '<td class="center" width="38">'.$langs->trans("Preview").'</td>';
-		print "</tr>\n";
-
-		clearstatcache();
-
-		foreach ($dirmodels as $reldir) {
-			foreach (array('', '/doc') as $valdir) {
-				$realpath = $reldir."core/modules/".$moduledir.$valdir;
-				$dir = dol_buildpath($realpath);
-
-				if (is_dir($dir)) {
-					$handle = opendir($dir);
-					if (is_resource($handle)) {
-						$filelist = array();
-						while (($file = readdir($handle)) !== false) {
-							$filelist[] = $file;
-						}
-						closedir($handle);
-						arsort($filelist);
-
-						foreach ($filelist as $file) {
-							if (preg_match('/\.modules\.php$/i', $file) && preg_match('/^(pdf_|doc_)/', $file)) {
-								if (file_exists($dir.'/'.$file)) {
-									$name = substr($file, 4, dol_strlen($file) - 16);
-									$className = substr($file, 0, dol_strlen($file) - 12);
-
-									require_once $dir.'/'.$file;
-									$module = new $className($db);
-									'@phan-var-force ModelePDFMyObject $module';
-
-									$modulequalified = 1;
-									if ($module->version == 'development' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 2) {
-										$modulequalified = 0;
-									}
-									if ($module->version == 'experimental' && getDolGlobalInt('MAIN_FEATURES_LEVEL') < 1) {
-										$modulequalified = 0;
-									}
-
-									if ($modulequalified) {
-										$nameforurl = (string) $name;
-										$scandirforurl = (string) (isset($module->scandir) ? $module->scandir : '');
-										$labelforurl = (string) (isset($module->name) ? $module->name : '');
-										$objectforurl = strtolower((string) $myTmpObjectKey);
-
-										print '<tr class="oddeven"><td width="100">';
-										print(empty($module->name) ? $name : $module->name);
-										print "</td><td>\n";
-										if (method_exists($module, 'info')) {
-											print $module->info($langs);  // @phan-suppress-current-line PhanUndeclaredMethod
-										} else {
-											print $module->description;
-										}
-										print '</td>';
-
-										// Active
-										if (in_array($name, $def)) {
-											print '<td class="center">'."\n";
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=del&token='.newToken().'&value='.urlencode($nameforurl).'">';
-											print img_picto($langs->trans("Enabled"), 'switch_on');
-											print '</a>';
-											print '</td>';
-										} else {
-											print '<td class="center">'."\n";
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=set&token='.newToken().'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'">'.img_picto($langs->trans("Disabled"), 'switch_off').'</a>';
-											print "</td>";
-										}
-
-										// Default
-										print '<td class="center">';
-										$constforvar = 'POWERPLANTPV_'.strtoupper($myTmpObjectKey).'_ADDON_PDF';
-										if (getDolGlobalString($constforvar) == $name) {
-											//print img_picto($langs->trans("Default"), 'on');
-											// Even if choice is the default value, we allow to disable it. Replace this with previous line if you need to disable unset
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=unsetdoc&token='.newToken().'&object='.urlencode($objectforurl).'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'&amp;type='.urlencode((string) $type).'" alt="'.$langs->trans("Disable").'">'.img_picto($langs->trans("Enabled"), 'on').'</a>';
-										} else {
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=setdoc&token='.newToken().'&object='.urlencode($objectforurl).'&value='.urlencode($nameforurl).'&scan_dir='.urlencode($scandirforurl).'&label='.urlencode($labelforurl).'" alt="'.$langs->trans("Default").'">'.img_picto($langs->trans("Disabled"), 'off').'</a>';
-										}
-										print '</td>';
-
-										// Info
-										$htmltooltip = ''.$langs->trans("Name").': '.$module->name;
-										$htmltooltip .= '<br>'.$langs->trans("Type").': '.($module->type ? $module->type : $langs->trans("Unknown"));
-										if ($module->type == 'pdf') {
-											$htmltooltip .= '<br>'.$langs->trans("Width").'/'.$langs->trans("Height").': '.$module->page_largeur.'/'.$module->page_hauteur;
-										}
-										$htmltooltip .= '<br>'.$langs->trans("Path").': '.preg_replace('/^\//', '', $realpath).'/'.$file;
-
-										$htmltooltip .= '<br><br><u>'.$langs->trans("FeaturesSupported").':</u>';
-										$htmltooltip .= '<br>'.$langs->trans("Logo").': '.yn($module->option_logo, 1, 1);
-										$htmltooltip .= '<br>'.$langs->trans("MultiLanguage").': '.yn($module->option_multilang, 1, 1);
-
-										print '<td class="center">';
-										print $form->textwithpicto('', $htmltooltip, 1, 'info');
-										print '</td>';
-
-										// Preview
-										print '<td class="center">';
-										if ($module->type == 'pdf') {
-											$newname = preg_replace('/_'.preg_quote(strtolower($myTmpObjectKey), '/').'/', '', $name);
-											print '<a href="'.$_SERVER["PHP_SELF"].'?action=specimen&module='.urlencode($newname).'&object='.urlencode($myTmpObjectKey).'">'.img_object($langs->trans("Preview"), 'pdf').'</a>';
-										} else {
-											print img_object($langs->transnoentitiesnoconv("PreviewNotAvailable"), 'generic');
-										}
-										print '</td>';
-
-										print "</tr>\n";
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		print '</table>';
-	}
-}
 
 if (empty($setupnotempty)) {
 	print '<br>'.$langs->trans("NothingToSetup");
