@@ -921,6 +921,7 @@ ATTESTATIONSharingDescription = Ermöglicht das Teilen von Bescheinigungen zwisc
 ATTESTATIONNUMBERSharing = Nummerierung der Bescheinigungen teilen
 ATTESTATIONNUMBERSharingDescription = Ermöglicht ausgewählten Entitäten eine gemeinsame Nummerierungssequenz für Bescheinigungen.
 PowerPlantPVMaintenanceIntervention = Geplanter oder abdeckender Einsatz
+PowerPlantPVMaintenanceListStatus = Status
 PowerPlantPVMaintenanceStatusScheduled = Geplant
 PowerPlantPVMaintenanceScheduledInterventionMode = Erkennung geplanter Einsätze
 PowerPlantPVMaintenanceScheduledInterventionModeCreated = Ab Erstellung

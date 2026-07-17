@@ -921,6 +921,7 @@ ATTESTATIONSharingDescription = Permette di condividere le attestazioni tra enti
 ATTESTATIONNUMBERSharing = Condividi numerazione attestazioni
 ATTESTATIONNUMBERSharingDescription = Permette alle entità selezionate di usare una sequenza comune di numerazione attestazioni.
 PowerPlantPVMaintenanceIntervention = Intervento programmato o di copertura
+PowerPlantPVMaintenanceListStatus = Stato
 PowerPlantPVMaintenanceStatusScheduled = Programmata
 PowerPlantPVMaintenanceScheduledInterventionMode = Riconoscimento degli interventi programmati
 PowerPlantPVMaintenanceScheduledInterventionModeCreated = Dalla creazione

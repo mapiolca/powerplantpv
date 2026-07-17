@@ -79,6 +79,12 @@ function powerplantpvMaintenanceSortRows(array $rows, $sortfield, $sortorder)
 	);
 
 	usort($rows, static function (array $a, array $b) use ($sortfield, $direction, $statusPriority) {
+		$ineligibleA = empty($a['is_eligible']);
+		$ineligibleB = empty($b['is_eligible']);
+		if ($ineligibleA !== $ineligibleB) {
+			return $ineligibleA ? 1 : -1;
+		}
+
 		$contractA = (!empty($a['contract']) && is_array($a['contract'])) ? $a['contract'] : array();
 		$contractB = (!empty($b['contract']) && is_array($b['contract'])) ? $b['contract'] : array();
 		$interventionA = (!empty($a['covering_intervention']) && is_array($a['covering_intervention'])) ? $a['covering_intervention'] : ((!empty($a['scheduled_intervention']) && is_array($a['scheduled_intervention'])) ? $a['scheduled_intervention'] : array());

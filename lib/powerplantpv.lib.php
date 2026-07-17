@@ -37,6 +37,26 @@ function powerplantpvMaintenanceServiceEntityElement()
 }
 
 /**
+ * Remove inactive values from maintenance list filters.
+ *
+ * Native Dolibarr selects submit -1 for their empty option. These values must
+ * not reach the scheduler as effective filters.
+ *
+ * @param array<string,mixed> $filters Raw list filters
+ * @return array<string,mixed> Active list filters
+ */
+function powerplantpvMaintenanceActiveListFilters(array $filters)
+{
+	return array_filter($filters, static function ($value) {
+		if (is_array($value)) {
+			return !empty($value);
+		}
+
+		return !in_array($value, array(null, '', 0, '0', -1, '-1'), true);
+	});
+}
+
+/**
  * Prepare admin pages header
  *
  * @return array<array{string,string,string}>

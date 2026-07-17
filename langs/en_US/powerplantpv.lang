@@ -982,6 +982,7 @@ PowerPlantPVLastCoveringIntervention = Last covering intervention
 PowerPlantPVMaintenanceIntervention = Scheduled or covering intervention
 PowerPlantPVNextMaintenance = Next maintenance
 PowerPlantPVMaintenanceStatus = Maintenance status
+PowerPlantPVMaintenanceListStatus = Status
 PowerPlantPVMaintenanceStatusNotRequired = No maintenance required
 PowerPlantPVMaintenanceStatusPlanned = Planned
 PowerPlantPVMaintenanceStatusScheduled = Scheduled

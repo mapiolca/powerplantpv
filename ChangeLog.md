@@ -2,6 +2,7 @@
 
 ## 1.3.0
 
+- Liste maintenance : exclusion des valeurs vides `-1` envoyées par les sélecteurs Dolibarr, centrage de l'entête `Statut` et maintien des centrales non éligibles en fin de liste.
 - Maintenance : les prestations associées à un service partagé suivent désormais le périmètre Multicompany natif des produits/services.
 - Maintenance : ajout du statut `scheduled` / `Programmée`, avec intervention programmée séparée de l'intervention couvrante et mode par entité `created` ou `validated`.
 - Rappels : fenêtres glissantes J+6/J+29, conservation de tous les retards, langue et droits par destinataire, liens absolus, rattrapage sans rafale, verrou par entité et gestion explicite des erreurs SMTP/persistance.

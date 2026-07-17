@@ -84,11 +84,12 @@ if (!in_array($sortorder, array('ASC', 'DESC'), true)) {
 	$sortorder = 'ASC';
 }
 
-$searchPowerplant = GETPOSTINT('search_fk_powerplant');
-$searchSocid = GETPOSTINT('search_fk_soc');
+$searchPowerplant = max(0, GETPOSTINT('search_fk_powerplant'));
+$searchSocid = max(0, GETPOSTINT('search_fk_soc'));
 $searchStatus = GETPOST('search_status', 'alphanohtml');
-$searchNature = GETPOSTINT('search_intervention_nature');
-$searchService = GETPOSTINT('search_maintenance_service');
+$searchStatus = ($searchStatus === '-1') ? '' : $searchStatus;
+$searchNature = max(0, GETPOSTINT('search_intervention_nature'));
+$searchService = max(0, GETPOSTINT('search_maintenance_service'));
 $searchEntity = powerplantSanitizeEntityIdArray(GETPOST('search_entity', 'array:int'));
 $searchDateStart = dol_mktime(0, 0, 0, GETPOSTINT('search_date_startmonth'), GETPOSTINT('search_date_startday'), GETPOSTINT('search_date_startyear'));
 $searchDateEnd = dol_mktime(23, 59, 59, GETPOSTINT('search_date_endmonth'), GETPOSTINT('search_date_endday'), GETPOSTINT('search_date_endyear'));
@@ -118,7 +119,7 @@ $entityOptions = powerplantGetAccessibleEntityOptions();
 $searchEntity = array_values(array_intersect($searchEntity, array_keys($entityOptions)));
 $showEnvironment = count($entityOptions) > 1;
 
-$filters = array(
+$filters = powerplantpvMaintenanceActiveListFilters(array(
 	'fk_powerplant' => $searchPowerplant,
 	'fk_soc' => $searchSocid,
 	'status' => $searchStatus,
@@ -127,7 +128,7 @@ $filters = array(
 	'intervention_nature' => $searchNature,
 	'maintenance_service' => $searchService,
 	'entities' => $searchEntity,
-);
+));
 
 $form = new Form($db);
 $scheduler = new PowerPlantPVMaintenanceScheduler($db);
@@ -152,7 +153,7 @@ $arrayfields = array(
 	'recurrence' => array('label' => 'PowerPlantPVMaintenanceRecurrence', 'checked' => 1, 'enabled' => 1, 'position' => 60),
 	'period' => array('label' => 'PowerPlantPVMaintenancePeriod', 'checked' => 1, 'enabled' => 1, 'position' => 70),
 	'last_intervention' => array('label' => 'PowerPlantPVMaintenanceIntervention', 'checked' => 1, 'enabled' => 1, 'position' => 80),
-	'status' => array('label' => 'MaintenanceStatus', 'checked' => 1, 'enabled' => 1, 'position' => 90),
+	'status' => array('label' => 'PowerPlantPVMaintenanceListStatus', 'checked' => 1, 'enabled' => 1, 'position' => 90, 'csslist' => 'center'),
 	'entity' => array('label' => 'Environment', 'checked' => $showEnvironment ? 1 : 0, 'enabled' => $showEnvironment ? 1 : 0, 'position' => 100, 'csslist' => 'center'),
 );
 
