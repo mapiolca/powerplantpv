@@ -521,7 +521,7 @@ class PowerPlantPVReportBuilder
 		$sql = "SELECT rowid, code, label, label_en";
 		$sql .= " FROM ".$this->db->prefix()."c_powerplantpv_maintenance_service";
 		$sql .= " WHERE active = 1";
-		$sql .= " AND entity IN (".$this->db->sanitize(getEntity('c_powerplantpv_maintenance_service')).")";
+		$sql .= " AND entity IN (".$this->db->sanitize(getEntity(powerplantpvMaintenanceServiceEntityElement())).")";
 		$sql .= " ORDER BY position ASC, label ASC, rowid ASC";
 
 		$options = array();
@@ -1755,7 +1755,7 @@ class PowerPlantPVReportBuilder
 		$sql .= " FROM ".$this->db->prefix()."c_powerplantpv_maintenance_service";
 		$sql .= " WHERE rowid IN (".implode(',', $cleanIds).")";
 		$sql .= " AND active = 1";
-		$sql .= " AND entity IN (".$this->db->sanitize(getEntity('c_powerplantpv_maintenance_service')).")";
+		$sql .= " AND entity IN (".$this->db->sanitize(getEntity(powerplantpvMaintenanceServiceEntityElement())).")";
 		$sql .= " ORDER BY position ASC, label ASC, rowid ASC";
 
 		$services = array();

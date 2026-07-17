@@ -1141,7 +1141,7 @@ class PowerPlantPVMaintenanceScheduler
 		$sql .= " FROM ".$serviceTable;
 		$sql .= " WHERE rowid IN (".implode(',', $cleanIds).")";
 		$sql .= " AND active = 1";
-		$sql .= " AND entity IN (".$this->db->sanitize(getEntity('c_powerplantpv_maintenance_service')).")";
+		$sql .= " AND entity IN (".$this->db->sanitize(getEntity(powerplantpvMaintenanceServiceEntityElement())).")";
 		$sql .= " ORDER BY position ASC, label ASC, rowid ASC";
 
 		$services = array();

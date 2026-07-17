@@ -13,6 +13,11 @@ require_once __DIR__.'/bootstrap.php';
 
 final class PowerPlantPVMaintenanceSchedulerTest extends TestCase
 {
+	public function testMaintenanceServicesFollowNativeProductSharingScope(): void
+	{
+		$this->assertSame('product', powerplantpvMaintenanceServiceEntityElement());
+	}
+
 	/**
 	 * @return array<string,mixed>
 	 */
@@ -78,4 +83,3 @@ final class PowerPlantPVMaintenanceSchedulerTest extends TestCase
 		$this->assertFalse(PowerPlantPVMaintenanceScheduler::isMaintenanceInterventionMatchingPeriod($intervention, 42, 100, 200));
 	}
 }
-

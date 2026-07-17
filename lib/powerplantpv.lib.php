@@ -24,6 +24,19 @@
  */
 
 /**
+ * Return the native sharing element used by maintenance service metadata.
+ *
+ * Maintenance services are selected on products/services, so their visibility
+ * must follow the product sharing scope when a shared contract line is read.
+ *
+ * @return string Native Dolibarr element name
+ */
+function powerplantpvMaintenanceServiceEntityElement()
+{
+	return 'product';
+}
+
+/**
  * Prepare admin pages header
  *
  * @return array<array{string,string,string}>
