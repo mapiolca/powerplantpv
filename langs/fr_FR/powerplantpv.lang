@@ -1391,6 +1391,7 @@ PowerPlantPVReportManualLineAfterFirstSave = Enregistrez d'abord le rapport pour
 PowerPlantPVManualDcLine = Ligne manuelle
 PowerPlantPVManual = Manuel
 PowerPlantPVMPPTStringConfiguration = Configuration MPPT / strings
+PowerPlantPVInverterConfiguration = Configuration des onduleurs
 PowerPlantPVMPPTInstalledConfigurationHelp = Cette configuration décrit le raccordement réellement installé sur la centrale. Les caractéristiques produit servent uniquement au préremplissage.
 PowerPlantPVPrefillFromProductInverter = Préremplir depuis l'onduleur produit
 PowerPlantPVAddOrUpdateMPPT = Ajouter / modifier un MPPT

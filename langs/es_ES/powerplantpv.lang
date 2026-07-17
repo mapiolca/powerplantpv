@@ -992,3 +992,5 @@ PowerPlantPVMaintenanceStatisticsNatureComparison = Comparativa por naturaleza d
 PowerPlantPVMaintenanceStatisticsDateHelp = El año se determina por la fecha operativa, después por las fechas nativas de la intervención y, como último recurso, por la fecha de creación.
 PowerPlantPVMaintenanceStatisticsCurrentStatusHelp = La realización refleja el estado actual de la intervención.
 PowerPlantPVMaintenanceStatisticsOther = Otros
+PowerPlantPVMPPTStringConfiguration = Configuración MPPT / strings
+PowerPlantPVInverterConfiguration = Configuración de inversores

@@ -1391,6 +1391,7 @@ PowerPlantPVReportManualLineAfterFirstSave = Save the report first to add manual
 PowerPlantPVManualDcLine = Manual line
 PowerPlantPVManual = Manual
 PowerPlantPVMPPTStringConfiguration = MPPT / string configuration
+PowerPlantPVInverterConfiguration = Inverter configuration
 PowerPlantPVMPPTInstalledConfigurationHelp = This configuration describes the actual installed wiring on the power plant. Product characteristics are used only for prefill.
 PowerPlantPVPrefillFromProductInverter = Prefill from product inverter
 PowerPlantPVAddOrUpdateMPPT = Add / update MPPT

@@ -2,6 +2,7 @@
 
 ## 1.3.0
 
+- Composition matérielle : ajout d'un accès direct à la configuration MPPT / strings pour chaque onduleur installé sur la centrale.
 - Liste maintenance : positionnement natif des boutons de filtre et du sélecteur de colonnes selon le réglage Dolibarr, avec enregistrement automatique des colonnes lors de la fermeture du menu.
 - Liste maintenance : exclusion des valeurs vides `-1` envoyées par les sélecteurs Dolibarr, centrage de l'entête `Statut` et maintien des centrales non éligibles en fin de liste.
 - Maintenance : les prestations associées à un service partagé suivent désormais le périmètre Multicompany natif des produits/services.

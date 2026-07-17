@@ -159,6 +159,48 @@ if (!function_exists('powerplantCompositionLineIsInverter')) {
 	}
 }
 
+if (!function_exists('powerplantCompositionFetchInverterLines')) {
+	/**
+	 * Fetch all installed inverter lines for a power plant.
+	 *
+	 * @param	int	$powerplantid	Power plant id
+	 * @param	int	$entity			Power plant entity
+	 * @return	array<int,stdClass>	Installed inverter lines
+	 */
+	function powerplantCompositionFetchInverterLines($powerplantid, $entity)
+	{
+		global $db;
+
+		$rows = array();
+		if ($powerplantid <= 0 || $entity <= 0) {
+			return $rows;
+		}
+
+		$sql = "SELECT DISTINCT c.rowid, c.fk_product, c.fk_status, c.serial_number, c.commissioning_date";
+		$sql .= ", p.ref as product_ref, p.label as product_label, inv.fk_product as inverter_catalog_id";
+		$sql .= " FROM ".$db->prefix()."powerplantpv_powerplantcomp as c";
+		$sql .= " INNER JOIN ".$db->prefix()."product as p ON p.rowid = c.fk_product";
+		$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_product_inverter as inv ON inv.fk_product = c.fk_product";
+		$sql .= " WHERE c.fk_powerplant = ".((int) $powerplantid);
+		$sql .= " AND c.entity = ".((int) $entity);
+		$sql .= " ORDER BY p.ref ASC, p.label ASC, c.rowid ASC";
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.' SQL error: '.$db->lasterror(), LOG_ERR);
+			return $rows;
+		}
+
+		while (is_object($obj = $db->fetch_object($resql))) {
+			if (powerplantCompositionLineIsInverter($obj)) {
+				$rows[(int) $obj->rowid] = $obj;
+			}
+		}
+
+		return array_values($rows);
+	}
+}
+
 if (!function_exists('powerplantCompositionFetchMpptConfig')) {
 	/**
 	 * Fetch installed MPPT configuration rows.
@@ -1540,6 +1582,46 @@ if ($id > 0 || !empty($ref)) {
 			print '<br>';
 		}
 
+		if ($canmanagecomposition) {
+			$inverterlines = powerplantCompositionFetchInverterLines((int) $object->id, $powerplantentity);
+			$productstatic = new Product($db);
+
+			print load_fiche_titre($langs->trans('PowerPlantPVInverterConfiguration'), '', 'fa-bolt');
+			print '<div class="div-table-responsive-no-min">';
+			print '<table class="noborder centpercent">';
+			print '<tr class="liste_titre">';
+			print '<td>'.$langs->trans('Ref').'</td>';
+			print '<td>'.$langs->trans('Label').'</td>';
+			print '<td>'.$langs->trans('PowerPlantSerialNumber').'</td>';
+			print '<td>'.$langs->trans('PowerPlantPVMPPTStringConfiguration').'</td>';
+			print '</tr>';
+			if (!empty($inverterlines)) {
+				foreach ($inverterlines as $inverterline) {
+					$productstatic->id = (int) $inverterline->fk_product;
+					$productstatic->ref = (string) $inverterline->product_ref;
+					$productstatic->label = (string) $inverterline->product_label;
+					$configurl = $_SERVER['PHP_SELF'].'?id='.(int) $object->id;
+					$configurl .= '&action=configdc&lineid='.(int) $inverterline->rowid;
+					$configurl .= '#powerplantpv-mppt-string-configuration';
+					$configlink = img_picto('', 'fa-bolt', 'class="pictofixedwidth"');
+					$configlink .= dol_escape_htmltag($langs->trans('PowerPlantPVMPPTStringConfiguration'));
+					print '<tr class="oddeven">';
+					print '<td>'.$productstatic->getNomUrl(1).'</td>';
+					print '<td>'.dol_escape_htmltag((string) $inverterline->product_label).'</td>';
+					print '<td>'.dol_escape_htmltag((string) $inverterline->serial_number).'</td>';
+					print '<td><a href="'.dol_escape_htmltag($configurl).'">'.$configlink.'</a></td>';
+					print '</tr>';
+				}
+			} else {
+				print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">';
+				print $langs->trans('NoRecordFound');
+				print '</span></td></tr>';
+			}
+			print '</table>';
+			print '</div>';
+			print '<br>';
+		}
+
 		if ($canmanagecomposition && $action === 'configdc' && $lineid > 0) {
 			$configline = powerplantCompositionFetchLine($object->id, $lineid, $powerplantentity);
 			if ($configline && powerplantCompositionLineIsInverter($configline)) {
@@ -1550,7 +1632,9 @@ if ($id > 0 || !empty($ref)) {
 					$mpptOptions[(int) $mpptRow->mppt_number] = $langs->trans('PowerPlantPVMPPT').' '.((int) $mpptRow->mppt_number);
 				}
 
+				print '<div id="powerplantpv-mppt-string-configuration">';
 				print load_fiche_titre($langs->trans('PowerPlantPVMPPTStringConfiguration').' - '.dol_escape_htmltag(powerplantCompositionLineLabel($configline)), '', 'fa-bolt');
+				print '</div>';
 				print '<div class="div-table-responsive-no-min">';
 				print '<table class="noborder centpercent">';
 				print '<tr class="oddeven">';

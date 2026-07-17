@@ -992,3 +992,5 @@ PowerPlantPVMaintenanceStatisticsNatureComparison = Vergleich nach Einsatzart
 PowerPlantPVMaintenanceStatisticsDateHelp = Das Jahr wird anhand des Einsatzdatums, dann anhand der nativen Einsatzdaten und zuletzt anhand des Erstellungsdatums bestimmt.
 PowerPlantPVMaintenanceStatisticsCurrentStatusHelp = Der Abschluss entspricht dem aktuellen Status des Einsatzes.
 PowerPlantPVMaintenanceStatisticsOther = Sonstige
+PowerPlantPVMPPTStringConfiguration = MPPT-/String-Konfiguration
+PowerPlantPVInverterConfiguration = Wechselrichterkonfiguration
