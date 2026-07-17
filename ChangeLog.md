@@ -52,6 +52,7 @@
 - Notes de migration : réactiver le module en recette avant release, vérifier l'absence de doublons de dictionnaires/modèles, vérifier que les personnalisations de modèles de rapport et modèles documentaires sont conservées, puis dérouler la checklist de release v1.3.
 - Dette historique conservée hors PR12 : les anciens triggers custom non-CRUD du périmètre PowerPlant/Attestation restent présents pour compatibilité Agenda/Notifications existante et ne sont pas étendus par la maintenance v1.3.
 
+
 ## 1.2.1
 
 - Complétude des modèles et de la mécanique d'import CSV/XLSX des onduleurs avec tous les champs généraux peuplables, hors lignes MPPT et entrées PV.

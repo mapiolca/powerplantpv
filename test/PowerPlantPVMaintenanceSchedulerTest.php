@@ -59,6 +59,16 @@ final class PowerPlantPVMaintenanceSchedulerTest extends TestCase
 		$this->assertSame(PowerPlantPVMaintenanceScheduler::STATUS_COVERED, $status);
 	}
 
+	public function testCompletedInterventionAcceptsClosedAndCoveringSignatures(): void
+	{
+		$this->assertTrue(PowerPlantPVMaintenanceScheduler::isInterventionCompleted(3, 0));
+		$this->assertTrue(PowerPlantPVMaintenanceScheduler::isInterventionCompleted(1, 2));
+		$this->assertTrue(PowerPlantPVMaintenanceScheduler::isInterventionCompleted(1, 3));
+		$this->assertTrue(PowerPlantPVMaintenanceScheduler::isInterventionCompleted(1, 9));
+		$this->assertFalse(PowerPlantPVMaintenanceScheduler::isInterventionCompleted(1, 0));
+		$this->assertFalse(PowerPlantPVMaintenanceScheduler::isInterventionCompleted(1, 1));
+	}
+
 	public function testPeriodOverlapIncludesExactBoundaries(): void
 	{
 		$intervention = $this->intervention(1);

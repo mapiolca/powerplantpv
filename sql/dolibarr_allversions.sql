@@ -892,3 +892,22 @@ ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_pow
 ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_fk_categorie (fk_categorie);
 ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_fk_user (fk_user);
 ALTER TABLE llx_powerplantpv_serialnumber_import ADD INDEX IF NOT EXISTS idx_powerplantpv_serialnumber_import_status (status);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_maintenance_widget_user(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_user integer NOT NULL,
+	widget_code varchar(64) NOT NULL,
+	visible smallint DEFAULT 1 NOT NULL,
+	column_index smallint DEFAULT 0 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	date_creation datetime,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer,
+	fk_user_modif integer,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_maintenance_widget_user (entity, fk_user, widget_code);
+ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_widget_user_entity (entity);
+ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_widget_user_user (fk_user);
+ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_widget_user_position (entity, fk_user, column_index, position);

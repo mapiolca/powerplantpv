@@ -112,7 +112,7 @@ class modPowerPlantPV extends DolibarrModules
 			'theme' => 0,
 			// Set this to relative path of css file if module has its own css file
 			'css' => array(
-				//    '/powerplantpv/css/powerplantpv.css.php',
+				'/powerplantpv/css/powerplantpv_maintenance_dashboard.css',
 			),
 			// Set this to relative path of js file if module must load a js on all pages
 			'js' => array(
@@ -372,6 +372,20 @@ class modPowerPlantPV extends DolibarrModules
 				'note' => 'BoxPowerPlantPVInstalledPowerWeekly',
 				'enabledbydefaulton' => 'Home',
 			),
+			array('file' => 'powerplantpv_box_maintenance_status_summary.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceSummary'),
+			array('file' => 'powerplantpv_box_maintenance_to_schedule.php@powerplantpv', 'note' => 'PowerPlantPVMaintenancesToSchedule'),
+			array('file' => 'powerplantpv_box_maintenance_scheduled.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatusScheduled'),
+			array('file' => 'powerplantpv_box_maintenance_overdue.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceWidgetOverdue'),
+			array('file' => 'powerplantpv_box_maintenance_programming_rate.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceProgrammingRate'),
+			array('file' => 'powerplantpv_box_maintenance_due_windows.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceDueWindows'),
+			array('file' => 'powerplantpv_box_maintenance_overdue_age.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceOverdueAge'),
+			array('file' => 'powerplantpv_box_maintenance_monthly_load.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceMonthlyLoad'),
+			array('file' => 'powerplantpv_box_maintenance_by_powerplant.php@powerplantpv', 'note' => 'PowerPlantPVStatsByPowerPlant'),
+			array('file' => 'powerplantpv_box_maintenance_by_customer.php@powerplantpv', 'note' => 'PowerPlantPVStatsByCustomer'),
+			array('file' => 'powerplantpv_box_maintenance_by_nature.php@powerplantpv', 'note' => 'PowerPlantPVStatsByNature'),
+			array('file' => 'powerplantpv_box_maintenance_by_service.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatsByService'),
+			array('file' => 'powerplantpv_box_maintenance_by_recurrence.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatsByRecurrence'),
+			array('file' => 'powerplantpv_box_maintenance_configuration_quality.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceConfigurationQuality'),
 		);
 		/* END MODULEBUILDER WIDGETS */
 
@@ -672,7 +686,7 @@ class modPowerPlantPV extends DolibarrModules
 			'prefix' => img_picto('', 'fa-tools', 'class="paddingright pictofixedwidth valignmiddle"'),
 			'mainmenu' => 'powerplantpv',
 			'leftmenu' => 'powerplantpv_maintenance',
-			'url' => '/powerplantpv/maintenance_list.php',
+			'url' => '/powerplantpv/maintenance_index.php',
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
