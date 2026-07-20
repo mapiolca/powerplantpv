@@ -31,14 +31,37 @@ dol_include_once('/powerplantpv/class/powerplantpvproductimport.class.php');
  */
 function powerplantpvProductTechnicalImportGetTemplateHeaders($categoryCode)
 {
+	$type = 'module';
+	$fields = array();
 	if ($categoryCode === 'ONDULE') {
-		return array_merge(
+		$type = 'inverter';
+		$fields = array_merge(
 			PowerPlantPVProductImport::getInverterImportFields(),
 			PowerPlantPVProductImport::getInverterMPPTCompositionTemplateFields(4, 2)
 		);
+	} elseif ($categoryCode === 'BATTER') {
+		$type = 'battery';
+		$fields = array_merge(PowerPlantPVProductImport::getBatteryImportFields(), PowerPlantPVProductImport::getBatteryAttributeTemplateFields());
+	} else {
+		$fields = PowerPlantPVProductImport::getModuleImportFields();
 	}
 
-	return PowerPlantPVProductImport::getModuleImportFields();
+	$headers = array();
+	foreach ($fields as $field) {
+		if ($type === 'battery' && preg_match('/^(protocol|protection|certification)_[0-9]+$/', $field)) {
+			$headers[] = $field.' [code]';
+			continue;
+		}
+		$unitfield = $field;
+		if ($type === 'inverter' && preg_match('/^mppt_[0-9]+_(?:input_[0-9]+_)?(.+)$/', $field, $matches)) {
+			$unitfield = $matches[1];
+			$unit = in_array($unitfield, array('voltage_min', 'voltage_max'), true) ? 'V' : (strpos($unitfield, 'current') !== false ? 'A' : ($unitfield === 'max_dc_power' ? 'W' : 'text'));
+			$headers[] = $field.' ['.$unit.']';
+			continue;
+		}
+		$headers[] = PowerPlantPVProductImport::getTemplateHeader($type, $unitfield);
+	}
+	return $headers;
 }
 
 /**
@@ -151,7 +174,7 @@ function powerplantpvProductTechnicalImportPrintDialog($object, $categoryCode, $
 {
 	global $db, $langs;
 
-	if (empty($object->id) || !in_array($categoryCode, array('MODULE', 'ONDULE'), true)) {
+	if (empty($object->id) || !in_array($categoryCode, array('MODULE', 'ONDULE', 'BATTER'), true)) {
 		return;
 	}
 

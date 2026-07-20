@@ -915,6 +915,10 @@ class modPowerPlantPV extends DolibarrModules
 		if ($result < 0) {
 			return -1;
 		}
+		$result = $this->ensureBatterySchema();
+		if ($result < 0) {
+			return -1;
+		}
 
 		// Create product extrafield for photovoltaic category.
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
@@ -964,9 +968,13 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
-		// Create commercial document extrafields storing the calculated total peak power.
+		// Create commercial document extrafields storing calculated technical totals.
 		foreach (array('propal', 'commande', 'facture') as $commercialElementType) {
 			$result = $this->ensureCommercialPeakPowerExtrafield($extrafields, $commercialElementType);
+			if ($result < 0) {
+				return -1;
+			}
+			$result = $this->ensureCommercialStorageCapacityExtrafield($extrafields, $commercialElementType);
 			if ($result < 0) {
 				return -1;
 			}
@@ -986,6 +994,8 @@ class modPowerPlantPV extends DolibarrModules
 			'COFFAC' => 'Coffret AC',
 			'COFFDC' => 'Coffret DC',
 			'SYSINT' => 'Système d\'intégration',
+			'BATTER' => 'Batterie',
+			'BATACC' => 'Accessoire Batterie',
 		);
 		foreach ($categoryRows as $code => $label) {
 			$sql = "INSERT INTO ".$this->db->prefix()."c_powerplantpv_categorypv(code, label, active)";
@@ -1255,9 +1265,58 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
-	 * Ensure attestation tables contain fields added by V1.
+	 * Ensure storage-related fields added to existing technical tables.
 	 *
 	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensureBatterySchema()
+	{
+		$table = $this->db->prefix().'powerplantpv_product_inverter';
+		$sql = "SHOW TABLES LIKE '".$this->db->escape($table)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		$tableexists = ($this->db->num_rows($resql) > 0);
+		$this->db->free($resql);
+		if (!$tableexists) {
+			return 1;
+		}
+
+		$fields = array(
+			'phase_count' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			'backup_nominal_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			'backup_peak_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			'backup_peak_duration' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			'backup_transfer_time' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			'backup_nominal_voltage' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+			'backup_max_current' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			'backup_thd' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+			'max_unbalanced_output' => array('type' => 'double', 'value' => '6,3', 'null' => ''),
+		);
+		foreach ($fields as $field => $fielddesc) {
+			$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+			$fieldexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if (!$fieldexists && $this->db->DDLAddField($table, $field, $fielddesc) < 0) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Ensure attestation tables contain fields added by V1.
+	 *
+	 * @return int 1 if OK, <0 if KO
 	 */
 	private function ensureAttestationSchema()
 	{
@@ -2239,6 +2298,57 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
+		return 1;
+	}
+
+	/**
+	 * Create or update the calculated useful storage-capacity extrafield.
+	 *
+	 * @param ExtraFields $extrafields Extrafields manager
+	 * @param string $elementtype Commercial document type
+	 * @return int 1 if OK, <0 if KO
+	 */
+	private function ensureCommercialStorageCapacityExtrafield($extrafields, $elementtype)
+	{
+		$extrafields->fetch_name_optionals_label($elementtype);
+		$moreparams = array('css' => 'maxwidth100 right', 'csslist' => 'right', 'cssview' => 'right');
+		$method = 'addExtraField';
+		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_storage_capacity'])) {
+			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity'] : '';
+			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8') {
+				return 1;
+			}
+			$method = 'updateExtraField';
+		}
+
+		$result = $extrafields->$method(
+			'powerplantpv_storage_capacity',
+			'PowerPlantPVStorageCapacity',
+			'double',
+			201,
+			'24,8',
+			$elementtype,
+			0,
+			0,
+			'',
+			'',
+			0,
+			'',
+			5,
+			'PowerPlantPVStorageCapacityHelp',
+			'',
+			'',
+			'powerplantpv@powerplantpv',
+			'isModEnabled("powerplantpv")',
+			1,
+			1,
+			$moreparams
+		);
+		if ($result < 0) {
+			$this->errors[] = $extrafields->error;
+			return -1;
+		}
 		return 1;
 	}
 

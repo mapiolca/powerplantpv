@@ -219,7 +219,7 @@ class PowerPlantPVFileImport
 		for ($i = 0; $i < $limit; $i++) {
 			$score = 0;
 			foreach ($this->normalizeHeaders((array) $rows[$i]) as $header) {
-				if ($header !== '' && (isset($aliases[$header]) || !empty($this->parseMpptCompositionHeader($header)))) {
+				if ($header !== '' && (isset($aliases[$header]) || !empty($this->parseMpptCompositionHeader($header)) || !empty($this->parseBatteryAttributeHeader($header)))) {
 					$score++;
 				}
 			}
@@ -280,7 +280,7 @@ class PowerPlantPVFileImport
 	 * Build normalized import row descriptors.
 	 *
 	 * @param array<int,array<int,string>> $rows Raw rows
-	 * @param string                       $type module|inverter
+	 * @param string                       $type module|inverter|battery
 	 * @return array<string,mixed> Parsed import data
 	 */
 	public function buildImportRows(array $rows, $type)
@@ -296,10 +296,48 @@ class PowerPlantPVFileImport
 		$headers = (array) $rows[$headerrow];
 		$normalizedheaders = $this->normalizeHeaders($headers);
 		$fieldmap = $this->buildFieldMap($normalizedheaders, $type);
-		if (empty($fieldmap['fields']) && empty($fieldmap['composition_fields'])) {
+		if (empty($fieldmap['fields']) && empty($fieldmap['composition_fields']) && empty($fieldmap['attribute_fields'])) {
 			$this->setError('ProductTechnicalImportNoRecognizedColumn');
 			return array();
 		}
+		$unitwarnings = array();
+		foreach ($fieldmap['fields'] as $field => $columnindex) {
+			$rawheader = isset($headers[$columnindex]) ? trim((string) $headers[$columnindex]) : '';
+			$expectedunit = PowerPlantPVProductImport::getImportFieldUnit($type, $field);
+			if (!preg_match('/\[([^\]]+)\]\s*$/u', $rawheader, $matches)) {
+				$unitwarnings[] = $field;
+				continue;
+			}
+			if ($this->normalizeUnit($matches[1]) !== $this->normalizeUnit($expectedunit)) {
+				dol_syslog(__METHOD__.' unexpected unit for '.$field.': '.$matches[1].' expected '.$expectedunit, LOG_WARNING);
+				$this->setError('ProductTechnicalImportUnexpectedUnit');
+				return array();
+			}
+		}
+		foreach ($fieldmap['attribute_fields'] as $header => $columnindex) {
+			$rawheader = isset($headers[$columnindex]) ? trim((string) $headers[$columnindex]) : '';
+			if (!preg_match('/\[([^\]]+)\]\s*$/u', $rawheader, $matches)) {
+				$unitwarnings[] = $header;
+				continue;
+			}
+			if ($this->normalizeUnit($matches[1]) !== 'code') {
+				$this->setError('ProductTechnicalImportUnexpectedUnit');
+				return array();
+			}
+		}
+		foreach ($fieldmap['composition_fields'] as $header => $columnindex) {
+			$rawheader = isset($headers[$columnindex]) ? trim((string) $headers[$columnindex]) : '';
+			$expectedunit = $this->getMpptCompositionFieldUnit($header);
+			if (!preg_match('/\[([^\]]+)\]\s*$/u', $rawheader, $matches)) {
+				$unitwarnings[] = $header;
+				continue;
+			}
+			if ($this->normalizeUnit($matches[1]) !== $this->normalizeUnit($expectedunit)) {
+				$this->setError('ProductTechnicalImportUnexpectedUnit');
+				return array();
+			}
+		}
+		$fieldmap['unit_warnings'] = $unitwarnings;
 
 		$importrows = array();
 		for ($i = $headerrow + 1; $i < count($rows); $i++) {
@@ -308,7 +346,13 @@ class PowerPlantPVFileImport
 				continue;
 			}
 			$raw = $this->rowToAssoc($headers, $cells);
-			$normalized = ($type === 'inverter') ? $this->normalizeInverterRow($raw) : $this->normalizeModuleRow($raw);
+			if ($type === 'inverter') {
+				$normalized = $this->normalizeInverterRow($raw);
+			} elseif ($type === 'battery') {
+				$normalized = $this->normalizeBatteryRow($raw);
+			} else {
+				$normalized = $this->normalizeModuleRow($raw);
+			}
 			$recognizedcount = $this->countRecognizedValues($normalized);
 
 			$importrows[] = array(
@@ -316,7 +360,7 @@ class PowerPlantPVFileImport
 				'line' => $i + 1,
 				'manufacturer' => $this->firstRawValue($raw, array('manufacturer', 'fabricant', 'maker', 'brand', 'marque')),
 				'model' => $this->firstRawValue($raw, array('model', 'modele', 'modèle', 'name', 'nom', 'ref', 'reference', 'référence')),
-				'power' => $this->firstNormalizedValue($normalized, array('pmax', 'pv_max_power', 'ac_nominal_power', 'ac_max_power')),
+				'power' => $this->firstNormalizedValue($normalized, array('pmax', 'pv_max_power', 'ac_nominal_power', 'ac_max_power', 'usable_energy')),
 				'recognized_count' => $recognizedcount,
 				'raw' => $raw,
 				'normalized' => $normalized,
@@ -335,6 +379,18 @@ class PowerPlantPVFileImport
 			'field_map' => $fieldmap,
 			'rows' => $importrows,
 		);
+	}
+
+	/**
+	 * Normalize an import unit for strict header comparison.
+	 *
+	 * @param string $unit Unit
+	 * @return string Normalized unit
+	 */
+	protected function normalizeUnit($unit)
+	{
+		$unit = str_replace(array('％', '²', '°', ' '), array('%', '2', '', ''), trim((string) $unit));
+		return strtolower($unit);
 	}
 
 	/**
@@ -362,6 +418,38 @@ class PowerPlantPVFileImport
 			$normalized['_mppt_composition'] = $composition;
 		}
 
+		return $normalized;
+	}
+
+	/**
+	 * Normalize a battery row.
+	 *
+	 * @param array<string,mixed> $row Raw row
+	 * @return array<string,mixed> Normalized data
+	 */
+	public function normalizeBatteryRow(array $row)
+	{
+		$normalized = $this->normalizeRowWithAliases($row, $this->getBatteryAliases(), $this->getBatteryFieldTypes(), 'battery');
+		$attributes = array();
+		foreach ($row as $rawheader => $rawvalue) {
+			$descriptor = $this->parseBatteryAttributeHeader($this->normalizeHeader((string) $rawheader));
+			$value = trim((string) $rawvalue);
+			if (empty($descriptor) || $value === '') {
+				continue;
+			}
+			$parts = explode('|', $value, 2);
+			$type = (string) $descriptor['type'];
+			if (!isset($attributes[$type])) {
+				$attributes[$type] = array();
+			}
+			$attributes[$type][] = array(
+				'code' => strtoupper(trim($parts[0])),
+				'label' => isset($parts[1]) ? trim($parts[1]) : '',
+			);
+		}
+		if (!empty($attributes)) {
+			$normalized['_battery_attributes'] = $attributes;
+		}
 		return $normalized;
 	}
 
@@ -766,14 +854,15 @@ class PowerPlantPVFileImport
 	 * Build field map from headers.
 	 *
 	 * @param array<int,string> $normalizedheaders Headers
-	 * @param string            $type              module|inverter
+	 * @param string            $type              module|inverter|battery
 	 * @return array<string,mixed> Field map
 	 */
 	protected function buildFieldMap(array $normalizedheaders, $type)
 	{
-		$aliases = ($type === 'inverter') ? $this->getInverterAliases() : $this->getModuleAliases();
+		$aliases = ($type === 'inverter') ? $this->getInverterAliases() : ($type === 'battery' ? $this->getBatteryAliases() : $this->getModuleAliases());
 		$fields = array();
 		$compositionfields = array();
+		$attributefields = array();
 		$recognized = array();
 		$ignored = array();
 		foreach ($normalizedheaders as $idx => $header) {
@@ -789,12 +878,15 @@ class PowerPlantPVFileImport
 			} elseif ($type === 'inverter' && !empty($this->parseMpptCompositionHeader($header))) {
 				$compositionfields[$header] = $idx;
 				$recognized[$header] = '_mppt_composition';
+			} elseif ($type === 'battery' && !empty($this->parseBatteryAttributeHeader($header))) {
+				$attributefields[$header] = $idx;
+				$recognized[$header] = '_battery_attributes';
 			} else {
 				$ignored[] = $header;
 			}
 		}
 
-		return array('fields' => $fields, 'composition_fields' => $compositionfields, 'recognized_headers' => $recognized, 'ignored_headers' => array_values(array_unique($ignored)));
+		return array('fields' => $fields, 'composition_fields' => $compositionfields, 'attribute_fields' => $attributefields, 'recognized_headers' => $recognized, 'ignored_headers' => array_values(array_unique($ignored)));
 	}
 
 	/**
@@ -831,6 +923,12 @@ class PowerPlantPVFileImport
 			}
 			if ($key === '_mppt_composition' && is_array($value)) {
 				$count += $this->countMpptCompositionValues($value);
+				continue;
+			}
+			if ($key === '_battery_attributes' && is_array($value)) {
+				foreach ($value as $rows) {
+					$count += is_array($rows) ? count($rows) : 0;
+				}
 				continue;
 			}
 			if ($value !== null && $value !== '') {
@@ -1021,6 +1119,49 @@ class PowerPlantPVFileImport
 			'mppt_number' => $mpptnumber,
 			'field' => $field,
 		);
+	}
+
+	/**
+	 * Parse a repeated normalized battery attribute header.
+	 *
+	 * @param string $header Normalized header
+	 * @return array<string,mixed> Descriptor or empty array
+	 */
+	protected function parseBatteryAttributeHeader($header)
+	{
+		if (!preg_match('/^(protocol|protection|certification)_([0-9]+)$/', (string) $header, $matches)) {
+			return array();
+		}
+		$position = (int) $matches[2];
+		if ($position <= 0) {
+			return array();
+		}
+		return array(
+			'type' => strtoupper((string) $matches[1]),
+			'position' => $position,
+		);
+	}
+
+	/**
+	 * Return the expected unit for a normalized MPPT composition header.
+	 *
+	 * @param string $header Normalized header
+	 * @return string Unit or format
+	 */
+	protected function getMpptCompositionFieldUnit($header)
+	{
+		$descriptor = $this->parseMpptCompositionHeader($header);
+		$field = isset($descriptor['field']) ? (string) $descriptor['field'] : '';
+		if (in_array($field, array('voltage_min', 'voltage_max'), true)) {
+			return 'V';
+		}
+		if (strpos($field, 'current') !== false) {
+			return 'A';
+		}
+		if ($field === 'max_dc_power') {
+			return 'W';
+		}
+		return 'text';
 	}
 
 	/**
@@ -1404,7 +1545,7 @@ class PowerPlantPVFileImport
 	 */
 	protected function getCombinedAliases()
 	{
-		return array_merge($this->getModuleAliases(), $this->getInverterAliases());
+		return array_merge($this->getModuleAliases(), $this->getInverterAliases(), $this->getBatteryAliases());
 	}
 
 	/**
@@ -1437,6 +1578,33 @@ class PowerPlantPVFileImport
 		return $types;
 	}
 
+	/** @return array<string,string> Battery aliases */
+	protected function getBatteryAliases()
+	{
+		$aliases = array();
+		foreach (PowerPlantPVProductImport::getBatteryImportFields() as $field) {
+			$aliases[$field] = $field;
+		}
+		$aliases['capacite_nominale'] = 'nominal_energy';
+		$aliases['capacite_utile'] = 'usable_energy';
+		$aliases['energie_nominale'] = 'nominal_energy';
+		$aliases['energie_utile'] = 'usable_energy';
+		$aliases['profondeur_decharge'] = 'dod';
+		$aliases['cycles'] = 'cycle_life';
+		return $aliases;
+	}
+
+	/** @return array<string,string> Battery field types */
+	protected function getBatteryFieldTypes()
+	{
+		$types = array();
+		foreach (ProductBattery::getBatteryFields() as $field => $spec) {
+			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$types[$field] = $type === 'select' ? 'varchar' : $type;
+		}
+		return $types;
+	}
+
 	/**
 	 * Normalize a header string.
 	 *
@@ -1445,6 +1613,7 @@ class PowerPlantPVFileImport
 	 */
 	protected function normalizeHeader($header)
 	{
+		$header = preg_replace('/\s*\[[^\]]+\]\s*$/u', '', trim((string) $header));
 		$header = trim(strtolower((string) $header));
 		if (function_exists('iconv')) {
 			$converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $header);

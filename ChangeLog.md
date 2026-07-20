@@ -2,6 +2,11 @@
 
 ## 1.3.0
 
+- Batteries : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées des modules et systèmes de stockage, ainsi que des rôles et contraintes normalisées des accessoires.
+- Kits batteries : résolution récursive des compositions natives Dolibarr, multiplication des quantités à chaque niveau, inventaire terminal en lecture seule et détection explicite des cycles.
+- Cycle commercial : ajout de l'extrafield calculé `Capacité de stockage (kWh)` sur les devis, commandes et factures, avec mise à jour automatique, état incomplet non bloquant et recalcul global depuis les réglages.
+- Import technique : prise en charge des batteries, stockage relationnel des protocoles, protections et certifications, et ajout de l'unité ou du format attendu à tous les en-têtes CSV/XLSX MODULE, ONDULE et BATTER.
+- Onduleurs intégrés : ajout des phases et caractéristiques de sortie secours/EPS réutilisées par les systèmes de stockage tout-en-un.
 - Composition matérielle : ajout d'un accès direct à la configuration MPPT / strings pour chaque onduleur installé sur la centrale.
 - Liste maintenance : positionnement natif des boutons de filtre et du sélecteur de colonnes selon le réglage Dolibarr, avec enregistrement automatique des colonnes lors de la fermeture du menu.
 - Liste maintenance : exclusion des valeurs vides `-1` envoyées par les sélecteurs Dolibarr, centrage de l'entête `Statut` et maintien des centrales non éligibles en fin de liste.

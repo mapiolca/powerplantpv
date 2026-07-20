@@ -22,6 +22,7 @@
  */
 
 dol_include_once('/powerplantpv/class/productinverter.class.php');
+dol_include_once('/powerplantpv/class/productbattery.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvproductdatasource.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
@@ -105,6 +106,70 @@ class PowerPlantPVProductImport
 	public static function getInverterImportFields()
 	{
 		return array_keys(ProductInverter::getInverterFields());
+	}
+
+	/** @return array<int,string> Battery scalar fields */
+	public static function getBatteryImportFields()
+	{
+		return array_keys(ProductBattery::getBatteryFields());
+	}
+
+	/** @return array<int,string> Repeated normalized battery attribute fields */
+	public static function getBatteryAttributeTemplateFields()
+	{
+		$fields = array();
+		foreach (array('protocol' => 4, 'protection' => 6, 'certification' => 6) as $prefix => $count) {
+			for ($i = 1; $i <= $count; $i++) {
+				$fields[] = $prefix.'_'.$i;
+			}
+		}
+		return $fields;
+	}
+
+	/**
+	 * Return the expected unit/format for one canonical import field.
+	 *
+	 * @param string $type module|inverter|battery
+	 * @param string $field Canonical field
+	 * @return string Unit or format
+	 */
+	public static function getImportFieldUnit($type, $field)
+	{
+		if ($type === 'battery') {
+			$fields = ProductBattery::getBatteryFields();
+			return isset($fields[$field]['unit']) ? (string) $fields[$field]['unit'] : 'text';
+		}
+		$moduleunits = array(
+			'pmax' => 'Wc', 'power_tolerance' => '%', 'module_efficiency' => '%', 'vmp' => 'V', 'imp' => 'A', 'voc' => 'V', 'isc' => 'A',
+			'front_glass_thickness' => 'mm', 'back_glass_thickness' => 'mm', 'cable_section' => 'mm²', 'cable_length' => 'mm', 'noct' => '°C',
+			'temp_coeff_pmax' => '%/°C', 'temp_coeff_voc' => '%/°C', 'temp_coeff_isc' => '%/°C', 'max_system_voltage' => 'V', 'max_series_fuse' => 'A',
+			'operating_temperature' => '°C', 'snow_load' => 'Pa', 'wind_load' => 'Pa', 'product_warranty' => 'years', 'power_warranty' => 'years',
+			'first_year_degradation' => '%', 'annual_degradation' => '%/year', 'modules_per_box' => 'pcs', 'modules_per_container40' => 'pcs',
+		);
+		if ($type === 'module') {
+			return isset($moduleunits[$field]) ? $moduleunits[$field] : 'text';
+		}
+		$inverterunits = array(
+			'pv_max_power' => 'W', 'dc_max_voltage' => 'V', 'startup_voltage' => 'V', 'mppt_voltage_min' => 'V', 'mppt_voltage_max' => 'V', 'nominal_dc_voltage' => 'V',
+			'ac_nominal_power' => 'W', 'ac_max_power' => 'W', 'ac_apparent_power' => 'VA', 'ac_nominal_voltage' => 'V', 'grid_frequency' => 'Hz', 'ac_max_output_current' => 'A',
+			'phase_count' => 'pcs', 'power_factor' => 'ratio', 'thd' => '%', 'backup_nominal_power' => 'W', 'backup_peak_power' => 'W', 'backup_peak_duration' => 's',
+			'backup_transfer_time' => 'ms', 'backup_nominal_voltage' => 'V', 'backup_max_current' => 'A', 'backup_thd' => '%', 'max_unbalanced_output' => '%',
+			'max_efficiency' => '%', 'european_efficiency' => '%', 'dc_switch' => '0/1', 'afci' => '0/1', 'pid_recovery' => '0/1', 'anti_islanding' => '0/1',
+			'dc_reverse_polarity_protection' => '0/1', 'insulation_monitoring' => '0/1', 'residual_current_monitoring' => '0/1', 'max_altitude' => 'm',
+		);
+		return isset($inverterunits[$field]) ? $inverterunits[$field] : 'text';
+	}
+
+	/**
+	 * Format a canonical field as a self-documenting template header.
+	 *
+	 * @param string $type Import type
+	 * @param string $field Canonical field
+	 * @return string Header
+	 */
+	public static function getTemplateHeader($type, $field)
+	{
+		return $field.' ['.self::getImportFieldUnit($type, $field).']';
 	}
 
 	/**
@@ -284,6 +349,116 @@ class PowerPlantPVProductImport
 	}
 
 	/**
+	 * Preview a battery import.
+	 *
+	 * @param int $fkProduct Product id
+	 * @param array<string,mixed> $normalizedData Normalized data
+	 * @param string $strategy Import strategy
+	 * @return array<string,mixed> Preview data
+	 */
+	public function previewBatteryImport($fkProduct, array $normalizedData, $strategy)
+	{
+		$this->resetErrors();
+		$battery = new ProductBattery($this->db);
+		$current = null;
+		$result = $battery->fetchByProduct($fkProduct);
+		if ($result < 0) {
+			$this->setError($battery->error);
+		} elseif ($result > 0) {
+			$current = (object) $battery->data;
+			$current->rowid = $battery->id;
+		}
+		$preview = $this->buildPreview(self::getBatteryImportFields(), $current, $normalizedData, $strategy);
+		$attributepreview = $this->buildBatteryAttributePreview($battery, $normalizedData, $strategy, $result > 0);
+		$preview['changes'] = array_merge($preview['changes'], $attributepreview['changes']);
+		$preview['ignored'] = array_merge($preview['ignored'], $attributepreview['ignored']);
+		$preview['battery_attribute_apply'] = $attributepreview['apply'];
+		return $preview;
+	}
+
+	/**
+	 * Build the preview for normalized protocol, protection and certification rows.
+	 *
+	 * @param ProductBattery $battery Battery object
+	 * @param array<string,mixed> $normalizedData Normalized data
+	 * @param string $strategy Import strategy
+	 * @param bool $hasBattery Current battery row exists
+	 * @return array<string,mixed> Preview additions
+	 */
+	protected function buildBatteryAttributePreview(ProductBattery $battery, array $normalizedData, $strategy, $hasBattery)
+	{
+		$changes = array();
+		$ignored = array();
+		$apply = array();
+		$proposedgroups = isset($normalizedData['_battery_attributes']) && is_array($normalizedData['_battery_attributes']) ? $normalizedData['_battery_attributes'] : array();
+		$currentgroups = $hasBattery ? $battery->fetchAttributes($battery->id) : array();
+		if ($battery->error !== '') {
+			$this->setError($battery->error);
+			return array('changes' => $changes, 'ignored' => $ignored, 'apply' => $apply);
+		}
+		$strategy = $this->sanitizeStrategy($strategy);
+		foreach (ProductBattery::getAttributeTypeOptions() as $type => $label) {
+			if (!isset($proposedgroups[$type]) || !is_array($proposedgroups[$type])) {
+				continue;
+			}
+			$proposed = $this->normalizeBatteryAttributeRows($proposedgroups[$type]);
+			$current = $this->normalizeBatteryAttributeObjects(isset($currentgroups[$type]) && is_array($currentgroups[$type]) ? $currentgroups[$type] : array());
+			$key = 'battery_attribute_'.strtolower($type);
+			$currentdisplay = $this->formatBatteryAttributeRows($current);
+			$proposeddisplay = $this->formatBatteryAttributeRows($proposed);
+			if (($strategy === self::STRATEGY_NEVER && !empty($current)) || ($strategy === self::STRATEGY_EMPTY_ONLY && !empty($current))) {
+				$ignored[$key] = array('current' => $currentdisplay, 'proposed' => $proposeddisplay, 'reason' => ($strategy === self::STRATEGY_NEVER ? 'PVFreeOverwriteNever' : 'PVFreeExistingValueKept'));
+				continue;
+			}
+			if ($current === $proposed) {
+				$ignored[$key] = array('current' => $currentdisplay, 'proposed' => $proposeddisplay, 'reason' => 'PVFreeSameValue');
+				continue;
+			}
+			$changes[$key] = array('current' => $currentdisplay, 'proposed' => $proposeddisplay);
+			$apply[$type] = $proposed;
+		}
+		return array('changes' => $changes, 'ignored' => $ignored, 'apply' => $apply);
+	}
+
+	/** @param array<int,mixed> $rows @return array<int,array<string,string>> */
+	protected function normalizeBatteryAttributeRows(array $rows)
+	{
+		$normalized = array();
+		foreach ($rows as $row) {
+			if (!is_array($row)) {
+				continue;
+			}
+			$code = strtoupper(trim((string) (isset($row['code']) ? $row['code'] : '')));
+			if ($code !== '') {
+				$normalized[] = array('code' => $code, 'label' => trim((string) (isset($row['label']) ? $row['label'] : '')));
+			}
+		}
+		return $normalized;
+	}
+
+	/** @param array<int,object> $rows @return array<int,array<string,string>> */
+	protected function normalizeBatteryAttributeObjects(array $rows)
+	{
+		$normalized = array();
+		foreach ($rows as $row) {
+			if (is_object($row)) {
+				$normalized[] = array('code' => strtoupper(trim((string) $row->attribute_code)), 'label' => trim((string) $row->attribute_label));
+			}
+		}
+		return $normalized;
+	}
+
+	/** @param array<int,array<string,string>> $rows @return string */
+	protected function formatBatteryAttributeRows(array $rows)
+	{
+		$values = array();
+		foreach ($rows as $row) {
+			$values[] = $row['code'].($row['label'] !== '' ? '|'.$row['label'] : '');
+		}
+		return implode(', ', $values);
+	}
+
+	/**
 	 * Import module data to product.
 	 *
 	 * @param int                 $fkProduct      Product id
@@ -403,6 +578,78 @@ class PowerPlantPVProductImport
 		}
 
 		return $resultdata;
+	}
+
+	/**
+	 * Import battery scalar data to product.
+	 *
+	 * @param int $fkProduct Product id
+	 * @param array<string,mixed> $normalizedData Normalized data
+	 * @param array<string,mixed> $rawData Raw data
+	 * @param User $user Current user
+	 * @param string $strategy Import strategy
+	 * @param array<string,mixed> $sourceData Source trace
+	 * @return array<string,mixed> Result data
+	 */
+	public function importBatteryToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array())
+	{
+		$preview = $this->previewBatteryImport($fkProduct, $normalizedData, $strategy);
+		if ($this->error) {
+			return array('result' => -1, 'preview' => $preview);
+		}
+		$attributeapply = isset($preview['battery_attribute_apply']) && is_array($preview['battery_attribute_apply']) ? $preview['battery_attribute_apply'] : array();
+		if (empty($preview['changes'])) {
+			return array('result' => 0, 'preview' => $preview, 'message' => 'ProductTechnicalImportNoFieldToImport');
+		}
+		$battery = new ProductBattery($this->db);
+		$currentresult = $battery->fetchByProduct($fkProduct);
+		if ($currentresult < 0) {
+			$this->setError($battery->error);
+			return array('result' => -1, 'preview' => $preview);
+		}
+		$data = array();
+		foreach (ProductBattery::getBatteryFields() as $field => $spec) {
+			$data[$field] = $currentresult > 0 && array_key_exists($field, $battery->data) ? $battery->data[$field] : null;
+		}
+		foreach (ProductBattery::getBatteryFields() as $field => $spec) {
+			if (isset($preview['changes'][$field])) {
+				$data[$field] = $preview['changes'][$field]['proposed'];
+			}
+		}
+
+		$this->db->begin();
+		$result = $battery->saveForProduct($fkProduct, $data, $user);
+		if ($result < 0) {
+			$this->db->rollback();
+			$this->setError($battery->error);
+			return array('result' => -1, 'preview' => $preview);
+		}
+		if (!empty($attributeapply)) {
+			$currentattributes = $battery->fetchAttributes($battery->id);
+			if ($battery->error !== '') {
+				$this->db->rollback();
+				$this->setError($battery->error);
+				return array('result' => -1, 'preview' => $preview);
+			}
+			$mergedattributes = array();
+			foreach (ProductBattery::getAttributeTypeOptions() as $type => $label) {
+				$mergedattributes[$type] = isset($attributeapply[$type]) ? $attributeapply[$type] : $this->normalizeBatteryAttributeObjects(isset($currentattributes[$type]) ? $currentattributes[$type] : array());
+			}
+			$result = $battery->replaceAttributes($battery->id, $mergedattributes);
+			if ($result < 0) {
+				$this->db->rollback();
+				$this->setError($battery->error);
+				return array('result' => -1, 'preview' => $preview);
+			}
+		}
+		$result = $this->saveDataSource($fkProduct, $sourceData, $rawData, $normalizedData, $user);
+		if ($result < 0 || powerplantpvRecalculateCommercialDocumentStorageCapacityForProduct($fkProduct) < 0) {
+			$this->db->rollback();
+			$this->setError('PowerPlantPVStorageCapacityRecalculationFailed');
+			return array('result' => -1, 'preview' => $preview);
+		}
+		$this->db->commit();
+		return array('result' => 1, 'preview' => $preview);
 	}
 
 	/**

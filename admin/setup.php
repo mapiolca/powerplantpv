@@ -543,6 +543,17 @@ if ($action == 'updateMask') {
 		$errormessage = powerplantpvBuildPeakPowerRecalculationErrorMessage(!empty($user->admin), $errorinfo);
 		setEventMessages($langs->trans('PowerPlantPVPeakPowerRecalculationFailed'), array($errormessage), 'errors');
 	}
+} elseif ($action == 'recalculate_commercial_storage_capacity') {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$result = powerplantpvRecalculateAllCommercialDocumentStorageCapacity();
+	if ($result['result'] > 0) {
+		setEventMessages($langs->trans('PowerPlantPVStorageCapacityRecalculationDone', $result['updated'], $result['incomplete']), $result['incomplete_documents'], $result['incomplete'] > 0 ? 'warnings' : 'mesgs');
+	} else {
+		setEventMessages($langs->trans('PowerPlantPVStorageCapacityRecalculationFailed'), array($result['error']), 'errors');
+	}
 } elseif ($action == 'specimen' && $tmpobjectkey) {
 	$modele = GETPOST('module', 'alpha');
 
@@ -1056,6 +1067,19 @@ print dolGetButtonAction(
 	'',
 	'default',
 	$_SERVER['PHP_SELF'].'?action=recalculate_commercial_peak_power&token='.newToken(),
+	'',
+	true
+);
+print '</div>';
+
+print load_fiche_titre($langs->trans('PowerPlantPVStorageCapacityRecalculation'), '', '');
+print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVStorageCapacityRecalculationHelp').'</span>';
+print '<div class="tabsAction">';
+print dolGetButtonAction(
+	$langs->trans('PowerPlantPVRecalculateStorageCapacity'),
+	'',
+	'default',
+	$_SERVER['PHP_SELF'].'?action=recalculate_commercial_storage_capacity&token='.newToken(),
 	'',
 	true
 );

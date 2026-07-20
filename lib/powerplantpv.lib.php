@@ -819,6 +819,473 @@ function powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype)
 }
 
 /**
+ * Tell whether a product has at least one native Dolibarr kit component.
+ *
+ * @param int $productid Product id
+ * @return int 1 if it is a kit, 0 if not, <0 on SQL error
+ */
+function powerplantpvProductHasNativeComponents($productid)
+{
+	global $db;
+
+	$sql = 'SELECT fk_product_fils FROM '.$db->prefix().'product_association';
+	$sql .= ' WHERE fk_product_pere = '.((int) $productid);
+	$sql .= ' LIMIT 1';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return -1;
+	}
+	$haselement = $db->num_rows($resql) > 0 ? 1 : 0;
+	$db->free($resql);
+	return $haselement;
+}
+
+/**
+ * Resolve a native Dolibarr product/kit into terminal components and useful storage capacity.
+ *
+ * @param int $productid Product or kit id
+ * @param float $quantity Quantity of the root product
+ * @param array<string,mixed>|null $resolverdata Optional normalized data source for unit tests
+ * @return array{result:int,capacity_kwh:float|null,complete:bool,has_battery:bool,missing_product_ids:array<int,int>,inventory:array<int,array<string,mixed>>,composition_anomalies:array<int,string>,errors:array<int,string>}
+ */
+function powerplantpvResolveBatteryProduct($productid, $quantity = 1.0, $resolverdata = null)
+{
+	$context = array(
+		'product_cache' => array(),
+		'children_cache' => array(),
+		'battery_cache' => array(),
+		'inventory' => array(),
+		'missing' => array(),
+		'composition_anomalies' => array(),
+		'errors' => array(),
+		'capacity' => 0.0,
+		'has_battery' => false,
+		'technical_error' => false,
+		'resolver_data' => is_array($resolverdata) ? $resolverdata : null,
+	);
+	powerplantpvResolveBatteryProductNode((int) $productid, (float) $quantity, array(), $context);
+
+	return array(
+		'result' => $context['technical_error'] ? -1 : 1,
+		'capacity_kwh' => (!empty($context['missing']) || !empty($context['errors'])) ? null : (float) $context['capacity'],
+		'complete' => empty($context['missing']) && empty($context['errors']),
+		'has_battery' => (bool) $context['has_battery'],
+		'missing_product_ids' => array_values(array_map('intval', array_keys($context['missing']))),
+		'inventory' => array_values($context['inventory']),
+		'composition_anomalies' => array_values($context['composition_anomalies']),
+		'errors' => array_values($context['errors']),
+	);
+}
+
+/**
+ * Recursive implementation for powerplantpvResolveBatteryProduct().
+ *
+ * @param int $productid Product id
+ * @param float $quantity Accumulated quantity
+ * @param array<int,int> $path Current product path
+ * @param array<string,mixed> $context Shared resolver context
+ * @return void
+ */
+function powerplantpvResolveBatteryProductNode($productid, $quantity, array $path, array &$context)
+{
+	global $db;
+
+	if ($productid <= 0 || $quantity == 0.0) {
+		return;
+	}
+	if (in_array($productid, $path, true)) {
+		$anomaly = 'BatteryKitCycle:'.implode('>', array_merge($path, array($productid)));
+		$context['composition_anomalies'][] = $anomaly;
+		$context['errors'][] = $anomaly;
+		return;
+	}
+	$path[] = $productid;
+
+	if (!isset($context['product_cache'][$productid])) {
+		if (is_array($context['resolver_data'])) {
+			$productdata = isset($context['resolver_data']['products'][$productid]) ? $context['resolver_data']['products'][$productid] : null;
+			$context['product_cache'][$productid] = is_array($productdata) ? (object) $productdata : $productdata;
+		} else {
+			$sql = 'SELECT p.rowid, p.ref, p.label, cpv.code as category_code';
+			$sql .= ' FROM '.$db->prefix().'product as p';
+			$sql .= ' LEFT JOIN '.$db->prefix().'product_extrafields as pe ON pe.fk_object = p.rowid';
+			$sql .= ' LEFT JOIN '.$db->prefix().'c_powerplantpv_categorypv as cpv ON cpv.rowid = pe.categorie_photovoltaique';
+			$sql .= ' WHERE p.rowid = '.$productid.' AND p.entity IN ('.getEntity('product').')';
+			$resql = $db->query($sql);
+			if (!$resql) {
+				$context['technical_error'] = true;
+				$context['errors'][] = $db->lasterror();
+				return;
+			}
+			$context['product_cache'][$productid] = $db->fetch_object($resql);
+			$db->free($resql);
+		}
+	}
+	$product = $context['product_cache'][$productid];
+	if (!is_object($product)) {
+		$anomaly = 'BatteryKitProductNotFound:'.$productid;
+		$context['composition_anomalies'][] = $anomaly;
+		$context['errors'][] = $anomaly;
+		return;
+	}
+
+	if (!isset($context['children_cache'][$productid])) {
+		$children = array();
+		if (is_array($context['resolver_data'])) {
+			$fixturechildren = isset($context['resolver_data']['children'][$productid]) && is_array($context['resolver_data']['children'][$productid]) ? $context['resolver_data']['children'][$productid] : array();
+			foreach ($fixturechildren as $child) {
+				if (is_array($child)) {
+					$children[] = array('product_id' => (int) $child['product_id'], 'qty' => (float) $child['qty']);
+				}
+			}
+		} else {
+			$sql = 'SELECT pa.fk_product_fils, pa.qty, pa.rang';
+			$sql .= ' FROM '.$db->prefix().'product_association as pa';
+			$sql .= ' INNER JOIN '.$db->prefix().'product as p ON p.rowid = pa.fk_product_fils';
+			$sql .= ' WHERE pa.fk_product_pere = '.$productid.' AND p.entity IN ('.getEntity('product').')';
+			$sql .= ' ORDER BY pa.rang, pa.rowid';
+			$resql = $db->query($sql);
+			if (!$resql) {
+				$context['technical_error'] = true;
+				$context['errors'][] = $db->lasterror();
+				return;
+			}
+			while ($child = $db->fetch_object($resql)) {
+				$children[] = array('product_id' => (int) $child->fk_product_fils, 'qty' => (float) $child->qty);
+			}
+			$db->free($resql);
+		}
+		$context['children_cache'][$productid] = $children;
+	}
+	$children = $context['children_cache'][$productid];
+	if (!empty($children)) {
+		foreach ($children as $child) {
+			powerplantpvResolveBatteryProductNode((int) $child['product_id'], $quantity * (float) $child['qty'], $path, $context);
+		}
+		return;
+	}
+
+	if (!isset($context['inventory'][$productid])) {
+		$context['inventory'][$productid] = array(
+			'product_id' => $productid,
+			'ref' => (string) $product->ref,
+			'label' => (string) $product->label,
+			'category_code' => (string) $product->category_code,
+			'quantity' => 0.0,
+		);
+	}
+	$context['inventory'][$productid]['quantity'] += $quantity;
+
+	if ((string) $product->category_code !== 'BATTER') {
+		return;
+	}
+	$context['has_battery'] = true;
+	if (!array_key_exists($productid, $context['battery_cache'])) {
+		if (is_array($context['resolver_data'])) {
+			$fixturecapacities = isset($context['resolver_data']['capacities']) && is_array($context['resolver_data']['capacities']) ? $context['resolver_data']['capacities'] : array();
+			$context['battery_cache'][$productid] = array_key_exists($productid, $fixturecapacities) ? $fixturecapacities[$productid] : null;
+		} else {
+			$sql = 'SELECT b.usable_energy';
+			$sql .= ' FROM '.$db->prefix().'powerplantpv_product_battery as b';
+			$sql .= ' INNER JOIN '.$db->prefix().'product as p ON p.rowid = b.fk_product AND p.entity = b.entity';
+			$sql .= ' WHERE b.fk_product = '.$productid.' AND p.entity IN ('.getEntity('product').')';
+			$resql = $db->query($sql);
+			if (!$resql) {
+				$context['technical_error'] = true;
+				$context['errors'][] = $db->lasterror();
+				return;
+			}
+			$row = $db->fetch_object($resql);
+			$db->free($resql);
+			$context['battery_cache'][$productid] = ($row && $row->usable_energy !== null && $row->usable_energy !== '') ? (float) $row->usable_energy : null;
+		}
+	}
+	if ($context['battery_cache'][$productid] === null) {
+		$context['missing'][$productid] = 1;
+		return;
+	}
+	$context['capacity'] += $quantity * (float) $context['battery_cache'][$productid];
+}
+
+/**
+ * Calculate useful storage capacity for a commercial document.
+ *
+ * @param string $elementtype Document type
+ * @param int $objectid Document id
+ * @param int $excludelineid Line ignored before a delete trigger
+ * @return array{result:int,capacity_kwh:float|null,complete:bool,has_battery:bool,missing_product_ids:array<int,int>,composition_anomalies:array<int,string>,errors:array<int,string>}
+ */
+function powerplantpvCalculateCommercialDocumentStorageCapacity($elementtype, $objectid, $excludelineid = 0)
+{
+	global $db;
+
+	$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+	$objectid = (int) $objectid;
+	if (empty($config) || $objectid <= 0) {
+		return array('result' => 0, 'capacity_kwh' => 0.0, 'complete' => true, 'has_battery' => false, 'missing_product_ids' => array(), 'composition_anomalies' => array(), 'errors' => array());
+	}
+	$sql = 'SELECT l.rowid, l.fk_product, l.qty';
+	$sql .= ' FROM '.$db->prefix().$config['line_table'].' as l';
+	$sql .= ' INNER JOIN '.$db->prefix().$config['parent_table'].' as d ON d.'.$config['parent_pk'].' = l.'.$config['line_fk'];
+	$sql .= ' WHERE l.'.$config['line_fk'].' = '.$objectid;
+	$sql .= ' AND d.entity IN ('.getEntity($config['elementtype']).')';
+	$sql .= ' AND l.fk_product IS NOT NULL AND l.fk_product > 0';
+	if ((int) $excludelineid > 0) {
+		$sql .= ' AND l.rowid <> '.((int) $excludelineid);
+	}
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return array('result' => -1, 'capacity_kwh' => null, 'complete' => false, 'has_battery' => false, 'missing_product_ids' => array(), 'composition_anomalies' => array(), 'errors' => array($db->lasterror()));
+	}
+	$capacity = 0.0;
+	$complete = true;
+	$hasbattery = false;
+	$missing = array();
+	$compositionanomalies = array();
+	$errors = array();
+	$resultcode = 1;
+	while ($line = $db->fetch_object($resql)) {
+		$resolved = powerplantpvResolveBatteryProduct((int) $line->fk_product, (float) $line->qty);
+		if ($resolved['result'] < 0) {
+			$resultcode = -1;
+		}
+		$hasbattery = $hasbattery || $resolved['has_battery'];
+		$complete = $complete && $resolved['complete'];
+		if ($resolved['capacity_kwh'] !== null) {
+			$capacity += (float) $resolved['capacity_kwh'];
+		}
+		foreach ($resolved['missing_product_ids'] as $productid) {
+			$missing[(int) $productid] = 1;
+		}
+		$compositionanomalies = array_merge($compositionanomalies, $resolved['composition_anomalies']);
+		$errors = array_merge($errors, $resolved['errors']);
+	}
+	$db->free($resql);
+
+	$compositionanomalies = array_values(array_unique($compositionanomalies));
+	$errors = array_values(array_unique($errors));
+	return array(
+		'result' => $resultcode,
+		'capacity_kwh' => $complete ? $capacity : null,
+		'complete' => $complete,
+		'has_battery' => $hasbattery,
+		'missing_product_ids' => array_values(array_map('intval', array_keys($missing))),
+		'composition_anomalies' => $compositionanomalies,
+		'errors' => $errors,
+	);
+}
+
+/**
+ * Save calculated useful storage capacity into a commercial document extrafield.
+ *
+ * @param string $elementtype Document type
+ * @param int $objectid Document id
+ * @param float|null $capacitykwh Capacity or null when incomplete
+ * @return int 1 if written, 0 if ignored, <0 on error
+ */
+function powerplantpvSaveCommercialDocumentStorageCapacity($elementtype, $objectid, $capacitykwh)
+{
+	global $db;
+
+	$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+	$objectid = (int) $objectid;
+	if (empty($config) || $objectid <= 0) {
+		return 0;
+	}
+	$sql = 'SELECT rowid FROM '.$db->prefix().$config['extra_table'].' WHERE fk_object = '.$objectid;
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return -1;
+	}
+	$row = $db->fetch_object($resql);
+	$db->free($resql);
+	$value = ($capacitykwh === null) ? 'NULL' : (string) ((float) $capacitykwh);
+	if ($row) {
+		$sql = 'UPDATE '.$db->prefix().$config['extra_table'].' SET powerplantpv_storage_capacity = '.$value.' WHERE rowid = '.((int) $row->rowid);
+	} else {
+		$insertparts = powerplantpvGetCommercialDocumentPeakPowerExtraFieldsInsertParts($config['elementtype'], 'powerplantpv_storage_capacity');
+		if ($insertparts['result'] <= 0) {
+			return 0;
+		}
+		$sql = 'INSERT INTO '.$db->prefix().$config['extra_table'].' (fk_object, powerplantpv_storage_capacity'.$insertparts['columns'].')';
+		$sql .= ' VALUES ('.$objectid.', '.$value.$insertparts['values'].')';
+	}
+	return $db->query($sql) ? 1 : -1;
+}
+
+/**
+ * Recalculate and save useful storage capacity for one document.
+ *
+ * @param string $elementtype Document type
+ * @param int $objectid Document id
+ * @param int $excludelineid Line ignored before deletion
+ * @return array{result:int,complete:bool,capacity_kwh:float|null,missing_product_ids:array<int,int>,composition_anomalies:array<int,string>,errors:array<int,string>}
+ */
+function powerplantpvRecalculateCommercialDocumentStorageCapacity($elementtype, $objectid, $excludelineid = 0)
+{
+	$calculation = powerplantpvCalculateCommercialDocumentStorageCapacity($elementtype, $objectid, $excludelineid);
+	if ($calculation['result'] < 0) {
+		return array('result' => -1, 'complete' => false, 'capacity_kwh' => null, 'missing_product_ids' => $calculation['missing_product_ids'], 'composition_anomalies' => $calculation['composition_anomalies'], 'errors' => $calculation['errors']);
+	}
+	$result = powerplantpvSaveCommercialDocumentStorageCapacity($elementtype, $objectid, $calculation['capacity_kwh']);
+	return array('result' => $result, 'complete' => $calculation['complete'], 'capacity_kwh' => $calculation['capacity_kwh'], 'missing_product_ids' => $calculation['missing_product_ids'], 'composition_anomalies' => $calculation['composition_anomalies'], 'errors' => $calculation['errors']);
+}
+
+/**
+ * Return a product and every native parent kit containing it.
+ *
+ * @param int $productid Product id
+ * @return array<int,int> Product ids
+ */
+function powerplantpvGetProductAndParentKitIds($productid)
+{
+	global $db;
+
+	$found = array((int) $productid => 1);
+	$frontier = array((int) $productid);
+	while (!empty($frontier)) {
+		$sql = 'SELECT DISTINCT fk_product_pere FROM '.$db->prefix().'product_association';
+		$sql .= ' WHERE fk_product_fils IN ('.implode(',', array_map('intval', $frontier)).')';
+		$resql = $db->query($sql);
+		if (!$resql) {
+			return array_values(array_map('intval', array_keys($found)));
+		}
+		$next = array();
+		while ($obj = $db->fetch_object($resql)) {
+			$parentid = (int) $obj->fk_product_pere;
+			if ($parentid > 0 && !isset($found[$parentid])) {
+				$found[$parentid] = 1;
+				$next[] = $parentid;
+			}
+		}
+		$db->free($resql);
+		$frontier = $next;
+	}
+	return array_values(array_map('intval', array_keys($found)));
+}
+
+/**
+ * Return readable product references indexed by product id.
+ *
+ * @param array<int,int> $productids Product ids
+ * @return array<int,string> References
+ */
+function powerplantpvGetProductReferences(array $productids)
+{
+	global $db;
+
+	$productids = array_values(array_unique(array_filter(array_map('intval', $productids))));
+	if (empty($productids)) {
+		return array();
+	}
+	$references = array();
+	$sql = 'SELECT rowid, ref FROM '.$db->prefix().'product';
+	$sql .= ' WHERE rowid IN ('.implode(',', $productids).') AND entity IN ('.getEntity('product').')';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return $references;
+	}
+	while ($obj = $db->fetch_object($resql)) {
+		$references[(int) $obj->rowid] = (string) $obj->ref;
+	}
+	$db->free($resql);
+	return $references;
+}
+
+/**
+ * Recalculate every commercial document that directly or indirectly uses a product.
+ *
+ * @param int $productid Product id
+ * @return int Number of updated documents, <0 on error
+ */
+function powerplantpvRecalculateCommercialDocumentStorageCapacityForProduct($productid)
+{
+	global $db;
+
+	$productids = powerplantpvGetProductAndParentKitIds((int) $productid);
+	if (empty($productids)) {
+		return 0;
+	}
+	$updated = 0;
+	foreach (array('propal', 'commande', 'facture') as $elementtype) {
+		$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+		$sql = 'SELECT DISTINCT l.'.$config['line_fk'].' as fk_object';
+		$sql .= ' FROM '.$db->prefix().$config['line_table'].' as l';
+		$sql .= ' INNER JOIN '.$db->prefix().$config['parent_table'].' as d ON d.'.$config['parent_pk'].' = l.'.$config['line_fk'];
+		$sql .= ' WHERE l.fk_product IN ('.implode(',', array_map('intval', $productids)).')';
+		$sql .= ' AND d.entity IN ('.getEntity($config['elementtype']).')';
+		$resql = $db->query($sql);
+		if (!$resql) {
+			return -1;
+		}
+		$objectids = array();
+		while ($obj = $db->fetch_object($resql)) {
+			$objectids[(int) $obj->fk_object] = 1;
+		}
+		$db->free($resql);
+		foreach (array_keys($objectids) as $objectid) {
+			$result = powerplantpvRecalculateCommercialDocumentStorageCapacity($elementtype, (int) $objectid);
+			if ($result['result'] < 0) {
+				return -1;
+			}
+			if ($result['result'] > 0) {
+				$updated++;
+			}
+		}
+	}
+	return $updated;
+}
+
+/**
+ * Recalculate useful storage capacity for every supported commercial document.
+ *
+ * @return array{result:int,updated:int,incomplete:int,errors:int,incomplete_documents:array<int,string>,error:string}
+ */
+function powerplantpvRecalculateAllCommercialDocumentStorageCapacity()
+{
+	global $db;
+
+	$updated = 0;
+	$incomplete = 0;
+	$errors = 0;
+	$incompletedocuments = array();
+	$db->begin();
+	foreach (array('propal', 'commande', 'facture') as $elementtype) {
+		$config = powerplantpvGetCommercialDocumentPeakPowerConfig($elementtype);
+		$sql = 'SELECT d.'.$config['parent_pk'].' as rowid, d.ref';
+		$sql .= ' FROM '.$db->prefix().$config['parent_table'].' as d';
+		$sql .= ' WHERE d.entity IN ('.getEntity($config['elementtype']).')';
+		$resql = $db->query($sql);
+		if (!$resql) {
+			$db->rollback();
+			return array('result' => -1, 'updated' => $updated, 'incomplete' => $incomplete, 'errors' => $errors + 1, 'incomplete_documents' => $incompletedocuments, 'error' => $db->lasterror());
+		}
+		$documents = array();
+		while ($obj = $db->fetch_object($resql)) {
+			$documents[] = array('id' => (int) $obj->rowid, 'ref' => (string) $obj->ref);
+		}
+		$db->free($resql);
+		foreach ($documents as $document) {
+			$result = powerplantpvRecalculateCommercialDocumentStorageCapacity($elementtype, $document['id']);
+			if ($result['result'] < 0) {
+				$errors++;
+				$db->rollback();
+				return array('result' => -1, 'updated' => $updated, 'incomplete' => $incomplete, 'errors' => $errors, 'incomplete_documents' => $incompletedocuments, 'error' => implode('; ', $result['errors']));
+			}
+			if ($result['result'] > 0) {
+				$updated++;
+			}
+			if (!$result['complete']) {
+				$incomplete++;
+				$incompletedocuments[] = $elementtype.':'.$document['ref'];
+			}
+		}
+	}
+	$db->commit();
+	return array('result' => 1, 'updated' => $updated, 'incomplete' => $incomplete, 'errors' => $errors, 'incomplete_documents' => $incompletedocuments, 'error' => '');
+}
+
+/**
  * Return the dictionary ids for photovoltaic modules.
  *
  * @return	array<string,mixed>	Result with ids or error

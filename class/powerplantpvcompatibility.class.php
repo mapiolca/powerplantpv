@@ -163,6 +163,22 @@ class PowerPlantPVCompatibility
 				'available' => $baseavailable,
 				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
 			),
+			'battery_characteristics' => array(
+				'label' => 'PowerPlantPVBatteryCharacteristicsFeature',
+				'description' => 'PowerPlantPVBatteryCharacteristicsCompatibilityDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable,
+				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
+			'commercial_storage_capacity' => array(
+				'label' => 'PowerPlantPVStorageCapacityFeature',
+				'description' => 'PowerPlantPVStorageCapacityCompatibilityDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable,
+				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
 			'maintenance_scheduler' => array(
 				'label' => 'PowerPlantPVMaintenanceSchedulerFeature',
 				'description' => 'PowerPlantPVMaintenanceSchedulerCompatibilityDescription',

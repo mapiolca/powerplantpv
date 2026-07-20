@@ -5,7 +5,9 @@
 - Manage photovoltaic power plants in Dolibarr.
 - Track the material composition of a power plant by PV product category.
 - Import PV Free technical data into existing Dolibarr PV module and inverter products from the detailed characteristics tab.
-- Import CSV/XLSX technical characteristics into existing Dolibarr PV module and inverter products from the detailed characteristics tab, with downloadable templates, preview and source traceability.
+- Import CSV/XLSX technical characteristics into existing Dolibarr PV module, inverter and battery products from the detailed characteristics tab, with unit-aware downloadable templates, preview and source traceability.
+- Describe batteries, storage systems and battery accessories with constraint-ready technical data, normalized communication/protection/certification relations, and native Dolibarr kit compositions.
+- Calculate usable storage capacity on proposals, orders and invoices, including recursively nested native product kits.
 - Import CSV/XLSX serial numbers by composition category, validate product-line associations, and store each serial number against the power plant, composition line, product and PV category.
 - Export recorded serial numbers as CSV or XLSX.
 - Manage PowerPlantPV attestations for dynamic inverter curtailment, static inverter curtailment, maximum frequency 51.5 Hz, and installer under 100 kWc workflows.
@@ -117,6 +119,18 @@ Prerequisites:
 - PHP 8.0 or higher.
 - Native contracts and interventions enabled for the operational workflow.
 - PowerPlantPV rights assigned to the target users.
+
+## Batteries and storage systems
+
+Assign the `BATTER` photovoltaic category to a battery or storage product and complete its detailed characteristics. The supported classifications are battery module, DC system, AC-coupled all-in-one system and hybrid all-in-one system. All-in-one products reuse the inverter, AC, MPPT and EPS characteristics stored by PowerPlantPV; native Dolibarr product dimensions and weight remain the source of truth.
+
+Multi-capacity ranges are represented with native Dolibarr product kits: create one kit for each commercial capacity and compose it from battery modules and accessories. PowerPlantPV recursively expands nested kits, multiplies quantities at every level and totals only terminal `BATTER` components. It deliberately does not aggregate voltage, current or power across a kit. Cyclic compositions are reported as incomplete.
+
+The calculated `Storage capacity (kWh)` extra field is maintained on proposals, orders and invoices. A document without a battery stores `0`; a document containing a battery without usable capacity stores an empty value and displays a non-blocking warning. Administrators can recalculate all accessible documents from the module settings.
+
+Assign `BATACC` to battery accessories. Their controlled role and normalized compatibility, requirement or incompatibility rules can target a product, family, brand, storage type, chemistry, protocol, capacity range or module count.
+
+CSV and XLSX templates state the expected unit or format in every header. Older headers without a suffix remain accepted with a warning, while a contradictory unit is rejected. Battery templates accept repeated protocol, protection and certification columns using `CODE` or `CODE|Label`; kits and accessory rules are intentionally excluded from this flat import.
 
 Quick overview:
 

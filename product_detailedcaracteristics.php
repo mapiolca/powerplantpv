@@ -41,6 +41,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/product.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/productinverter.class.php');
+dol_include_once('/powerplantpv/class/productbattery.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
@@ -198,7 +199,7 @@ function powerplantpv_save_pvpanel($db, Product $product, $panel)
 /**
  * Collect POST data according to field specs.
  *
- * @param array<string,array<string,string>> $fields Field specs
+ * @param array<string,array<string,mixed>> $fields Field specs
  * @return array<string,mixed>
  */
 function powerplantpv_collect_post_data(array $fields)
@@ -245,7 +246,7 @@ function powerplantpv_redirect_product($productId, $anchor = '')
  */
 function powerplantpv_get_field_value($source, $key)
 {
-	if ($source instanceof ProductInverter && array_key_exists($key, $source->data)) {
+	if (($source instanceof ProductInverter || $source instanceof ProductBattery) && array_key_exists($key, $source->data)) {
 		return $source->data[$key];
 	}
 	if (is_object($source) && property_exists($source, $key)) {
@@ -259,26 +260,38 @@ function powerplantpv_get_field_value($source, $key)
  *
  * @param string                   $label  Translated label
  * @param string                   $name   Field name
- * @param array<string,string>     $spec   Field spec
+ * @param array<string,mixed>      $spec   Field spec
  * @param object|null              $source Source object
  * @param bool                     $edit   Edit mode
  * @return void
  */
 function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit)
 {
+	global $form, $langs;
+
 	$value = $source ? powerplantpv_get_field_value($source, $name) : null;
+	$unit = !empty($spec['unit']) && !in_array($spec['unit'], array('code', 'text'), true) ? (string) $spec['unit'] : '';
 
 	print '<tr class="oddeven">';
 	print '<td class="titlefield">'.$label.'</td>';
 	print '<td>';
 	if ($edit) {
-		if ($spec['type'] === 'bool') {
+		if ($spec['type'] === 'select' && !empty($spec['options']) && is_array($spec['options'])) {
+			$options = array();
+			foreach ($spec['options'] as $optioncode => $translationkey) {
+				$options[$optioncode] = $langs->trans($translationkey);
+			}
+			print $form->selectarray($name, $options, (string) $value, 1, 0, '', 0, 0, 0, '', 'flat minwidth250');
+		} elseif ($spec['type'] === 'bool') {
 			print '<input type="checkbox" class="flat" name="'.$name.'" value="1"'.((int) $value ? ' checked' : '').'>';
 		} elseif ($spec['type'] === 'text') {
 			print '<textarea class="flat centpercent" name="'.$name.'" rows="3">'.dol_escape_htmltag((string) $value).'</textarea>';
 		} else {
 			$css = ($spec['type'] === 'double' || $spec['type'] === 'int') ? 'flat maxwidth100 right' : 'flat minwidth300';
 			print '<input class="'.$css.'" type="text" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'">';
+			if ($unit !== '') {
+				print ' <span class="opacitymedium">'.dol_escape_htmltag($unit).'</span>';
+			}
 		}
 	} else {
 		if ($value === null || $value === '') {
@@ -288,9 +301,11 @@ function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit
 		} elseif ($spec['type'] === 'text') {
 			print dol_htmlentitiesbr((string) $value);
 		} elseif ($spec['type'] === 'double') {
-			print price((float) $value);
+			print price((float) $value).($unit !== '' ? ' '.dol_escape_htmltag($unit) : '');
+		} elseif ($spec['type'] === 'select' && !empty($spec['options'][$value])) {
+			print dol_escape_htmltag($langs->trans($spec['options'][$value]));
 		} else {
-			print dol_escape_htmltag((string) $value);
+			print dol_escape_htmltag((string) $value).($unit !== '' ? ' '.dol_escape_htmltag($unit) : '');
 		}
 	}
 	print '</td>';
@@ -367,7 +382,8 @@ function powerplantpv_print_inverter_general_rows(ProductInverter $inverter, $ed
 	$fields = ProductInverter::getInverterFields();
 	$sections = array(
 		'PVInverterDCData' => array('pv_max_power', 'dc_max_voltage', 'startup_voltage', 'mppt_voltage_min', 'mppt_voltage_max', 'nominal_dc_voltage'),
-		'PVInverterACData' => array('ac_nominal_power', 'ac_max_power', 'ac_apparent_power', 'ac_nominal_voltage', 'grid_frequency', 'ac_max_output_current', 'power_factor', 'thd'),
+		'PVInverterACData' => array('ac_nominal_power', 'ac_max_power', 'ac_apparent_power', 'ac_nominal_voltage', 'grid_frequency', 'ac_max_output_current', 'phase_count', 'power_factor', 'thd'),
+		'PVInverterBackupData' => array('backup_nominal_power', 'backup_peak_power', 'backup_peak_duration', 'backup_transfer_time', 'backup_nominal_voltage', 'backup_max_current', 'backup_thd', 'max_unbalanced_output'),
 		'PVInverterEfficiency' => array('max_efficiency', 'european_efficiency'),
 		'PVInverterProtections' => array('dc_switch', 'dc_spd', 'ac_spd', 'afci', 'pid_recovery', 'anti_islanding', 'dc_reverse_polarity_protection', 'insulation_monitoring', 'residual_current_monitoring'),
 		'PVInverterEnvironmentCommunication' => array('ip_rating', 'operating_temperature', 'relative_humidity', 'cooling', 'max_altitude', 'noise', 'topology', 'night_consumption', 'display_type', 'communication_interfaces', 'dc_connector', 'ac_connector', 'mounting', 'warranty', 'certifications'),
@@ -433,6 +449,170 @@ function powerplantpv_print_composition_form($saveAction, $productId, $mpptId, $
 	print '</form>';
 }
 
+/**
+ * Read normalized battery attributes from one-code-per-line textareas.
+ *
+ * @return array<string,array<int,array<string,string>>>
+ */
+function powerplantpv_collect_battery_attributes()
+{
+	$attributes = array();
+	foreach (ProductBattery::getAttributeTypeOptions() as $type => $label) {
+		$attributes[$type] = array();
+		$raw = GETPOST('battery_attribute_'.strtolower($type), 'restricthtml');
+		foreach (preg_split('/\r\n|\r|\n/', (string) $raw) as $line) {
+			$parts = array_map('trim', explode('|', strip_tags((string) $line), 2));
+			if ($parts[0] !== '') {
+				$attributes[$type][] = array('code' => $parts[0], 'label' => isset($parts[1]) ? $parts[1] : '');
+			}
+		}
+	}
+	return $attributes;
+}
+
+/**
+ * Render normalized battery attributes.
+ *
+ * @param array<string,array<int,object>> $attributes Attributes by type
+ * @param bool $editMode Edit mode
+ * @return void
+ */
+function powerplantpv_print_battery_attributes(array $attributes, $editMode)
+{
+	global $langs;
+
+	print '<div class="fichecenter">';
+	foreach (ProductBattery::getAttributeTypeOptions() as $type => $translationkey) {
+		print load_fiche_titre($langs->trans($translationkey), '', '');
+		if ($editMode) {
+			$lines = array();
+			foreach ($attributes[$type] as $attribute) {
+				$lines[] = (string) $attribute->attribute_code.($attribute->attribute_label !== null && $attribute->attribute_label !== '' ? '|'.(string) $attribute->attribute_label : '');
+			}
+			print '<textarea class="flat centpercent" rows="4" name="battery_attribute_'.strtolower($type).'">'.dol_escape_htmltag(implode("\n", $lines)).'</textarea>';
+			print '<div class="opacitymedium">'.$langs->trans('BatteryAttributeFormatHelp').'</div>';
+		} elseif (empty($attributes[$type])) {
+			print '<div class="opacitymedium">'.$langs->trans('NoRecordFound').'</div>';
+		} else {
+			$labels = array();
+			foreach ($attributes[$type] as $attribute) {
+				$labels[] = dol_escape_htmltag((string) $attribute->attribute_code).($attribute->attribute_label ? ' — '.dol_escape_htmltag((string) $attribute->attribute_label) : '');
+			}
+			print implode('<br>', $labels);
+		}
+		print '<br>';
+	}
+	print '</div>';
+}
+
+/**
+ * Render battery scalar sections.
+ *
+ * @param ProductBattery $battery Battery data
+ * @param bool $editMode Edit mode
+ * @return void
+ */
+function powerplantpv_print_battery_sections(ProductBattery $battery, $editMode)
+{
+	global $langs;
+
+	$sections = array();
+	foreach (ProductBattery::getBatteryFields() as $field => $spec) {
+		$sections[$spec['section']][$field] = $spec;
+	}
+	$index = 0;
+	print '<div class="fichecenter">';
+	foreach ($sections as $section => $fields) {
+		if ($index === 0) {
+			print '<div class="fichehalfleft">';
+		} elseif ($index === 3) {
+			print '</div><div class="fichehalfright">';
+		}
+		print load_fiche_titre($langs->trans($section), '', '');
+		print '<table class="noborder centpercent">';
+		foreach ($fields as $field => $spec) {
+			powerplantpv_print_field_row($langs->trans($spec['label']), $field, $spec, $battery, $editMode);
+		}
+		print '</table><br>';
+		$index++;
+	}
+	print '</div><div class="clearboth"></div></div>';
+}
+
+/**
+ * Collect repeated accessory compatibility rows.
+ *
+ * @return array<int,array<string,mixed>>
+ */
+function powerplantpv_collect_accessory_rules()
+{
+	$columns = array('rule_effect', 'criterion_type', 'fk_target_product', 'value_code', 'min_value', 'max_value', 'unit_code', 'min_quantity', 'max_quantity', 'note_private');
+	$posted = array();
+	foreach ($columns as $column) {
+		$value = GETPOST($column, 'array');
+		$posted[$column] = is_array($value) ? $value : array();
+	}
+	$rules = array();
+	$count = count($posted['criterion_type']);
+	for ($i = 0; $i < $count; $i++) {
+		if (empty($posted['criterion_type'][$i])) {
+			continue;
+		}
+		$rule = array();
+		foreach ($columns as $column) {
+			$value = isset($posted[$column][$i]) ? $posted[$column][$i] : '';
+			if (in_array($column, array('min_value', 'max_value', 'min_quantity', 'max_quantity'), true) && trim((string) $value) !== '') {
+				$value = price2num($value, 'MT');
+			} elseif ($column === 'fk_target_product') {
+				$value = (int) $value;
+			}
+			$rule[$column] = $value;
+		}
+		$rules[] = $rule;
+	}
+	return $rules;
+}
+
+/**
+ * Render a native kit inventory and its safe capacity aggregate.
+ *
+ * @param array<string,mixed> $resolution Kit resolution
+ * @return void
+ */
+function powerplantpv_print_battery_kit_summary(array $resolution)
+{
+	global $langs;
+
+	print load_fiche_titre($langs->trans('BatteryKitSummary'), '', '');
+	print '<table class="noborder centpercent">';
+	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVStorageCapacity').'</td><td>';
+	print $resolution['capacity_kwh'] !== null ? price((float) $resolution['capacity_kwh']).' kWh' : '<span class="warning">'.$langs->trans('BatteryCapacityIncomplete').'</span>';
+	print '</td></tr></table><br>';
+	if (!empty($resolution['errors'])) {
+		print '<div class="warning">';
+		foreach ($resolution['errors'] as $index => $compositionerror) {
+			$compositionerror = (string) $compositionerror;
+			if ($index > 0) {
+				print '<br>';
+			}
+			$message = strpos($compositionerror, 'BatteryKitCycle:') === 0
+				? $langs->trans('BatteryKitCycleDetected', substr($compositionerror, strlen('BatteryKitCycle:')))
+				: $langs->trans('BatteryKitCompositionAnomaly', $compositionerror);
+			print dol_escape_htmltag($message);
+		}
+		print '</div><br>';
+	}
+	print load_fiche_titre($langs->trans('BatteryKitInventory'), '', '');
+	print '<table class="noborder centpercent"><tr class="liste_titre"><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('Label').'</td><td>'.$langs->trans('Category').'</td><td class="right">'.$langs->trans('Qty').'</td></tr>';
+	foreach ($resolution['inventory'] as $item) {
+		print '<tr class="oddeven"><td>'.dol_escape_htmltag($item['ref']).'</td><td>'.dol_escape_htmltag($item['label']).'</td><td>'.dol_escape_htmltag($item['category_code']).'</td><td class="right">'.price((float) $item['quantity']).'</td></tr>';
+	}
+	if (empty($resolution['inventory'])) {
+		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+	}
+	print '</table>';
+}
+
 $id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
 $mpptid = GETPOSTINT('mpptid');
@@ -454,7 +634,7 @@ if (!$permissiontoread) {
 	accessforbidden();
 }
 
-$mutatingActions = array('save', 'save_panel', 'save_inverter', 'save_mppt', 'confirm_delete_mppt', 'save_input', 'confirm_delete_input');
+$mutatingActions = array('save', 'save_panel', 'save_battery', 'save_accessory', 'save_inverter', 'save_mppt', 'confirm_delete_mppt', 'save_input', 'confirm_delete_input');
 if (in_array($action, $mutatingActions) && !$permissiontoadd) {
 	accessforbidden();
 }
@@ -467,13 +647,24 @@ $categoryRowId = !empty($object->array_options['options_categorie_photovoltaique
 $categoryCode = powerplantpv_get_product_category_code($db, $categoryRowId);
 $isPVPanel = ($categoryCode === 'MODULE');
 $isInverter = ($categoryCode === 'ONDULE');
-$hasDetailedCharacteristics = ($isPVPanel || $isInverter);
+$isBattery = ($categoryCode === 'BATTER');
+$isBatteryAccessory = ($categoryCode === 'BATACC');
+$kitResolution = powerplantpvResolveBatteryProduct($object->id);
+$isBatteryKit = (($isBattery || $isBatteryAccessory) && powerplantpvProductHasNativeComponents($object->id) !== 0);
+$battery = new ProductBattery($db);
+if ($isBattery && !$isBatteryKit) {
+	$battery->fetchByProduct($object->id);
+}
+$storageType = isset($battery->data['storage_type']) ? (string) $battery->data['storage_type'] : 'BATTERY_MODULE';
+$isIntegratedInverter = ($isBattery && !$isBatteryKit && in_array($storageType, array('AC_COUPLED_ALL_IN_ONE', 'HYBRID_ALL_IN_ONE'), true));
+$hasInverterCharacteristics = ($isInverter || $isIntegratedInverter);
+$hasDetailedCharacteristics = ($isPVPanel || $isInverter || $isBattery || $isBatteryAccessory || $isBatteryKit);
 $hasTechnicalImportSource = (
 	getDolGlobalInt('POWERPLANTPV_PVFREE_ENABLED')
 	|| getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED', 1)
 	|| getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', 1)
 );
-$showTechnicalImportButton = ($permissiontoadd && $hasDetailedCharacteristics && $hasTechnicalImportSource);
+$showTechnicalImportButton = ($permissiontoadd && in_array($categoryCode, array('MODULE', 'ONDULE', 'BATTER'), true) && !$isBatteryKit && $hasTechnicalImportSource);
 
 $form = new Form($db);
 $panel = null;
@@ -482,9 +673,18 @@ $inverter = new ProductInverter($db);
 if ($isPVPanel) {
 	$panel = powerplantpv_fetch_pvpanel($db, $object->id);
 }
-if ($isInverter) {
+if ($hasInverterCharacteristics) {
 	$inverter->fetchByProduct($object->id);
 }
+$batteryAttributes = array('PROTOCOL' => array(), 'PROTECTION' => array(), 'CERTIFICATION' => array());
+if ($isBattery && !$isBatteryKit) {
+	$battery->fetchByProduct($object->id);
+	if ($battery->id > 0) {
+		$batteryAttributes = $battery->fetchAttributes($battery->id);
+	}
+}
+$accessory = ($isBatteryAccessory && !$isBatteryKit) ? $battery->fetchAccessoryByProduct($object->id) : null;
+$accessoryRules = $accessory ? $battery->fetchAccessoryRules((int) $accessory->rowid) : array();
 
 if ($isPVPanel && ($action === 'save' || $action === 'save_panel')) {
 	$result = powerplantpv_save_pvpanel($db, $object, $panel);
@@ -510,7 +710,48 @@ if ($isPVPanel && ($action === 'save' || $action === 'save_panel')) {
 	$action = 'edit_panel';
 }
 
-if ($isInverter && $action === 'save_inverter') {
+if ($isBattery && !$isBatteryKit && $action === 'save_battery') {
+	$data = powerplantpv_collect_post_data(ProductBattery::getBatteryFields());
+	$db->begin();
+	$result = $battery->saveForProduct($object->id, $data, $user);
+	if ($result > 0) {
+		$result = $battery->replaceAttributes($result, powerplantpv_collect_battery_attributes());
+	}
+	if ($result > 0) {
+		$db->commit();
+		$recalculated = powerplantpvRecalculateCommercialDocumentStorageCapacityForProduct($object->id);
+		if ($recalculated < 0) {
+			setEventMessages($langs->trans('PowerPlantPVStorageCapacityRecalculationFailed'), null, 'warnings');
+		}
+		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+		powerplantpv_redirect_product($object->id);
+	}
+	$db->rollback();
+	setEventMessages($battery->error, $battery->errors, 'errors');
+	$action = 'edit_battery';
+}
+
+if ($isBatteryAccessory && !$isBatteryKit && $action === 'save_accessory') {
+	$rolecode = GETPOST('role_code', 'aZ09');
+	$noteprivate = GETPOST('note_private', 'restricthtml');
+	$db->begin();
+	$accessoryid = $battery->saveAccessoryForProduct($object->id, $rolecode, $noteprivate, $user);
+	if ($accessoryid > 0) {
+		$result = $battery->replaceAccessoryRules($accessoryid, powerplantpv_collect_accessory_rules());
+	} else {
+		$result = -1;
+	}
+	if ($result > 0) {
+		$db->commit();
+		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+		powerplantpv_redirect_product($object->id);
+	}
+	$db->rollback();
+	setEventMessages($battery->error, $battery->errors, 'errors');
+	$action = 'edit_accessory';
+}
+
+if ($hasInverterCharacteristics && $action === 'save_inverter') {
 	$data = powerplantpv_collect_post_data(ProductInverter::getInverterFields());
 	$result = $inverter->saveForProduct($object->id, $data, $user);
 	if ($result > 0) {
@@ -521,7 +762,7 @@ if ($isInverter && $action === 'save_inverter') {
 	$action = 'edit_inverter';
 }
 
-if ($isInverter && $action === 'save_mppt') {
+if ($hasInverterCharacteristics && $action === 'save_mppt') {
 	$inverterId = $inverter->ensureForProduct($object->id, $user);
 	if ($inverterId < 0) {
 		setEventMessages($inverter->error, $inverter->errors, 'errors');
@@ -541,7 +782,7 @@ if ($isInverter && $action === 'save_mppt') {
 	}
 }
 
-if ($isInverter && $action === 'confirm_delete_mppt') {
+if ($hasInverterCharacteristics && $action === 'confirm_delete_mppt') {
 	if (empty($inverter->id) || !$inverter->fetchMppt($mpptid, $inverter->id)) {
 		accessforbidden();
 	}
@@ -557,7 +798,7 @@ if ($isInverter && $action === 'confirm_delete_mppt') {
 	setEventMessages($inverter->error, $inverter->errors, 'errors');
 }
 
-if ($isInverter && $action === 'save_input') {
+if ($hasInverterCharacteristics && $action === 'save_input') {
 	if (empty($inverter->id)) {
 		accessforbidden();
 	}
@@ -579,7 +820,7 @@ if ($isInverter && $action === 'save_input') {
 	$action = ($inputid > 0 ? 'edit_input' : 'create_input');
 }
 
-if ($isInverter && $action === 'confirm_delete_input') {
+if ($hasInverterCharacteristics && $action === 'confirm_delete_input') {
 	if (empty($inverter->id)) {
 		accessforbidden();
 	}
@@ -603,7 +844,7 @@ if ($isInverter && $action === 'confirm_delete_input') {
 if ($isPVPanel) {
 	$panel = powerplantpv_fetch_pvpanel($db, $object->id);
 }
-if ($isInverter) {
+if ($hasInverterCharacteristics) {
 	$inverter->fetchByProduct($object->id);
 }
 
@@ -619,7 +860,7 @@ $productpicto = (method_exists($object, 'isService') && $object->isService()) ? 
 
 print dol_get_fiche_head($head, 'pvpanel', $langs->trans('Product'), -1, $productpicto);
 
-if ($isInverter && $action === 'delete_mppt' && $mpptid > 0) {
+if ($hasInverterCharacteristics && $action === 'delete_mppt' && $mpptid > 0) {
 	$mpptToDelete = (!empty($inverter->id) ? $inverter->fetchMppt($mpptid, $inverter->id) : null);
 	if ($mpptToDelete) {
 		$confirmUrl = $_SERVER['PHP_SELF'].'?id='.$object->id.'&mpptid='.$mpptid.'&token='.newToken();
@@ -627,7 +868,7 @@ if ($isInverter && $action === 'delete_mppt' && $mpptid > 0) {
 	}
 }
 
-if ($isInverter && $action === 'delete_input' && $inputid > 0 && $mpptid > 0) {
+if ($hasInverterCharacteristics && $action === 'delete_input' && $inputid > 0 && $mpptid > 0) {
 	$inputToDelete = $inverter->fetchInput($inputid, $mpptid);
 	if ($inputToDelete) {
 		$confirmUrl = $_SERVER['PHP_SELF'].'?id='.$object->id.'&mpptid='.$mpptid.'&inputid='.$inputid.'&token='.newToken();
@@ -735,18 +976,145 @@ if ($isPVPanel) {
 	}
 }
 
-if ($isInverter) {
-	$editmode = ($action === 'edit_inverter');
+if ($isBatteryKit) {
+	powerplantpv_print_battery_kit_summary($kitResolution);
+}
 
-	print load_fiche_titre($langs->trans('PVInverterDolibarrProductData'), '', '');
+if ($isBattery && !$isBatteryKit) {
+	$editmode = ($action === 'edit_battery');
+	print load_fiche_titre($langs->trans('BatteryDolibarrProductData'), '', '');
 	print '<table class="noborder centpercent">';
 	powerplantpv_print_native_product_row($langs->trans('Weight'), powerplantpv_format_product_measure($object, 'weight', 'weight_units', 'weight'));
 	powerplantpv_print_native_product_row($langs->trans('Length'), powerplantpv_format_product_measure($object, 'length', 'length_units', 'size'));
 	powerplantpv_print_native_product_row($langs->trans('Width'), powerplantpv_format_product_measure($object, 'width', 'width_units', 'size'));
 	powerplantpv_print_native_product_row($langs->trans('Height'), powerplantpv_format_product_measure($object, 'height', 'height_units', 'size'));
-	powerplantpv_print_native_product_row($langs->trans('Surface'), powerplantpv_format_product_measure($object, 'surface', 'surface_units', 'surface'));
-	powerplantpv_print_native_product_row($langs->trans('Volume'), powerplantpv_format_product_measure($object, 'volume', 'volume_units', 'volume'));
 	print '</table><br>';
+	if ($editmode) {
+		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="action" value="save_battery">';
+	}
+	powerplantpv_print_battery_sections($battery, $editmode);
+	powerplantpv_print_battery_attributes($batteryAttributes, $editmode);
+	print '<div class="tabsAction">';
+	if (!$editmode) {
+		if ($permissiontoadd) {
+			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_battery', '', true);
+		}
+		if ($showTechnicalImportButton) {
+			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-battery', true);
+		}
+	} else {
+		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id, '', true);
+	}
+	print '</div>';
+	if ($editmode) {
+		print '</form>';
+	}
+}
+
+if ($isBatteryAccessory && !$isBatteryKit) {
+	$editmode = ($action === 'edit_accessory');
+	if ($editmode) {
+		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="action" value="save_accessory">';
+	}
+	print load_fiche_titre($langs->trans('BatteryAccessoryCharacteristics'), '', '');
+	print '<table class="noborder centpercent">';
+	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('BatteryAccessoryRole').'</td><td>';
+	$role = $accessory ? (string) $accessory->role_code : 'OTHER';
+	$roleoptions = array();
+	foreach (ProductBattery::getAccessoryRoleOptions() as $code => $translationkey) {
+		$roleoptions[$code] = $langs->trans($translationkey);
+	}
+	print $editmode ? $form->selectarray('role_code', $roleoptions, $role, 0, 0, '', 0, 0, 0, '', 'flat minwidth250') : dol_escape_htmltag(isset($roleoptions[$role]) ? $roleoptions[$role] : $role);
+	print '</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('NotePrivate').'</td><td>';
+	$accessorynote = $accessory ? (string) $accessory->note_private : '';
+	print $editmode ? '<textarea class="flat centpercent" rows="3" name="note_private">'.dol_escape_htmltag($accessorynote).'</textarea>' : ($accessorynote !== '' ? dol_htmlentitiesbr($accessorynote) : '<span class="opacitymedium">-</span>');
+	print '</td></tr></table><br>';
+
+	print load_fiche_titre($langs->trans('BatteryCompatibilityRules'), '', '');
+	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
+	print '<tr class="liste_titre"><td>'.$langs->trans('BatteryRuleEffect').'</td><td>'.$langs->trans('BatteryRuleCriterion').'</td><td>'.$langs->trans('BatteryRuleTargetProduct').'</td><td>'.$langs->trans('BatteryRuleValue').'</td><td>'.$langs->trans('Minimum').'</td><td>'.$langs->trans('Maximum').'</td><td>'.$langs->trans('Unit').'</td><td>'.$langs->trans('BatteryRuleQuantity').'</td><td>'.$langs->trans('Notes').'</td></tr>';
+	$rows = $accessoryRules;
+	if ($editmode) {
+		while (count($rows) < max(5, count($accessoryRules) + 1)) {
+			$rows[] = new stdClass();
+		}
+	}
+	$effectoptions = array();
+	foreach (ProductBattery::getRuleEffectOptions() as $code => $translationkey) {
+		$effectoptions[$code] = $langs->trans($translationkey);
+	}
+	$criterionoptions = array();
+	foreach (ProductBattery::getCriterionTypeOptions() as $code => $translationkey) {
+		$criterionoptions[$code] = $langs->trans($translationkey);
+	}
+	$ruleunitoptions = ProductBattery::getRuleUnitOptions();
+	foreach ($rows as $i => $rule) {
+		$effect = !empty($rule->rule_effect) ? (string) $rule->rule_effect : 'COMPATIBLE';
+		$criterion = !empty($rule->criterion_type) ? (string) $rule->criterion_type : '';
+		print '<tr class="oddeven">';
+		if ($editmode) {
+			print '<td>'.$form->selectarray('rule_effect['.$i.']', $effectoptions, $effect, 0, 0, '', 0, 0, 0, '', 'flat minwidth120').'</td>';
+			print '<td>'.$form->selectarray('criterion_type['.$i.']', $criterionoptions, $criterion, 1, 0, '', 0, 0, 0, '', 'flat minwidth150').'</td>';
+			print '<td>'.$form->select_produits(!empty($rule->fk_target_product) ? (int) $rule->fk_target_product : 0, 'fk_target_product['.$i.']', '', 0, 0, -1, 2, '', 0, array(), 0, 1, 0, 'maxwidth250').'</td>';
+			foreach (array('value_code', 'min_value', 'max_value') as $field) {
+				print '<td><input class="flat maxwidth100" type="text" name="'.$field.'['.$i.']" value="'.dol_escape_htmltag(isset($rule->{$field}) ? (string) $rule->{$field} : '').'"></td>';
+			}
+			print '<td>'.$form->selectarray('unit_code['.$i.']', $ruleunitoptions, isset($rule->unit_code) ? (string) $rule->unit_code : '', 1, 0, '', 0, 0, 0, '', 'flat minwidth75').'</td>';
+			$minqty = isset($rule->min_quantity) ? (string) $rule->min_quantity : '';
+			$maxqty = isset($rule->max_quantity) ? (string) $rule->max_quantity : '';
+			print '<td><input class="flat maxwidth50" type="text" name="min_quantity['.$i.']" value="'.dol_escape_htmltag($minqty).'">–<input class="flat maxwidth50" type="text" name="max_quantity['.$i.']" value="'.dol_escape_htmltag($maxqty).'"></td>';
+			print '<td><input class="flat maxwidth150" type="text" name="note_private['.$i.']" value="'.dol_escape_htmltag(isset($rule->note_private) ? (string) $rule->note_private : '').'"></td>';
+		} else {
+			print '<td>'.dol_escape_htmltag(isset($effectoptions[$effect]) ? $effectoptions[$effect] : $effect).'</td><td>'.dol_escape_htmltag(isset($criterionoptions[$criterion]) ? $criterionoptions[$criterion] : $criterion).'</td>';
+			$targetproducthtml = '-';
+			if (!empty($rule->fk_target_product)) {
+				$targetproduct = new Product($db);
+				if ($targetproduct->fetch((int) $rule->fk_target_product) > 0) {
+					$targetproducthtml = $targetproduct->getNomUrl(1);
+				}
+			}
+			print '<td>'.$targetproducthtml.'</td><td>'.dol_escape_htmltag((string) $rule->value_code).'</td><td>'.dol_escape_htmltag((string) $rule->min_value).'</td><td>'.dol_escape_htmltag((string) $rule->max_value).'</td><td>'.dol_escape_htmltag((string) $rule->unit_code).'</td>';
+			print '<td>'.dol_escape_htmltag((string) $rule->min_quantity).'–'.dol_escape_htmltag((string) $rule->max_quantity).'</td><td>'.dol_escape_htmltag((string) $rule->note_private).'</td>';
+		}
+		print '</tr>';
+	}
+	if (empty($rows)) {
+		print '<tr class="oddeven"><td colspan="9"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+	}
+	print '</table></div>';
+	print '<div class="tabsAction">';
+	if (!$editmode && $permissiontoadd) {
+		print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_accessory', '', true);
+	} elseif ($editmode) {
+		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
+		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id, '', true);
+	}
+	print '</div>';
+	if ($editmode) {
+		print '</form>';
+	}
+}
+
+if ($hasInverterCharacteristics) {
+	$editmode = ($action === 'edit_inverter');
+
+	if ($isInverter) {
+		print load_fiche_titre($langs->trans('PVInverterDolibarrProductData'), '', '');
+		print '<table class="noborder centpercent">';
+		powerplantpv_print_native_product_row($langs->trans('Weight'), powerplantpv_format_product_measure($object, 'weight', 'weight_units', 'weight'));
+		powerplantpv_print_native_product_row($langs->trans('Length'), powerplantpv_format_product_measure($object, 'length', 'length_units', 'size'));
+		powerplantpv_print_native_product_row($langs->trans('Width'), powerplantpv_format_product_measure($object, 'width', 'width_units', 'size'));
+		powerplantpv_print_native_product_row($langs->trans('Height'), powerplantpv_format_product_measure($object, 'height', 'height_units', 'size'));
+		powerplantpv_print_native_product_row($langs->trans('Surface'), powerplantpv_format_product_measure($object, 'surface', 'surface_units', 'surface'));
+		powerplantpv_print_native_product_row($langs->trans('Volume'), powerplantpv_format_product_measure($object, 'volume', 'volume_units', 'volume'));
+		print '</table><br>';
+	}
 
 	if ($editmode) {
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';

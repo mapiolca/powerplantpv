@@ -43,6 +43,7 @@ require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvfileimport.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvproductimport.class.php');
 dol_include_once('/powerplantpv/class/productinverter.class.php');
+dol_include_once('/powerplantpv/class/productbattery.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
 
 $langs->loadLangs(array('products', 'powerplantpv@powerplantpv', 'other'));
@@ -304,6 +305,20 @@ function powerplantpv_technical_import_field_label($field, $type)
 	if ($type === 'MODULE' && isset($modulelabels[$field])) {
 		return $langs->trans($modulelabels[$field]);
 	}
+	if ($type === 'BATTER') {
+		$attributelabels = array(
+			'battery_attribute_protocol' => 'BatteryProtocols',
+			'battery_attribute_protection' => 'BatteryProtections',
+			'battery_attribute_certification' => 'BatteryCertifications',
+		);
+		if (isset($attributelabels[$field])) {
+			return $langs->trans($attributelabels[$field]);
+		}
+		$batteryfields = ProductBattery::getBatteryFields();
+		if (isset($batteryfields[$field]['label'])) {
+			return $langs->trans($batteryfields[$field]['label']);
+		}
+	}
 
 	$inverterfields = ProductInverter::getInverterFields();
 	if (isset($inverterfields[$field]['label'])) {
@@ -401,7 +416,7 @@ function powerplantpv_technical_import_print_json_block($title, array $data)
  *
  * @param array<string,mixed> $metadata  Metadata
  * @param int                 $lineIndex Selected line index
- * @param string              $type      module|inverter
+ * @param string              $type      module|inverter|battery
  * @return array<string,mixed> Source data
  */
 function powerplantpv_technical_import_source_data(array $metadata, $lineIndex, $type)
@@ -470,10 +485,14 @@ $categoryRowId = !empty($object->array_options['options_categorie_photovoltaique
 $categoryCode = powerplantpv_technical_import_get_product_category_code($db, $categoryRowId);
 $isPVPanel = ($categoryCode === 'MODULE');
 $isInverter = ($categoryCode === 'ONDULE');
-if (!$isPVPanel && !$isInverter) {
+$isBattery = ($categoryCode === 'BATTER');
+if (!$isPVPanel && !$isInverter && !$isBattery) {
 	accessforbidden($langs->trans('ProductTechnicalImportProductNotPVCompatible'));
 }
-$technicaltype = $isInverter ? 'inverter' : 'module';
+if ($isBattery && powerplantpvProductHasNativeComponents($object->id) !== 0) {
+	accessforbidden($langs->trans('ProductTechnicalImportBatteryKitForbidden'));
+}
+$technicaltype = $isInverter ? 'inverter' : ($isBattery ? 'battery' : 'module');
 
 $csvEnabled = (bool) getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_CSV_ENABLED', 1);
 $xlsxEnabled = (bool) getDolGlobalInt('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', 1);
@@ -661,6 +680,9 @@ if ($action === 'upload_file') {
 						dol_delete_file($targetpath);
 						$action = 'view';
 					} else {
+						if (!empty($parsed['field_map']['unit_warnings'])) {
+							setEventMessages($langs->trans('ProductTechnicalImportMissingUnitWarning', count($parsed['field_map']['unit_warnings'])), null, 'warnings');
+						}
 						$metadata = array(
 							'entity' => (int) $conf->entity,
 							'user_id' => (int) $user->id,
@@ -710,7 +732,13 @@ if ($action === 'select_line' || $action === 'preview' || $action === 'confirm_i
 				'row' => isset($selectedrow['raw']) && is_array($selectedrow['raw']) ? $selectedrow['raw'] : array(),
 				'field_map' => isset($metadata['parsed']['field_map']) && is_array($metadata['parsed']['field_map']) ? $metadata['parsed']['field_map'] : array(),
 			);
-			$preview = $isPVPanel ? $importer->previewModuleImport($object->id, $normalizedData, $strategy) : $importer->previewInverterImport($object->id, $normalizedData, $strategy);
+			if ($isPVPanel) {
+				$preview = $importer->previewModuleImport($object->id, $normalizedData, $strategy);
+			} elseif ($isBattery) {
+				$preview = $importer->previewBatteryImport($object->id, $normalizedData, $strategy);
+			} else {
+				$preview = $importer->previewInverterImport($object->id, $normalizedData, $strategy);
+			}
 			if ($importer->error) {
 				setEventMessages($langs->trans($importer->error), powerplantpv_technical_import_translate_errors($importer->errors), 'errors');
 			}
@@ -724,9 +752,13 @@ if ($action === 'confirm_import' && is_array($metadata) && is_array($selectedrow
 	}
 
 	$sourceData = powerplantpv_technical_import_source_data($metadata, $lineindex, $technicaltype);
-	$result = $isPVPanel
-		? $importer->importModuleToProduct($object->id, $normalizedData, $rawData, $user, $strategy, $sourceData)
-		: $importer->importInverterToProduct($object->id, $normalizedData, $rawData, $user, $strategy, $sourceData);
+	if ($isPVPanel) {
+		$result = $importer->importModuleToProduct($object->id, $normalizedData, $rawData, $user, $strategy, $sourceData);
+	} elseif ($isBattery) {
+		$result = $importer->importBatteryToProduct($object->id, $normalizedData, $rawData, $user, $strategy, $sourceData);
+	} else {
+		$result = $importer->importInverterToProduct($object->id, $normalizedData, $rawData, $user, $strategy, $sourceData);
+	}
 
 	if ($result['result'] > 0) {
 		powerplantpv_technical_import_delete_temp($metadata, $importtoken);
