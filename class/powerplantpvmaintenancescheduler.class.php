@@ -55,6 +55,13 @@ class PowerPlantPVMaintenanceScheduler
 	private $db;
 
 	/**
+	 * Third-party labels loaded with visible power plants, indexed by power plant ID.
+	 *
+	 * @var array<int,string>
+	 */
+	private $powerPlantCustomerLabels = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @param	DoliDB	$db	Database handler
@@ -256,6 +263,8 @@ class PowerPlantPVMaintenanceScheduler
 	 */
 	private function fetchPowerPlantsForMaintenanceRows($user, array $filters)
 	{
+		$this->powerPlantCustomerLabels = array();
+
 		if (!function_exists('powerplantpvUserHasRightPath') || !powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'))) {
 			return array();
 		}
@@ -266,8 +275,9 @@ class PowerPlantPVMaintenanceScheduler
 			$socid = (int) $user->socid;
 		}
 
-		$sql = "SELECT t.rowid, t.ref, t.label, t.fk_soc, t.fk_project, t.entity, t.status";
+		$sql = "SELECT t.rowid, t.ref, t.label, t.fk_soc, t.fk_project, t.entity, t.status, s.nom as customer_label";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_powerplant AS t";
+		$sql .= " LEFT JOIN ".$this->db->prefix()."societe AS s ON s.rowid = t.fk_soc";
 		$sql .= " WHERE t.entity IN (".$this->db->sanitize(getEntity('powerplant')).")";
 		$entityFilters = $this->normalizeEntityFilters(isset($filters['entities']) ? $filters['entities'] : array());
 		if (!empty($entityFilters)) {
@@ -298,6 +308,7 @@ class PowerPlantPVMaintenanceScheduler
 			$powerplant->fk_project = (int) $obj->fk_project;
 			$powerplant->entity = (int) $obj->entity;
 			$powerplant->status = (int) $obj->status;
+			$this->powerPlantCustomerLabels[(int) $obj->rowid] = (string) $obj->customer_label;
 			$powerplants[(int) $obj->rowid] = $powerplant;
 		}
 		$this->db->free($resql);
@@ -317,6 +328,9 @@ class PowerPlantPVMaintenanceScheduler
 		$contract = (!empty($item['contract']) && is_array($item['contract'])) ? $item['contract'] : array();
 		$coveringIntervention = (!empty($item['covering_intervention']) && is_array($item['covering_intervention'])) ? $item['covering_intervention'] : null;
 		$scheduledIntervention = (!empty($item['scheduled_intervention']) && is_array($item['scheduled_intervention'])) ? $item['scheduled_intervention'] : null;
+		$customerLabel = !empty($contract['thirdparty_name'])
+			? (string) $contract['thirdparty_name']
+			: (isset($this->powerPlantCustomerLabels[(int) $powerplant->id]) ? $this->powerPlantCustomerLabels[(int) $powerplant->id] : '');
 
 		return array(
 			'powerplant' => $powerplant,
@@ -324,6 +338,7 @@ class PowerPlantPVMaintenanceScheduler
 			'powerplant_ref' => (string) $powerplant->ref,
 			'entity' => (int) $powerplant->entity,
 			'fk_soc' => !empty($contract['fk_soc']) ? (int) $contract['fk_soc'] : (int) $powerplant->fk_soc,
+			'customer_label' => $customerLabel,
 			'contract' => $contract,
 			'contract_id' => !empty($contract['id']) ? (int) $contract['id'] : 0,
 			'active_services' => (!empty($item['active_services']) && is_array($item['active_services'])) ? $item['active_services'] : array(),

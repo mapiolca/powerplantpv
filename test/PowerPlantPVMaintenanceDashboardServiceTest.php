@@ -86,4 +86,20 @@ final class PowerPlantPVMaintenanceDashboardServiceTest extends TestCase
 		$this->assertCount(12, $data['monthly_load']);
 		$this->assertSame(0, array_sum(array_column($data['monthly_load'], 'count')));
 	}
+
+	public function testCustomerDistributionUsesPowerPlantThirdPartyLabelWithoutContract(): void
+	{
+		global $db;
+
+		$reference = dol_mktime(0, 0, 0, 7, 15, 2026);
+		$row = $this->row(PowerPlantPVMaintenanceScheduler::STATUS_NOT_REQUIRED, 0, 0);
+		$row['contract'] = array();
+		$row['customer_label'] = 'Customer without contract';
+
+		$service = new PowerPlantPVMaintenanceDashboardService($db);
+		$data = $service->aggregateRows(array($row), $reference, $reference, $reference);
+
+		$this->assertSame('Customer without contract', $data['distributions']['by_customer'][0]['label']);
+		$this->assertSame(DOL_URL_ROOT.'/societe/card.php?socid=2', $data['distributions']['by_customer'][0]['url']);
+	}
 }

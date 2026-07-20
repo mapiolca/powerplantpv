@@ -243,7 +243,9 @@ class PowerPlantPVMaintenanceDashboardService
 
 		$contract = !empty($row['contract']) && is_array($row['contract']) ? $row['contract'] : array();
 		$socid = !empty($row['fk_soc']) ? (int) $row['fk_soc'] : 0;
-		$customerLabel = !empty($contract['thirdparty_name']) ? (string) $contract['thirdparty_name'] : ($socid > 0 ? '#'.$socid : '-');
+		$customerLabel = !empty($contract['thirdparty_name'])
+			? (string) $contract['thirdparty_name']
+			: (!empty($row['customer_label']) ? (string) $row['customer_label'] : ($socid > 0 ? '#'.$socid : '-'));
 		$this->incrementBucket($distributions['by_customer'], 'customer_'.$socid, $customerLabel, $socid > 0 ? DOL_URL_ROOT.'/societe/card.php?socid='.$socid : '');
 
 		$intervention = !empty($row['covering_intervention']) && is_array($row['covering_intervention']) ? $row['covering_intervention'] : (!empty($row['scheduled_intervention']) && is_array($row['scheduled_intervention']) ? $row['scheduled_intervention'] : array());
