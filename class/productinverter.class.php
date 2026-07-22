@@ -79,7 +79,7 @@ class ProductInverter
 	/**
 	 * Inverter fields stored outside native product data.
 	 *
-	 * @return array<string,array<string,string>>
+	 * @return array<string,array<string,mixed>>
 	 */
 	public static function getInverterFields()
 	{
@@ -93,19 +93,19 @@ class ProductInverter
 			'ac_nominal_power' => array('label' => 'PVInverterACNominalPower', 'type' => 'double'),
 			'ac_max_power' => array('label' => 'PVInverterACMaxPower', 'type' => 'double'),
 			'ac_apparent_power' => array('label' => 'PVInverterACApparentPower', 'type' => 'double'),
-			'ac_nominal_voltage' => array('label' => 'PVInverterACNominalVoltage', 'type' => 'varchar'),
-			'grid_frequency' => array('label' => 'PVInverterGridFrequency', 'type' => 'varchar'),
+			'ac_nominal_voltage' => array('label' => 'PVInverterACNominalVoltage', 'type' => 'varchar', 'numeric' => 1),
+			'grid_frequency' => array('label' => 'PVInverterGridFrequency', 'type' => 'varchar', 'numeric' => 1),
 			'ac_max_output_current' => array('label' => 'PVInverterACMaxOutputCurrent', 'type' => 'double'),
 			'phase_count' => array('label' => 'PVInverterPhaseCount', 'type' => 'int'),
-			'power_factor' => array('label' => 'PVInverterPowerFactor', 'type' => 'varchar'),
-			'thd' => array('label' => 'PVInverterTHD', 'type' => 'varchar'),
+			'power_factor' => array('label' => 'PVInverterPowerFactor', 'type' => 'varchar', 'numeric' => 1),
+			'thd' => array('label' => 'PVInverterTHD', 'type' => 'varchar', 'numeric' => 1),
 			'backup_nominal_power' => array('label' => 'PVInverterBackupNominalPower', 'type' => 'double'),
 			'backup_peak_power' => array('label' => 'PVInverterBackupPeakPower', 'type' => 'double'),
 			'backup_peak_duration' => array('label' => 'PVInverterBackupPeakDuration', 'type' => 'double'),
 			'backup_transfer_time' => array('label' => 'PVInverterBackupTransferTime', 'type' => 'double'),
-			'backup_nominal_voltage' => array('label' => 'PVInverterBackupNominalVoltage', 'type' => 'varchar'),
+			'backup_nominal_voltage' => array('label' => 'PVInverterBackupNominalVoltage', 'type' => 'varchar', 'numeric' => 1),
 			'backup_max_current' => array('label' => 'PVInverterBackupMaxCurrent', 'type' => 'double'),
-			'backup_thd' => array('label' => 'PVInverterBackupTHD', 'type' => 'varchar'),
+			'backup_thd' => array('label' => 'PVInverterBackupTHD', 'type' => 'varchar', 'numeric' => 1),
 			'max_unbalanced_output' => array('label' => 'PVInverterMaxUnbalancedOutput', 'type' => 'double'),
 			'max_efficiency' => array('label' => 'PVInverterMaxEfficiency', 'type' => 'double'),
 			'european_efficiency' => array('label' => 'PVInverterEuropeanEfficiency', 'type' => 'double'),
@@ -119,13 +119,13 @@ class ProductInverter
 			'insulation_monitoring' => array('label' => 'PVInverterInsulationMonitoring', 'type' => 'bool'),
 			'residual_current_monitoring' => array('label' => 'PVInverterResidualCurrentMonitoring', 'type' => 'bool'),
 			'ip_rating' => array('label' => 'PVInverterIPRating', 'type' => 'varchar'),
-			'operating_temperature' => array('label' => 'PVInverterOperatingTemperature', 'type' => 'varchar'),
-			'relative_humidity' => array('label' => 'PVInverterRelativeHumidity', 'type' => 'varchar'),
+			'operating_temperature' => array('label' => 'PVInverterOperatingTemperature', 'type' => 'varchar', 'numeric' => 1),
+			'relative_humidity' => array('label' => 'PVInverterRelativeHumidity', 'type' => 'varchar', 'numeric' => 1),
 			'cooling' => array('label' => 'PVInverterCooling', 'type' => 'varchar'),
 			'max_altitude' => array('label' => 'PVInverterMaxAltitude', 'type' => 'int'),
-			'noise' => array('label' => 'PVInverterNoise', 'type' => 'varchar'),
+			'noise' => array('label' => 'PVInverterNoise', 'type' => 'varchar', 'numeric' => 1),
 			'topology' => array('label' => 'PVInverterTopology', 'type' => 'varchar'),
-			'night_consumption' => array('label' => 'PVInverterNightConsumption', 'type' => 'varchar'),
+			'night_consumption' => array('label' => 'PVInverterNightConsumption', 'type' => 'varchar', 'numeric' => 1),
 			'display_type' => array('label' => 'PVInverterDisplayType', 'type' => 'varchar'),
 			'communication_interfaces' => array('label' => 'PVInverterCommunicationInterfaces', 'type' => 'varchar'),
 			'dc_connector' => array('label' => 'PVInverterDCConnector', 'type' => 'varchar'),
@@ -248,6 +248,10 @@ class ProductInverter
 	 */
 	public function saveForProduct($fkProduct, array $data, User $user)
 	{
+		if (!$this->validateNumericData(self::getInverterFields(), $data)) {
+			return -1;
+		}
+
 		$id = $this->ensureForProduct($fkProduct, $user);
 		if ($id < 0) {
 			return -1;
@@ -337,6 +341,10 @@ class ProductInverter
 	public function saveMppt($fkInverter, $mpptId, array $data)
 	{
 		global $conf;
+
+		if (!$this->validateNumericData(self::getMpptFields(), $data)) {
+			return -1;
+		}
 
 		if ($mpptId > 0) {
 			$sets = $this->buildSetSql(self::getMpptFields(), $data);
@@ -487,6 +495,10 @@ class ProductInverter
 	{
 		global $conf;
 
+		if (!$this->validateNumericData(self::getPvInputFields(), $data)) {
+			return -1;
+		}
+
 		if ($inputId > 0) {
 			$sets = $this->buildSetSql(self::getPvInputFields(), $data);
 			$sql = 'UPDATE '.$this->db->prefix().'powerplantpv_product_inverter_pvinput';
@@ -547,9 +559,39 @@ class ProductInverter
 	}
 
 	/**
+	 * Reject non-numeric values for technical measurements.
+	 *
+	 * Values are normalized at the UI/import boundary. This guard also protects
+	 * direct class consumers from silently casting text to zero.
+	 *
+	 * @param array<string,array<string,mixed>> $fields Field specs
+	 * @param array<string,mixed>                $data   Field values
+	 * @return bool True when all numeric values are valid
+	 */
+	protected function validateNumericData(array $fields, array $data)
+	{
+		foreach ($fields as $key => $spec) {
+			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$isnumeric = ($type === 'double' || $type === 'int' || !empty($spec['numeric']));
+			$value = array_key_exists($key, $data) ? $data[$key] : null;
+			if (!$isnumeric || $value === null || $value === '') {
+				continue;
+			}
+			if ((!is_int($value) && !is_float($value) && !is_numeric($value))
+				|| ($type === 'int' && (float) ((int) $value) !== (float) $value)
+			) {
+				$this->setError('ProductTechnicalNumericValueRequired');
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
 	 * Build SQL SET parts.
 	 *
-	 * @param array<string,array<string,string>> $fields Field specs
+	 * @param array<string,array<string,mixed>> $fields Field specs
 	 * @param array<string,mixed>                $data   Field values
 	 * @return array<int,string>
 	 */

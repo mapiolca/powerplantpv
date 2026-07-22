@@ -144,6 +144,36 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertSame('ProductTechnicalImportUnexpectedUnit', $import->getLastError());
 	}
 
+	public function testTechnicalNumberParserRejectsUnitsAndFreeText(): void
+	{
+		$this->assertSame(9.6, powerplantpvParseTechnicalNumber('9,6'));
+		$this->assertSame(1000.0, powerplantpvParseTechnicalNumber('1 000'));
+		$this->assertSame(-20.0, powerplantpvParseTechnicalNumber('-20'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('9.6 kWh'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('about 9.6'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('2.5', true));
+	}
+
+	public function testImportRejectsUnitInsideMeasurementValue(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(array('usable_energy [kWh]'), array('9.6 kWh')), 'battery');
+		$this->assertSame(array(), $parsed);
+		$this->assertSame('ProductTechnicalImportNumericValueRequired', $import->getLastError());
+	}
+
+	public function testLegacyInverterMeasurementColumnsAreNumeric(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(array('ac_nominal_voltage [V]'), array('230')), 'inverter');
+		$this->assertSame('', $import->getLastError());
+		$this->assertSame(230.0, $parsed['rows'][0]['normalized']['ac_nominal_voltage']);
+
+		$parsed = $import->buildImportRows(array(array('ac_nominal_voltage [V]'), array('230 V')), 'inverter');
+		$this->assertSame(array(), $parsed);
+		$this->assertSame('ProductTechnicalImportNumericValueRequired', $import->getLastError());
+	}
+
 	public function testEveryFlatTemplateHeaderDocumentsAUnitOrFormat(): void
 	{
 		foreach (array('MODULE', 'ONDULE', 'BATTER') as $category) {

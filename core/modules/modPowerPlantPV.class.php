@@ -2253,17 +2253,16 @@ class modPowerPlantPV extends DolibarrModules
 	{
 		$extrafields->fetch_name_optionals_label($elementtype);
 
-		$moreparams = array(
-			'css' => 'maxwidth100 right',
-			'csslist' => 'right',
-			'cssview' => 'right',
-		);
+		$moreparams = array();
 
 		$method = 'addExtraField';
 		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_peak_power'])) {
 			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power'] : '';
 			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power'] : '';
-			if ($currenttype === 'double' && $currentsize === '24,8') {
+			$currentcss = !empty($extrafields->attributes[$elementtype]['css']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['css']['powerplantpv_peak_power'] : '';
+			$currentcsslist = !empty($extrafields->attributes[$elementtype]['csslist']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['csslist']['powerplantpv_peak_power'] : '';
+			$currentcssview = !empty($extrafields->attributes[$elementtype]['cssview']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['cssview']['powerplantpv_peak_power'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8' && $currentcss === '' && $currentcsslist === '' && $currentcssview === '') {
 				return 1;
 			}
 
@@ -2311,12 +2310,15 @@ class modPowerPlantPV extends DolibarrModules
 	private function ensureCommercialStorageCapacityExtrafield($extrafields, $elementtype)
 	{
 		$extrafields->fetch_name_optionals_label($elementtype);
-		$moreparams = array('css' => 'maxwidth100 right', 'csslist' => 'right', 'cssview' => 'right');
+		$moreparams = array();
 		$method = 'addExtraField';
 		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_storage_capacity'])) {
 			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity'] : '';
 			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity'] : '';
-			if ($currenttype === 'double' && $currentsize === '24,8') {
+			$currentcss = !empty($extrafields->attributes[$elementtype]['css']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['css']['powerplantpv_storage_capacity'] : '';
+			$currentcsslist = !empty($extrafields->attributes[$elementtype]['csslist']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['csslist']['powerplantpv_storage_capacity'] : '';
+			$currentcssview = !empty($extrafields->attributes[$elementtype]['cssview']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['cssview']['powerplantpv_storage_capacity'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8' && $currentcss === '' && $currentcsslist === '' && $currentcssview === '') {
 				return 1;
 			}
 			$method = 'updateExtraField';

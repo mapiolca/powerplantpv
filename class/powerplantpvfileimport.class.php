@@ -345,6 +345,10 @@ class PowerPlantPVFileImport
 			if ($this->isEmptyRow($cells)) {
 				continue;
 			}
+			if (!$this->validateNumericImportRow($headers, $cells, $fieldmap, $type)) {
+				$this->setError('ProductTechnicalImportNumericValueRequired');
+				return array();
+			}
 			$raw = $this->rowToAssoc($headers, $cells);
 			if ($type === 'inverter') {
 				$normalized = $this->normalizeInverterRow($raw);
@@ -887,6 +891,46 @@ class PowerPlantPVFileImport
 		}
 
 		return array('fields' => $fields, 'composition_fields' => $compositionfields, 'attribute_fields' => $attributefields, 'recognized_headers' => $recognized, 'ignored_headers' => array_values(array_unique($ignored)));
+	}
+
+	/**
+	 * Validate every imported measurement before normalization.
+	 *
+	 * @param array<int,mixed>    $headers  Original headers
+	 * @param array<int,mixed>    $cells    Raw row cells
+	 * @param array<string,mixed> $fieldmap Parsed field map
+	 * @param string              $type     module|inverter|battery
+	 * @return bool True when all unit-bearing values are numeric
+	 */
+	protected function validateNumericImportRow(array $headers, array $cells, array $fieldmap, $type)
+	{
+		$fieldtypes = $this->getImportFieldTypes($type);
+		$mappedfields = isset($fieldmap['fields']) && is_array($fieldmap['fields']) ? $fieldmap['fields'] : array();
+		foreach ($mappedfields as $field => $columnindex) {
+			$fieldtype = isset($fieldtypes[$field]) ? (string) $fieldtypes[$field] : 'varchar';
+			if (!in_array($fieldtype, array('double', 'int'), true)) {
+				continue;
+			}
+			$value = isset($cells[$columnindex]) ? trim((string) $cells[$columnindex]) : '';
+			if ($value !== '' && powerplantpvParseTechnicalNumber($value, $fieldtype === 'int') === null) {
+				dol_syslog(__METHOD__.' invalid numeric value on '.$type.'.'.$field, LOG_WARNING);
+				return false;
+			}
+		}
+
+		$compositionfields = isset($fieldmap['composition_fields']) && is_array($fieldmap['composition_fields']) ? $fieldmap['composition_fields'] : array();
+		foreach ($compositionfields as $header => $columnindex) {
+			if ($this->getMpptCompositionFieldUnit((string) $header) === 'text') {
+				continue;
+			}
+			$value = isset($cells[$columnindex]) ? trim((string) $cells[$columnindex]) : '';
+			if ($value !== '' && powerplantpvParseTechnicalNumber($value) === null) {
+				dol_syslog(__METHOD__.' invalid numeric MPPT value on '.$header, LOG_WARNING);
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -1564,6 +1608,23 @@ class PowerPlantPVFileImport
 	}
 
 	/**
+	 * Return field types for an import dataset.
+	 *
+	 * @param string $type module|inverter|battery
+	 * @return array<string,string> Type by field
+	 */
+	protected function getImportFieldTypes($type)
+	{
+		if ($type === 'inverter') {
+			return $this->getInverterFieldTypes();
+		}
+		if ($type === 'battery') {
+			return $this->getBatteryFieldTypes();
+		}
+		return $this->getModuleFieldTypes();
+	}
+
+	/**
 	 * Return inverter field types.
 	 *
 	 * @return array<string,string> Type by field
@@ -1572,7 +1633,11 @@ class PowerPlantPVFileImport
 	{
 		$types = array();
 		foreach (ProductInverter::getInverterFields() as $field => $spec) {
-			$types[$field] = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			if (!empty($spec['numeric']) && !in_array($type, array('double', 'int'), true)) {
+				$type = 'double';
+			}
+			$types[$field] = $type;
 		}
 
 		return $types;
@@ -1657,31 +1722,7 @@ class PowerPlantPVFileImport
 	 */
 	protected function parseNumericValue($value)
 	{
-		$value = trim((string) $value);
-		if ($value === '') {
-			return null;
-		}
-
-		$value = str_replace(array("\xc2\xa0", ' '), '', $value);
-		if (!preg_match('/[-+]?[0-9][0-9\\.,]*/', $value, $matches)) {
-			return null;
-		}
-
-		$number = trim($matches[0], '.,');
-		if (strpos($number, ',') !== false && strpos($number, '.') !== false) {
-			$lastcomma = strrpos($number, ',');
-			$lastdot = strrpos($number, '.');
-			if ($lastcomma > $lastdot) {
-				$number = str_replace('.', '', $number);
-				$number = str_replace(',', '.', $number);
-			} else {
-				$number = str_replace(',', '', $number);
-			}
-		} else {
-			$number = str_replace(',', '.', $number);
-		}
-
-		return is_numeric($number) ? (float) $number : null;
+		return powerplantpvParseTechnicalNumber($value);
 	}
 
 	/**
@@ -1692,9 +1733,7 @@ class PowerPlantPVFileImport
 	 */
 	protected function parseIntegerValue($value)
 	{
-		$number = $this->parseNumericValue($value);
-
-		return ($number === null ? null : (int) $number);
+		return powerplantpvParseTechnicalNumber($value, true);
 	}
 
 	/**

@@ -139,7 +139,7 @@ function powerplantpv_fetch_pvpanel($db, $productId)
  * Get a numeric POST value while preserving empty fields.
  *
  * @param string $field Field name
- * @return string|float Empty string or normalized number
+	 * @return string|int|float Empty string, normalized number, or invalid raw value
  */
 function powerplantpv_get_numeric_post_value($field)
 {
@@ -148,7 +148,8 @@ function powerplantpv_get_numeric_post_value($field)
 		return '';
 	}
 
-	return price2num($value, 'MT');
+	$number = powerplantpvParseTechnicalNumber($value);
+	return $number === null ? (string) $value : $number;
 }
 
 /**
@@ -161,11 +162,17 @@ function powerplantpv_get_numeric_post_value($field)
  */
 function powerplantpv_save_pvpanel($db, Product $product, $panel)
 {
-	global $conf;
+	global $conf, $langs;
 
 	$data = array();
 	foreach (powerplantpv_get_pvpanel_fields() as $field) {
 		$data[$field] = powerplantpv_get_numeric_post_value($field);
+	}
+	foreach ($data as $value) {
+		if ($value !== '' && !is_int($value) && !is_float($value)) {
+			setEventMessages($langs->trans('ProductTechnicalNumericValueRequired'), null, 'errors');
+			return -1;
+		}
 	}
 
 	if ($panel && !empty($panel->rowid)) {
@@ -208,12 +215,18 @@ function powerplantpv_collect_post_data(array $fields)
 	foreach ($fields as $key => $spec) {
 		if ($spec['type'] === 'bool') {
 			$data[$key] = GETPOSTISSET($key) ? 1 : 0;
-		} elseif ($spec['type'] === 'double') {
+		} elseif ($spec['type'] === 'double' || $spec['type'] === 'int' || !empty($spec['numeric'])) {
 			$value = GETPOST($key, 'alpha');
-			$data[$key] = (trim((string) $value) === '' ? '' : price2num($value, 'MT'));
-		} elseif ($spec['type'] === 'int') {
-			$value = GETPOST($key, 'alpha');
-			$data[$key] = (trim((string) $value) === '' ? '' : (int) price2num($value, 'MT'));
+			if (trim((string) $value) === '') {
+				$data[$key] = '';
+				continue;
+			}
+			$number = powerplantpvParseTechnicalNumber($value, $spec['type'] === 'int');
+			if ($number === null) {
+				$data[$key] = (string) $value;
+			} else {
+				$data[$key] = $number;
+			}
 		} elseif ($spec['type'] === 'text') {
 			$data[$key] = GETPOST($key, 'restricthtml');
 		} else {
@@ -271,6 +284,10 @@ function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit
 
 	$value = $source ? powerplantpv_get_field_value($source, $name) : null;
 	$unit = !empty($spec['unit']) && !in_array($spec['unit'], array('code', 'text'), true) ? (string) $spec['unit'] : '';
+	$isnumeric = ($spec['type'] === 'double' || $spec['type'] === 'int' || !empty($spec['numeric']));
+	if ($edit && $isnumeric && GETPOSTISSET($name)) {
+		$value = GETPOST($name, 'alpha');
+	}
 
 	print '<tr class="oddeven">';
 	print '<td class="titlefield">'.$label.'</td>';
@@ -287,8 +304,9 @@ function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit
 		} elseif ($spec['type'] === 'text') {
 			print '<textarea class="flat centpercent" name="'.$name.'" rows="3">'.dol_escape_htmltag((string) $value).'</textarea>';
 		} else {
-			$css = ($spec['type'] === 'double' || $spec['type'] === 'int') ? 'flat maxwidth100 right' : 'flat minwidth300';
-			print '<input class="'.$css.'" type="text" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'">';
+			$css = $isnumeric ? 'flat maxwidth100 right' : 'flat minwidth300';
+			$numericattributes = $isnumeric ? ' inputmode="'.($spec['type'] === 'int' ? 'numeric' : 'decimal').'" pattern="'.($spec['type'] === 'int' ? '[+-]?[0-9]+' : '[+-]?([0-9]+([.,][0-9]+)?|[.,][0-9]+)').'"' : '';
+			print '<input class="'.$css.'" type="text" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'"'.$numericattributes.'>';
 			if ($unit !== '') {
 				print ' <span class="opacitymedium">'.dol_escape_htmltag($unit).'</span>';
 			}

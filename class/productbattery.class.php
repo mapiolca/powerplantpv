@@ -174,6 +174,19 @@ class ProductBattery
 	 */
 	public function saveForProduct($fkProduct, array $data, User $user)
 	{
+		foreach (self::getBatteryFields() as $field => $spec) {
+			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$value = array_key_exists($field, $data) ? $data[$field] : null;
+			if (!in_array($type, array('double', 'int'), true) || $value === null || $value === '') {
+				continue;
+			}
+			if ((!is_int($value) && !is_float($value) && !is_numeric($value))
+				|| ($type === 'int' && (float) ((int) $value) !== (float) $value)
+			) {
+				return $this->setError('ProductTechnicalNumericValueRequired');
+			}
+		}
+
 		if (empty($data['storage_type'])) {
 			$data['storage_type'] = 'BATTERY_MODULE';
 		}

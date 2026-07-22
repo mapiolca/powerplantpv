@@ -1601,3 +1601,5 @@ PowerPlantPVStorageCapacityCompatibilityDescription = Usable-capacity calculatio
 BatteryInvalidAccessoryRole = Invalid battery accessory role.
 BatteryInvalidCompatibilityRule = Invalid accessory compatibility rule.
 BatteryInvalidRuleValue = The compatibility rule must contain a target, code or boundary matching the selected criterion.
+ProductTechnicalNumericValueRequired = Technical characteristics associated with a unit must contain a numeric value only, without the unit in the value.
+ProductTechnicalImportNumericValueRequired = A value associated with a unit in the import file is not numeric. Correct the value and remove the unit from the cell.

@@ -24,6 +24,43 @@
  */
 
 /**
+ * Parse a scalar technical measurement without accepting a unit or free text.
+ *
+ * Spaces used as thousands separators and decimal commas are accepted. The
+ * unit belongs to the field definition or import header, never to its value.
+ *
+ * @param mixed $value   Raw value
+ * @param bool  $integer Whether only an integer is accepted
+ * @return int|float|null Normalized number, or null for an invalid/empty value
+ */
+function powerplantpvParseTechnicalNumber($value, $integer = false)
+{
+	if (!is_scalar($value)) {
+		return null;
+	}
+
+	$value = trim((string) $value);
+	if ($value === '') {
+		return null;
+	}
+
+	$value = str_replace(array("\xc2\xa0", "\xe2\x80\xaf", ' '), '', $value);
+	$pattern = $integer
+		? '/^[+-]?[0-9]+$/D'
+		: '/^[+-]?(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)$/D';
+	if (!preg_match($pattern, $value)) {
+		return null;
+	}
+
+	$normalized = str_replace(',', '.', $value);
+	if (!is_numeric($normalized)) {
+		return null;
+	}
+
+	return $integer ? (int) $normalized : (float) $normalized;
+}
+
+/**
  * Return the native sharing element used by maintenance service metadata.
  *
  * Maintenance services are selected on products/services, so their visibility

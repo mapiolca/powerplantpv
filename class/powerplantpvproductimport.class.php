@@ -156,6 +156,7 @@ class PowerPlantPVProductImport
 			'backup_transfer_time' => 'ms', 'backup_nominal_voltage' => 'V', 'backup_max_current' => 'A', 'backup_thd' => '%', 'max_unbalanced_output' => '%',
 			'max_efficiency' => '%', 'european_efficiency' => '%', 'dc_switch' => '0/1', 'afci' => '0/1', 'pid_recovery' => '0/1', 'anti_islanding' => '0/1',
 			'dc_reverse_polarity_protection' => '0/1', 'insulation_monitoring' => '0/1', 'residual_current_monitoring' => '0/1', 'max_altitude' => 'm',
+			'operating_temperature' => '?C', 'relative_humidity' => '%', 'noise' => 'dB(A)', 'night_consumption' => 'W',
 		);
 		return isset($inverterunits[$field]) ? $inverterunits[$field] : 'text';
 	}
