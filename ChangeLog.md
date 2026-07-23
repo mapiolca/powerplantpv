@@ -2,6 +2,7 @@
 
 ## 1.3.0
 
+- Onduleurs : affichage de chaque MPPT et de ses entrées PV associées en deux colonnes natives alignées sur une même ligne.
 - Import technique : modèles CSV/XLSX auto-documentés avec type, unité, cardinalité, format, règles et catalogues de valeurs actives par entité, tout en conservant les anciens en-têtes.
 - Import technique : résolution interactive des codes de protocoles, certifications et protections inconnus ou inactifs avant confirmation, avec création autorisée, remplacement ou ignorance, contrôles CSRF et transactions par produit.
 - Cycle commercial : alignement natif des extrafields calculés `Puissance-crête totale (kWc)` et `Capacité de stockage (kWh)` sur les devis, commandes et factures.

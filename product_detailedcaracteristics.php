@@ -1357,9 +1357,6 @@ if ($hasInverterCharacteristics) {
 	$editMppt = null;
 	if ($permissiontoadd && $action === 'edit_mppt' && $mpptid > 0 && !empty($inverter->id)) {
 		$editMppt = $inverter->fetchMppt($mpptid, $inverter->id);
-		if ($editMppt) {
-			powerplantpv_print_composition_form('save_mppt', $object->id, $mpptid, 0, $editMppt, ProductInverter::getMpptFields(), (int) $editMppt->position);
-		}
 	}
 
 	if (empty($mppts)) {
@@ -1374,17 +1371,24 @@ if ($hasInverterCharacteristics) {
 			}
 
 			print '<a id="mppt_'.$mppt->rowid.'"></a>';
+			print '<div class="fichecenter">';
+			print '<div class="fichehalfleft">';
 			print load_fiche_titre(dol_escape_htmltag($mpptTitle), $mpptActions, '');
 			print '<table class="noborder centpercent">';
 			foreach (ProductInverter::getMpptFields() as $key => $spec) {
 				powerplantpv_print_field_row($langs->trans($spec['label']), $key, $spec, $mppt, false);
 			}
 			print '</table>';
+			if ($editMppt && $mpptid === (int) $mppt->rowid) {
+				powerplantpv_print_composition_form('save_mppt', $object->id, $mpptid, 0, $editMppt, ProductInverter::getMpptFields(), (int) $editMppt->position);
+			}
+			print '</div>';
 
 			$addInputButton = '';
 			if ($permissiontoadd) {
 				$addInputButton = dolGetButtonTitle($langs->trans('PVInverterAddPVInput'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=create_input&mpptid='.$mppt->rowid.'&token='.newToken(), '', 1);
 			}
+			print '<div class="fichehalfright">';
 			print load_fiche_titre($langs->trans('PVInverterPVInputs'), $addInputButton, '');
 
 			if ($permissiontoadd && $action === 'create_input' && $mpptid === (int) $mppt->rowid) {
@@ -1436,6 +1440,9 @@ if ($hasInverterCharacteristics) {
 				}
 			}
 			print '</table>';
+			print '</div>';
+			print '</div>';
+			print '<div class="clearboth"></div>';
 			print '</div><br>';
 		}
 	}
