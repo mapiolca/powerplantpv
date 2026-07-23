@@ -249,6 +249,63 @@ class PowerPlantPVFileImport
 	}
 
 	/**
+	 * Parse the optional self-documenting contract appended to a header.
+	 *
+	 * @param string $header Raw header
+	 * @return array<string,mixed>
+	 */
+	public function parseHeaderMetadata($header)
+	{
+		$result = array('present' => false, 'legacy' => false, 'legacy_value' => '', 'values' => array());
+		if (!preg_match('/\[([^\]]+)\]\s*$/u', trim((string) $header), $matches)) {
+			return $result;
+		}
+		$content = trim((string) $matches[1]);
+		$result['present'] = true;
+		if (strpos($content, '=') === false) {
+			$result['legacy'] = true;
+			$result['legacy_value'] = $content;
+			return $result;
+		}
+		foreach (explode(';', $content) as $part) {
+			$pair = explode('=', trim($part), 2);
+			if (count($pair) === 2 && trim($pair[0]) !== '') {
+				$result['values'][strtolower(trim($pair[0]))] = trim($pair[1]);
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Tell whether a CSV row documents the template instead of carrying data.
+	 *
+	 * @param array<int,mixed> $row Raw row
+	 * @return bool
+	 */
+	public function isTemplateMetadataRow(array $row)
+	{
+		$first = isset($row[0]) ? trim((string) $row[0]) : '';
+		return strpos($first, '#POWERPLANTPV_FIELD') === 0 || strpos($first, '#POWERPLANTPV_VALUE') === 0;
+	}
+
+	/**
+	 * Return metadata for one MPPT composition column.
+	 *
+	 * @param string $header Normalized header
+	 * @return array<string,string>
+	 */
+	public function getMpptCompositionFieldDefinition($header)
+	{
+		$unit = $this->getMpptCompositionFieldUnit($header);
+		return array(
+			'type' => $unit === 'text' ? 'text' : 'decimal',
+			'unit' => $unit === 'text' ? '' : $unit,
+			'cardinality' => '0..1',
+			'format' => $unit === 'text' ? 'TEXT' : 'SIGNED_DECIMAL',
+		);
+	}
+
+	/**
 	 * Extract non-empty data rows after the detected header.
 	 *
 	 * @param array<int,array<int,string>> $rows Rows
@@ -264,7 +321,7 @@ class PowerPlantPVFileImport
 
 		$extracted = array();
 		for ($i = $headerrow + 1; $i < count($rows); $i++) {
-			if (!$this->isEmptyRow((array) $rows[$i])) {
+			if (!$this->isEmptyRow((array) $rows[$i]) && !$this->isTemplateMetadataRow((array) $rows[$i])) {
 				$extracted[] = (array) $rows[$i];
 			}
 		}
@@ -303,37 +360,23 @@ class PowerPlantPVFileImport
 		$unitwarnings = array();
 		foreach ($fieldmap['fields'] as $field => $columnindex) {
 			$rawheader = isset($headers[$columnindex]) ? trim((string) $headers[$columnindex]) : '';
-			$expectedunit = PowerPlantPVProductImport::getImportFieldUnit($type, $field);
-			if (!preg_match('/\[([^\]]+)\]\s*$/u', $rawheader, $matches)) {
-				$unitwarnings[] = $field;
-				continue;
-			}
-			if ($this->normalizeUnit($matches[1]) !== $this->normalizeUnit($expectedunit)) {
-				dol_syslog(__METHOD__.' unexpected unit for '.$field.': '.$matches[1].' expected '.$expectedunit, LOG_WARNING);
-				$this->setError('ProductTechnicalImportUnexpectedUnit');
+			$definition = PowerPlantPVProductImport::getImportFieldDefinition($type, $field);
+			if (!$this->validateHeaderContract($rawheader, $definition, $field, $unitwarnings)) {
 				return array();
 			}
 		}
 		foreach ($fieldmap['attribute_fields'] as $header => $columnindex) {
 			$rawheader = isset($headers[$columnindex]) ? trim((string) $headers[$columnindex]) : '';
-			if (!preg_match('/\[([^\]]+)\]\s*$/u', $rawheader, $matches)) {
-				$unitwarnings[] = $header;
-				continue;
-			}
-			if ($this->normalizeUnit($matches[1]) !== 'code') {
-				$this->setError('ProductTechnicalImportUnexpectedUnit');
+			$descriptor = $this->parseBatteryAttributeHeader($header);
+			$definition = array('type' => 'multiselect2', 'unit' => '', 'cardinality' => '0..N', 'format' => 'CODE|Libellé', 'source' => isset($descriptor['dictionary_type']) ? $descriptor['dictionary_type'] : '');
+			if (!$this->validateHeaderContract($rawheader, $definition, $header, $unitwarnings)) {
 				return array();
 			}
 		}
 		foreach ($fieldmap['composition_fields'] as $header => $columnindex) {
 			$rawheader = isset($headers[$columnindex]) ? trim((string) $headers[$columnindex]) : '';
-			$expectedunit = $this->getMpptCompositionFieldUnit($header);
-			if (!preg_match('/\[([^\]]+)\]\s*$/u', $rawheader, $matches)) {
-				$unitwarnings[] = $header;
-				continue;
-			}
-			if ($this->normalizeUnit($matches[1]) !== $this->normalizeUnit($expectedunit)) {
-				$this->setError('ProductTechnicalImportUnexpectedUnit');
+			$definition = $this->getMpptCompositionFieldDefinition($header);
+			if (!$this->validateHeaderContract($rawheader, $definition, $header, $unitwarnings)) {
 				return array();
 			}
 		}
@@ -342,7 +385,7 @@ class PowerPlantPVFileImport
 		$importrows = array();
 		for ($i = $headerrow + 1; $i < count($rows); $i++) {
 			$cells = (array) $rows[$i];
-			if ($this->isEmptyRow($cells)) {
+			if ($this->isEmptyRow($cells) || $this->isTemplateMetadataRow($cells)) {
 				continue;
 			}
 			if (!$this->validateNumericImportRow($headers, $cells, $fieldmap, $type)) {
@@ -395,6 +438,97 @@ class PowerPlantPVFileImport
 	{
 		$unit = str_replace(array('％', '²', '°', ' '), array('%', '2', '', ''), trim((string) $unit));
 		return strtolower($unit);
+	}
+
+	/**
+	 * Public contract validator used by the mixed product importer.
+	 *
+	 * @param string $rawheader Raw header
+	 * @param array<string,mixed> $definition Expected definition
+	 * @param string $field Canonical field
+	 * @param array<int,string> $warnings Missing-contract warnings
+	 * @return bool
+	 */
+	public function validateDocumentedHeader($rawheader, array $definition, $field, array &$warnings)
+	{
+		return $this->validateHeaderContract($rawheader, $definition, $field, $warnings);
+	}
+
+	/**
+	 * Validate a legacy or self-documenting header contract.
+	 *
+	 * @param string $rawheader Raw header
+	 * @param array<string,mixed> $definition Expected definition
+	 * @param string $field Canonical field
+	 * @param array<int,string> $warnings Missing-contract warnings
+	 * @return bool
+	 */
+	protected function validateHeaderContract($rawheader, array $definition, $field, array &$warnings)
+	{
+		$metadata = $this->parseHeaderMetadata($rawheader);
+		if (empty($metadata['present'])) {
+			$warnings[] = $field;
+			return true;
+		}
+
+		$expectedType = strtolower((string) (isset($definition['type']) ? $definition['type'] : ''));
+		$expectedUnit = (string) (isset($definition['unit']) ? $definition['unit'] : '');
+		$expectedFormat = (string) (isset($definition['format']) ? $definition['format'] : '');
+		if (!empty($metadata['legacy'])) {
+			$legacy = $this->normalizeContractValue((string) $metadata['legacy_value']);
+			$normalizedExpectedFormat = $this->normalizeContractValue($expectedFormat);
+			if ($expectedType === 'multiselect2' && ($legacy === 'code' || $legacy === $normalizedExpectedFormat || in_array($legacy, array('codelabel', 'codelibelle'), true))) {
+				return true;
+			}
+			$expectedLegacy = $expectedUnit !== '' ? $expectedUnit : $expectedFormat;
+			if ($expectedLegacy === '' || $this->normalizeContractValue($expectedLegacy) === $legacy) {
+				return true;
+			}
+			$this->logHeaderContractError($field, (string) $metadata['legacy_value'], $expectedLegacy);
+			$this->setError('ProductTechnicalImportUnexpectedUnit');
+			return false;
+		}
+
+		$values = isset($metadata['values']) && is_array($metadata['values']) ? $metadata['values'] : array();
+		$declaredType = isset($values['type']) ? strtolower(trim((string) $values['type'])) : '';
+		if ($declaredType === '' || $declaredType !== $expectedType) {
+			$this->logHeaderContractError($field, $declaredType, $expectedType);
+			$this->setError('ProductTechnicalImportUnexpectedType');
+			return false;
+		}
+
+		$declaredUnit = isset($values['unit']) ? (string) $values['unit'] : '';
+		if (($expectedUnit !== '' && $this->normalizeUnit($declaredUnit) !== $this->normalizeUnit($expectedUnit)) || ($expectedUnit === '' && $declaredUnit !== '')) {
+			$this->logHeaderContractError($field, $declaredUnit, $expectedUnit);
+			$this->setError('ProductTechnicalImportUnexpectedUnit');
+			return false;
+		}
+
+		if (isset($values['format']) && $expectedFormat !== '' && $this->normalizeContractValue((string) $values['format']) !== $this->normalizeContractValue($expectedFormat)) {
+			$this->logHeaderContractError($field, (string) $values['format'], $expectedFormat);
+			$this->setError('ProductTechnicalImportUnexpectedFormat');
+			return false;
+		}
+		return true;
+	}
+
+	/** @return string */
+	protected function normalizeContractValue($value)
+	{
+		$value = strtolower(trim((string) $value));
+		if (function_exists('iconv')) {
+			$converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+			$value = $converted === false ? $value : $converted;
+		}
+		return (string) preg_replace('/[^a-z0-9]+/', '', $value);
+	}
+
+	/** @return void */
+	protected function logHeaderContractError($field, $declared, $expected)
+	{
+		if (function_exists('dol_syslog')) {
+			dol_syslog(__METHOD__.' unexpected contract for '.$field.': '.$declared.' expected '.$expected, defined('LOG_WARNING') ? LOG_WARNING : 4);
+		}
 	}
 
 	/**

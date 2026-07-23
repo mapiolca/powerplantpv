@@ -1,4 +1,6 @@
 # Translation file
+PowerPlantPVTechnicalDictionaryInvalidCode=Le code de dictionnaire doit contenir uniquement A-Z, 0-9, _, - ou . sur 64 caractères maximum.
+PowerPlantPVTechnicalDictionaryInactiveCode=Ce code existe mais il est inactif ; il doit être remplacé ou ignoré.
 
 #
 # Generic
@@ -1692,3 +1694,40 @@ PVTechnicalDictionaryValueEmergencyShutdown = Arrêt d'urgence
 PowerPlantPVBulkImportSampleModuleLabel = Module photovoltaïque exemple
 PowerPlantPVBulkImportSampleInverterLabel = Onduleur exemple
 PowerPlantPVBulkImportSampleBatteryLabel = Batterie exemple
+ProductTechnicalImportUnexpectedType=Le type déclaré dans l’en-tête ne correspond pas au type attendu.
+ProductTechnicalImportUnexpectedFormat=Le format déclaré dans l’en-tête ne correspond pas au format attendu.
+ProductTechnicalImportFileChanged=Le fichier temporaire a été modifié depuis son analyse.
+PowerPlantPVTechnicalDictionaryCreationUnavailable=Cette valeur de dictionnaire ne peut pas être créée depuis cet import.
+PowerPlantPVTechnicalDictionaryCreationForbidden=Vous n’avez pas le droit de créer une valeur de dictionnaire depuis cet import.
+PowerPlantPVTechnicalDictionaryInvalidLabel=Le libellé de la nouvelle valeur de dictionnaire est vide ou trop long.
+PowerPlantPVTechnicalDictionaryResolutionRequired=Les codes de dictionnaire inconnus ou inactifs doivent être résolus avant la confirmation.
+PowerPlantPVTechnicalDictionaryIgnoredPreserveExisting=Toutes les valeurs importées ont été ignorées ; la sélection existante est conservée.
+PowerPlantPVImportSheetImport=Import
+PowerPlantPVImportSheetFields=Champs
+PowerPlantPVImportSheetAllowedValues=Valeurs autorisées
+PowerPlantPVImportFamily=Famille
+PowerPlantPVImportDataType=Type de donnée
+PowerPlantPVImportCardinality=Cardinalité
+PowerPlantPVImportFormat=Format
+PowerPlantPVImportOptionSource=Source des options
+PowerPlantPVImportRules=Règles
+PowerPlantPVImportRuleDecimal=Nombre décimal signé ; virgule ou point accepté, sans unité dans la valeur.
+PowerPlantPVImportRuleInteger=Nombre entier signé, sans unité dans la valeur.
+PowerPlantPVImportRuleBoolean=Valeur 0 ou 1.
+PowerPlantPVImportRuleText=Texte UTF-8 sans HTML.
+PowerPlantPVImportRuleSelect2=Un code parmi les valeurs autorisées.
+PowerPlantPVImportRuleMultiselect2=Une valeur CODE ou CODE|Libellé par colonne répétable.
+PowerPlantPVImportDictionaryResolutionTitle=Résolution des codes de dictionnaire
+PowerPlantPVImportDictionary=Dictionnaire
+PowerPlantPVImportOccurrences=Occurrences
+PowerPlantPVImportIsCodeError=Ce code est-il une erreur ?
+PowerPlantPVImportReplacement=Code(s) de remplacement
+PowerPlantPVImportEmptyReplacementKeepsExisting=Laisser vide pour ignorer cette valeur ; si tout est ignoré, la sélection existante est conservée.
+PowerPlantPVImportDictionaryStatusUnknown=Code inconnu
+PowerPlantPVImportDictionaryStatusInactive=Code inactif
+PowerPlantPVImportDictionaryStatusInvalid=Code invalide
+PowerPlantPVImportExistingDictionaryLabelKept=Le code %s existe déjà : le libellé enregistré « %s » est conservé.
+PowerPlantPVImportApplyDictionaryResolutions=Appliquer les correspondances
+PowerPlantPVImportDictionaryResolutionIncomplete=Certaines anomalies de dictionnaire restent à résoudre.
+PowerPlantPVImportDictionaryResolutionApplied=Les correspondances ont été appliquées ; l’aperçu a été recalculé sans écriture en base.
+PowerPlantPVBulkImportStatusREVIEW=À vérifier

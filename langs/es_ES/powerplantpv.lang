@@ -1,4 +1,6 @@
 # Translation file
+PowerPlantPVTechnicalDictionaryInvalidCode=El código del diccionario solo puede contener A-Z, 0-9, _, - o . y no puede superar los 64 caracteres.
+PowerPlantPVTechnicalDictionaryInactiveCode=Este código existe, pero está inactivo; debe sustituirse o ignorarse.
 
 #
 # Generic
@@ -1209,3 +1211,40 @@ PVTechnicalDictionaryValueEmergencyShutdown = Parada de emergencia
 PowerPlantPVBulkImportSampleModuleLabel = Módulo fotovoltaico de ejemplo
 PowerPlantPVBulkImportSampleInverterLabel = Inversor de ejemplo
 PowerPlantPVBulkImportSampleBatteryLabel = Batería de ejemplo
+ProductTechnicalImportUnexpectedType=El tipo de dato declarado en la cabecera no corresponde al tipo esperado.
+ProductTechnicalImportUnexpectedFormat=El formato declarado en la cabecera no corresponde al formato esperado.
+ProductTechnicalImportFileChanged=El archivo temporal ha cambiado desde su análisis.
+PowerPlantPVTechnicalDictionaryCreationUnavailable=Este valor de diccionario no se puede crear desde esta importación.
+PowerPlantPVTechnicalDictionaryCreationForbidden=No tiene permiso para crear un valor de diccionario desde esta importación.
+PowerPlantPVTechnicalDictionaryInvalidLabel=La etiqueta del nuevo valor de diccionario está vacía o es demasiado larga.
+PowerPlantPVTechnicalDictionaryResolutionRequired=Los códigos de diccionario desconocidos o inactivos deben resolverse antes de confirmar.
+PowerPlantPVTechnicalDictionaryIgnoredPreserveExisting=Se ignoraron todos los valores importados; se conserva la selección existente.
+PowerPlantPVImportSheetImport=Import
+PowerPlantPVImportSheetFields=Campos
+PowerPlantPVImportSheetAllowedValues=Valores permitidos
+PowerPlantPVImportFamily=Familia
+PowerPlantPVImportDataType=Tipo de dato
+PowerPlantPVImportCardinality=Cardinalidad
+PowerPlantPVImportFormat=Formato
+PowerPlantPVImportOptionSource=Origen de las opciones
+PowerPlantPVImportRules=Reglas
+PowerPlantPVImportRuleDecimal=Número decimal con signo; se acepta coma o punto, sin unidad en el valor.
+PowerPlantPVImportRuleInteger=Número entero con signo, sin unidad en el valor.
+PowerPlantPVImportRuleBoolean=Valor 0 o 1.
+PowerPlantPVImportRuleText=Texto UTF-8 sin HTML.
+PowerPlantPVImportRuleSelect2=Un código entre los valores permitidos.
+PowerPlantPVImportRuleMultiselect2=Un valor CODE o CODE|Etiqueta por columna repetible.
+PowerPlantPVImportDictionaryResolutionTitle=Resolución de códigos de diccionario
+PowerPlantPVImportDictionary=Diccionario
+PowerPlantPVImportOccurrences=Apariciones
+PowerPlantPVImportIsCodeError=¿Este código es un error?
+PowerPlantPVImportReplacement=Código(s) de sustitución
+PowerPlantPVImportEmptyReplacementKeepsExisting=Déjelo vacío para ignorar este valor; si se ignoran todos, se conserva la selección existente.
+PowerPlantPVImportDictionaryStatusUnknown=Código desconocido
+PowerPlantPVImportDictionaryStatusInactive=Código inactivo
+PowerPlantPVImportDictionaryStatusInvalid=Código no válido
+PowerPlantPVImportExistingDictionaryLabelKept=El código %s ya existe: se conserva la etiqueta guardada «%s».
+PowerPlantPVImportApplyDictionaryResolutions=Aplicar correspondencias
+PowerPlantPVImportDictionaryResolutionIncomplete=Algunas incidencias de diccionario aún deben resolverse.
+PowerPlantPVImportDictionaryResolutionApplied=Se aplicaron las correspondencias y se recalculó la vista previa sin escribir en la base de datos.
+PowerPlantPVBulkImportStatusREVIEW=Por revisar

@@ -106,6 +106,20 @@ function powerplantpv_bulk_import_load_metadata($token)
 	return $decoded;
 }
 
+/** @param string $token Import token @param array<string,mixed> $metadata Metadata @return bool */
+function powerplantpv_bulk_import_save_metadata($token, array $metadata)
+{
+	$path = powerplantpv_bulk_import_meta_path($token);
+	if ($path === '') {
+		return false;
+	}
+	$json = json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+	if ($json === false) {
+		return false;
+	}
+	return file_put_contents($path, $json, LOCK_EX) !== false;
+}
+
 /** @param array<string,mixed>|false $metadata Metadata @param string $token Import token @return void */
 function powerplantpv_bulk_import_delete_temp($metadata, $token)
 {
@@ -157,12 +171,36 @@ function powerplantpv_bulk_import_translate_errors(array $errors)
 	return $result;
 }
 
+/**
+ * Return translated errors and non-blocking dictionary warnings for one row.
+ *
+ * @param array<string,mixed> $entry Preview or result row
+ * @return array<int,string>
+ */
+function powerplantpv_bulk_import_row_messages(array $entry)
+{
+	global $langs;
+	$messages = powerplantpv_bulk_import_translate_errors(isset($entry['errors']) && is_array($entry['errors']) ? $entry['errors'] : array());
+	$warnings = isset($entry['technical_dictionary_warnings']) && is_array($entry['technical_dictionary_warnings']) ? $entry['technical_dictionary_warnings'] : array();
+	foreach ($warnings as $warning) {
+		if (!is_array($warning)) {
+			continue;
+		}
+		$messages[] = $langs->trans(
+			'PowerPlantPVImportExistingDictionaryLabelKept',
+			isset($warning['code']) ? (string) $warning['code'] : '',
+			isset($warning['stored_label']) ? (string) $warning['stored_label'] : ''
+		);
+	}
+	return $messages;
+}
+
 /** @param string $status Import status @return string */
 function powerplantpv_bulk_import_status_badge($status)
 {
 	global $langs;
 
-	$levels = array('CREATE' => 4, 'UPDATE' => 4, 'UNCHANGED' => 0, 'ERROR' => 8);
+	$levels = array('CREATE' => 4, 'UPDATE' => 4, 'REVIEW' => 1, 'UNCHANGED' => 0, 'ERROR' => 8);
 	$level = isset($levels[$status]) ? $levels[$status] : 0;
 	return dolGetStatus($langs->trans('PowerPlantPVBulkImportStatus'.$status), '', '', $level, 1);
 }
@@ -184,6 +222,8 @@ if ($action === 'download_template') {
 		accessforbidden('Bad token');
 	}
 	$headers = PowerPlantPVBulkProductImport::getTemplateHeaders();
+	$fieldCatalog = powerplantpvProductTechnicalImportGetFieldCatalog($headers, 'MIXED');
+	$allowedValues = powerplantpvProductTechnicalImportGetAllowedValues($db, (int) $conf->entity, 'MIXED');
 	$sampleRows = array(
 		array('ref' => 'PV-MODULE-EXEMPLE', 'category_code' => 'MODULE', 'label' => $langs->transnoentities('PowerPlantPVBulkImportSampleModuleLabel')),
 		array('ref' => 'PV-ONDULEUR-EXEMPLE', 'category_code' => 'ONDULE', 'label' => $langs->transnoentities('PowerPlantPVBulkImportSampleInverterLabel')),
@@ -203,6 +243,9 @@ if ($action === 'download_template') {
 				$row[] = isset($sample[$key]) ? $sample[$key] : '';
 			}
 			fputcsv($out, $row, ';');
+		}
+		foreach (powerplantpvProductTechnicalImportGetCsvDocumentationRows($fieldCatalog, $allowedValues) as $documentationRow) {
+			fputcsv($out, $documentationRow, ';');
 		}
 		fclose($out);
 		exit;
@@ -226,6 +269,7 @@ if ($action === 'download_template') {
 				$rows[] = $row;
 			}
 			$sheet->fromArray($rows, null, 'A2');
+			powerplantpvProductTechnicalImportAddReferenceSheets($spreadsheet, $fieldCatalog, $allowedValues);
 			$writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
 			ob_start();
 			$writer->save('php://output');
@@ -286,9 +330,7 @@ if ($action === 'upload') {
 						'sha256' => hash_file('sha256', $filepath),
 						'preview' => $preview,
 					);
-					$json = json_encode($metadata);
-					$metapath = powerplantpv_bulk_import_meta_path($importtoken);
-					if ($json === false || $metapath === '' || file_put_contents($metapath, $json, LOCK_EX) === false) {
+					if (!powerplantpv_bulk_import_save_metadata($importtoken, $metadata)) {
 						setEventMessages($langs->trans('PowerPlantPVBulkImportTemporaryStorageError'), null, 'errors');
 						powerplantpv_bulk_import_delete_temp($metadata, $importtoken);
 						$preview = array();
@@ -300,6 +342,41 @@ if ($action === 'upload') {
 	}
 }
 
+
+if ($action === 'resolve_dictionaries') {
+	if (!checkToken()) {
+		accessforbidden('Bad token');
+	}
+	$metadata = powerplantpv_bulk_import_load_metadata($importtoken);
+	if (!is_array($metadata) || empty($metadata['filepath']) || !is_readable((string) $metadata['filepath'])) {
+		setEventMessages($langs->trans('ProductTechnicalImportSessionExpired'), null, 'errors');
+	} elseif (!hash_equals((string) $metadata['sha256'], (string) hash_file('sha256', (string) $metadata['filepath']))) {
+		setEventMessages($langs->trans('PowerPlantPVBulkImportFileChanged'), null, 'errors');
+		powerplantpv_bulk_import_delete_temp($metadata, $importtoken);
+		$metadata = false;
+		$importtoken = '';
+	} else {
+		$rows = powerplantpv_bulk_import_read_rows($reader, (string) $metadata['filepath'], (string) $metadata['extension'], (string) $metadata['separator']);
+		$trustedPreview = $orchestrator->previewRows($rows, $maxrows);
+		$trustedIssues = powerplantpvTechnicalImportAggregateDictionaryIssues($trustedPreview);
+		$dictionaryResolutions = powerplantpvTechnicalImportCollectDictionaryResolutions($trustedIssues);
+		$preview = $orchestrator->previewRows($rows, $maxrows, $dictionaryResolutions);
+		$metadata['dictionary_resolutions'] = $dictionaryResolutions;
+		$metadata['preview'] = $preview;
+		if (empty($preview) || !powerplantpv_bulk_import_save_metadata($importtoken, $metadata)) {
+			setEventMessages($langs->trans('PowerPlantPVBulkImportTemporaryStorageError'), null, 'errors');
+		} else {
+			$stillReview = false;
+			foreach ($preview as $entry) {
+				if (isset($entry['status']) && $entry['status'] === 'REVIEW') {
+					$stillReview = true;
+					break;
+				}
+			}
+			setEventMessages($langs->trans($stillReview ? 'PowerPlantPVImportDictionaryResolutionIncomplete' : 'PowerPlantPVImportDictionaryResolutionApplied'), null, $stillReview ? 'warnings' : 'mesgs');
+		}
+	}
+}
 if ($action === 'confirm_import') {
 	if (!checkToken()) {
 		accessforbidden('Bad token');
@@ -312,16 +389,30 @@ if ($action === 'confirm_import') {
 		powerplantpv_bulk_import_delete_temp($metadata, $importtoken);
 	} else {
 		$rows = powerplantpv_bulk_import_read_rows($reader, (string) $metadata['filepath'], (string) $metadata['extension'], (string) $metadata['separator']);
-		$preview = $orchestrator->previewRows($rows, $maxrows);
+		$dictionaryResolutions = isset($metadata['dictionary_resolutions']) && is_array($metadata['dictionary_resolutions']) ? $metadata['dictionary_resolutions'] : array();
+		$preview = $orchestrator->previewRows($rows, $maxrows, $dictionaryResolutions);
 		if (empty($preview)) {
 			setEventMessages($langs->trans($orchestrator->error !== '' ? $orchestrator->error : $reader->getLastError()), powerplantpv_bulk_import_translate_errors($orchestrator->errors), 'errors');
 		} else {
-			$results = $orchestrator->execute($preview, $user, (string) $metadata['filename']);
-			setEventMessages($langs->trans('PowerPlantPVBulkImportCompleted'), null, 'mesgs');
+			$hasReview = false;
+			foreach ($preview as $entry) {
+				if (isset($entry['status']) && $entry['status'] === 'REVIEW') {
+					$hasReview = true;
+					break;
+				}
+			}
+			if ($hasReview) {
+				$metadata['preview'] = $preview;
+				powerplantpv_bulk_import_save_metadata($importtoken, $metadata);
+				setEventMessages($langs->trans('PowerPlantPVTechnicalDictionaryResolutionRequired'), null, 'warnings');
+			} else {
+				$results = $orchestrator->execute($preview, $user, (string) $metadata['filename']);
+				setEventMessages($langs->trans('PowerPlantPVBulkImportCompleted'), null, 'mesgs');
+				powerplantpv_bulk_import_delete_temp($metadata, $importtoken);
+				$preview = array();
+				$importtoken = '';
+			}
 		}
-		powerplantpv_bulk_import_delete_temp($metadata, $importtoken);
-		$preview = array();
-		$importtoken = '';
 	}
 }
 
@@ -371,7 +462,7 @@ if (!empty($results)) {
 				$productlink = $product->getNomUrl(1);
 			}
 		}
-		$errors = isset($result['errors']) && is_array($result['errors']) ? powerplantpv_bulk_import_translate_errors($result['errors']) : array();
+		$errors = powerplantpv_bulk_import_row_messages($result);
 		print '<tr class="oddeven"><td>'.((int) $result['line']).'</td><td>'.$productlink.'</td><td>'.dol_escape_htmltag((string) $result['category_code']).'</td><td>'.powerplantpv_bulk_import_status_badge($status).'</td><td>'.dol_escape_htmltag(implode(' - ', $errors)).'</td></tr>';
 	}
 	print '</table></div><br>';
@@ -381,21 +472,30 @@ if (!empty($preview) && $importtoken !== '') {
 	print load_fiche_titre($langs->trans('ProductTechnicalImportPreview'), '', 'fa-eye');
 	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
 	print '<tr class="liste_titre"><td>'.$langs->trans('Line').'</td><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('ProductPhotovoltaicCategory').'</td><td>'.$langs->trans('Status').'</td><td>'.$langs->trans('Errors').'</td></tr>';
+	$hasReview = false;
 	foreach ($preview as $entry) {
-		$errors = isset($entry['errors']) && is_array($entry['errors']) ? powerplantpv_bulk_import_translate_errors($entry['errors']) : array();
+		$errors = powerplantpv_bulk_import_row_messages($entry);
+		if (isset($entry['status']) && $entry['status'] === 'REVIEW') {
+			$hasReview = true;
+		}
 		print '<tr class="oddeven"><td>'.((int) $entry['line']).'</td><td>'.dol_escape_htmltag((string) $entry['ref']).'</td><td>'.dol_escape_htmltag((string) $entry['category_code']).'</td><td>'.powerplantpv_bulk_import_status_badge((string) $entry['status']).'</td><td>'.dol_escape_htmltag(implode(' - ', $errors)).'</td></tr>';
 	}
 	print '</table></div>';
-	print '<div class="tabsAction">';
-	print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="inline-block">';
+	print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
-	print '<input type="hidden" name="action" value="confirm_import">';
+	print '<input type="hidden" name="action" value="'.($hasReview ? 'resolve_dictionaries' : 'confirm_import').'">';
 	print '<input type="hidden" name="import_token" value="'.dol_escape_htmltag($importtoken).'">';
-	print '<input type="submit" class="butAction" value="'.$langs->trans('ProductTechnicalImportConfirm').'">';
-	print '</form> ';
+	if ($hasReview) {
+		$issues = powerplantpvTechnicalImportAggregateDictionaryIssues($preview);
+		$dictionaryResolutions = is_array($metadata) && isset($metadata['dictionary_resolutions']) && is_array($metadata['dictionary_resolutions']) ? $metadata['dictionary_resolutions'] : array();
+		powerplantpvTechnicalImportPrintDictionaryResolutionFields($issues, $dictionaryResolutions, (int) $conf->entity);
+	}
+	print '<div class="tabsAction">';
+	print '<input type="submit" class="butAction" value="'.$langs->trans($hasReview ? 'PowerPlantPVImportApplyDictionaryResolutions' : 'ProductTechnicalImportConfirm').'">';
 	$cancelurl = $_SERVER['PHP_SELF'].'?action=cancel_import&import_token='.urlencode($importtoken).'&token='.newToken();
 	print dolGetButtonAction($langs->trans('Cancel'), '', 'cancel', $cancelurl, '', true);
 	print '</div>';
+	print '</form>';
 } else {
 	$templatebase = $_SERVER['PHP_SELF'].'?action=download_template&token='.newToken().'&format=';
 	print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" enctype="multipart/form-data">';

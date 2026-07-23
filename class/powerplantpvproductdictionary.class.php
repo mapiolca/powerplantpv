@@ -190,6 +190,270 @@ class PowerPlantPVProductDictionary
 		return $map;
 	}
 
+	/** Normalize an imported dictionary code. */
+	public static function normalizeImportCode($code)
+	{
+		return strtoupper(trim((string) $code));
+	}
+
+	/** Normalize an imported UTF-8 label without HTML or control characters. */
+	public static function normalizeImportLabel($label)
+	{
+		$label = html_entity_decode((string) $label, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+		$label = function_exists('dol_string_nohtmltag') ? dol_string_nohtmltag($label) : strip_tags($label);
+		$normalized = preg_replace('/[\p{C}\s]+/u', ' ', trim((string) $label));
+		return trim($normalized === null ? '' : $normalized);
+	}
+
+
+	/** Return the stable key used by previews and resolution forms. */
+	public static function getImportIssueKey($type, $code)
+	{
+		return substr(hash('sha256', (string) $type.'|'.self::normalizeImportCode($code)), 0, 20);
+	}
+
+	/**
+	 * Analyze imported values without mutating the database.
+	 *
+	 * @param string $type Dictionary type
+	 * @param array<int,string> $values Imported CODE or CODE|Label values
+	 * @param int $entity Entity identifier
+	 * @return array<string,mixed>|false
+	 */
+	public function analyzeImportValues($type, array $values, $entity)
+	{
+		$this->error = '';
+		$this->errors = array();
+		if ($this->getDefinition($type) === null || $entity <= 0) {
+			$this->error = 'PowerPlantPVTechnicalDictionaryInvalidType';
+			return false;
+		}
+
+		$map = $this->fetchCodeMap($type, $entity, true);
+		if ($this->error !== '') {
+			return false;
+		}
+
+		$ids = array();
+		$codes = array();
+		$issues = array();
+		$warnings = array();
+		foreach ($values as $rawvalue) {
+			$parts = explode('|', trim((string) $rawvalue), 2);
+			$code = self::normalizeImportCode($parts[0]);
+			$label = isset($parts[1]) ? self::normalizeImportLabel($parts[1]) : '';
+			if ($code === '') {
+				$this->error = 'PowerPlantPVTechnicalDictionaryInvalidCode';
+				$this->errors[] = (string) $rawvalue;
+				return false;
+			}
+
+			$validcode = (bool) preg_match('/^[A-Z0-9][A-Z0-9_.-]{0,63}$/D', $code);
+			if (isset($map[$code]) && !empty($map[$code]['active'])) {
+				$id = (int) $map[$code]['id'];
+				$ids[$id] = $id;
+				$codes[$code] = $code;
+				if ($label !== '' && $label !== trim((string) $map[$code]['label'])) {
+					$warnings[$type.'|'.$code] = array(
+						'type' => $type,
+						'code' => $code,
+						'imported_label' => $label,
+						'stored_label' => trim((string) $map[$code]['label']),
+					);
+				}
+				continue;
+			}
+
+			$status = isset($map[$code]) ? 'inactive' : ($validcode ? 'unknown' : 'invalid');
+			$key = self::getImportIssueKey($type, $code);
+			if (!isset($issues[$key])) {
+				$issues[$key] = array(
+					'key' => $key,
+					'type' => $type,
+					'code' => $code,
+					'status' => $status,
+					'labels' => array(),
+					'label' => '',
+					'can_create' => false,
+					'occurrences' => 0,
+					'imported_values' => array(),
+				);
+			}
+			$issues[$key]['occurrences'] = (int) $issues[$key]['occurrences'] + 1;
+			$issues[$key]['imported_values'][] = trim((string) $rawvalue);
+			if ($label !== '') {
+				$issues[$key]['labels'][$label] = $label;
+			}
+		}
+
+		foreach ($issues as $key => $issue) {
+			$labels = array_values((array) $issue['labels']);
+			$label = count($labels) === 1 ? (string) $labels[0] : '';
+			$labellength = function_exists('mb_strlen') ? mb_strlen($label, 'UTF-8') : strlen($label);
+			$issues[$key]['labels'] = $labels;
+			$issues[$key]['label'] = $label;
+			$issues[$key]['can_create'] = ($issue['status'] === 'unknown' && $label !== '' && $labellength <= 255);
+		}
+
+		return array(
+			'type' => $type,
+			'resolved_ids' => array_values($ids),
+			'resolved_codes' => array_values($codes),
+			'issues' => $issues,
+			'warnings' => array_values($warnings),
+		);
+	}
+
+	/**
+	 * Apply preview decisions to an import analysis without creating values.
+	 *
+	 * @param string $type Dictionary type
+	 * @param array<int,string> $values Imported values
+	 * @param int $entity Entity identifier
+	 * @param array<string,array<string,mixed>> $resolutions Decisions keyed by issue key
+	 * @return array<string,mixed>|false
+	 */
+	public function buildImportResolutionPlan($type, array $values, $entity, array $resolutions = array())
+	{
+		$analysis = $this->analyzeImportValues($type, $values, $entity);
+		if ($analysis === false) {
+			return false;
+		}
+
+		$ids = array_fill_keys(array_map('intval', (array) $analysis['resolved_ids']), true);
+		$codes = array_fill_keys((array) $analysis['resolved_codes'], true);
+		$create = array();
+		$unresolved = array();
+		$activeMap = $this->fetchCodeMap($type, $entity, false);
+		if ($this->error !== '') {
+			return false;
+		}
+
+		foreach ((array) $analysis['issues'] as $key => $issue) {
+			if (!isset($resolutions[$key]) || !is_array($resolutions[$key])) {
+				$unresolved[$key] = $issue;
+				continue;
+			}
+			$decision = $resolutions[$key];
+			$action = isset($decision['action']) ? (string) $decision['action'] : '';
+			if ($action === 'create') {
+				if (empty($issue['can_create'])) {
+					$this->error = 'PowerPlantPVTechnicalDictionaryCreationUnavailable';
+					$this->errors[] = (string) $issue['code'];
+					return false;
+				}
+				$create[$key] = array('type' => $type, 'code' => (string) $issue['code'], 'label' => (string) $issue['label']);
+				$codes[(string) $issue['code']] = true;
+				continue;
+			}
+			if ($action === 'ignore') {
+				continue;
+			}
+			if ($action !== 'map') {
+				$unresolved[$key] = $issue;
+				continue;
+			}
+			$targetcodes = isset($decision['target_codes']) && is_array($decision['target_codes']) ? $decision['target_codes'] : array();
+			foreach ($targetcodes as $targetcode) {
+				$normalizedtarget = self::normalizeImportCode((string) $targetcode);
+				if ($normalizedtarget === '' || !isset($activeMap[$normalizedtarget])) {
+					$this->error = 'PowerPlantPVTechnicalDictionaryInvalidSelection';
+					$this->errors[] = $type.': '.$normalizedtarget;
+					return false;
+				}
+				$id = (int) $activeMap[$normalizedtarget]['id'];
+				$ids[$id] = true;
+				$codes[$normalizedtarget] = true;
+			}
+		}
+
+		return array(
+			'type' => $type,
+			'ids' => array_map('intval', array_keys($ids)),
+			'codes' => array_values(array_keys($codes)),
+			'create' => array_values($create),
+			'issues' => $analysis['issues'],
+			'unresolved' => $unresolved,
+			'warnings' => $analysis['warnings'],
+			'complete' => empty($unresolved),
+			'preserve_existing' => empty($ids) && empty($create),
+		);
+	}
+
+	/**
+	 * Create an active imported value, or return the active concurrent value.
+	 * The caller owns the surrounding business transaction.
+	 *
+	 * @return int Dictionary rowid, -1 on error
+	 */
+	public function createOrFetchImportedValue($type, $code, $label, $entity, $user)
+	{
+		$this->error = '';
+		$this->errors = array();
+		$definition = $this->getDefinition($type);
+		$code = self::normalizeImportCode($code);
+		$label = self::normalizeImportLabel($label);
+		$labellength = function_exists('mb_strlen') ? mb_strlen($label, 'UTF-8') : strlen($label);
+		if ($definition === null || $entity <= 0) {
+			$this->error = 'PowerPlantPVTechnicalDictionaryInvalidType';
+			return -1;
+		}
+		if (!is_object($user) || (empty($user->admin) && !$user->hasRight('produit', 'creer'))) {
+			$this->error = 'PowerPlantPVTechnicalDictionaryCreationForbidden';
+			return -1;
+		}
+		if (!preg_match('/^[A-Z0-9][A-Z0-9_.-]{0,63}$/D', $code)) {
+			$this->error = 'PowerPlantPVTechnicalDictionaryInvalidCode';
+			return -1;
+		}
+		if ($label === '' || $labellength > 255) {
+			$this->error = 'PowerPlantPVTechnicalDictionaryInvalidLabel';
+			return -1;
+		}
+
+		$map = $this->fetchCodeMap($type, $entity, true);
+		if ($this->error !== '') {
+			return -1;
+		}
+		if (isset($map[$code])) {
+			if (empty($map[$code]['active'])) {
+				$this->error = 'PowerPlantPVTechnicalDictionaryInactiveCode';
+				return -1;
+			}
+			return (int) $map[$code]['id'];
+		}
+
+		$sql = 'SELECT MAX(position) as max_position FROM '.$this->db->prefix().$definition['dictionary'];
+		$sql .= ' WHERE entity = '.((int) $entity);
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->setDatabaseError();
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		$position = ($obj && $obj->max_position !== null ? (int) $obj->max_position : 0) + 10;
+
+		$sql = 'INSERT INTO '.$this->db->prefix().$definition['dictionary'];
+		$sql .= ' (entity, code, label, description, active, position, import_key) VALUES (';
+		$sql .= ((int) $entity).", '".$this->db->escape($code)."', '".$this->db->escape($label)."', '', 1, ".((int) $position).", NULL)";
+		if ($this->db->query($sql)) {
+			return (int) $this->db->last_insert_id($this->db->prefix().$definition['dictionary']);
+		}
+
+		$map = $this->fetchCodeMap($type, $entity, true);
+		if ($this->error === '' && isset($map[$code]) && !empty($map[$code]['active'])) {
+			return (int) $map[$code]['id'];
+		}
+		if ($this->error === '' && isset($map[$code])) {
+			$this->error = 'PowerPlantPVTechnicalDictionaryInactiveCode';
+			return -1;
+		}
+		if ($this->error === '') {
+			$this->setDatabaseError();
+		}
+		return -1;
+	}
 	/**
 	 * Resolve import values to active dictionary identifiers.
 	 * The legacy CODE|Label format is accepted only when CODE exists.
@@ -230,9 +494,10 @@ class PowerPlantPVProductDictionary
 	 * @param int $entity Product owner entity
 	 * @param array<string,array<int,int>> $selections Selections keyed by dictionary type
 	 * @param User $user Acting user
+	 * @param bool $manageTransaction Let the service own the transaction
 	 * @return int 1 on success, -1 on error
 	 */
-	public function replaceSelections($productId, $entity, array $selections, $user)
+	public function replaceSelections($productId, $entity, array $selections, $user, $manageTransaction = true)
 	{
 		$this->error = '';
 		$this->errors = array();
@@ -241,14 +506,20 @@ class PowerPlantPVProductDictionary
 			return -1;
 		}
 
-		$this->db->begin();
+		if ($manageTransaction) {
+			$this->db->begin();
+		}
 		foreach ($selections as $type => $ids) {
 			if (!is_array($ids) || $this->replaceOne($productId, $entity, $type, $ids, $user) < 0) {
-				$this->db->rollback();
+				if ($manageTransaction) {
+					$this->db->rollback();
+				}
 				return -1;
 			}
 		}
-		$this->db->commit();
+		if ($manageTransaction) {
+			$this->db->commit();
+		}
 		return 1;
 	}
 

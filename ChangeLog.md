@@ -2,6 +2,8 @@
 
 ## 1.3.0
 
+- Import technique : modèles CSV/XLSX auto-documentés avec type, unité, cardinalité, format, règles et catalogues de valeurs actives par entité, tout en conservant les anciens en-têtes.
+- Import technique : résolution interactive des codes de protocoles, certifications et protections inconnus ou inactifs avant confirmation, avec création autorisée, remplacement ou ignorance, contrôles CSRF et transactions par produit.
 - Cycle commercial : alignement natif des extrafields calculés `Puissance-crête totale (kWc)` et `Capacité de stockage (kWh)` sur les devis, commandes et factures.
 - Données techniques : saisie et imports limités aux valeurs numériques pour les caractéristiques associées à une unité, sans unité ni texte dans la valeur.
 - Dictionnaires techniques : ajout des protocoles de communication, certifications et protections partagés par entité, avec sélections multiples normalisées sur les modules, onduleurs et batteries.

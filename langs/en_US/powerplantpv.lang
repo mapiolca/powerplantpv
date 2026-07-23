@@ -1,4 +1,6 @@
 # Translation file
+PowerPlantPVTechnicalDictionaryInvalidCode=The dictionary code may only contain A-Z, 0-9, _, - or . and must not exceed 64 characters.
+PowerPlantPVTechnicalDictionaryInactiveCode=This code exists but is inactive; it must be replaced or ignored.
 
 #
 # Generic
@@ -1692,3 +1694,40 @@ PVTechnicalDictionaryValueEmergencyShutdown = Emergency shutdown
 PowerPlantPVBulkImportSampleModuleLabel = Example photovoltaic module
 PowerPlantPVBulkImportSampleInverterLabel = Example inverter
 PowerPlantPVBulkImportSampleBatteryLabel = Example battery
+ProductTechnicalImportUnexpectedType=The data type declared in the header does not match the expected type.
+ProductTechnicalImportUnexpectedFormat=The format declared in the header does not match the expected format.
+ProductTechnicalImportFileChanged=The temporary file has changed since it was analyzed.
+PowerPlantPVTechnicalDictionaryCreationUnavailable=This dictionary value cannot be created from this import.
+PowerPlantPVTechnicalDictionaryCreationForbidden=You are not allowed to create a dictionary value from this import.
+PowerPlantPVTechnicalDictionaryInvalidLabel=The new dictionary value label is empty or too long.
+PowerPlantPVTechnicalDictionaryResolutionRequired=Unknown or inactive dictionary codes must be resolved before confirmation.
+PowerPlantPVTechnicalDictionaryIgnoredPreserveExisting=All imported values were ignored; the existing selection is preserved.
+PowerPlantPVImportSheetImport=Import
+PowerPlantPVImportSheetFields=Fields
+PowerPlantPVImportSheetAllowedValues=Allowed values
+PowerPlantPVImportFamily=Family
+PowerPlantPVImportDataType=Data type
+PowerPlantPVImportCardinality=Cardinality
+PowerPlantPVImportFormat=Format
+PowerPlantPVImportOptionSource=Option source
+PowerPlantPVImportRules=Rules
+PowerPlantPVImportRuleDecimal=Signed decimal; comma or dot accepted, with no unit in the value.
+PowerPlantPVImportRuleInteger=Signed integer, with no unit in the value.
+PowerPlantPVImportRuleBoolean=Value 0 or 1.
+PowerPlantPVImportRuleText=UTF-8 text without HTML.
+PowerPlantPVImportRuleSelect2=One code from the allowed values.
+PowerPlantPVImportRuleMultiselect2=One CODE or CODE|Label value per repeated column.
+PowerPlantPVImportDictionaryResolutionTitle=Dictionary code resolution
+PowerPlantPVImportDictionary=Dictionary
+PowerPlantPVImportOccurrences=Occurrences
+PowerPlantPVImportIsCodeError=Is this code an error?
+PowerPlantPVImportReplacement=Replacement code(s)
+PowerPlantPVImportEmptyReplacementKeepsExisting=Leave empty to ignore this value; if all values are ignored, the existing selection is preserved.
+PowerPlantPVImportDictionaryStatusUnknown=Unknown code
+PowerPlantPVImportDictionaryStatusInactive=Inactive code
+PowerPlantPVImportDictionaryStatusInvalid=Invalid code
+PowerPlantPVImportExistingDictionaryLabelKept=Code %s already exists: stored label “%s” is kept.
+PowerPlantPVImportApplyDictionaryResolutions=Apply mappings
+PowerPlantPVImportDictionaryResolutionIncomplete=Some dictionary issues still require a decision.
+PowerPlantPVImportDictionaryResolutionApplied=Mappings were applied and the preview was recalculated without database writes.
+PowerPlantPVBulkImportStatusREVIEW=Needs review

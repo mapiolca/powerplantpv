@@ -57,7 +57,17 @@ class PowerPlantPVBulkProductImport
 	 */
 	public static function getTemplateHeaders()
 	{
-		$headers = self::getNativeHeaders();
+		$headers = array();
+		foreach (self::getNativeHeaders() as $field) {
+			$definition = self::getNativeFieldDefinition($field);
+			$parts = array('type='.$definition['type']);
+			if (!empty($definition['unit'])) {
+				$parts[] = 'unit='.$definition['unit'];
+			}
+			$parts[] = 'format='.$definition['format'];
+			$parts[] = 'source='.$definition['source'];
+			$headers[] = $field.' ['.implode('; ', $parts).']';
+		}
 		$technical = array();
 		foreach (array(
 			'module' => PowerPlantPVProductImport::getModuleImportFields(),
@@ -73,12 +83,24 @@ class PowerPlantPVBulkProductImport
 		foreach (PowerPlantPVProductImport::getInverterMPPTCompositionTemplateFields(4, 2) as $field) {
 			$unitfield = preg_replace('/^mppt_[0-9]+_(?:input_[0-9]+_)?/', '', $field);
 			$unit = in_array($unitfield, array('voltage_min', 'voltage_max'), true) ? 'V' : (strpos($unitfield, 'current') !== false ? 'A' : ($unitfield === 'max_dc_power' ? 'W' : 'text'));
-			$technical[$field] = $field.' ['.$unit.']';
+			$datatype = $unit === 'text' ? 'text' : 'decimal';
+			$parts = array('type='.$datatype);
+			if ($unit !== 'text') {
+				$parts[] = 'unit='.$unit;
+			}
+			$parts[] = 'format='.($unit === 'text' ? 'TEXT' : 'SIGNED_DECIMAL');
+			$technical[$field] = $field.' ['.implode('; ', $parts).']';
 		}
 		foreach (PowerPlantPVProductImport::getTechnicalDictionaryTemplateFields() as $field) {
-			$technical[$field] = $field.' [code]';
+			$technical[$field] = PowerPlantPVProductImport::getTemplateHeader('module', $field);
 		}
 		return array_merge($headers, array_values($technical));
+	}
+
+	/** @return array<string,string> */
+	public static function getNativeFieldDefinition($field)
+	{
+		return PowerPlantPVProductImport::getNativeProductImportFieldDefinition($field);
 	}
 
 	/**
@@ -86,9 +108,10 @@ class PowerPlantPVBulkProductImport
 	 *
 	 * @param array<int,array<int,string>> $rows Raw spreadsheet rows
 	 * @param int $maxRows Maximum accepted data rows
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function previewRows(array $rows, $maxRows)
+	public function previewRows(array $rows, $maxRows, array $dictionaryResolutions = array())
 	{
 		$this->error = '';
 		$this->errors = array();
@@ -107,12 +130,25 @@ class PowerPlantPVBulkProductImport
 			$this->error = 'PowerPlantPVBulkImportDuplicateHeaders';
 			return array();
 		}
+		$headerWarnings = array();
+		$nativeFields = array_fill_keys(self::getNativeHeaders(), true);
+		foreach ($normalizedHeaders as $columnIndex => $field) {
+			if (!isset($nativeFields[$field])) {
+				continue;
+			}
+			$rawHeader = isset($headers[$columnIndex]) ? (string) $headers[$columnIndex] : '';
+			if (!$fileImport->validateDocumentedHeader($rawHeader, self::getNativeFieldDefinition($field), $field, $headerWarnings)) {
+				$this->error = $fileImport->getLastError();
+				return array();
+			}
+		}
+
 
 		$preview = array();
 		$seenRefs = array();
 		for ($i = $headerIndex + 1; $i < count($rows); $i++) {
 			$cells = (array) $rows[$i];
-			if ($this->isEmptyRow($cells)) {
+			if ($this->isEmptyRow($cells) || $fileImport->isTemplateMetadataRow($cells)) {
 				continue;
 			}
 			if (count($preview) >= $maxRows) {
@@ -120,7 +156,7 @@ class PowerPlantPVBulkProductImport
 				return array();
 			}
 			$assoc = $this->rowToAssoc($normalizedHeaders, $cells);
-			$entry = $this->previewOneRow($headers, $cells, $assoc, $i + 1);
+			$entry = $this->previewOneRow($headers, $cells, $assoc, $i + 1, $dictionaryResolutions);
 			$refKey = strtoupper(trim((string) (isset($assoc['ref']) ? $assoc['ref'] : '')));
 			if ($refKey !== '' && isset($seenRefs[$refKey])) {
 				$entry['status'] = 'ERROR';
@@ -150,7 +186,7 @@ class PowerPlantPVBulkProductImport
 	{
 		$results = array();
 		foreach ($preview as $entry) {
-			if (!isset($entry['status']) || $entry['status'] === 'ERROR') {
+			if (!isset($entry['status']) || in_array($entry['status'], array('ERROR', 'REVIEW'), true)) {
 				$entry['result_status'] = 'ERROR';
 				$results[] = $entry;
 				continue;
@@ -172,7 +208,7 @@ class PowerPlantPVBulkProductImport
 	}
 
 	/** @return array<string,mixed> */
-	private function previewOneRow(array $headers, array $cells, array $assoc, $line)
+	private function previewOneRow(array $headers, array $cells, array $assoc, $line, array $dictionaryResolutions = array())
 	{
 		$errors = array();
 		$ref = trim((string) (isset($assoc['ref']) ? $assoc['ref'] : ''));
@@ -205,6 +241,9 @@ class PowerPlantPVBulkProductImport
 
 		$native = $this->normalizeNativeData($assoc, $errors);
 		$technical = array();
+		$dictionaryIssues = array();
+		$dictionaryWarnings = array();
+		$dictionaryPreview = array('complete' => true);
 		if (empty($errors) && in_array($category, array('MODULE', 'ONDULE', 'BATTER'), true)) {
 			$type = $category === 'MODULE' ? 'module' : ($category === 'ONDULE' ? 'inverter' : 'battery');
 			$fileImport = new PowerPlantPVFileImport();
@@ -217,7 +256,13 @@ class PowerPlantPVBulkProductImport
 			if ($this->hasForeignTechnicalData($assoc, $category)) {
 				$errors[] = 'PowerPlantPVBulkImportTechnicalFamilyMismatch';
 			}
-			$this->validateDictionaryCodes($technical, $errors);
+			$dictionaryPreview = $this->analyzeDictionaryCodes($technical, $dictionaryResolutions);
+			if ($dictionaryPreview === false) {
+				$errors[] = $this->error !== '' ? $this->error : 'PowerPlantPVTechnicalDictionaryInvalidSelection';
+			} else {
+				$dictionaryIssues = $dictionaryPreview['issues'];
+				$dictionaryWarnings = $dictionaryPreview['warnings'];
+			}
 		}
 		if ($this->error !== '') {
 			$errors[] = 'ErrorFailedToReadData';
@@ -227,12 +272,15 @@ class PowerPlantPVBulkProductImport
 			'line' => (int) $line,
 			'ref' => $ref,
 			'category_code' => $category,
-			'status' => !empty($errors) ? 'ERROR' : ($productId > 0 ? 'UPDATE' : 'CREATE'),
+			'status' => !empty($errors) ? 'ERROR' : (!empty($dictionaryIssues) && empty($dictionaryPreview['complete']) ? 'REVIEW' : ($productId > 0 ? 'UPDATE' : 'CREATE')),
 			'product_id' => $productId,
 			'native' => $native,
 			'technical' => $technical,
 			'raw' => $assoc,
 			'errors' => $errors,
+			'technical_dictionary_issues' => $dictionaryIssues,
+			'technical_dictionary_warnings' => $dictionaryWarnings,
+			'dictionary_resolutions' => $dictionaryResolutions,
 		);
 	}
 
@@ -352,14 +400,15 @@ class PowerPlantPVBulkProductImport
 		$traceSaved = false;
 		$raw = array('line' => (int) $entry['line'], 'row' => $entry['raw']);
 		$source = array('source' => 'bulk_file', 'filename' => (string) $sourceFilename, 'line' => (int) $entry['line']);
+		$source['dictionary_resolutions'] = isset($entry['dictionary_resolutions']) && is_array($entry['dictionary_resolutions']) ? $entry['dictionary_resolutions'] : array();
 		if (!empty($technical)) {
 			$importer = new PowerPlantPVProductImport($this->db);
 			if ($entry['category_code'] === 'MODULE') {
-				$importResult = $importer->importModuleToProduct($product->id, $technical, $raw, $user, PowerPlantPVProductImport::STRATEGY_OVERWRITE_AFTER_CONFIRM, $source);
+				$importResult = $importer->importModuleToProduct($product->id, $technical, $raw, $user, PowerPlantPVProductImport::STRATEGY_OVERWRITE_AFTER_CONFIRM, $source, $source['dictionary_resolutions'], false);
 			} elseif ($entry['category_code'] === 'ONDULE') {
-				$importResult = $importer->importInverterToProduct($product->id, $technical, $raw, $user, PowerPlantPVProductImport::STRATEGY_OVERWRITE_AFTER_CONFIRM, $source);
+				$importResult = $importer->importInverterToProduct($product->id, $technical, $raw, $user, PowerPlantPVProductImport::STRATEGY_OVERWRITE_AFTER_CONFIRM, $source, $source['dictionary_resolutions'], false);
 			} else {
-				$importResult = $importer->importBatteryToProduct($product->id, $technical, $raw, $user, PowerPlantPVProductImport::STRATEGY_OVERWRITE_AFTER_CONFIRM, $source);
+				$importResult = $importer->importBatteryToProduct($product->id, $technical, $raw, $user, PowerPlantPVProductImport::STRATEGY_OVERWRITE_AFTER_CONFIRM, $source, $source['dictionary_resolutions'], false);
 			}
 			if ($importResult['result'] < 0) {
 				return array('result' => -1, 'product_id' => (int) $product->id, 'changed' => false, 'error' => $importer->error);
@@ -482,16 +531,35 @@ class PowerPlantPVBulkProductImport
 		return $obj ? (int) $obj->rowid : 0;
 	}
 
-	/** @return void */
-	private function validateDictionaryCodes(array $technical, array &$errors)
+	/**
+	 * Analyze dictionary codes without writing to the database.
+	 *
+	 * @return array<string,mixed>|false
+	 */
+	private function analyzeDictionaryCodes(array $technical, array $dictionaryResolutions)
 	{
 		$groups = isset($technical['_technical_dictionary_codes']) && is_array($technical['_technical_dictionary_codes']) ? $technical['_technical_dictionary_codes'] : array();
 		$service = new PowerPlantPVProductDictionary($this->db);
+		$issues = array();
+		$warnings = array();
+		$complete = true;
 		foreach ($groups as $type => $values) {
-			if (!is_array($values) || $service->resolveCodes($type, $values, $this->entity) === false) {
-				$errors[] = $service->error !== '' ? $service->error : 'PowerPlantPVTechnicalDictionaryUnknownCode';
+			if (!is_array($values)) {
+				continue;
+			}
+			$plan = $service->buildImportResolutionPlan($type, $values, $this->entity, $dictionaryResolutions);
+			if ($plan === false) {
+				$this->error = $service->error;
+				$this->errors = array_merge($this->errors, $service->errors);
+				return false;
+			}
+			$issues = array_replace($issues, (array) $plan['issues']);
+			$warnings = array_merge($warnings, (array) $plan['warnings']);
+			if (empty($plan['complete'])) {
+				$complete = false;
 			}
 		}
+		return array('issues' => $issues, 'warnings' => $warnings, 'complete' => $complete);
 	}
 
 	/** @return bool */
