@@ -144,6 +144,9 @@ if ($action === 'downloadtemplate') {
 	if (!$canimport) {
 		accessforbidden();
 	}
+	if (!powerplantpv_serialimport_check_token()) {
+		accessforbidden('Bad token');
+	}
 	if (empty($categories[$categoryid])) {
 		setEventMessages($langs->trans('SerialNumbersCategoryAbsentFromPowerplant'), null, 'errors');
 	} else {

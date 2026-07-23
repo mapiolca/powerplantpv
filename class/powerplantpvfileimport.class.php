@@ -405,7 +405,9 @@ class PowerPlantPVFileImport
 	 */
 	public function normalizeModuleRow(array $row)
 	{
-		return $this->normalizeRowWithAliases($row, $this->getModuleAliases(), $this->getModuleFieldTypes(), 'module');
+		$normalized = $this->normalizeRowWithAliases($row, $this->getModuleAliases(), $this->getModuleFieldTypes(), 'module');
+		$this->appendTechnicalDictionaryCodes($normalized, $row);
+		return $normalized;
 	}
 
 	/**
@@ -417,6 +419,7 @@ class PowerPlantPVFileImport
 	public function normalizeInverterRow(array $row)
 	{
 		$normalized = $this->normalizeRowWithAliases($row, $this->getInverterAliases(), $this->getInverterFieldTypes(), 'inverter');
+		$this->appendTechnicalDictionaryCodes($normalized, $row);
 		$composition = $this->normalizeMpptCompositionRow($row);
 		if (!empty($composition)) {
 			$normalized['_mppt_composition'] = $composition;
@@ -434,6 +437,7 @@ class PowerPlantPVFileImport
 	public function normalizeBatteryRow(array $row)
 	{
 		$normalized = $this->normalizeRowWithAliases($row, $this->getBatteryAliases(), $this->getBatteryFieldTypes(), 'battery');
+		$this->appendTechnicalDictionaryCodes($normalized, $row);
 		$attributes = array();
 		foreach ($row as $rawheader => $rawvalue) {
 			$descriptor = $this->parseBatteryAttributeHeader($this->normalizeHeader((string) $rawheader));
@@ -882,9 +886,9 @@ class PowerPlantPVFileImport
 			} elseif ($type === 'inverter' && !empty($this->parseMpptCompositionHeader($header))) {
 				$compositionfields[$header] = $idx;
 				$recognized[$header] = '_mppt_composition';
-			} elseif ($type === 'battery' && !empty($this->parseBatteryAttributeHeader($header))) {
+			} elseif (!empty($this->parseBatteryAttributeHeader($header))) {
 				$attributefields[$header] = $idx;
-				$recognized[$header] = '_battery_attributes';
+				$recognized[$header] = '_technical_dictionary_codes';
 			} else {
 				$ignored[] = $header;
 			}
@@ -969,7 +973,7 @@ class PowerPlantPVFileImport
 				$count += $this->countMpptCompositionValues($value);
 				continue;
 			}
-			if ($key === '_battery_attributes' && is_array($value)) {
+			if (($key === '_battery_attributes' || $key === '_technical_dictionary_codes') && is_array($value)) {
 				foreach ($value as $rows) {
 					$count += is_array($rows) ? count($rows) : 0;
 				}
@@ -1166,22 +1170,56 @@ class PowerPlantPVFileImport
 	}
 
 	/**
-	 * Parse a repeated normalized battery attribute header.
+	 * Append repeatable protocol, certification and protection codes.
+	 *
+	 * @param array<string,mixed> $normalized Normalized row
+	 * @param array<string,mixed> $row Raw row
+	 * @return void
+	 */
+	protected function appendTechnicalDictionaryCodes(array &$normalized, array $row)
+	{
+		$groups = array();
+		foreach ($row as $rawheader => $rawvalue) {
+			$descriptor = $this->parseBatteryAttributeHeader($this->normalizeHeader((string) $rawheader));
+			$value = trim((string) $rawvalue);
+			if (empty($descriptor) || $value === '') {
+				continue;
+			}
+			$type = (string) $descriptor['dictionary_type'];
+			if (!isset($groups[$type])) {
+				$groups[$type] = array();
+			}
+			$groups[$type][] = $value;
+		}
+		if (!empty($groups)) {
+			$normalized['_technical_dictionary_codes'] = $groups;
+		}
+	}
+
+	/**
+	 * Parse a repeated normalized technical dictionary header.
 	 *
 	 * @param string $header Normalized header
 	 * @return array<string,mixed> Descriptor or empty array
 	 */
 	protected function parseBatteryAttributeHeader($header)
 	{
-		if (!preg_match('/^(protocol|protection|certification)_([0-9]+)$/', (string) $header, $matches)) {
+		if (!preg_match('/^(communication_protocol|protocol|protection|certification)_([0-9]+)$/', (string) $header, $matches)) {
 			return array();
 		}
 		$position = (int) $matches[2];
 		if ($position <= 0) {
 			return array();
 		}
+		$typeMap = array(
+			'communication_protocol' => 'communication_protocol',
+			'protocol' => 'communication_protocol',
+			'certification' => 'certification',
+			'protection' => 'protection',
+		);
 		return array(
 			'type' => strtoupper((string) $matches[1]),
+			'dictionary_type' => $typeMap[(string) $matches[1]],
 			'position' => $position,
 		);
 	}

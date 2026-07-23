@@ -59,7 +59,14 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		if ($action == 'PRODUCT_DELETE') {
-			return $this->denyProductDeleteIfUsed($object, $langs);
+			$result = $this->denyProductDeleteIfUsed($object, $langs);
+			if ($result < 0) {
+				return $result;
+			}
+			if ($this->deleteProductTechnicalDictionaryLinks($object) < 0) {
+				return -1;
+			}
+			return 0;
 		}
 
 		$result = $this->recalculateCommercialDocumentPeakPower($action, $object, $user);
@@ -600,6 +607,33 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		$actioncomm->elementtype = $canonicalType;
+		return 0;
+	}
+
+	/**
+	 * Remove normalized technical dictionary links after product deletion was authorized.
+	 *
+	 * @param CommonObject $product Product being deleted
+	 * @return int
+	 */
+	private function deleteProductTechnicalDictionaryLinks($product)
+	{
+		if (empty($product->id)) {
+			return 0;
+		}
+		$entity = !empty($product->entity) ? (int) $product->entity : 0;
+		if ($entity <= 0) {
+			$this->errors[] = 'PowerPlantPVTechnicalDictionaryInvalidProduct';
+			return -1;
+		}
+
+		dol_include_once('/powerplantpv/class/powerplantpvproductdictionary.class.php');
+		$service = new PowerPlantPVProductDictionary($this->db);
+		$result = $service->deleteForProduct((int) $product->id, $entity);
+		if ($result < 0) {
+			$this->errors = array_merge($this->errors, $service->errors);
+			return -1;
+		}
 		return 0;
 	}
 

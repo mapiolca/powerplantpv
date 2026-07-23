@@ -7,6 +7,8 @@
  * (at your option) any later version.
  */
 
+require_once dirname(__DIR__).'/lib/powerplantpv.lib.php';
+
 /**
  * Technical battery data attached to a native Dolibarr product.
  */
@@ -180,11 +182,11 @@ class ProductBattery
 			if (!in_array($type, array('double', 'int'), true) || $value === null || $value === '') {
 				continue;
 			}
-			if ((!is_int($value) && !is_float($value) && !is_numeric($value))
-				|| ($type === 'int' && (float) ((int) $value) !== (float) $value)
-			) {
+			$normalized = powerplantpvParseTechnicalNumber($value, $type === 'int');
+			if ($normalized === null) {
 				return $this->setError('ProductTechnicalNumericValueRequired');
 			}
+			$data[$field] = $normalized;
 		}
 
 		if (empty($data['storage_type'])) {

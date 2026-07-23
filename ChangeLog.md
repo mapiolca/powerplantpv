@@ -2,8 +2,12 @@
 
 ## 1.3.0
 
-- Cycle commercial : alignement natif des extrafields calcul?s `Puissance-cr?te totale (kWc)` et `Capacit? de stockage (kWh)` sur les devis, commandes et factures.
-- Donn?es techniques : saisie et imports limit?s aux valeurs num?riques pour les caract?ristiques associ?es ? une unit?, sans unit? ni texte dans la valeur.
+- Cycle commercial : alignement natif des extrafields calculés `Puissance-crête totale (kWc)` et `Capacité de stockage (kWh)` sur les devis, commandes et factures.
+- Données techniques : saisie et imports limités aux valeurs numériques pour les caractéristiques associées à une unité, sans unité ni texte dans la valeur.
+- Dictionnaires techniques : ajout des protocoles de communication, certifications et protections partagés par entité, avec sélections multiples normalisées sur les modules, onduleurs et batteries.
+- Migration : reprise unique et idempotente des anciens champs libres vers les dictionnaires techniques, sans recréation des liaisons supprimées lors d'une réactivation.
+- Import administrateur : création et mise à jour multi-produit CSV/XLSX avec prévalidation, aperçu, transactions indépendantes, caractéristiques détaillées, composition MPPT et traçabilité.
+- Sécurité : ajout des jetons CSRF aux actions MPPT, entrées PV, formulaires techniques, modèles d'import et actions personnalisées associées.
 - Batteries : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées des modules et systèmes de stockage, ainsi que des rôles et contraintes normalisées des accessoires.
 - Kits batteries : résolution récursive des compositions natives Dolibarr, multiplication des quantités à chaque niveau, inventaire terminal en lecture seule et détection explicite des cycles.
 - Cycle commercial : ajout de l'extrafield calculé `Capacité de stockage (kWh)` sur les devis, commandes et factures, avec mise à jour automatique, état incomplet non bloquant et recalcul global depuis les réglages.

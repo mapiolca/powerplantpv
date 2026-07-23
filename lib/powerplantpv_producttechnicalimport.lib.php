@@ -37,18 +37,19 @@ function powerplantpvProductTechnicalImportGetTemplateHeaders($categoryCode)
 		$type = 'inverter';
 		$fields = array_merge(
 			PowerPlantPVProductImport::getInverterImportFields(),
-			PowerPlantPVProductImport::getInverterMPPTCompositionTemplateFields(4, 2)
+			PowerPlantPVProductImport::getInverterMPPTCompositionTemplateFields(4, 2),
+			PowerPlantPVProductImport::getTechnicalDictionaryTemplateFields()
 		);
 	} elseif ($categoryCode === 'BATTER') {
 		$type = 'battery';
-		$fields = array_merge(PowerPlantPVProductImport::getBatteryImportFields(), PowerPlantPVProductImport::getBatteryAttributeTemplateFields());
+		$fields = array_merge(PowerPlantPVProductImport::getBatteryImportFields(), PowerPlantPVProductImport::getTechnicalDictionaryTemplateFields());
 	} else {
-		$fields = PowerPlantPVProductImport::getModuleImportFields();
+		$fields = array_merge(PowerPlantPVProductImport::getModuleImportFields(), PowerPlantPVProductImport::getTechnicalDictionaryTemplateFields());
 	}
 
 	$headers = array();
 	foreach ($fields as $field) {
-		if ($type === 'battery' && preg_match('/^(protocol|protection|certification)_[0-9]+$/', $field)) {
+		if (preg_match('/^(communication_protocol|protocol|protection|certification)_[0-9]+$/', $field)) {
 			$headers[] = $field.' [code]';
 			continue;
 		}
@@ -147,7 +148,7 @@ function powerplantpvProductTechnicalImportTemplateLinksHtml($productId, $csvEna
 	global $langs;
 
 	$links = array();
-	$templatebaseurl = dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.(int) $productId.'&action=downloadtemplate';
+	$templatebaseurl = dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.(int) $productId.'&action=downloadtemplate&token='.newToken();
 	if ($csvEnabled) {
 		$links[] = '<a id="producttechnicalimport-template-csv" href="'.dol_escape_htmltag($templatebaseurl.'&format=csv').'">'.img_picto('', 'fa-download', 'class="pictofixedwidth"').$langs->trans('ProductTechnicalImportDownloadCsvTemplate').'</a>';
 	}

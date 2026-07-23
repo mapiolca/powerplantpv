@@ -107,17 +107,19 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertSame($result['errors'], $result['composition_anomalies']);
 	}
 
-	public function testBatteryImportParsesUnitHeadersAndNormalizedAttributes(): void
+	public function testBatteryImportParsesUnitHeadersAndControlledDictionaryCodes(): void
 	{
 		$import = new PowerPlantPVFileImport();
 		$parsed = $import->buildImportRows(array(
-			array('usable_energy [kWh]', 'nominal_voltage [V]', 'protocol_1 [code]', 'certification_1 [code]'),
-			array('9.6', '400', 'MODBUS|Modbus TCP', 'IEC62619'),
+			array('usable_energy [kWh]', 'nominal_voltage [V]', 'communication_protocol_1 [code]', 'certification_1 [code]'),
+			array('9.6', '400', 'MODBUS_RTU|Modbus RTU', 'IEC_62619'),
 		), 'battery');
 		$this->assertSame('', $import->getLastError());
 		$this->assertSame(9.6, $parsed['rows'][0]['normalized']['usable_energy']);
-		$this->assertSame('MODBUS', $parsed['rows'][0]['normalized']['_battery_attributes']['PROTOCOL'][0]['code']);
-		$this->assertSame('Modbus TCP', $parsed['rows'][0]['normalized']['_battery_attributes']['PROTOCOL'][0]['label']);
+		$this->assertSame(
+			array('communication_protocol' => array('MODBUS_RTU|Modbus RTU'), 'certification' => array('IEC_62619')),
+			$parsed['rows'][0]['normalized']['_technical_dictionary_codes']
+		);
 	}
 
 	public function testLegacyUnitlessHeadersAreAcceptedWithWarning(): void
@@ -149,8 +151,15 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertSame(9.6, powerplantpvParseTechnicalNumber('9,6'));
 		$this->assertSame(1000.0, powerplantpvParseTechnicalNumber('1 000'));
 		$this->assertSame(-20.0, powerplantpvParseTechnicalNumber('-20'));
+		$this->assertSame(1234567.89, powerplantpvParseTechnicalNumber('+1 234 567,89'));
+		$this->assertSame(1000.5, powerplantpvParseTechnicalNumber("1 000.5"));
+		$this->assertSame(1000.5, powerplantpvParseTechnicalNumber("1 000,5"));
 		$this->assertNull(powerplantpvParseTechnicalNumber('9.6 kWh'));
 		$this->assertNull(powerplantpvParseTechnicalNumber('about 9.6'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('12 34'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('10-20'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('1e3'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('1,234.56'));
 		$this->assertNull(powerplantpvParseTechnicalNumber('2.5', true));
 	}
 

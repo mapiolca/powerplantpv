@@ -547,6 +547,9 @@ $rawData = null;
 $preview = null;
 
 if ($action === 'downloadtemplate') {
+	if (!powerplantpv_technical_import_check_token()) {
+		accessforbidden('Bad token');
+	}
 	$format = strtolower($format);
 	if ($format === 'csv' && !$csvEnabled) {
 		setEventMessages($langs->trans('ProductTechnicalImportCsvDisabled'), null, 'errors');
@@ -856,6 +859,7 @@ if (!empty($showselection) && is_array($metadata)) {
 	foreach ($rows as $idx => $row) {
 		$previewurl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id);
 		$previewurl .= '&action=preview';
+		$previewurl .= '&token='.newToken();
 		$previewurl .= '&import_token='.urlencode($importtoken);
 		$previewurl .= '&line_index='.((int) $idx);
 		$previewurl .= '&strategy='.urlencode($strategy);

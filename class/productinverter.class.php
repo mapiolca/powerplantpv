@@ -15,6 +15,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+require_once dirname(__DIR__).'/lib/powerplantpv.lib.php';
+
 /**
  * \file       htdocs/powerplantpv/class/productinverter.class.php
  * \ingroup    powerplantpv
@@ -565,10 +567,10 @@ class ProductInverter
 	 * direct class consumers from silently casting text to zero.
 	 *
 	 * @param array<string,array<string,mixed>> $fields Field specs
-	 * @param array<string,mixed>                $data   Field values
+	 * @param array<string,mixed>                $data   Field values, normalized in place
 	 * @return bool True when all numeric values are valid
 	 */
-	protected function validateNumericData(array $fields, array $data)
+	protected function validateNumericData(array $fields, array &$data)
 	{
 		foreach ($fields as $key => $spec) {
 			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
@@ -577,12 +579,12 @@ class ProductInverter
 			if (!$isnumeric || $value === null || $value === '') {
 				continue;
 			}
-			if ((!is_int($value) && !is_float($value) && !is_numeric($value))
-				|| ($type === 'int' && (float) ((int) $value) !== (float) $value)
-			) {
+			$normalized = powerplantpvParseTechnicalNumber($value, $type === 'int');
+			if ($normalized === null) {
 				$this->setError('ProductTechnicalNumericValueRequired');
 				return false;
 			}
+			$data[$key] = $normalized;
 		}
 
 		return true;
@@ -621,7 +623,7 @@ class ProductInverter
 			return (string) ((int) $value);
 		}
 		if ($type === 'double') {
-			return (string) price2num($value, 'MT');
+			return (string) ((float) $value);
 		}
 
 		return "'".$this->db->escape((string) $value)."'";

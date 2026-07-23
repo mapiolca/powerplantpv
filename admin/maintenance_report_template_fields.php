@@ -68,7 +68,7 @@ if ($templateId > 0 && $template->fetch($templateId) <= 0) {
 	$templateId = 0;
 }
 
-$mutatingActions = array('add', 'update', 'disable', 'delete', 'moveup', 'movedown', 'addoption', 'updateoption', 'disableoption', 'deleteoption', 'moveoptionup', 'moveoptiondown');
+$mutatingActions = array('add', 'update', 'disable', 'delete', 'moveup', 'movedown', 'editoption', 'addoption', 'updateoption', 'disableoption', 'deleteoption', 'moveoptionup', 'moveoptiondown');
 if (in_array($action, $mutatingActions, true)) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
@@ -409,7 +409,7 @@ if ($selectedFieldId > 0 && $field->fetch($selectedFieldId) > 0 && (int) $field-
 			print '<tr class="oddeven"><td>'.dol_escape_htmltag((string) $obj->code).'</td><td>'.dol_escape_htmltag((string) $obj->label).'</td>';
 			print '<td class="center"><span class="badge '.(!empty($obj->active) ? 'badge-status4' : 'badge-status8').'">'.$langs->trans(!empty($obj->active) ? 'Enabled' : 'Disabled').'</span></td>';
 			print '<td class="center">'.((int) $obj->position).'</td><td class="center nowraponall">';
-			print '<a href="'.$_SERVER['PHP_SELF'].'?action=editoption&option_id='.(int) $obj->rowid.$param.'">'.img_edit($langs->trans('Modify')).'</a>';
+			print '<a href="'.$_SERVER['PHP_SELF'].'?action=editoption&option_id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_edit($langs->trans('Modify')).'</a>';
 			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=moveoptionup&option_id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('MoveUp'), 'uparrow').'</a>';
 			print ' <a href="'.$_SERVER['PHP_SELF'].'?action=moveoptiondown&option_id='.(int) $obj->rowid.'&token='.newToken().$param.'">'.img_picto($langs->trans('MoveDown'), 'downarrow').'</a>';
 			if (!empty($obj->active)) {

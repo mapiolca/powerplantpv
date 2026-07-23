@@ -44,15 +44,44 @@ function powerplantpvParseTechnicalNumber($value, $integer = false)
 		return null;
 	}
 
-	$value = str_replace(array("\xc2\xa0", "\xe2\x80\xaf", ' '), '', $value);
-	$pattern = $integer
-		? '/^[+-]?[0-9]+$/D'
-		: '/^[+-]?(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)$/D';
-	if (!preg_match($pattern, $value)) {
+	if (!preg_match('/^([+-]?)(.*)$/usD', $value, $matches)) {
+		return null;
+	}
+	$sign = $matches[1];
+	$unsigned = $matches[2];
+	$decimalCount = preg_match_all('/[.,]/', $unsigned);
+	if ($decimalCount === false || $decimalCount > 1 || ($integer && $decimalCount > 0)) {
 		return null;
 	}
 
-	$normalized = str_replace(',', '.', $value);
+	$parts = preg_split('/[.,]/', $unsigned, 2);
+	if (!is_array($parts)) {
+		return null;
+	}
+	$integerPart = $parts[0];
+	$fractionPart = isset($parts[1]) ? $parts[1] : null;
+	if ($fractionPart !== null && ($fractionPart === '' || !preg_match('/^[0-9]+$/D', $fractionPart))) {
+		return null;
+	}
+	if ($integerPart === '' && $fractionPart === null) {
+		return null;
+	}
+
+	$containsSpace = preg_match('/[ \x{00A0}\x{202F}]/u', $integerPart) === 1;
+	$validIntegerPart = $integerPart === '' && $fractionPart !== null;
+	if (!$validIntegerPart && $containsSpace) {
+		$validIntegerPart = preg_match('/^[0-9]{1,3}([ \x{00A0}\x{202F}])[0-9]{3}(?:\\1[0-9]{3})*$/uD', $integerPart) === 1;
+	} elseif (!$validIntegerPart) {
+		$validIntegerPart = preg_match('/^[0-9]+$/D', $integerPart) === 1;
+	}
+	if (!$validIntegerPart) {
+		return null;
+	}
+
+	$normalized = $sign.str_replace(array(' ', "\xc2\xa0", "\xe2\x80\xaf"), '', $integerPart);
+	if ($fractionPart !== null) {
+		$normalized .= '.'.$fractionPart;
+	}
 	if (!is_numeric($normalized)) {
 		return null;
 	}
@@ -114,6 +143,11 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/setup.php", 1));
 	$head[$h][1] = $langs->trans("Settings");
 	$head[$h][2] = 'settings';
+	$h++;
+
+	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/product_import.php", 1));
+	$head[$h][1] = $langs->trans("PowerPlantPVBulkImport");
+	$head[$h][2] = 'product_import';
 	$h++;
 
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/attestation.php", 1));

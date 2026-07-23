@@ -141,6 +141,14 @@ $isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT)
 restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
 $serialimportcategories = powerplantpvSerialImportFetchCompositionCategories($object);
 $canimportserialnumbers = ($permissiontoadd && $permissiontoserialimport && (int) $object->status !== (int) $object::STATUS_CANCELED && !empty($serialimportcategories));
+if ($action === 'serialimport') {
+	if (!$canimportserialnumbers) {
+		accessforbidden();
+	}
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
+}
 
 $filters = array(
 	'lineid' => $lineid,
@@ -418,7 +426,7 @@ if ((int) $missingsummary['missing_qty'] > 0 && $firstmissingcategory > 0 && $ca
 		$langs->trans('SerialNumbersImportMissing'),
 		'',
 		'default',
-		$_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&fk_categorie='.$firstmissingcategory,
+		$_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&token='.newToken().'&fk_categorie='.$firstmissingcategory,
 		'',
 		true
 	);

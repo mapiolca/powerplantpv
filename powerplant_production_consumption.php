@@ -100,6 +100,15 @@ if (!$permissiontoread || empty($object->id)) {
 	accessforbidden();
 }
 
+if ($action === 'create_reading') {
+	if (!$permissiontoadd) {
+		accessforbidden();
+	}
+	if (!powerplantpvIndexReadingSubmittedTokenValid($token)) {
+		accessforbidden('Invalid CSRF token');
+	}
+}
+
 /*
  * Actions
  */
@@ -260,7 +269,7 @@ print '</div>';
 print dol_get_fiche_end();
 
 print '<div class="tabsAction">';
-print dolGetButtonAction($langs->trans('PowerPlantPVReadProductionIndex'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=create_reading', '', $permissiontoadd);
+print dolGetButtonAction($langs->trans('PowerPlantPVReadProductionIndex'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=create_reading&token='.newToken(), '', $permissiontoadd);
 print '</div>';
 
 if ($action === 'create_reading' && $permissiontoadd) {

@@ -376,7 +376,7 @@ function powerplantpvPrintPowerPlantModelSettings($myTmpObjects, $dirmodels, $mo
 											print '<td class="center">';
 											if ($module->type == 'pdf') {
 												$newname = preg_replace('/_'.preg_quote(strtolower($myTmpObjectKey), '/').'/', '', $name);
-												print '<a href="'.$_SERVER["PHP_SELF"].'?action=specimen&module='.urlencode($newname).'&object='.urlencode($myTmpObjectKey).'">'.img_object($langs->trans("Preview"), 'pdf').'</a>';
+												print '<a href="'.$_SERVER["PHP_SELF"].'?action=specimen&token='.newToken().'&module='.urlencode($newname).'&object='.urlencode($myTmpObjectKey).'">'.img_object($langs->trans("Preview"), 'pdf').'</a>';
 											} else {
 												print img_object($langs->transnoentitiesnoconv("PreviewNotAvailable"), 'generic');
 											}
@@ -555,6 +555,9 @@ if ($action == 'updateMask') {
 		setEventMessages($langs->trans('PowerPlantPVStorageCapacityRecalculationFailed'), array($result['error']), 'errors');
 	}
 } elseif ($action == 'specimen' && $tmpobjectkey) {
+	if (function_exists('checkToken') && !checkToken()) {
+		accessforbidden('Bad token');
+	}
 	$modele = GETPOST('module', 'alpha');
 
 	$className = $myTmpObjects[$tmpobjectkey]['class'];
@@ -687,11 +690,15 @@ if ($action == 'updateMask') {
 	}
 
 	$importmaxfilesize = GETPOSTINT('import_max_file_size');
+	$importmaxrows = GETPOSTINT('bulk_import_max_rows');
 	$importoverwritestrategy = GETPOST('import_overwrite_strategy', 'aZ09');
 	$importseparator = GETPOST('import_default_separator', 'nohtml');
 
 	if ($importmaxfilesize <= 0) {
 		$importmaxfilesize = 5;
+	}
+	if ($importmaxrows <= 0) {
+		$importmaxrows = 1000;
 	}
 	if (!in_array($importoverwritestrategy, array('never', 'empty_only', 'overwrite_after_confirm'), true)) {
 		$importoverwritestrategy = 'empty_only';
@@ -701,6 +708,7 @@ if ($action == 'updateMask') {
 	}
 
 	$res = dolibarr_set_const($db, 'POWERPLANTPV_IMPORT_MAX_FILE_SIZE', $importmaxfilesize, 'chaine', 0, '', $conf->entity);
+	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_BULK_IMPORT_MAX_ROWS', $importmaxrows, 'chaine', 0, '', $conf->entity);
 	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_IMPORT_OVERWRITE_EXISTING_DATA', $importoverwritestrategy, 'chaine', 0, '', $conf->entity);
 	$res = $res && dolibarr_set_const($db, 'POWERPLANTPV_IMPORT_DEFAULT_SEPARATOR', $importseparator, 'chaine', 0, '', $conf->entity);
 
@@ -1048,6 +1056,8 @@ print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('ProductTechni
 print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportXLSXEnabled').'</td><td>'.ajax_constantonoff('POWERPLANTPV_COMPONENT_IMPORT_XLSX_ENABLED', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportStoreRawData').'</td><td>'.ajax_constantonoff('POWERPLANTPV_IMPORT_RAW_DATA', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportMaxFileSize').'</td><td><input type="number" min="1" class="flat maxwidth100 right" name="import_max_file_size" value="'.((int) getDolGlobalInt('POWERPLANTPV_IMPORT_MAX_FILE_SIZE', 5)).'"> MB</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVBulkImportMaximumRows').'</td><td><input type="number" min="1" max="100000" class="flat maxwidth100 right" name="bulk_import_max_rows" value="'.((int) getDolGlobalInt('POWERPLANTPV_BULK_IMPORT_MAX_ROWS', 1000)).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('PowerPlantPVBulkImport').'</td><td>'.dolGetButtonAction($langs->trans('PowerPlantPVBulkImportOpen'), '', 'default', dol_buildpath('/powerplantpv/admin/product_import.php', 1), '', true).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportOverwriteStrategy').'</td><td>'.$form->selectarray('import_overwrite_strategy', $fileimportoverwritestrategies, getDolGlobalString('POWERPLANTPV_IMPORT_OVERWRITE_EXISTING_DATA', 'empty_only'), 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('ProductTechnicalImportDefaultSeparator').'</td><td>'.$form->selectarray('import_default_separator', $fileimportseparators, getDolGlobalString('POWERPLANTPV_IMPORT_DEFAULT_SEPARATOR', ';'), 0, 0, '', 0, 0, 0, '', 'flat minwidth200').'</td></tr>';
 print '</table>';
