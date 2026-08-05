@@ -74,8 +74,8 @@ final class PowerPlantPVTechnicalValueTest extends TestCase
 
 	public function testStructuredImportHeadersAndLegacyRows(): void
 	{
-		$this->assertSame('ac_voltage_min [V]', PowerPlantPVProductImport::getTemplateHeader('inverter', 'ac_voltage_min'));
-		$this->assertSame('thd_comparator [code]', PowerPlantPVProductImport::getTemplateHeader('inverter', 'thd_comparator'));
+		$this->assertSame('ac_voltage_min [type=decimal; unit=V; format=SIGNED_DECIMAL]', PowerPlantPVProductImport::getTemplateHeader('inverter', 'ac_voltage_min'));
+		$this->assertSame('thd_comparator [type=select2; format=CODE; source=thd_comparator]', PowerPlantPVProductImport::getTemplateHeader('inverter', 'thd_comparator'));
 
 		$import = new PowerPlantPVFileImport();
 		$parsed = $import->buildImportRows(array(

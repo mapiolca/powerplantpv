@@ -239,6 +239,9 @@ $permissiontoadd = $user->hasRight('produit', 'creer');
 if (!$permissiontoread || !$permissiontoadd) {
 	accessforbidden();
 }
+if (in_array($action, array('search', 'preview'), true) && function_exists('checkToken') && !checkToken()) {
+	accessforbidden('Bad token');
+}
 
 $object = new Product($db);
 if ($id > 0) {
@@ -375,6 +378,7 @@ print dol_get_fiche_end();
 
 print load_fiche_titre($langs->trans('PVFreeImport'), '', 'fa-cloud-download-alt');
 print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
 print '<input type="hidden" name="action" value="search">';
 print '<table class="noborder centpercent">';
@@ -408,6 +412,7 @@ if ($results !== null && !empty($results['objects']) && is_array($results['objec
 		}
 		$previewurl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id);
 		$previewurl .= '&action=preview';
+		$previewurl .= '&token='.newToken();
 		$previewurl .= '&dataset='.urlencode($dataset);
 		$previewurl .= '&strategy='.urlencode($strategy);
 		$previewurl .= '&query='.urlencode($query);

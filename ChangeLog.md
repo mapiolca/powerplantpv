@@ -4,6 +4,15 @@
 
 - Caractéristiques techniques : remplacement des plages et seuils textuels par des valeurs structurées min/nominal/max, cos φ inductif/nominal/capacitif et comparateurs contrôlés pour les modules PV, onduleurs et batteries.
 - Import technique : colonnes CSV/XLSX détaillées avec unités pour chaque composante, acceptation des symboles de comparaison et conversion prudente des anciens formats compacts avec avertissement pour les valeurs ambiguës.
+- Onduleurs : affichage de chaque MPPT et de ses entrées PV associées en deux colonnes natives alignées sur une même ligne.
+- Import technique : modèles CSV/XLSX auto-documentés avec type, unité, cardinalité, format, règles et catalogues de valeurs actives par entité, tout en conservant les anciens en-têtes.
+- Import technique : résolution interactive des codes de protocoles, certifications et protections inconnus ou inactifs avant confirmation, avec création autorisée, remplacement ou ignorance, contrôles CSRF et transactions par produit.
+- Cycle commercial : alignement natif des extrafields calculés `Puissance-crête totale (kWc)` et `Capacité de stockage (kWh)` sur les devis, commandes et factures.
+- Données techniques : saisie et imports limités aux valeurs numériques pour les caractéristiques associées à une unité, sans unité ni texte dans la valeur.
+- Dictionnaires techniques : ajout des protocoles de communication, certifications et protections partagés par entité, avec sélections multiples normalisées sur les modules, onduleurs et batteries.
+- Migration : reprise unique et idempotente des anciens champs libres vers les dictionnaires techniques, sans recréation des liaisons supprimées lors d'une réactivation.
+- Import administrateur : création et mise à jour multi-produit CSV/XLSX avec prévalidation, aperçu, transactions indépendantes, caractéristiques détaillées, composition MPPT et traçabilité.
+- Sécurité : ajout des jetons CSRF aux actions MPPT, entrées PV, formulaires techniques, modèles d'import et actions personnalisées associées.
 - Batteries : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées des modules et systèmes de stockage, ainsi que des rôles et contraintes normalisées des accessoires.
 - Kits batteries : résolution récursive des compositions natives Dolibarr, multiplication des quantités à chaque niveau, inventaire terminal en lecture seule et détection explicite des cycles.
 - Cycle commercial : ajout de l'extrafield calculé `Capacité de stockage (kWh)` sur les devis, commandes et factures, avec mise à jour automatique, état incomplet non bloquant et recalcul global depuis les réglages.

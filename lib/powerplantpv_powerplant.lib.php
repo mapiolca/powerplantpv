@@ -637,6 +637,17 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 {
 	global $conf, $db, $langs;
 
+	if ($action === 'editcustomer') {
+		if (empty($permissiontoadd)) {
+			accessforbidden();
+		}
+		$submittedToken = GETPOST('token', 'alphanohtml');
+		$validToken = function_exists('checkToken') ? checkToken() : (!empty($submittedToken) && !empty($_SESSION['newtoken']) && hash_equals((string) $_SESSION['newtoken'], $submittedToken));
+		if (!$validToken) {
+			accessforbidden('Bad token');
+		}
+	}
+
 	require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/company.lib.php';
 	$form = new Form($db);
@@ -674,7 +685,7 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 		$morehtmlref .= '<br>';
 		$morehtmlref .= $langs->trans('ThirdParty');
 		if ($permissiontoadd && $action != 'editcustomer') {
-			$morehtmlref .= ' <a class="editfielda" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'&action=editcustomer">'.img_edit($langs->transnoentitiesnoconv('SetThirdParty'), 0).'</a>';
+			$morehtmlref .= ' <a class="editfielda" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.((int) $object->id).'&action=editcustomer&token='.newToken().'">'.img_edit($langs->transnoentitiesnoconv('SetThirdParty'), 0).'</a>';
 		}
 		$morehtmlref .= ' : ';
 

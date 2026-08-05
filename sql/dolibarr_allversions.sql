@@ -959,3 +959,84 @@ ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD UNIQUE INDEX IF NOT EXI
 ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_widget_user_entity (entity);
 ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_widget_user_user (fk_user);
 ALTER TABLE llx_powerplantpv_maintenance_widget_user ADD INDEX IF NOT EXISTS idx_powerplantpv_maintenance_widget_user_position (entity, fk_user, column_index, position);
+
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_communication_protocol(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	description text,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_communication_protocol ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_comm_protocol_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_communication_protocol ADD INDEX IF NOT EXISTS idx_c_powerplantpv_comm_protocol_entity (entity);
+
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_certification(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	description text,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_certification ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_certification_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_certification ADD INDEX IF NOT EXISTS idx_c_powerplantpv_certification_entity (entity);
+
+CREATE TABLE IF NOT EXISTS llx_c_powerplantpv_protection(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	code varchar(64) NOT NULL,
+	label varchar(255) NOT NULL,
+	description text,
+	active smallint DEFAULT 1 NOT NULL,
+	position integer DEFAULT 0 NOT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;
+ALTER TABLE llx_c_powerplantpv_protection ADD UNIQUE INDEX IF NOT EXISTS uk_c_powerplantpv_protection_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_protection ADD INDEX IF NOT EXISTS idx_c_powerplantpv_protection_entity (entity);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_communication_protocol(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_product integer NOT NULL,
+	fk_communication_protocol integer NOT NULL,
+	date_creation datetime NOT NULL,
+	fk_user_creat integer NOT NULL
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_product_communication_protocol ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_comm_protocol (entity, fk_product, fk_communication_protocol);
+ALTER TABLE llx_powerplantpv_product_communication_protocol ADD INDEX IF NOT EXISTS idx_powerplantpv_product_comm_product (fk_product);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_certification(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_product integer NOT NULL,
+	fk_certification integer NOT NULL,
+	date_creation datetime NOT NULL,
+	fk_user_creat integer NOT NULL
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_product_certification ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_certification (entity, fk_product, fk_certification);
+ALTER TABLE llx_powerplantpv_product_certification ADD INDEX IF NOT EXISTS idx_powerplantpv_product_cert_product (fk_product);
+
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_protection(
+	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_product integer NOT NULL,
+	fk_protection integer NOT NULL,
+	date_creation datetime NOT NULL,
+	fk_user_creat integer NOT NULL
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_product_protection ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_protection (entity, fk_product, fk_protection);
+ALTER TABLE llx_powerplantpv_product_protection ADD INDEX IF NOT EXISTS idx_powerplantpv_product_prot_product (fk_product);
+ALTER TABLE llx_c_powerplantpv_communication_protocol ADD INDEX IF NOT EXISTS idx_c_powerplantpv_comm_protocol_active (active);
+ALTER TABLE llx_c_powerplantpv_certification ADD INDEX IF NOT EXISTS idx_c_powerplantpv_certification_active (active);
+ALTER TABLE llx_c_powerplantpv_protection ADD INDEX IF NOT EXISTS idx_c_powerplantpv_protection_active (active);
+ALTER TABLE llx_powerplantpv_product_communication_protocol ADD INDEX IF NOT EXISTS idx_powerplantpv_product_comm_entity (entity);
+ALTER TABLE llx_powerplantpv_product_communication_protocol ADD INDEX IF NOT EXISTS idx_powerplantpv_product_comm_dictionary (fk_communication_protocol);
+ALTER TABLE llx_powerplantpv_product_certification ADD INDEX IF NOT EXISTS idx_powerplantpv_product_cert_entity (entity);
+ALTER TABLE llx_powerplantpv_product_certification ADD INDEX IF NOT EXISTS idx_powerplantpv_product_cert_dictionary (fk_certification);
+ALTER TABLE llx_powerplantpv_product_protection ADD INDEX IF NOT EXISTS idx_powerplantpv_product_prot_entity (entity);
+ALTER TABLE llx_powerplantpv_product_protection ADD INDEX IF NOT EXISTS idx_powerplantpv_product_prot_dictionary (fk_protection);

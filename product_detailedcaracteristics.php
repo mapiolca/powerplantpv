@@ -43,6 +43,7 @@ require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/productinverter.class.php');
 dol_include_once('/powerplantpv/class/productbattery.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvproductdictionary.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
@@ -149,7 +150,7 @@ function powerplantpv_fetch_pvpanel($db, $productId)
  * Get a numeric POST value while preserving empty fields.
  *
  * @param string $field Field name
- * @return string|float Empty string or normalized number
+	 * @return string|int|float Empty string, normalized number, or invalid raw value
  */
 function powerplantpv_get_numeric_post_value($field)
 {
@@ -158,7 +159,8 @@ function powerplantpv_get_numeric_post_value($field)
 		return '';
 	}
 
-	return price2num($value, 'MT');
+	$number = powerplantpvParseTechnicalNumber($value);
+	return $number === null ? (string) $value : $number;
 }
 
 /**
@@ -177,6 +179,12 @@ function powerplantpv_save_pvpanel($db, Product $product, $panel)
 	foreach (powerplantpv_get_pvpanel_fields() as $field) {
 		$data[$field] = powerplantpv_get_numeric_post_value($field);
 	}
+	foreach ($data as $value) {
+		if ($value !== '' && !is_int($value) && !is_float($value)) {
+			setEventMessages($langs->trans('ProductTechnicalNumericValueRequired'), null, 'errors');
+			return -1;
+		}
+	}
 	foreach (array(array('power_tolerance_min', 'power_tolerance_max'), array('operating_temperature_min', 'operating_temperature_max')) as $range) {
 		if (!PowerPlantPVTechnicalValue::isValidRange($data[$range[0]], null, $data[$range[1]])) {
 			setEventMessages($langs->trans('TechnicalValueInvalidRange'), null, 'errors');
@@ -187,7 +195,7 @@ function powerplantpv_save_pvpanel($db, Product $product, $panel)
 	if ($panel && !empty($panel->rowid)) {
 		$sets = array();
 		foreach ($data as $key => $val) {
-			$sets[] = $key.' = '.($val === '' ? 'null' : price2num($val, 'MT'));
+			$sets[] = $key.' = '.($val === '' ? 'null' : (string) ((float) $val));
 		}
 		$sql = 'UPDATE '.$db->prefix().'powerplantpv_product_pvpanel SET '.implode(', ', $sets);
 		$sql .= ' WHERE rowid = '.((int) $panel->rowid);
@@ -197,7 +205,7 @@ function powerplantpv_save_pvpanel($db, Product $product, $panel)
 		$vals = array((int) $product->id, (int) $conf->entity);
 		foreach ($data as $key => $val) {
 			$cols[] = $key;
-			$vals[] = ($val === '' ? 'null' : price2num($val, 'MT'));
+			$vals[] = ($val === '' ? 'null' : (string) ((float) $val));
 		}
 		$sql = 'INSERT INTO '.$db->prefix().'powerplantpv_product_pvpanel';
 		$sql .= ' ('.implode(', ', $cols).') VALUES ('.implode(', ', $vals).')';
@@ -223,13 +231,19 @@ function powerplantpv_collect_post_data(array $fields)
 	$data = array();
 	foreach ($fields as $key => $spec) {
 		if ($spec['type'] === 'bool') {
-			$data[$key] = GETPOSTISSET($key) ? 1 : 0;
-		} elseif ($spec['type'] === 'double') {
+			$data[$key] = GETPOSTINT($key) ? 1 : 0;
+		} elseif ($spec['type'] === 'double' || $spec['type'] === 'int' || !empty($spec['numeric'])) {
 			$value = GETPOST($key, 'alpha');
-			$data[$key] = (trim((string) $value) === '' ? '' : price2num($value, 'MT'));
-		} elseif ($spec['type'] === 'int') {
-			$value = GETPOST($key, 'alpha');
-			$data[$key] = (trim((string) $value) === '' ? '' : (int) price2num($value, 'MT'));
+			if (trim((string) $value) === '') {
+				$data[$key] = '';
+				continue;
+			}
+			$number = powerplantpvParseTechnicalNumber($value, $spec['type'] === 'int');
+			if ($number === null) {
+				$data[$key] = (string) $value;
+			} else {
+				$data[$key] = $number;
+			}
 		} elseif ($spec['type'] === 'text') {
 			$data[$key] = GETPOST($key, 'restricthtml');
 		} else {
@@ -238,6 +252,38 @@ function powerplantpv_collect_post_data(array $fields)
 	}
 
 	return $data;
+}
+
+/**
+ * Find legacy values that cannot be parsed for fields carrying a unit.
+ *
+	 * @param object|null $source Field source
+	 * @param array<string,array<string,mixed>> $fields Field specifications
+	 * @return array<int,string>
+	 */
+function powerplantpv_find_invalid_existing_numeric_fields($source, array $fields)
+{
+	global $langs;
+
+	$invalid = array();
+	if (!$source) {
+		return $invalid;
+	}
+	foreach ($fields as $field => $spec) {
+		$type = isset($spec['type']) ? (string) $spec['type'] : '';
+		$isNumeric = $type === 'double' || $type === 'int' || !empty($spec['numeric']);
+		if (!$isNumeric || empty($spec['unit'])) {
+			continue;
+		}
+		$value = powerplantpv_get_field_value($source, $field);
+		if ($value === null || $value === '') {
+			continue;
+		}
+		if (powerplantpvParseTechnicalNumber($value, $type === 'int') === null) {
+			$invalid[] = $langs->trans(isset($spec['label']) ? $spec['label'] : $field);
+		}
+	}
+	return $invalid;
 }
 
 /**
@@ -272,6 +318,36 @@ function powerplantpv_get_field_value($source, $key)
 }
 
 /**
+ * Print a form-local switch using Dolibarr's native switch pictograms.
+ *
+ * The value is persisted only with the surrounding form, so toggling it has
+ * no Ajax side effect before the user saves the detailed characteristics.
+ *
+ * @param string $name  Field name
+ * @param bool   $value Current value
+ * @return void
+ */
+function powerplantpv_print_boolean_switch($name, $value)
+{
+	global $langs;
+
+	$id = 'powerplantpv_switch_'.preg_replace('/[^a-zA-Z0-9_-]/', '_', $name);
+	$enabled = (bool) $value;
+	print '<input type="hidden" name="'.dol_escape_htmltag($name).'" id="'.dol_escape_htmltag($id).'" value="'.($enabled ? '1' : '0').'">';
+	print '<span class="powerplantpv-form-switch cursorpointer" role="switch" tabindex="0" aria-checked="'.($enabled ? 'true' : 'false').'"';
+	print ' aria-label="'.dol_escape_htmltag($langs->trans('Enabled')).'" data-input-id="'.dol_escape_htmltag($id).'">';
+	print '<span class="powerplantpv-switch-on"'.($enabled ? '' : ' style="display:none"').'>'.img_picto($langs->trans('Enabled'), 'switch_on').'</span>';
+	print '<span class="powerplantpv-switch-off"'.($enabled ? ' style="display:none"' : '').'>'.img_picto($langs->trans('Disabled'), 'switch_off').'</span>';
+	print '</span>';
+	print '<script nonce="'.getNonce().'">';
+	print 'jQuery(function(){var i=jQuery("#'.dol_escape_js($id).'");var s=i.next(".powerplantpv-form-switch");';
+	print 'var toggle=function(){var on=i.val()!=="1";i.val(on?"1":"0");';
+	print 's.attr("aria-checked",on?"true":"false");s.find(".powerplantpv-switch-on").toggle(on);s.find(".powerplantpv-switch-off").toggle(!on);};';
+	print 's.on("click",toggle).on("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();}});});';
+	print '</script>';
+}
+
+/**
  * Print a standard field row.
  *
  * @param string                   $label  Translated label
@@ -287,6 +363,10 @@ function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit
 
 	$value = $source ? powerplantpv_get_field_value($source, $name) : null;
 	$unit = !empty($spec['unit']) && !in_array($spec['unit'], array('code', 'text'), true) ? (string) $spec['unit'] : '';
+	$isnumeric = ($spec['type'] === 'double' || $spec['type'] === 'int' || !empty($spec['numeric']));
+	if ($edit && $isnumeric && GETPOSTISSET($name)) {
+		$value = GETPOST($name, 'alpha');
+	}
 
 	print '<tr class="oddeven">';
 	print '<td class="titlefield">'.$label.'</td>';
@@ -299,12 +379,13 @@ function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit
 			}
 			print $form->selectarray($name, $options, (string) $value, 1, 0, '', 0, 0, 0, '', 'flat minwidth250');
 		} elseif ($spec['type'] === 'bool') {
-			print '<input type="checkbox" class="flat" name="'.$name.'" value="1"'.((int) $value ? ' checked' : '').'>';
+			powerplantpv_print_boolean_switch($name, (bool) $value);
 		} elseif ($spec['type'] === 'text') {
 			print '<textarea class="flat centpercent" name="'.$name.'" rows="3">'.dol_escape_htmltag((string) $value).'</textarea>';
 		} else {
-			$css = ($spec['type'] === 'double' || $spec['type'] === 'int') ? 'flat maxwidth100 right' : 'flat minwidth300';
-			print '<input class="'.$css.'" type="text" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'">';
+			$css = $isnumeric ? 'flat maxwidth100 right' : 'flat minwidth300';
+			$numericattributes = $isnumeric ? ' inputmode="'.($spec['type'] === 'int' ? 'numeric' : 'decimal').'" pattern="'.($spec['type'] === 'int' ? '[+-]?[0-9]+' : '[+-]?([0-9]+([.,][0-9]+)?|[.,][0-9]+)').'"' : '';
+			print '<input class="'.$css.'" type="text" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'"'.$numericattributes.'>';
 			if ($unit !== '') {
 				print ' <span class="opacitymedium">'.dol_escape_htmltag($unit).'</span>';
 			}
@@ -462,8 +543,8 @@ function powerplantpv_print_inverter_general_rows(ProductInverter $inverter, $ed
 		'PVInverterACData' => array('ac_nominal_power', 'ac_max_power', 'ac_apparent_power', '@ac_voltage', '@grid_frequency', 'ac_max_output_current', 'phase_count', '@power_factor', '@thd'),
 		'PVInverterBackupData' => array('backup_nominal_power', 'backup_peak_power', 'backup_peak_duration', 'backup_transfer_time', '@backup_voltage', 'backup_max_current', '@backup_thd', 'max_unbalanced_output'),
 		'PVInverterEfficiency' => array('max_efficiency', 'european_efficiency'),
-		'PVInverterProtections' => array('dc_switch', 'dc_spd', 'ac_spd', 'afci', 'pid_recovery', 'anti_islanding', 'dc_reverse_polarity_protection', 'insulation_monitoring', 'residual_current_monitoring'),
-		'PVInverterEnvironmentCommunication' => array('ip_rating', '@operating_temperature', '@relative_humidity', 'cooling', 'max_altitude', '@noise', 'topology', 'night_consumption', 'display_type', 'communication_interfaces', 'dc_connector', 'ac_connector', 'mounting', 'warranty', 'certifications'),
+		'PVInverterProtections' => array('dc_switch', 'afci', 'pid_recovery', 'anti_islanding', 'dc_reverse_polarity_protection', 'insulation_monitoring', 'residual_current_monitoring'),
+		'PVInverterEnvironmentCommunication' => array('ip_rating', '@operating_temperature', '@relative_humidity', 'cooling', 'max_altitude', '@noise', 'topology', 'night_consumption', 'display_type', 'dc_connector', 'ac_connector', 'mounting', 'warranty'),
 	);
 
 	$half = 0;
@@ -592,6 +673,59 @@ function powerplantpv_print_battery_attributes(array $attributes, $editMode)
 		print '<br>';
 	}
 	print '</div>';
+}
+
+/**
+ * Read technical dictionary multiselect values.
+ *
+ * @return array<string,array<int,int>>
+ */
+function powerplantpv_collect_technical_dictionary_selections()
+{
+	$selections = array();
+	foreach (PowerPlantPVProductDictionary::getDefinitions() as $type => $definition) {
+		$values = GETPOST('technical_dictionary_'.$type, 'array:int');
+		$selections[$type] = is_array($values) ? array_values(array_unique(array_map('intval', $values))) : array();
+	}
+	return $selections;
+}
+
+/**
+ * Render the three normalized technical dictionary selections.
+ *
+ * @param PowerPlantPVProductDictionary $service Dictionary service
+ * @param int $productId Product identifier
+ * @param int $entity Product owner entity
+ * @param bool $editMode Edit mode
+ * @return void
+ */
+function powerplantpv_print_technical_dictionary_selections($service, $productId, $entity, $editMode)
+{
+	global $form, $langs;
+
+	print '<div class="fichecenter">';
+	print load_fiche_titre($langs->trans('PVTechnicalControlledValues'), '', '');
+	print '<table class="noborder centpercent">';
+	foreach (PowerPlantPVProductDictionary::getDefinitions() as $type => $definition) {
+		$selected = $service->fetchSelectedIds($productId, $type, $entity);
+		$options = $service->fetchOptions($type, $entity, $selected);
+		print '<tr class="oddeven"><td class="titlefield">'.$langs->trans($definition['label']).'</td><td>';
+		if ($editMode) {
+			print $form->multiselectarray('technical_dictionary_'.$type, $options, $selected, 0, 0, 'minwidth300 maxwidth500', 0, 0);
+		} elseif (empty($selected)) {
+			print '<span class="opacitymedium">-</span>';
+		} else {
+			$labels = array();
+			foreach ($selected as $selectedId) {
+				if (isset($options[$selectedId])) {
+					$labels[] = dol_escape_htmltag($options[$selectedId]);
+				}
+			}
+			print !empty($labels) ? implode(', ', $labels) : '<span class="opacitymedium">-</span>';
+		}
+		print '</td></tr>';
+	}
+	print '</table></div><br>';
 }
 
 /**
@@ -724,6 +858,25 @@ $action = GETPOST('action', 'aZ09');
 $mpptid = GETPOSTINT('mpptid');
 $inputid = GETPOSTINT('inputid');
 
+$permissiontoread = $user->hasRight('produit', 'lire');
+$permissiontoadd = $user->hasRight('produit', 'creer');
+if (!$permissiontoread) {
+	accessforbidden();
+}
+
+$protectedActions = array(
+	'save', 'save_panel', 'save_battery', 'save_accessory', 'save_inverter',
+	'create_mppt', 'edit_mppt', 'delete_mppt', 'save_mppt', 'confirm_delete_mppt',
+	'create_input', 'edit_input', 'delete_input', 'save_input', 'confirm_delete_input',
+	'edit_panel', 'edit_battery', 'edit_accessory', 'edit_inverter',
+);
+if (in_array($action, $protectedActions, true) && !$permissiontoadd) {
+	accessforbidden();
+}
+if (in_array($action, $protectedActions, true) && !powerplantpv_product_check_token()) {
+	accessforbidden('Bad token');
+}
+
 $object = new Product($db);
 if ($id > 0) {
 	$object->fetch($id);
@@ -731,21 +884,6 @@ if ($id > 0) {
 
 if (empty($object->id)) {
 	accessforbidden();
-}
-
-$permissiontoread = $user->hasRight('produit', 'lire');
-$permissiontoadd = $user->hasRight('produit', 'creer');
-
-if (!$permissiontoread) {
-	accessforbidden();
-}
-
-$mutatingActions = array('save', 'save_panel', 'save_battery', 'save_accessory', 'save_inverter', 'save_mppt', 'confirm_delete_mppt', 'save_input', 'confirm_delete_input');
-if (in_array($action, $mutatingActions) && !$permissiontoadd) {
-	accessforbidden();
-}
-if (in_array($action, $mutatingActions) && !powerplantpv_product_check_token()) {
-	accessforbidden('Bad token');
 }
 
 $object->fetch_optionals($object->id, null);
@@ -773,6 +911,7 @@ $hasTechnicalImportSource = (
 $showTechnicalImportButton = ($permissiontoadd && in_array($categoryCode, array('MODULE', 'ONDULE', 'BATTER'), true) && !$isBatteryKit && $hasTechnicalImportSource);
 
 $form = new Form($db);
+$technicalDictionaryService = new PowerPlantPVProductDictionary($db);
 $panel = null;
 $inverter = new ProductInverter($db);
 
@@ -793,8 +932,13 @@ $accessory = ($isBatteryAccessory && !$isBatteryKit) ? $battery->fetchAccessoryB
 $accessoryRules = $accessory ? $battery->fetchAccessoryRules((int) $accessory->rowid) : array();
 
 if ($isPVPanel && ($action === 'save' || $action === 'save_panel')) {
+	$db->begin();
 	$result = powerplantpv_save_pvpanel($db, $object, $panel);
 	if ($result > 0) {
+		$result = $technicalDictionaryService->replaceSelections($object->id, (int) $object->entity, powerplantpv_collect_technical_dictionary_selections(), $user);
+	}
+	if ($result > 0) {
+		$db->commit();
 		$resultrecalculate = powerplantRecalculateInstalledPowerForProduct($object->id);
 		$resultcommercialrecalculate = powerplantpvRecalculateCommercialDocumentPeakPowerForProduct($object->id);
 		if ($resultrecalculate < 0 || $resultcommercialrecalculate < 0) {
@@ -813,6 +957,8 @@ if ($isPVPanel && ($action === 'save' || $action === 'save_panel')) {
 			powerplantpv_redirect_product($object->id);
 		}
 	}
+	$db->rollback();
+	setEventMessages($technicalDictionaryService->error, $technicalDictionaryService->errors, 'errors');
 	$action = 'edit_panel';
 }
 
@@ -821,7 +967,7 @@ if ($isBattery && !$isBatteryKit && $action === 'save_battery') {
 	$db->begin();
 	$result = $battery->saveForProduct($object->id, $data, $user);
 	if ($result > 0) {
-		$result = $battery->replaceAttributes($result, powerplantpv_collect_battery_attributes());
+		$result = $technicalDictionaryService->replaceSelections($object->id, (int) $object->entity, powerplantpv_collect_technical_dictionary_selections(), $user);
 	}
 	if ($result > 0) {
 		$db->commit();
@@ -834,6 +980,7 @@ if ($isBattery && !$isBatteryKit && $action === 'save_battery') {
 	}
 	$db->rollback();
 	setEventMessages($battery->error, $battery->errors, 'errors');
+	setEventMessages($technicalDictionaryService->error, $technicalDictionaryService->errors, 'errors');
 	$action = 'edit_battery';
 }
 
@@ -859,12 +1006,22 @@ if ($isBatteryAccessory && !$isBatteryKit && $action === 'save_accessory') {
 
 if ($hasInverterCharacteristics && $action === 'save_inverter') {
 	$data = powerplantpv_collect_post_data(ProductInverter::getInverterFields());
+	foreach (array('communication_interfaces', 'certifications', 'dc_spd', 'ac_spd') as $legacyField) {
+		$data[$legacyField] = isset($inverter->data[$legacyField]) ? $inverter->data[$legacyField] : '';
+	}
+	$db->begin();
 	$result = $inverter->saveForProduct($object->id, $data, $user);
 	if ($result > 0) {
+		$result = $technicalDictionaryService->replaceSelections($object->id, (int) $object->entity, powerplantpv_collect_technical_dictionary_selections(), $user);
+	}
+	if ($result > 0) {
+		$db->commit();
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
 		powerplantpv_redirect_product($object->id);
 	}
+	$db->rollback();
 	setEventMessages($inverter->error, $inverter->errors, 'errors');
+	setEventMessages($technicalDictionaryService->error, $technicalDictionaryService->errors, 'errors');
 	$action = 'edit_inverter';
 }
 
@@ -952,6 +1109,43 @@ if ($isPVPanel) {
 }
 if ($hasInverterCharacteristics) {
 	$inverter->fetchByProduct($object->id);
+	if (in_array($action, array('edit_mppt', 'delete_mppt'), true)) {
+		if (empty($inverter->id) || !$inverter->fetchMppt($mpptid, $inverter->id)) {
+			accessforbidden();
+		}
+	}
+	if (in_array($action, array('create_input', 'edit_input', 'delete_input'), true)) {
+		if (empty($inverter->id) || !$inverter->fetchMppt($mpptid, $inverter->id)) {
+			accessforbidden();
+		}
+	}
+	if (in_array($action, array('edit_input', 'delete_input'), true)) {
+		if (!$inverter->fetchInput($inputid, $mpptid)) {
+			accessforbidden();
+		}
+	}
+}
+if (in_array($action, array('create_mppt', 'edit_mppt', 'delete_mppt', 'create_input', 'edit_input', 'delete_input'), true) && !$hasInverterCharacteristics) {
+	accessforbidden();
+}
+
+$invalidExistingFields = array();
+if ($isPVPanel && $panel) {
+	$panelFields = array();
+	foreach (powerplantpv_get_pvpanel_fields() as $panelField) {
+		$panelFields[$panelField] = array('label' => $panelField, 'type' => 'double', 'unit' => 'technical');
+	}
+	$invalidExistingFields = array_merge($invalidExistingFields, powerplantpv_find_invalid_existing_numeric_fields($panel, $panelFields));
+}
+if ($isBattery && !$isBatteryKit) {
+	$invalidExistingFields = array_merge($invalidExistingFields, powerplantpv_find_invalid_existing_numeric_fields($battery, ProductBattery::getBatteryFields()));
+}
+if ($hasInverterCharacteristics) {
+	$invalidExistingFields = array_merge($invalidExistingFields, powerplantpv_find_invalid_existing_numeric_fields($inverter, ProductInverter::getInverterFields()));
+}
+$invalidExistingFields = array_values(array_unique($invalidExistingFields));
+if (!empty($invalidExistingFields)) {
+	setEventMessages($langs->trans('ProductTechnicalInvalidExistingValues', implode(', ', $invalidExistingFields)), null, 'warnings');
 }
 
 $helpurl = '';
@@ -975,7 +1169,8 @@ if ($hasInverterCharacteristics && $action === 'delete_mppt' && $mpptid > 0) {
 }
 
 if ($hasInverterCharacteristics && $action === 'delete_input' && $inputid > 0 && $mpptid > 0) {
-	$inputToDelete = $inverter->fetchInput($inputid, $mpptid);
+	$mpptToDelete = !empty($inverter->id) ? $inverter->fetchMppt($mpptid, $inverter->id) : null;
+	$inputToDelete = $mpptToDelete ? $inverter->fetchInput($inputid, $mpptid) : null;
 	if ($inputToDelete) {
 		$confirmUrl = $_SERVER['PHP_SELF'].'?id='.$object->id.'&mpptid='.$mpptid.'&inputid='.$inputid.'&token='.newToken();
 		print $form->formconfirm($confirmUrl, $langs->trans('PVInverterDeletePVInput'), $langs->trans('PVInverterConfirmDeletePVInput'), 'confirm_delete_input', '', 0, 1);
@@ -1071,10 +1266,11 @@ if ($isPVPanel) {
 		}
 		print '<div class="warning">'.$langs->trans('TechnicalValueLegacyWarning', implode(', ', $legacyvalues)).'</div>';
 	}
+	powerplantpv_print_technical_dictionary_selections($technicalDictionaryService, $object->id, (int) $object->entity, $editmode);
 	print '<div class="tabsAction">';
 	if (!$editmode) {
 		if ($permissiontoadd) {
-			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_panel', '', true);
+			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_panel&token='.newToken(), '', true);
 		}
 		if ($showTechnicalImportButton) {
 			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-panel', true);
@@ -1109,11 +1305,11 @@ if ($isBattery && !$isBatteryKit) {
 		print '<input type="hidden" name="action" value="save_battery">';
 	}
 	powerplantpv_print_battery_sections($battery, $editmode);
-	powerplantpv_print_battery_attributes($batteryAttributes, $editmode);
+	powerplantpv_print_technical_dictionary_selections($technicalDictionaryService, $object->id, (int) $object->entity, $editmode);
 	print '<div class="tabsAction">';
 	if (!$editmode) {
 		if ($permissiontoadd) {
-			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_battery', '', true);
+			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_battery&token='.newToken(), '', true);
 		}
 		if ($showTechnicalImportButton) {
 			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-battery', true);
@@ -1204,7 +1400,7 @@ if ($isBatteryAccessory && !$isBatteryKit) {
 	print '</table></div>';
 	print '<div class="tabsAction">';
 	if (!$editmode && $permissiontoadd) {
-		print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_accessory', '', true);
+		print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_accessory&token='.newToken(), '', true);
 	} elseif ($editmode) {
 		print '<input type="submit" class="butAction" value="'.$langs->trans('Save').'">';
 		print dolGetButtonAction($langs->trans('Cancel'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id, '', true);
@@ -1236,10 +1432,11 @@ if ($hasInverterCharacteristics) {
 		print '<input type="hidden" name="action" value="save_inverter">';
 	}
 	powerplantpv_print_inverter_general_rows($inverter, $editmode);
+	powerplantpv_print_technical_dictionary_selections($technicalDictionaryService, $object->id, (int) $object->entity, $editmode);
 	print '<div class="tabsAction">';
 	if (!$editmode) {
 		if ($permissiontoadd) {
-			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_inverter', '', true);
+			print dolGetButtonAction($langs->trans('Modify'), '', 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_inverter&token='.newToken(), '', true);
 		}
 		if ($showTechnicalImportButton) {
 			print dolGetButtonAction($langs->trans('ProductTechnicalImportButton'), '', 'default', dol_buildpath('/powerplantpv/product_technical_import.php', 1).'?id='.$object->id, 'producttechnicalimport-btn-inverter', true);
@@ -1262,7 +1459,7 @@ if ($hasInverterCharacteristics) {
 
 	$newMpptButton = '';
 	if ($permissiontoadd) {
-		$newMpptButton = dolGetButtonTitle($langs->trans('PVInverterAddMPPT'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=create_mppt', '', 1);
+		$newMpptButton = dolGetButtonTitle($langs->trans('PVInverterAddMPPT'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=create_mppt&token='.newToken(), '', 1);
 	}
 	print '<a id="mppt"></a>';
 	print load_fiche_titre($langs->trans('PVInverterMPPTComposition'), $newMpptButton, '');
@@ -1274,9 +1471,6 @@ if ($hasInverterCharacteristics) {
 	$editMppt = null;
 	if ($permissiontoadd && $action === 'edit_mppt' && $mpptid > 0 && !empty($inverter->id)) {
 		$editMppt = $inverter->fetchMppt($mpptid, $inverter->id);
-		if ($editMppt) {
-			powerplantpv_print_composition_form('save_mppt', $object->id, $mpptid, 0, $editMppt, ProductInverter::getMpptFields(), (int) $editMppt->position);
-		}
 	}
 
 	if (empty($mppts)) {
@@ -1286,22 +1480,29 @@ if ($hasInverterCharacteristics) {
 			$mpptTitle = $mppt->label ? $mppt->label : $langs->trans('PVInverterMPPT').' '.((int) $mppt->position);
 			$mpptActions = '';
 			if ($permissiontoadd) {
-				$mpptActions .= '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_mppt&mpptid='.$mppt->rowid.'">'.img_edit($langs->trans('Modify'), 0).'</a>';
-				$mpptActions .= ' <a class="reposition marginleftonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delete_mppt&mpptid='.$mppt->rowid.'">'.img_delete($langs->trans('Delete'), 0).'</a>';
+				$mpptActions .= '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_mppt&mpptid='.$mppt->rowid.'&token='.newToken().'">'.img_edit($langs->trans('Modify'), 0).'</a>';
+				$mpptActions .= ' <a class="reposition marginleftonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delete_mppt&mpptid='.$mppt->rowid.'&token='.newToken().'">'.img_delete($langs->trans('Delete'), 0).'</a>';
 			}
 
 			print '<a id="mppt_'.$mppt->rowid.'"></a>';
+			print '<div class="fichecenter">';
+			print '<div class="fichehalfleft">';
 			print load_fiche_titre(dol_escape_htmltag($mpptTitle), $mpptActions, '');
 			print '<table class="noborder centpercent">';
 			foreach (ProductInverter::getMpptFields() as $key => $spec) {
 				powerplantpv_print_field_row($langs->trans($spec['label']), $key, $spec, $mppt, false);
 			}
 			print '</table>';
+			if ($editMppt && $mpptid === (int) $mppt->rowid) {
+				powerplantpv_print_composition_form('save_mppt', $object->id, $mpptid, 0, $editMppt, ProductInverter::getMpptFields(), (int) $editMppt->position);
+			}
+			print '</div>';
 
 			$addInputButton = '';
 			if ($permissiontoadd) {
-				$addInputButton = dolGetButtonTitle($langs->trans('PVInverterAddPVInput'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=create_input&mpptid='.$mppt->rowid, '', 1);
+				$addInputButton = dolGetButtonTitle($langs->trans('PVInverterAddPVInput'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=create_input&mpptid='.$mppt->rowid.'&token='.newToken(), '', 1);
 			}
+			print '<div class="fichehalfright">';
 			print load_fiche_titre($langs->trans('PVInverterPVInputs'), $addInputButton, '');
 
 			if ($permissiontoadd && $action === 'create_input' && $mpptid === (int) $mppt->rowid) {
@@ -1345,14 +1546,17 @@ if ($hasInverterCharacteristics) {
 					print '<td>'.$inputNote.'</td>';
 					print '<td class="right nowrap">';
 					if ($permissiontoadd) {
-						print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_input&mpptid='.$mppt->rowid.'&inputid='.$input->rowid.'">'.img_edit($langs->trans('Modify'), 0).'</a>';
-						print ' <a class="reposition marginleftonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delete_input&mpptid='.$mppt->rowid.'&inputid='.$input->rowid.'">'.img_delete($langs->trans('Delete'), 0).'</a>';
+						print '<a class="reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=edit_input&mpptid='.$mppt->rowid.'&inputid='.$input->rowid.'&token='.newToken().'">'.img_edit($langs->trans('Modify'), 0).'</a>';
+						print ' <a class="reposition marginleftonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=delete_input&mpptid='.$mppt->rowid.'&inputid='.$input->rowid.'&token='.newToken().'">'.img_delete($langs->trans('Delete'), 0).'</a>';
 					}
 					print '</td>';
 					print '</tr>';
 				}
 			}
 			print '</table>';
+			print '</div>';
+			print '</div>';
+			print '<div class="clearboth"></div>';
 			print '</div><br>';
 		}
 	}

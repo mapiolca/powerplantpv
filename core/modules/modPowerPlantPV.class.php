@@ -300,21 +300,33 @@ class modPowerPlantPV extends DolibarrModules
 				'c_powerplantpv_intervention_nature',
 				'c_powerplantpv_maintenance_service',
 				'c_powerplantpv_index_type',
+				'c_powerplantpv_communication_protocol',
+				'c_powerplantpv_certification',
+				'c_powerplantpv_protection',
 			),
 			'tablib' => array(
 				'PhotovoltaicCategoryDictionary',
 				'InterventionNatureDictionary',
 				'MaintenanceServiceDictionary',
 				'IndexTypeDictionary',
+				'PVTechnicalCommunicationProtocolDictionary',
+				'PVTechnicalCertificationDictionary',
+				'PVTechnicalProtectionDictionary',
 			),
 			'tabsql' => array(
 				'SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.$this->db->prefix().'c_powerplantpv_categorypv as f',
 				'SELECT f.rowid as rowid, f.code, f.label, f.report_template_code, f.is_maintenance, f.is_preventive, f.requires_report, f.requires_signature, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_intervention_nature as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_maintenance_service as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.default_unit, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_index_type as f WHERE f.entity = '.((int) $conf->entity),
+				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_communication_protocol as f WHERE f.entity = '.((int) $conf->entity),
+				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_certification as f WHERE f.entity = '.((int) $conf->entity),
+				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_protection as f WHERE f.entity = '.((int) $conf->entity),
 			),
 			'tabsqlsort' => array(
 				'f.label ASC',
+				'f.position ASC, f.label ASC',
+				'f.position ASC, f.label ASC',
+				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
@@ -324,27 +336,42 @@ class modPowerPlantPV extends DolibarrModules
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
 				'code,label,description,default_unit,position',
+				'code,label,description,position',
+				'code,label,description,position',
+				'code,label,description,position',
 			),
 			'tabfieldvalue' => array(
 				'code,label',
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
 				'code,label,description,default_unit,position',
+				'code,label,description,position',
+				'code,label,description,position',
+				'code,label,description,position',
 			),
 			'tabfieldinsert' => array(
 				'code,label',
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
 				'code,label,description,default_unit,position',
+				'code,label,description,position,entity',
+				'code,label,description,position,entity',
+				'code,label,description,position,entity',
 			),
-			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid'),
+			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid'),
 			'tabcond' => array(
+				isModEnabled('powerplantpv'),
+				isModEnabled('powerplantpv'),
+				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 			),
 			'tabhelp' => array(
+				array('code' => $langs->trans('CodeTooltipHelp')),
+				array('code' => $langs->trans('CodeTooltipHelp')),
+				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
@@ -886,7 +913,9 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	public function init($options = '')
 	{
-		global $conf, $langs;
+		global $conf, $langs, $user;
+
+		$langs->loadLangs(array('powerplantpv@powerplantpv'));
 
 		// Create tables of module at module activation
 		//$result = $this->_load_tables('/install/mysql/', 'powerplantpv');
@@ -917,6 +946,21 @@ class modPowerPlantPV extends DolibarrModules
 		}
 		$result = $this->ensureTechnicalValueSchema();
 		if ($result < 0) {
+			return -1;
+		}
+
+		dol_include_once('/powerplantpv/class/powerplantpvproductdictionary.class.php');
+		dol_include_once('/powerplantpv/class/powerplantpvtechnicaldictionarymigration.class.php');
+		$technicalDictionaryService = new PowerPlantPVProductDictionary($this->db);
+		$result = $technicalDictionaryService->seedDefaults($langs, (int) $conf->entity);
+		if ($result < 0) {
+			$this->errors = array_merge($this->errors, $technicalDictionaryService->errors);
+			return -1;
+		}
+		$technicalDictionaryMigration = new PowerPlantPVTechnicalDictionaryMigration($this->db);
+		$result = $technicalDictionaryMigration->migrateOnce((int) $conf->entity, is_object($user) ? (int) $user->id : 0);
+		if ($result < 0) {
+			$this->errors = array_merge($this->errors, $technicalDictionaryMigration->errors);
 			return -1;
 		}
 
@@ -2369,17 +2413,16 @@ class modPowerPlantPV extends DolibarrModules
 	{
 		$extrafields->fetch_name_optionals_label($elementtype);
 
-		$moreparams = array(
-			'css' => 'maxwidth100 right',
-			'csslist' => 'right',
-			'cssview' => 'right',
-		);
+		$moreparams = array();
 
 		$method = 'addExtraField';
 		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_peak_power'])) {
 			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power'] : '';
 			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power'] : '';
-			if ($currenttype === 'double' && $currentsize === '24,8') {
+			$currentcss = !empty($extrafields->attributes[$elementtype]['css']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['css']['powerplantpv_peak_power'] : '';
+			$currentcsslist = !empty($extrafields->attributes[$elementtype]['csslist']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['csslist']['powerplantpv_peak_power'] : '';
+			$currentcssview = !empty($extrafields->attributes[$elementtype]['cssview']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['cssview']['powerplantpv_peak_power'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8' && $currentcss === '' && $currentcsslist === '' && $currentcssview === '') {
 				return 1;
 			}
 
@@ -2427,12 +2470,15 @@ class modPowerPlantPV extends DolibarrModules
 	private function ensureCommercialStorageCapacityExtrafield($extrafields, $elementtype)
 	{
 		$extrafields->fetch_name_optionals_label($elementtype);
-		$moreparams = array('css' => 'maxwidth100 right', 'csslist' => 'right', 'cssview' => 'right');
+		$moreparams = array();
 		$method = 'addExtraField';
 		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_storage_capacity'])) {
 			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity'] : '';
 			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity'] : '';
-			if ($currenttype === 'double' && $currentsize === '24,8') {
+			$currentcss = !empty($extrafields->attributes[$elementtype]['css']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['css']['powerplantpv_storage_capacity'] : '';
+			$currentcsslist = !empty($extrafields->attributes[$elementtype]['csslist']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['csslist']['powerplantpv_storage_capacity'] : '';
+			$currentcssview = !empty($extrafields->attributes[$elementtype]['cssview']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['cssview']['powerplantpv_storage_capacity'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8' && $currentcss === '' && $currentcsslist === '' && $currentcssview === '') {
 				return 1;
 			}
 			$method = 'updateExtraField';

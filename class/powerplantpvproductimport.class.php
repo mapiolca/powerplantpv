@@ -25,6 +25,7 @@ dol_include_once('/powerplantpv/class/productinverter.class.php');
 dol_include_once('/powerplantpv/class/productbattery.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvproductdatasource.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvproductdictionary.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 
@@ -108,7 +109,9 @@ class PowerPlantPVProductImport
 	 */
 	public static function getInverterImportFields()
 	{
-		return array_keys(ProductInverter::getInverterFields());
+		$fields = array_keys(ProductInverter::getInverterFields());
+		$legacy = array('communication_interfaces', 'certifications', 'dc_spd', 'ac_spd');
+		return array_values(array_diff($fields, $legacy));
 	}
 
 	/** @return array<int,string> Battery scalar fields */
@@ -117,16 +120,22 @@ class PowerPlantPVProductImport
 		return array_keys(ProductBattery::getBatteryFields());
 	}
 
-	/** @return array<int,string> Repeated normalized battery attribute fields */
-	public static function getBatteryAttributeTemplateFields()
+	/** @return array<int,string> Repeated normalized technical dictionary fields */
+	public static function getTechnicalDictionaryTemplateFields()
 	{
 		$fields = array();
-		foreach (array('protocol' => 4, 'protection' => 6, 'certification' => 6) as $prefix => $count) {
-			for ($i = 1; $i <= $count; $i++) {
+		foreach (array('communication_protocol', 'certification', 'protection') as $prefix) {
+			for ($i = 1; $i <= 8; $i++) {
 				$fields[] = $prefix.'_'.$i;
 			}
 		}
 		return $fields;
+	}
+
+	/** @return array<int,string> Backward-compatible alias */
+	public static function getBatteryAttributeTemplateFields()
+	{
+		return self::getTechnicalDictionaryTemplateFields();
 	}
 
 	/**
@@ -176,8 +185,114 @@ class PowerPlantPVProductImport
 			'backup_transfer_time' => 'ms', 'backup_max_current' => 'A', 'max_unbalanced_output' => '%',
 			'max_efficiency' => '%', 'european_efficiency' => '%', 'dc_switch' => '0/1', 'afci' => '0/1', 'pid_recovery' => '0/1', 'anti_islanding' => '0/1',
 			'dc_reverse_polarity_protection' => '0/1', 'insulation_monitoring' => '0/1', 'residual_current_monitoring' => '0/1', 'max_altitude' => 'm',
+			'operating_temperature' => '°C', 'relative_humidity' => '%', 'noise' => 'dB(A)', 'night_consumption' => 'W',
 		);
 		return isset($inverterunits[$field]) ? $inverterunits[$field] : 'text';
+	}
+
+	/**
+	 * Return the canonical import metadata for one technical field.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function getImportFieldDefinition($type, $field)
+	{
+		if (preg_match('/^(communication_protocol|certification|protection)_[0-9]+$/D', $field, $matches)) {
+			return array(
+				'field' => $field,
+				'family' => $type,
+				'type' => 'multiselect2',
+				'unit' => '',
+				'cardinality' => '0..N',
+				'format' => 'CODE|Libellé',
+				'source' => (string) $matches[1],
+				'options' => array(),
+			);
+		}
+
+		$legacyunits = array(
+			'_legacy_power_tolerance' => '%', '_legacy_operating_temperature' => '°C',
+			'_legacy_ac_voltage' => 'V', '_legacy_grid_frequency' => 'Hz', '_legacy_power_factor' => 'ratio',
+			'_legacy_thd' => '%', '_legacy_backup_voltage' => 'V', '_legacy_backup_thd' => '%',
+			'_legacy_relative_humidity' => '%', '_legacy_noise' => 'dB(A)',
+		);
+		$islegacycompact = isset($legacyunits[$field]);
+		$rawtype = $islegacycompact ? 'varchar' : 'double';
+		$options = array();
+		if ($type === 'module' && in_array($field, array('modules_per_box', 'modules_per_container40'), true)) {
+			$rawtype = 'int';
+		}
+		if ($type === 'battery') {
+			$fields = ProductBattery::getBatteryFields();
+			$spec = isset($fields[$field]) ? $fields[$field] : array();
+			$rawtype = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$options = isset($spec['options']) && is_array($spec['options']) ? $spec['options'] : array();
+		} elseif ($type === 'inverter' && !$islegacycompact) {
+			$fields = ProductInverter::getInverterFields();
+			$spec = isset($fields[$field]) ? $fields[$field] : array();
+			$rawtype = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			if (!empty($spec['numeric']) && !in_array($rawtype, array('double', 'int'), true)) {
+				$rawtype = 'double';
+			}
+		}
+
+		$datatype = 'text';
+		if ($rawtype === 'double') {
+			$datatype = 'decimal';
+		} elseif ($rawtype === 'int') {
+			$datatype = 'integer';
+		} elseif ($rawtype === 'bool') {
+			$datatype = 'boolean';
+		} elseif ($rawtype === 'select') {
+			$datatype = 'select2';
+		}
+
+		$unit = self::getImportFieldUnit($type, $field);
+		if ((!$islegacycompact && in_array($datatype, array('text', 'select2', 'boolean'), true)) || $unit === 'text' || $unit === '0/1') {
+			$unit = '';
+		}
+		$formats = array('decimal' => 'SIGNED_DECIMAL', 'integer' => 'SIGNED_INTEGER', 'boolean' => '0|1', 'text' => 'TEXT', 'select2' => 'CODE');
+		$format = $islegacycompact ? 'COMPACT_TECHNICAL_VALUE' : (isset($formats[$datatype]) ? $formats[$datatype] : '');
+
+		return array(
+			'field' => $field,
+			'family' => $type,
+			'type' => $datatype,
+			'unit' => $unit,
+			'cardinality' => '0..1',
+			'format' => $format,
+			'source' => $datatype === 'select2' ? $field : '',
+			'options' => $options,
+		);
+	}
+
+	/**
+	 * Return the canonical import metadata for one native product field.
+	 *
+	 * @param string $field Native import field
+	 * @return array<string,string>
+	 */
+	public static function getNativeProductImportFieldDefinition($field)
+	{
+		$selects = array('category_code' => 'category_code', 'price_base_type' => 'price_base_type', 'barcode_type_code' => 'barcode_type_code', 'weight_unit' => 'weight_unit', 'size_unit' => 'size_unit');
+		$booleans = array('status_sell', 'status_buy');
+		$decimals = array('price', 'vat_rate', 'weight', 'length', 'width', 'height');
+		$cardinality = in_array($field, array('ref', 'category_code'), true) ? '1' : '0..1';
+		if (isset($selects[$field])) {
+			return array('type' => 'select2', 'cardinality' => $cardinality, 'format' => 'CODE', 'source' => $selects[$field]);
+		}
+		if (in_array($field, $booleans, true)) {
+			return array('type' => 'boolean', 'cardinality' => $cardinality, 'format' => '0|1', 'source' => 'boolean');
+		}
+		if (in_array($field, $decimals, true)) {
+			return array('type' => 'decimal', 'unit' => $field === 'vat_rate' ? '%' : '', 'cardinality' => $cardinality, 'format' => 'SIGNED_DECIMAL', 'source' => 'product');
+		}
+		return array(
+			'type' => 'text',
+			'cardinality' => $cardinality,
+			'format' => $field === 'ref' ? 'REFERENCE' : 'TEXT',
+			'source' => 'product',
+		);
 	}
 
 	/**
@@ -189,7 +304,18 @@ class PowerPlantPVProductImport
 	 */
 	public static function getTemplateHeader($type, $field)
 	{
-		return $field.' ['.self::getImportFieldUnit($type, $field).']';
+		$definition = self::getImportFieldDefinition($type, $field);
+		$parts = array('type='.$definition['type']);
+		if ((string) $definition['unit'] !== '') {
+			$parts[] = 'unit='.$definition['unit'];
+		}
+		if ((string) $definition['format'] !== '') {
+			$parts[] = 'format='.$definition['format'];
+		}
+		if ((string) $definition['source'] !== '') {
+			$parts[] = 'source='.$definition['source'];
+		}
+		return $field.' ['.implode('; ', $parts).']';
 	}
 
 	/**
@@ -328,15 +454,17 @@ class PowerPlantPVProductImport
 	 * @param int                 $fkProduct      Product id
 	 * @param array<string,mixed> $normalizedData Normalized data
 	 * @param string              $strategy       Import strategy
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
 	 * @return array<string,mixed> Preview data
 	 */
-	public function previewModuleImport($fkProduct, array $normalizedData, $strategy)
+	public function previewModuleImport($fkProduct, array $normalizedData, $strategy, array $dictionaryResolutions = array())
 	{
 		$this->resetErrors();
 
 		$current = $this->fetchPvPanel($fkProduct);
 		$fields = (isset($normalizedData['_dataset']) && in_array($normalizedData['_dataset'], array('cecmodule', 'pvmodule'), true)) ? self::getPVFreeModuleImportFields() : self::getModuleImportFields();
-		return $this->buildPreview($fields, $current, $normalizedData, $strategy);
+		$preview = $this->buildPreview($fields, $current, $normalizedData, $strategy);
+		return $this->appendTechnicalDictionaryPreview($preview, $fkProduct, $normalizedData, $strategy, $dictionaryResolutions);
 	}
 
 	/**
@@ -345,9 +473,10 @@ class PowerPlantPVProductImport
 	 * @param int                 $fkProduct      Product id
 	 * @param array<string,mixed> $normalizedData Normalized data
 	 * @param string              $strategy       Import strategy
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
 	 * @return array<string,mixed> Preview data
 	 */
-	public function previewInverterImport($fkProduct, array $normalizedData, $strategy)
+	public function previewInverterImport($fkProduct, array $normalizedData, $strategy, array $dictionaryResolutions = array())
 	{
 		$this->resetErrors();
 
@@ -364,6 +493,7 @@ class PowerPlantPVProductImport
 		$fields = (isset($normalizedData['_dataset']) && $normalizedData['_dataset'] === 'pvinverter') ? self::getPVFreeInverterImportFields() : self::getInverterImportFields();
 		$preview = $this->buildPreview($fields, $current, $normalizedData, $strategy);
 		$preview = array_merge($preview, $this->buildMpptCompositionPreview($fkProduct, $normalizedData, $strategy));
+		$preview = $this->appendTechnicalDictionaryPreview($preview, $fkProduct, $normalizedData, $strategy, $dictionaryResolutions);
 
 		return $preview;
 	}
@@ -374,9 +504,10 @@ class PowerPlantPVProductImport
 	 * @param int $fkProduct Product id
 	 * @param array<string,mixed> $normalizedData Normalized data
 	 * @param string $strategy Import strategy
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
 	 * @return array<string,mixed> Preview data
 	 */
-	public function previewBatteryImport($fkProduct, array $normalizedData, $strategy)
+	public function previewBatteryImport($fkProduct, array $normalizedData, $strategy, array $dictionaryResolutions = array())
 	{
 		$this->resetErrors();
 		$battery = new ProductBattery($this->db);
@@ -389,11 +520,155 @@ class PowerPlantPVProductImport
 			$current->rowid = $battery->id;
 		}
 		$preview = $this->buildPreview(self::getBatteryImportFields(), $current, $normalizedData, $strategy);
-		$attributepreview = $this->buildBatteryAttributePreview($battery, $normalizedData, $strategy, $result > 0);
-		$preview['changes'] = array_merge($preview['changes'], $attributepreview['changes']);
-		$preview['ignored'] = array_merge($preview['ignored'], $attributepreview['ignored']);
-		$preview['battery_attribute_apply'] = $attributepreview['apply'];
+		return $this->appendTechnicalDictionaryPreview($preview, $fkProduct, $normalizedData, $strategy, $dictionaryResolutions);
+	}
+
+	/**
+	 * Validate and append normalized dictionary selections to a preview.
+	 *
+	 * @param array<string,mixed> $preview Existing preview
+	 * @param int $fkProduct Product identifier
+	 * @param array<string,mixed> $normalizedData Normalized import data
+	 * @param string $strategy Overwrite strategy
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
+	 * @return array<string,mixed>
+	 */
+	protected function appendTechnicalDictionaryPreview(array $preview, $fkProduct, array $normalizedData, $strategy, array $dictionaryResolutions = array())
+	{
+		$groups = isset($normalizedData['_technical_dictionary_codes']) && is_array($normalizedData['_technical_dictionary_codes']) ? $normalizedData['_technical_dictionary_codes'] : array();
+		$preview['technical_dictionary_apply'] = array();
+		$preview['technical_dictionary_issues'] = array();
+		$preview['technical_dictionary_warnings'] = array();
+		$preview['requires_dictionary_resolution'] = false;
+		if (empty($groups)) {
+			return $preview;
+		}
+
+		$entity = $this->fetchProductEntity($fkProduct);
+		if ($entity <= 0) {
+			return $preview;
+		}
+		$service = new PowerPlantPVProductDictionary($this->db);
+		$strategy = $this->sanitizeStrategy($strategy);
+		foreach ($groups as $type => $values) {
+			if (!is_array($values) || !isset(PowerPlantPVProductDictionary::getDefinitions()[$type])) {
+				continue;
+			}
+			$plan = $service->buildImportResolutionPlan($type, $values, $entity, $dictionaryResolutions);
+			if ($plan === false) {
+				$this->error = $service->error;
+				$this->errors = array_merge($this->errors, $service->errors);
+				return $preview;
+			}
+			$preview['technical_dictionary_issues'] = array_replace($preview['technical_dictionary_issues'], (array) $plan['issues']);
+			$preview['technical_dictionary_warnings'] = array_merge($preview['technical_dictionary_warnings'], (array) $plan['warnings']);
+			if (empty($plan['complete'])) {
+				$preview['requires_dictionary_resolution'] = true;
+				continue;
+			}
+
+			$currentIds = $service->fetchSelectedIds($fkProduct, $type, $entity);
+			$codeMap = $service->fetchCodeMap($type, $entity, true);
+			if ($service->error !== '') {
+				$this->error = $service->error;
+				$this->errors = array_merge($this->errors, $service->errors);
+				return $preview;
+			}
+			$idToCode = array();
+			foreach ($codeMap as $dictionaryCode => $dictionaryEntry) {
+				$idToCode[(int) $dictionaryEntry['id']] = (string) $dictionaryCode;
+			}
+			$proposedIds = array_map('intval', (array) $plan['ids']);
+			sort($currentIds);
+			sort($proposedIds);
+			$key = 'technical_dictionary_'.$type;
+			$currentDisplay = implode(', ', array_map(static function ($id) use ($idToCode) {
+				return isset($idToCode[(int) $id]) ? $idToCode[(int) $id] : '#'.((int) $id);
+			}, $currentIds));
+			$proposedDisplay = implode(', ', (array) $plan['codes']);
+			if (!empty($plan['preserve_existing'])) {
+				$preview['ignored'][$key] = array('current' => $currentDisplay, 'proposed' => '', 'reason' => 'PowerPlantPVTechnicalDictionaryIgnoredPreserveExisting');
+				continue;
+			}
+			if (($strategy === self::STRATEGY_NEVER && !empty($currentIds)) || ($strategy === self::STRATEGY_EMPTY_ONLY && !empty($currentIds))) {
+				$preview['ignored'][$key] = array('current' => $currentDisplay, 'proposed' => $proposedDisplay, 'reason' => ($strategy === self::STRATEGY_NEVER ? 'PVFreeOverwriteNever' : 'PVFreeExistingValueKept'));
+				continue;
+			}
+			if ($currentIds === $proposedIds && empty($plan['create'])) {
+				$preview['ignored'][$key] = array('current' => $currentDisplay, 'proposed' => $proposedDisplay, 'reason' => 'PVFreeSameValue');
+				continue;
+			}
+			$preview['changes'][$key] = array('current' => $currentDisplay, 'proposed' => $proposedDisplay);
+			$preview['technical_dictionary_apply'][$type] = $plan;
+		}
+
 		return $preview;
+	}
+
+	/**
+	 * Apply dictionary selections included in a validated preview.
+	 *
+	 * @param int $fkProduct Product identifier
+	 * @param array<string,mixed> $preview Validated preview
+	 * @param User $user Acting user
+	 * @return int
+	 */
+	protected function applyTechnicalDictionaryPreview($fkProduct, array $preview, User $user)
+	{
+		$apply = isset($preview['technical_dictionary_apply']) && is_array($preview['technical_dictionary_apply']) ? $preview['technical_dictionary_apply'] : array();
+		if (empty($apply)) {
+			return 0;
+		}
+		$entity = $this->fetchProductEntity($fkProduct);
+		if ($entity <= 0) {
+			return -1;
+		}
+		$service = new PowerPlantPVProductDictionary($this->db);
+		$selections = array();
+		foreach ($apply as $type => $plan) {
+			if (!is_array($plan)) {
+				continue;
+			}
+			$ids = array_map('intval', isset($plan['ids']) && is_array($plan['ids']) ? $plan['ids'] : array());
+			foreach (isset($plan['create']) && is_array($plan['create']) ? $plan['create'] : array() as $creation) {
+				if (!is_array($creation)) {
+					continue;
+				}
+				$id = $service->createOrFetchImportedValue($type, isset($creation['code']) ? $creation['code'] : '', isset($creation['label']) ? $creation['label'] : '', $entity, $user);
+				if ($id <= 0) {
+					$this->error = $service->error;
+					$this->errors = array_merge($this->errors, $service->errors);
+					return -1;
+				}
+				$ids[] = $id;
+			}
+			$selections[$type] = array_values(array_unique(array_filter($ids)));
+		}
+		$result = $service->replaceSelections($fkProduct, $entity, $selections, $user, false);
+		if ($result < 0) {
+			$this->error = $service->error;
+			$this->errors = array_merge($this->errors, $service->errors);
+			return -1;
+		}
+		return 1;
+	}
+
+	/** @return int */
+	protected function fetchProductEntity($fkProduct)
+	{
+		$sql = 'SELECT entity FROM '.$this->db->prefix().'product WHERE rowid = '.((int) $fkProduct).' AND fk_product_type = 0';
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->setError($this->db->lasterror());
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!$obj) {
+			$this->setError('PowerPlantPVTechnicalDictionaryInvalidProduct');
+			return -1;
+		}
+		return (int) $obj->entity;
 	}
 
 	/**
@@ -487,12 +762,18 @@ class PowerPlantPVProductImport
 	 * @param User                $user           Current user
 	 * @param string              $strategy       Import strategy
 	 * @param array<string,mixed> $sourceData     Optional source trace data
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
+	 * @param bool $manageTransaction Let this importer own the transaction
 	 * @return array<string,mixed> Result data
 	 */
-	public function importModuleToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array())
+	public function importModuleToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array(), array $dictionaryResolutions = array(), $manageTransaction = true)
 	{
 		$isgenericimport = !empty($sourceData) && (!isset($sourceData['source']) || $sourceData['source'] !== 'pvfree');
-		$preview = $this->previewModuleImport($fkProduct, $normalizedData, $strategy);
+		$preview = $this->previewModuleImport($fkProduct, $normalizedData, $strategy, $dictionaryResolutions);
+		if (!empty($preview['requires_dictionary_resolution'])) {
+			$this->setError('PowerPlantPVTechnicalDictionaryResolutionRequired');
+			return array('result' => -1, 'preview' => $preview);
+		}
 		if ($this->error) {
 			return array('result' => -1, 'preview' => $preview);
 		}
@@ -500,11 +781,18 @@ class PowerPlantPVProductImport
 			return array('result' => 0, 'preview' => $preview, 'message' => ($isgenericimport ? 'ProductTechnicalImportNoFieldToImport' : 'PVFreeNoFieldToImport'));
 		}
 
-		$this->db->begin();
+		if ($manageTransaction) {
+			$this->db->begin();
+		}
 
 		$result = $this->savePvPanelChanges($fkProduct, $preview['changes']);
 		if ($result < 0) {
-			$this->db->rollback();
+			if ($manageTransaction) { $this->db->rollback(); }
+			return array('result' => -1, 'preview' => $preview);
+		}
+		$result = $this->applyTechnicalDictionaryPreview($fkProduct, $preview, $user);
+		if ($result < 0) {
+			if ($manageTransaction) { $this->db->rollback(); }
 			return array('result' => -1, 'preview' => $preview);
 		}
 
@@ -513,7 +801,7 @@ class PowerPlantPVProductImport
 		}
 		$result = $this->saveDataSource($fkProduct, $sourceData, $rawData, $normalizedData, $user);
 		if ($result < 0) {
-			$this->db->rollback();
+			if ($manageTransaction) { $this->db->rollback(); }
 			return array('result' => -1, 'preview' => $preview);
 		}
 
@@ -528,12 +816,12 @@ class PowerPlantPVProductImport
 					$this->errors[] = 'PowerPlantPVPeakPowerRecalculationFailed';
 				}
 				$this->error = ($isgenericimport ? 'ProductTechnicalImportPartial' : 'PVFreeImportPartial');
-				$this->db->rollback();
+				if ($manageTransaction) { $this->db->rollback(); }
 				return array('result' => -1, 'preview' => $preview);
 			}
 		}
 
-		$this->db->commit();
+		if ($manageTransaction) { $this->db->commit(); }
 
 		return array('result' => 1, 'preview' => $preview);
 	}
@@ -547,12 +835,18 @@ class PowerPlantPVProductImport
 	 * @param User                $user           Current user
 	 * @param string              $strategy       Import strategy
 	 * @param array<string,mixed> $sourceData     Optional source trace data
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
+	 * @param bool $manageTransaction Let this importer own the transaction
 	 * @return array<string,mixed> Result data
 	 */
-	public function importInverterToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array())
+	public function importInverterToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array(), array $dictionaryResolutions = array(), $manageTransaction = true)
 	{
 		$isgenericimport = !empty($sourceData) && (!isset($sourceData['source']) || $sourceData['source'] !== 'pvfree');
-		$preview = $this->previewInverterImport($fkProduct, $normalizedData, $strategy);
+		$preview = $this->previewInverterImport($fkProduct, $normalizedData, $strategy, $dictionaryResolutions);
+		if (!empty($preview['requires_dictionary_resolution'])) {
+			$this->setError('PowerPlantPVTechnicalDictionaryResolutionRequired');
+			return array('result' => -1, 'preview' => $preview);
+		}
 		if ($this->error) {
 			return array('result' => -1, 'preview' => $preview);
 		}
@@ -561,12 +855,14 @@ class PowerPlantPVProductImport
 			return array('result' => 0, 'preview' => $preview, 'message' => ($isgenericimport ? 'ProductTechnicalImportNoFieldToImport' : 'PVFreeNoFieldToImport'));
 		}
 
-		$this->db->begin();
+		if ($manageTransaction) {
+			$this->db->begin();
+		}
 
 		if (!empty($preview['changes'])) {
 			$result = $this->saveInverterChanges($fkProduct, $preview['changes'], $user);
 			if ($result < 0) {
-				$this->db->rollback();
+				if ($manageTransaction) { $this->db->rollback(); }
 				return array('result' => -1, 'preview' => $preview);
 			}
 		}
@@ -574,9 +870,14 @@ class PowerPlantPVProductImport
 		if ($hasmpptchanges) {
 			$result = $this->saveMpptCompositionChanges($fkProduct, $normalizedData, $user, $strategy);
 			if ($result < 0) {
-				$this->db->rollback();
+				if ($manageTransaction) { $this->db->rollback(); }
 				return array('result' => -1, 'preview' => $preview);
 			}
+		}
+		$result = $this->applyTechnicalDictionaryPreview($fkProduct, $preview, $user);
+		if ($result < 0) {
+			if ($manageTransaction) { $this->db->rollback(); }
+			return array('result' => -1, 'preview' => $preview);
 		}
 
 		if (empty($sourceData)) {
@@ -584,11 +885,11 @@ class PowerPlantPVProductImport
 		}
 		$result = $this->saveDataSource($fkProduct, $sourceData, $rawData, $normalizedData, $user);
 		if ($result < 0) {
-			$this->db->rollback();
+			if ($manageTransaction) { $this->db->rollback(); }
 			return array('result' => -1, 'preview' => $preview);
 		}
 
-		$this->db->commit();
+		if ($manageTransaction) { $this->db->commit(); }
 
 		$resultdata = array('result' => 1, 'preview' => $preview);
 		if (empty($normalizedData['_mppt_composition'])) {
@@ -609,15 +910,20 @@ class PowerPlantPVProductImport
 	 * @param User $user Current user
 	 * @param string $strategy Import strategy
 	 * @param array<string,mixed> $sourceData Source trace
+	 * @param array<string,array<string,mixed>> $dictionaryResolutions Trusted dictionary decisions
+	 * @param bool $manageTransaction Let this importer own the transaction
 	 * @return array<string,mixed> Result data
 	 */
-	public function importBatteryToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array())
+	public function importBatteryToProduct($fkProduct, array $normalizedData, array $rawData, User $user, $strategy, array $sourceData = array(), array $dictionaryResolutions = array(), $manageTransaction = true)
 	{
-		$preview = $this->previewBatteryImport($fkProduct, $normalizedData, $strategy);
+		$preview = $this->previewBatteryImport($fkProduct, $normalizedData, $strategy, $dictionaryResolutions);
+		if (!empty($preview['requires_dictionary_resolution'])) {
+			$this->setError('PowerPlantPVTechnicalDictionaryResolutionRequired');
+			return array('result' => -1, 'preview' => $preview);
+		}
 		if ($this->error) {
 			return array('result' => -1, 'preview' => $preview);
 		}
-		$attributeapply = isset($preview['battery_attribute_apply']) && is_array($preview['battery_attribute_apply']) ? $preview['battery_attribute_apply'] : array();
 		if (empty($preview['changes'])) {
 			return array('result' => 0, 'preview' => $preview, 'message' => 'ProductTechnicalImportNoFieldToImport');
 		}
@@ -637,38 +943,27 @@ class PowerPlantPVProductImport
 			}
 		}
 
-		$this->db->begin();
+		if ($manageTransaction) {
+			$this->db->begin();
+		}
 		$result = $battery->saveForProduct($fkProduct, $data, $user);
 		if ($result < 0) {
-			$this->db->rollback();
+			if ($manageTransaction) { $this->db->rollback(); }
 			$this->setError($battery->error);
 			return array('result' => -1, 'preview' => $preview);
 		}
-		if (!empty($attributeapply)) {
-			$currentattributes = $battery->fetchAttributes($battery->id);
-			if ($battery->error !== '') {
-				$this->db->rollback();
-				$this->setError($battery->error);
-				return array('result' => -1, 'preview' => $preview);
-			}
-			$mergedattributes = array();
-			foreach (ProductBattery::getAttributeTypeOptions() as $type => $label) {
-				$mergedattributes[$type] = isset($attributeapply[$type]) ? $attributeapply[$type] : $this->normalizeBatteryAttributeObjects(isset($currentattributes[$type]) ? $currentattributes[$type] : array());
-			}
-			$result = $battery->replaceAttributes($battery->id, $mergedattributes);
-			if ($result < 0) {
-				$this->db->rollback();
-				$this->setError($battery->error);
-				return array('result' => -1, 'preview' => $preview);
-			}
+		$result = $this->applyTechnicalDictionaryPreview($fkProduct, $preview, $user);
+		if ($result < 0) {
+			if ($manageTransaction) { $this->db->rollback(); }
+			return array('result' => -1, 'preview' => $preview);
 		}
 		$result = $this->saveDataSource($fkProduct, $sourceData, $rawData, $normalizedData, $user);
 		if ($result < 0 || powerplantpvRecalculateCommercialDocumentStorageCapacityForProduct($fkProduct) < 0) {
-			$this->db->rollback();
+			if ($manageTransaction) { $this->db->rollback(); }
 			$this->setError('PowerPlantPVStorageCapacityRecalculationFailed');
 			return array('result' => -1, 'preview' => $preview);
 		}
-		$this->db->commit();
+		if ($manageTransaction) { $this->db->commit(); }
 		return array('result' => 1, 'preview' => $preview);
 	}
 
@@ -968,7 +1263,11 @@ class PowerPlantPVProductImport
 
 		if ($current && !empty($current->rowid)) {
 			$sets = array();
+			$allowedFields = array_flip(self::getModuleImportFields());
 			foreach ($changes as $field => $change) {
+				if (!isset($allowedFields[$field])) {
+					continue;
+				}
 				$sets[] = $this->db->sanitize($field).' = '.$this->sqlFloatValue($change['proposed']);
 			}
 			if (empty($sets)) {
@@ -981,9 +1280,16 @@ class PowerPlantPVProductImport
 		} else {
 			$cols = array('fk_product', 'entity');
 			$vals = array((int) $fkProduct, (int) $conf->entity);
+			$allowedFields = array_flip(self::getModuleImportFields());
 			foreach ($changes as $field => $change) {
+				if (!isset($allowedFields[$field])) {
+					continue;
+				}
 				$cols[] = $this->db->sanitize($field);
 				$vals[] = $this->sqlFloatValue($change['proposed']);
+			}
+			if (count($cols) === 2) {
+				return 0;
 			}
 			$sql = 'INSERT INTO '.$this->db->prefix().'powerplantpv_product_pvpanel';
 			$sql .= ' ('.implode(', ', $cols).') VALUES ('.implode(', ', $vals).')';
@@ -1021,6 +1327,9 @@ class PowerPlantPVProductImport
 			$data[$field] = ($result > 0 && array_key_exists($field, $inverter->data)) ? $inverter->data[$field] : null;
 		}
 		foreach ($changes as $field => $change) {
+			if (!isset(ProductInverter::getInverterFields()[$field])) {
+				continue;
+			}
 			$data[$field] = $change['proposed'];
 		}
 
@@ -1369,7 +1678,7 @@ class PowerPlantPVProductImport
 			return 'null';
 		}
 
-		return (string) price2num($value, 'MT');
+		return (string) ((float) $value);
 	}
 
 	/**

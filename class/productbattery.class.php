@@ -7,6 +7,8 @@
  * (at your option) any later version.
  */
 
+require_once dirname(__DIR__).'/lib/powerplantpv.lib.php';
+
 /**
  * Technical battery data attached to a native Dolibarr product.
  */
@@ -180,6 +182,19 @@ class ProductBattery
 	 */
 	public function saveForProduct($fkProduct, array $data, User $user)
 	{
+		foreach (self::getBatteryFields() as $field => $spec) {
+			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$value = array_key_exists($field, $data) ? $data[$field] : null;
+			if (!in_array($type, array('double', 'int'), true) || $value === null || $value === '') {
+				continue;
+			}
+			$normalized = powerplantpvParseTechnicalNumber($value, $type === 'int');
+			if ($normalized === null) {
+				return $this->setError('ProductTechnicalNumericValueRequired');
+			}
+			$data[$field] = $normalized;
+		}
+
 		$noisecomparator = isset($data['noise_comparator']) ? PowerPlantPVTechnicalValue::normalizeComparator($data['noise_comparator']) : '';
 		$noiseisset = isset($data['noise']) && $data['noise'] !== '' && $data['noise'] !== null;
 		if (($noisecomparator === '' && $noiseisset) || ($noisecomparator !== '' && !$noiseisset)) {

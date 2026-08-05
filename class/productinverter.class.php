@@ -15,6 +15,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+require_once dirname(__DIR__).'/lib/powerplantpv.lib.php';
+
 /**
  * \file       htdocs/powerplantpv/class/productinverter.class.php
  * \ingroup    powerplantpv
@@ -143,7 +145,7 @@ class ProductInverter
 			'noise_comparator' => array('label' => 'TechnicalValueComparator', 'type' => 'select', 'unit' => 'code', 'group' => 'noise', 'role' => 'comparator', 'options' => PowerPlantPVTechnicalValue::getComparatorSymbols()),
 			'noise_value' => array('label' => 'TechnicalValueValue', 'type' => 'double', 'unit' => 'dB(A)', 'group' => 'noise', 'role' => 'value'),
 			'topology' => array('label' => 'PVInverterTopology', 'type' => 'varchar'),
-			'night_consumption' => array('label' => 'PVInverterNightConsumption', 'type' => 'varchar'),
+			'night_consumption' => array('label' => 'PVInverterNightConsumption', 'type' => 'varchar', 'numeric' => 1),
 			'display_type' => array('label' => 'PVInverterDisplayType', 'type' => 'varchar'),
 			'communication_interfaces' => array('label' => 'PVInverterCommunicationInterfaces', 'type' => 'varchar'),
 			'dc_connector' => array('label' => 'PVInverterDCConnector', 'type' => 'varchar'),
@@ -272,6 +274,10 @@ class ProductInverter
 	 */
 	public function saveForProduct($fkProduct, array $data, User $user)
 	{
+		if (!$this->validateNumericData(self::getInverterFields(), $data)) {
+			return -1;
+		}
+
 		foreach (array(
 			array('ac_voltage_min', 'ac_voltage_nominal', 'ac_voltage_max'),
 			array('grid_frequency_min', 'grid_frequency_nominal', 'grid_frequency_max'),
@@ -399,6 +405,10 @@ class ProductInverter
 	public function saveMppt($fkInverter, $mpptId, array $data)
 	{
 		global $conf;
+
+		if (!$this->validateNumericData(self::getMpptFields(), $data)) {
+			return -1;
+		}
 
 		if ($mpptId > 0) {
 			$sets = $this->buildSetSql(self::getMpptFields(), $data);
@@ -549,6 +559,10 @@ class ProductInverter
 	{
 		global $conf;
 
+		if (!$this->validateNumericData(self::getPvInputFields(), $data)) {
+			return -1;
+		}
+
 		if ($inputId > 0) {
 			$sets = $this->buildSetSql(self::getPvInputFields(), $data);
 			$sql = 'UPDATE '.$this->db->prefix().'powerplantpv_product_inverter_pvinput';
@@ -609,9 +623,39 @@ class ProductInverter
 	}
 
 	/**
+	 * Reject non-numeric values for technical measurements.
+	 *
+	 * Values are normalized at the UI/import boundary. This guard also protects
+	 * direct class consumers from silently casting text to zero.
+	 *
+	 * @param array<string,array<string,mixed>> $fields Field specs
+	 * @param array<string,mixed>                $data   Field values, normalized in place
+	 * @return bool True when all numeric values are valid
+	 */
+	protected function validateNumericData(array $fields, array &$data)
+	{
+		foreach ($fields as $key => $spec) {
+			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$isnumeric = ($type === 'double' || $type === 'int' || !empty($spec['numeric']));
+			$value = array_key_exists($key, $data) ? $data[$key] : null;
+			if (!$isnumeric || $value === null || $value === '') {
+				continue;
+			}
+			$normalized = powerplantpvParseTechnicalNumber($value, $type === 'int');
+			if ($normalized === null) {
+				$this->setError('ProductTechnicalNumericValueRequired');
+				return false;
+			}
+			$data[$key] = $normalized;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Build SQL SET parts.
 	 *
-	 * @param array<string,array<string,string>> $fields Field specs
+	 * @param array<string,array<string,mixed>> $fields Field specs
 	 * @param array<string,mixed>                $data   Field values
 	 * @return array<int,string>
 	 */
@@ -641,7 +685,7 @@ class ProductInverter
 			return (string) ((int) $value);
 		}
 		if ($type === 'double') {
-			return (string) price2num($value, 'MT');
+			return (string) ((float) $value);
 		}
 
 		return "'".$this->db->escape((string) $value)."'";

@@ -1,0 +1,4 @@
+ALTER TABLE llx_powerplantpv_product_protection ADD UNIQUE INDEX uk_powerplantpv_product_protection (entity, fk_product, fk_protection);
+ALTER TABLE llx_powerplantpv_product_protection ADD INDEX idx_powerplantpv_product_prot_entity (entity);
+ALTER TABLE llx_powerplantpv_product_protection ADD INDEX idx_powerplantpv_product_prot_product (fk_product);
+ALTER TABLE llx_powerplantpv_product_protection ADD INDEX idx_powerplantpv_product_prot_dictionary (fk_protection);

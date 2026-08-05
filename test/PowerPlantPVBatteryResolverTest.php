@@ -13,7 +13,62 @@ require_once __DIR__.'/bootstrap.php';
 
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/class/powerplantpvfileimport.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvbulkproductimport.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
+
+final class PowerPlantPVDictionaryTestResult
+{
+	/** @var array<int,object> */
+	public $rows;
+
+	/** @var int */
+	public $index = 0;
+
+	/** @param array<int,object> $rows Rows */
+	public function __construct(array $rows)
+	{
+		$this->rows = $rows;
+	}
+}
+
+final class PowerPlantPVDictionaryTestDb
+{
+	/** @var array<int,object> */
+	private $rows;
+
+	/** @param array<int,object> $rows Rows */
+	public function __construct(array $rows)
+	{
+		$this->rows = $rows;
+	}
+
+	public function prefix(): string
+	{
+		return 'llx_';
+	}
+
+	/** @return PowerPlantPVDictionaryTestResult */
+	public function query(string $sql)
+	{
+		$rows = $this->rows;
+		if (strpos($sql, 'd.active = 1') !== false) {
+			$rows = array_values(array_filter($rows, static function ($row) {
+				return !empty($row->active);
+			}));
+		}
+		return new PowerPlantPVDictionaryTestResult($rows);
+	}
+
+	/** @return object|false */
+	public function fetch_object(PowerPlantPVDictionaryTestResult $result)
+	{
+		return isset($result->rows[$result->index]) ? $result->rows[$result->index++] : false;
+	}
+
+	public function free(PowerPlantPVDictionaryTestResult $result): void
+	{
+	}
+}
 
 final class PowerPlantPVBatteryResolverTest extends TestCase
 {
@@ -113,17 +168,131 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertSame($result['errors'], $result['composition_anomalies']);
 	}
 
-	public function testBatteryImportParsesUnitHeadersAndNormalizedAttributes(): void
+	public function testBatteryImportParsesUnitHeadersAndControlledDictionaryCodes(): void
 	{
 		$import = new PowerPlantPVFileImport();
 		$parsed = $import->buildImportRows(array(
-			array('usable_energy [kWh]', 'nominal_voltage [V]', 'protocol_1 [code]', 'certification_1 [code]'),
-			array('9.6', '400', 'MODBUS|Modbus TCP', 'IEC62619'),
+			array('usable_energy [kWh]', 'nominal_voltage [V]', 'communication_protocol_1 [code]', 'certification_1 [code]'),
+			array('9.6', '400', 'MODBUS_RTU|Modbus RTU', 'IEC_62619'),
 		), 'battery');
 		$this->assertSame('', $import->getLastError());
 		$this->assertSame(9.6, $parsed['rows'][0]['normalized']['usable_energy']);
-		$this->assertSame('MODBUS', $parsed['rows'][0]['normalized']['_battery_attributes']['PROTOCOL'][0]['code']);
-		$this->assertSame('Modbus TCP', $parsed['rows'][0]['normalized']['_battery_attributes']['PROTOCOL'][0]['label']);
+		$this->assertSame(
+			array('communication_protocol' => array('MODBUS_RTU|Modbus RTU'), 'certification' => array('IEC_62619')),
+			$parsed['rows'][0]['normalized']['_technical_dictionary_codes']
+		);
+	}
+
+	public function testDocumentedHeadersAreParsedWithRepeatableDictionaryColumns(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(
+			array(
+				'usable_energy [type=decimal; unit=kWh; format=SIGNED_DECIMAL]',
+				'storage_type [type=select2; format=CODE; source=storage_type]',
+				'communication_protocol_12 [type=multiselect2; format=CODE|Libellé; source=communication_protocol]',
+			),
+			array('9,6', 'BATTERY_MODULE', 'NEW_PROTO|Nouveau protocole'),
+		), 'battery');
+		$this->assertSame('', $import->getLastError());
+		$this->assertSame(9.6, $parsed['rows'][0]['normalized']['usable_energy']);
+		$this->assertSame('BATTERY_MODULE', $parsed['rows'][0]['normalized']['storage_type']);
+		$this->assertSame(array('NEW_PROTO|Nouveau protocole'), $parsed['rows'][0]['normalized']['_technical_dictionary_codes']['communication_protocol']);
+		$definition = PowerPlantPVProductImport::getImportFieldDefinition('battery', 'communication_protocol_12');
+		$this->assertSame('multiselect2', $definition['type']);
+		$this->assertSame('0..N', $definition['cardinality']);
+		$this->assertSame('CODE|Libellé', $definition['format']);
+	}
+
+	public function testContradictoryDocumentedTypeIsRejectedSeparately(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(
+			array('usable_energy [type=text; unit=kWh; format=TEXT]'),
+			array('9.6'),
+		), 'battery');
+		$this->assertSame(array(), $parsed);
+		$this->assertSame('ProductTechnicalImportUnexpectedType', $import->getLastError());
+	}
+
+	public function testContradictoryDocumentedFormatIsRejectedSeparately(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(
+			array('usable_energy [type=decimal; unit=kWh; format=TEXT]'),
+			array('9.6'),
+		), 'battery');
+		$this->assertSame(array(), $parsed);
+		$this->assertSame('ProductTechnicalImportUnexpectedFormat', $import->getLastError());
+	}
+
+	public function testCsvDocumentationRowsAreNeverImportedAsProducts(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(
+			array('usable_energy [type=decimal; unit=kWh; format=SIGNED_DECIMAL]'),
+			array('9.6'),
+			array('#POWERPLANTPV_FIELD', 'usable_energy', 'BATTER', 'decimal', 'kWh'),
+			array('#POWERPLANTPV_VALUE', 'storage_type', 'storage_type', 'BATTERY_MODULE', 'Module de batterie'),
+		), 'battery');
+		$this->assertSame('', $import->getLastError());
+		$this->assertCount(1, $parsed['rows']);
+	}
+
+	public function testDictionaryAnalysisDistinguishesKnownUnknownInactiveAndLabels(): void
+	{
+		$db = new PowerPlantPVDictionaryTestDb(array(
+			(object) array('rowid' => 1, 'code' => 'MODBUS_RTU', 'label' => 'Modbus RTU', 'active' => 1),
+			(object) array('rowid' => 2, 'code' => 'LEGACY', 'label' => 'Ancien protocole', 'active' => 0),
+		));
+		$service = new PowerPlantPVProductDictionary($db);
+		$analysis = $service->analyzeImportValues(
+			PowerPlantPVProductDictionary::TYPE_COMMUNICATION_PROTOCOL,
+			array('MODBUS_RTU|Autre libellé', 'new.code|<b>Nouveau</b> protocole', 'LEGACY|Ancien protocole'),
+			2
+		);
+		$this->assertIsArray($analysis);
+		$this->assertSame(array(1), $analysis['resolved_ids']);
+		$this->assertCount(1, $analysis['warnings']);
+		$unknownKey = PowerPlantPVProductDictionary::getImportIssueKey('communication_protocol', 'NEW.CODE');
+		$inactiveKey = PowerPlantPVProductDictionary::getImportIssueKey('communication_protocol', 'LEGACY');
+		$this->assertSame('Nouveau protocole', $analysis['issues'][$unknownKey]['label']);
+		$this->assertTrue($analysis['issues'][$unknownKey]['can_create']);
+		$this->assertSame('inactive', $analysis['issues'][$inactiveKey]['status']);
+		$this->assertFalse($analysis['issues'][$inactiveKey]['can_create']);
+
+		$conflicting = $service->analyzeImportValues(
+			PowerPlantPVProductDictionary::TYPE_COMMUNICATION_PROTOCOL,
+			array('CONFLICT|Premier libellé', 'CONFLICT|Second libellé'),
+			2
+		);
+		$conflictingKey = PowerPlantPVProductDictionary::getImportIssueKey('communication_protocol', 'CONFLICT');
+		$this->assertIsArray($conflicting);
+		$this->assertFalse($conflicting['issues'][$conflictingKey]['can_create']);
+
+		$plan = $service->buildImportResolutionPlan(
+			PowerPlantPVProductDictionary::TYPE_COMMUNICATION_PROTOCOL,
+			array('new.code|Nouveau protocole', 'LEGACY|Ancien protocole'),
+			2,
+			array($unknownKey => array('action' => 'create'), $inactiveKey => array('action' => 'ignore'))
+		);
+		$this->assertIsArray($plan);
+		$this->assertTrue($plan['complete']);
+		$this->assertSame('NEW.CODE', $plan['create'][0]['code']);
+		$this->assertFalse($plan['preserve_existing']);
+
+		$mappedPlan = $service->buildImportResolutionPlan(
+			PowerPlantPVProductDictionary::TYPE_COMMUNICATION_PROTOCOL,
+			array('new.code|Nouveau protocole'),
+			2,
+			array($unknownKey => array('action' => 'map', 'target_codes' => array('MODBUS_RTU')))
+		);
+		$this->assertIsArray($mappedPlan);
+		$this->assertTrue($mappedPlan['complete']);
+		$this->assertSame(array(1), $mappedPlan['ids']);
+		$this->assertSame(array('MODBUS_RTU'), $mappedPlan['codes']);
+		$this->assertSame(array(), $mappedPlan['create']);
+		$this->assertFalse($mappedPlan['preserve_existing']);
 	}
 
 	public function testLegacyUnitlessHeadersAreAcceptedWithWarning(): void
@@ -150,12 +319,52 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertSame('ProductTechnicalImportUnexpectedUnit', $import->getLastError());
 	}
 
+	public function testTechnicalNumberParserRejectsUnitsAndFreeText(): void
+	{
+		$this->assertSame(9.6, powerplantpvParseTechnicalNumber('9,6'));
+		$this->assertSame(1000.0, powerplantpvParseTechnicalNumber('1 000'));
+		$this->assertSame(-20.0, powerplantpvParseTechnicalNumber('-20'));
+		$this->assertSame(1234567.89, powerplantpvParseTechnicalNumber('+1 234 567,89'));
+		$this->assertSame(1000.5, powerplantpvParseTechnicalNumber("1 000.5"));
+		$this->assertSame(1000.5, powerplantpvParseTechnicalNumber("1 000,5"));
+		$this->assertNull(powerplantpvParseTechnicalNumber('9.6 kWh'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('about 9.6'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('12 34'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('10-20'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('1e3'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('1,234.56'));
+		$this->assertNull(powerplantpvParseTechnicalNumber('2.5', true));
+	}
+
+	public function testImportRejectsUnitInsideMeasurementValue(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(array('usable_energy [kWh]'), array('9.6 kWh')), 'battery');
+		$this->assertSame(array(), $parsed);
+		$this->assertSame('ProductTechnicalImportNumericValueRequired', $import->getLastError());
+	}
+
+	public function testLegacyInverterMeasurementColumnsPopulateStructuredValues(): void
+	{
+		$import = new PowerPlantPVFileImport();
+		$parsed = $import->buildImportRows(array(array('ac_nominal_voltage [V]'), array('230')), 'inverter');
+		$this->assertSame('', $import->getLastError());
+		$this->assertSame(230.0, $parsed['rows'][0]['normalized']['ac_voltage_nominal']);
+
+		$parsed = $import->buildImportRows(array(array('ac_nominal_voltage [V]'), array('230 V')), 'inverter');
+		$this->assertSame(array(), $parsed);
+		$this->assertSame('ProductTechnicalImportNumericValueRequired', $import->getLastError());
+	}
+
 	public function testEveryFlatTemplateHeaderDocumentsAUnitOrFormat(): void
 	{
 		foreach (array('MODULE', 'ONDULE', 'BATTER') as $category) {
 			foreach (powerplantpvProductTechnicalImportGetTemplateHeaders($category) as $header) {
-				$this->assertMatchesRegularExpression('/\[[^\]]+\]$/u', $header, $category.' header '.$header);
+				$this->assertMatchesRegularExpression('/\[type=[^\]]+\]$/u', $header, $category.' header '.$header);
 			}
+		}
+		foreach (PowerPlantPVBulkProductImport::getTemplateHeaders() as $header) {
+			$this->assertMatchesRegularExpression('/\[type=[^\]]+\]$/u', $header, 'MIXED header '.$header);
 		}
 	}
 }
