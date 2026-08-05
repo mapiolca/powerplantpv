@@ -24,6 +24,8 @@
 /**
  * Product inverter technical data attached to a native Dolibarr product.
  */
+dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
+
 class ProductInverter
 {
 	/**
@@ -66,6 +68,9 @@ class ProductInverter
 	 */
 	public $data = array();
 
+	/** @var array<string,string> Legacy field => unresolved value */
+	public $legacy_warnings = array();
+
 	/**
 	 * Constructor
 	 *
@@ -79,7 +84,7 @@ class ProductInverter
 	/**
 	 * Inverter fields stored outside native product data.
 	 *
-	 * @return array<string,array<string,string>>
+	 * @return array<string,array<string,mixed>>
 	 */
 	public static function getInverterFields()
 	{
@@ -93,19 +98,29 @@ class ProductInverter
 			'ac_nominal_power' => array('label' => 'PVInverterACNominalPower', 'type' => 'double'),
 			'ac_max_power' => array('label' => 'PVInverterACMaxPower', 'type' => 'double'),
 			'ac_apparent_power' => array('label' => 'PVInverterACApparentPower', 'type' => 'double'),
-			'ac_nominal_voltage' => array('label' => 'PVInverterACNominalVoltage', 'type' => 'varchar'),
-			'grid_frequency' => array('label' => 'PVInverterGridFrequency', 'type' => 'varchar'),
+			'ac_voltage_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => 'V', 'group' => 'ac_voltage', 'role' => 'min'),
+			'ac_voltage_nominal' => array('label' => 'Nominal', 'type' => 'double', 'unit' => 'V', 'group' => 'ac_voltage', 'role' => 'nominal'),
+			'ac_voltage_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => 'V', 'group' => 'ac_voltage', 'role' => 'max'),
+			'grid_frequency_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => 'Hz', 'group' => 'grid_frequency', 'role' => 'min'),
+			'grid_frequency_nominal' => array('label' => 'Nominal', 'type' => 'double', 'unit' => 'Hz', 'group' => 'grid_frequency', 'role' => 'nominal'),
+			'grid_frequency_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => 'Hz', 'group' => 'grid_frequency', 'role' => 'max'),
 			'ac_max_output_current' => array('label' => 'PVInverterACMaxOutputCurrent', 'type' => 'double'),
 			'phase_count' => array('label' => 'PVInverterPhaseCount', 'type' => 'int'),
-			'power_factor' => array('label' => 'PVInverterPowerFactor', 'type' => 'varchar'),
-			'thd' => array('label' => 'PVInverterTHD', 'type' => 'varchar'),
+			'power_factor_inductive' => array('label' => 'TechnicalValueInductive', 'type' => 'double', 'unit' => 'ratio', 'group' => 'power_factor', 'role' => 'inductive'),
+			'power_factor_nominal' => array('label' => 'Nominal', 'type' => 'double', 'unit' => 'ratio', 'group' => 'power_factor', 'role' => 'nominal'),
+			'power_factor_capacitive' => array('label' => 'TechnicalValueCapacitive', 'type' => 'double', 'unit' => 'ratio', 'group' => 'power_factor', 'role' => 'capacitive'),
+			'thd_comparator' => array('label' => 'TechnicalValueComparator', 'type' => 'select', 'unit' => 'code', 'group' => 'thd', 'role' => 'comparator', 'options' => PowerPlantPVTechnicalValue::getComparatorSymbols()),
+			'thd_value' => array('label' => 'TechnicalValueValue', 'type' => 'double', 'unit' => '%', 'group' => 'thd', 'role' => 'value'),
 			'backup_nominal_power' => array('label' => 'PVInverterBackupNominalPower', 'type' => 'double'),
 			'backup_peak_power' => array('label' => 'PVInverterBackupPeakPower', 'type' => 'double'),
 			'backup_peak_duration' => array('label' => 'PVInverterBackupPeakDuration', 'type' => 'double'),
 			'backup_transfer_time' => array('label' => 'PVInverterBackupTransferTime', 'type' => 'double'),
-			'backup_nominal_voltage' => array('label' => 'PVInverterBackupNominalVoltage', 'type' => 'varchar'),
+			'backup_voltage_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => 'V', 'group' => 'backup_voltage', 'role' => 'min'),
+			'backup_voltage_nominal' => array('label' => 'Nominal', 'type' => 'double', 'unit' => 'V', 'group' => 'backup_voltage', 'role' => 'nominal'),
+			'backup_voltage_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => 'V', 'group' => 'backup_voltage', 'role' => 'max'),
 			'backup_max_current' => array('label' => 'PVInverterBackupMaxCurrent', 'type' => 'double'),
-			'backup_thd' => array('label' => 'PVInverterBackupTHD', 'type' => 'varchar'),
+			'backup_thd_comparator' => array('label' => 'TechnicalValueComparator', 'type' => 'select', 'unit' => 'code', 'group' => 'backup_thd', 'role' => 'comparator', 'options' => PowerPlantPVTechnicalValue::getComparatorSymbols()),
+			'backup_thd_value' => array('label' => 'TechnicalValueValue', 'type' => 'double', 'unit' => '%', 'group' => 'backup_thd', 'role' => 'value'),
 			'max_unbalanced_output' => array('label' => 'PVInverterMaxUnbalancedOutput', 'type' => 'double'),
 			'max_efficiency' => array('label' => 'PVInverterMaxEfficiency', 'type' => 'double'),
 			'european_efficiency' => array('label' => 'PVInverterEuropeanEfficiency', 'type' => 'double'),
@@ -119,11 +134,14 @@ class ProductInverter
 			'insulation_monitoring' => array('label' => 'PVInverterInsulationMonitoring', 'type' => 'bool'),
 			'residual_current_monitoring' => array('label' => 'PVInverterResidualCurrentMonitoring', 'type' => 'bool'),
 			'ip_rating' => array('label' => 'PVInverterIPRating', 'type' => 'varchar'),
-			'operating_temperature' => array('label' => 'PVInverterOperatingTemperature', 'type' => 'varchar'),
-			'relative_humidity' => array('label' => 'PVInverterRelativeHumidity', 'type' => 'varchar'),
+			'operating_temperature_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => '°C', 'group' => 'operating_temperature', 'role' => 'min'),
+			'operating_temperature_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => '°C', 'group' => 'operating_temperature', 'role' => 'max'),
+			'relative_humidity_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => '%', 'group' => 'relative_humidity', 'role' => 'min'),
+			'relative_humidity_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => '%', 'group' => 'relative_humidity', 'role' => 'max'),
 			'cooling' => array('label' => 'PVInverterCooling', 'type' => 'varchar'),
 			'max_altitude' => array('label' => 'PVInverterMaxAltitude', 'type' => 'int'),
-			'noise' => array('label' => 'PVInverterNoise', 'type' => 'varchar'),
+			'noise_comparator' => array('label' => 'TechnicalValueComparator', 'type' => 'select', 'unit' => 'code', 'group' => 'noise', 'role' => 'comparator', 'options' => PowerPlantPVTechnicalValue::getComparatorSymbols()),
+			'noise_value' => array('label' => 'TechnicalValueValue', 'type' => 'double', 'unit' => 'dB(A)', 'group' => 'noise', 'role' => 'value'),
 			'topology' => array('label' => 'PVInverterTopology', 'type' => 'varchar'),
 			'night_consumption' => array('label' => 'PVInverterNightConsumption', 'type' => 'varchar'),
 			'display_type' => array('label' => 'PVInverterDisplayType', 'type' => 'varchar'),
@@ -134,6 +152,12 @@ class ProductInverter
 			'warranty' => array('label' => 'PVInverterWarranty', 'type' => 'varchar'),
 			'certifications' => array('label' => 'PVInverterCertifications', 'type' => 'text'),
 		);
+	}
+
+	/** @return array<string,string> Legacy field => type */
+	public static function getLegacyInverterFields()
+	{
+		return array('ac_nominal_voltage' => 'range_nominal', 'grid_frequency' => 'range_nominal', 'power_factor' => 'power_factor', 'thd' => 'threshold', 'backup_nominal_voltage' => 'range_nominal', 'backup_thd' => 'threshold', 'operating_temperature' => 'range', 'relative_humidity' => 'range', 'noise' => 'threshold');
 	}
 
 	/**
@@ -248,6 +272,44 @@ class ProductInverter
 	 */
 	public function saveForProduct($fkProduct, array $data, User $user)
 	{
+		foreach (array(
+			array('ac_voltage_min', 'ac_voltage_nominal', 'ac_voltage_max'),
+			array('grid_frequency_min', 'grid_frequency_nominal', 'grid_frequency_max'),
+			array('backup_voltage_min', 'backup_voltage_nominal', 'backup_voltage_max'),
+			array('operating_temperature_min', null, 'operating_temperature_max'),
+			array('relative_humidity_min', null, 'relative_humidity_max'),
+		) as $range) {
+			if (!PowerPlantPVTechnicalValue::isValidRange(isset($data[$range[0]]) ? $data[$range[0]] : null, $range[1] !== null && isset($data[$range[1]]) ? $data[$range[1]] : null, isset($data[$range[2]]) ? $data[$range[2]] : null)) {
+				$this->setError('TechnicalValueInvalidRange');
+				return -1;
+			}
+		}
+		foreach (array('power_factor_inductive', 'power_factor_nominal', 'power_factor_capacitive') as $field) {
+			if (isset($data[$field]) && $data[$field] !== '' && $data[$field] !== null && ((float) $data[$field] < 0 || (float) $data[$field] > 1)) {
+				$this->setError('TechnicalValueInvalidPowerFactor');
+				return -1;
+			}
+		}
+		foreach (array('relative_humidity_min', 'relative_humidity_max', 'thd_value', 'backup_thd_value') as $field) {
+			if (isset($data[$field]) && $data[$field] !== '' && $data[$field] !== null && ((float) $data[$field] < 0 || (float) $data[$field] > 100)) {
+				$this->setError('TechnicalValueInvalidPercentage');
+				return -1;
+			}
+		}
+		if (isset($data['noise_value']) && $data['noise_value'] !== '' && $data['noise_value'] !== null && (float) $data['noise_value'] < 0) {
+			$this->setError('TechnicalValueInvalidPositiveValue');
+			return -1;
+		}
+		foreach (array(array('thd_comparator', 'thd_value'), array('backup_thd_comparator', 'backup_thd_value'), array('noise_comparator', 'noise_value')) as $threshold) {
+			$comparator = isset($data[$threshold[0]]) ? PowerPlantPVTechnicalValue::normalizeComparator($data[$threshold[0]]) : '';
+			$valueisset = isset($data[$threshold[1]]) && $data[$threshold[1]] !== '' && $data[$threshold[1]] !== null;
+			if (($comparator === '' && $valueisset) || ($comparator !== '' && !$valueisset)) {
+				$this->setError('TechnicalValueIncompleteThreshold');
+				return -1;
+			}
+			$data[$threshold[0]] = $comparator;
+		}
+
 		$id = $this->ensureForProduct($fkProduct, $user);
 		if ($id < 0) {
 			return -1;
@@ -594,6 +656,7 @@ class ProductInverter
 	{
 		$fields = array('rowid', 'fk_product', 'entity');
 		$fields = array_merge($fields, array_keys(self::getInverterFields()));
+		$fields = array_merge($fields, array_keys(self::getLegacyInverterFields()));
 		$fields = array_merge($fields, array('datec', 'tms', 'fk_user_creat', 'fk_user_modif'));
 		return implode(', ', $fields);
 	}
@@ -639,6 +702,78 @@ class ProductInverter
 		foreach (self::getInverterFields() as $key => $spec) {
 			$this->data[$key] = isset($obj->{$key}) ? $obj->{$key} : null;
 		}
+		$this->legacy_warnings = array();
+		$this->applyLegacyValues($obj);
+	}
+
+	/**
+	 * Fill empty structured fields from deterministic legacy strings.
+	 *
+	 * @param object $obj Database row
+	 * @return void
+	 */
+	protected function applyLegacyValues($obj)
+	{
+		$ranges = array(
+			'ac_nominal_voltage' => array('ac_voltage_min', 'ac_voltage_nominal', 'ac_voltage_max', true),
+			'grid_frequency' => array('grid_frequency_min', 'grid_frequency_nominal', 'grid_frequency_max', true),
+			'backup_nominal_voltage' => array('backup_voltage_min', 'backup_voltage_nominal', 'backup_voltage_max', true),
+			'operating_temperature' => array('operating_temperature_min', null, 'operating_temperature_max', false),
+			'relative_humidity' => array('relative_humidity_min', null, 'relative_humidity_max', false),
+		);
+		foreach ($ranges as $legacy => $target) {
+			$raw = isset($obj->{$legacy}) ? trim((string) $obj->{$legacy}) : '';
+			if ($raw === '' || $this->hasStructuredValue(array($target[0], $target[1], $target[2]))) {
+				continue;
+			}
+			$parsed = PowerPlantPVTechnicalValue::parseRange($raw);
+			if ($parsed !== null) {
+				$this->data[$target[0]] = $parsed['min'];
+				$this->data[$target[2]] = $parsed['max'];
+			} elseif ($target[3] && is_numeric(str_replace(',', '.', $raw))) {
+				$this->data[$target[1]] = (float) str_replace(',', '.', $raw);
+			} else {
+				$this->legacy_warnings[$legacy] = $raw;
+			}
+		}
+
+		$thresholds = array('thd' => array('thd_comparator', 'thd_value'), 'backup_thd' => array('backup_thd_comparator', 'backup_thd_value'), 'noise' => array('noise_comparator', 'noise_value'));
+		foreach ($thresholds as $legacy => $target) {
+			$raw = isset($obj->{$legacy}) ? trim((string) $obj->{$legacy}) : '';
+			if ($raw === '' || $this->hasStructuredValue($target)) {
+				continue;
+			}
+			$parsed = PowerPlantPVTechnicalValue::parseThreshold($raw);
+			if ($parsed !== null) {
+				$this->data[$target[0]] = $parsed['comparator'];
+				$this->data[$target[1]] = $parsed['value'];
+			} else {
+				$this->legacy_warnings[$legacy] = $raw;
+			}
+		}
+
+		$raw = isset($obj->power_factor) ? trim((string) $obj->power_factor) : '';
+		if ($raw !== '' && !$this->hasStructuredValue(array('power_factor_inductive', 'power_factor_nominal', 'power_factor_capacitive'))) {
+			$parsed = PowerPlantPVTechnicalValue::parsePowerFactor($raw);
+			if ($parsed !== null) {
+				$this->data['power_factor_inductive'] = $parsed['inductive'];
+				$this->data['power_factor_nominal'] = $parsed['nominal'];
+				$this->data['power_factor_capacitive'] = $parsed['capacitive'];
+			} else {
+				$this->legacy_warnings['power_factor'] = $raw;
+			}
+		}
+	}
+
+	/** @param array<int,string|null> $fields Fields @return bool */
+	protected function hasStructuredValue(array $fields)
+	{
+		foreach ($fields as $field) {
+			if ($field !== null && isset($this->data[$field]) && $this->data[$field] !== '') {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

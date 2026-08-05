@@ -2,6 +2,8 @@
 
 ## 1.3.0
 
+- Caractéristiques techniques : remplacement des plages et seuils textuels par des valeurs structurées min/nominal/max, cos φ inductif/nominal/capacitif et comparateurs contrôlés pour les modules PV, onduleurs et batteries.
+- Import technique : colonnes CSV/XLSX détaillées avec unités pour chaque composante, acceptation des symboles de comparaison et conversion prudente des anciens formats compacts avec avertissement pour les valeurs ambiguës.
 - Batteries : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées des modules et systèmes de stockage, ainsi que des rôles et contraintes normalisées des accessoires.
 - Kits batteries : résolution récursive des compositions natives Dolibarr, multiplication des quantités à chaque niveau, inventaire terminal en lecture seule et détection explicite des cycles.
 - Cycle commercial : ajout de l'extrafield calculé `Capacité de stockage (kWh)` sur les devis, commandes et factures, avec mise à jour automatique, état incomplet non bloquant et recalcul global depuis les réglages.

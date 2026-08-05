@@ -10,6 +10,8 @@
 /**
  * Technical battery data attached to a native Dolibarr product.
  */
+dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
+
 class ProductBattery
 {
 	/** @var DoliDB */
@@ -51,9 +53,9 @@ class ProductBattery
 			'nominal_energy' => array('label' => 'BatteryNominalEnergy', 'type' => 'double', 'unit' => 'kWh', 'section' => 'BatteryEnergy'),
 			'usable_energy' => array('label' => 'BatteryUsableEnergy', 'type' => 'double', 'unit' => 'kWh', 'section' => 'BatteryEnergy'),
 			'capacity_ah' => array('label' => 'BatteryCapacityAh', 'type' => 'double', 'unit' => 'Ah', 'section' => 'BatteryEnergy'),
-			'nominal_voltage' => array('label' => 'BatteryNominalVoltage', 'type' => 'double', 'unit' => 'V', 'section' => 'BatteryEnergy'),
-			'voltage_min' => array('label' => 'BatteryVoltageMin', 'type' => 'double', 'unit' => 'V', 'section' => 'BatteryEnergy'),
-			'voltage_max' => array('label' => 'BatteryVoltageMax', 'type' => 'double', 'unit' => 'V', 'section' => 'BatteryEnergy'),
+			'nominal_voltage' => array('label' => 'Nominal', 'type' => 'double', 'unit' => 'V', 'section' => 'BatteryEnergy', 'group' => 'voltage', 'role' => 'nominal'),
+			'voltage_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => 'V', 'section' => 'BatteryEnergy', 'group' => 'voltage', 'role' => 'min'),
+			'voltage_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => 'V', 'section' => 'BatteryEnergy', 'group' => 'voltage', 'role' => 'max'),
 			'dod' => array('label' => 'BatteryDepthOfDischarge', 'type' => 'double', 'unit' => '%', 'section' => 'BatteryEnergy'),
 			'max_charge_power' => array('label' => 'BatteryMaxChargePower', 'type' => 'double', 'unit' => 'kW', 'section' => 'BatteryPower'),
 			'max_discharge_power' => array('label' => 'BatteryMaxDischargePower', 'type' => 'double', 'unit' => 'kW', 'section' => 'BatteryPower'),
@@ -72,17 +74,18 @@ class ProductBattery
 			'min_modules' => array('label' => 'BatteryMinModules', 'type' => 'int', 'unit' => 'pcs', 'section' => 'BatteryScalability'),
 			'max_modules' => array('label' => 'BatteryMaxModules', 'type' => 'int', 'unit' => 'pcs', 'section' => 'BatteryScalability'),
 			'max_parallel_systems' => array('label' => 'BatteryMaxParallelSystems', 'type' => 'int', 'unit' => 'pcs', 'section' => 'BatteryScalability'),
-			'operating_temperature_min' => array('label' => 'BatteryOperatingTemperatureMin', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment'),
-			'operating_temperature_max' => array('label' => 'BatteryOperatingTemperatureMax', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment'),
-			'storage_temperature_min' => array('label' => 'BatteryStorageTemperatureMin', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment'),
-			'storage_temperature_max' => array('label' => 'BatteryStorageTemperatureMax', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment'),
-			'humidity_min' => array('label' => 'BatteryHumidityMin', 'type' => 'double', 'unit' => '%', 'section' => 'BatteryEnvironment'),
-			'humidity_max' => array('label' => 'BatteryHumidityMax', 'type' => 'double', 'unit' => '%', 'section' => 'BatteryEnvironment'),
+			'operating_temperature_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment', 'group' => 'operating_temperature', 'role' => 'min'),
+			'operating_temperature_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment', 'group' => 'operating_temperature', 'role' => 'max'),
+			'storage_temperature_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment', 'group' => 'storage_temperature', 'role' => 'min'),
+			'storage_temperature_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => '°C', 'section' => 'BatteryEnvironment', 'group' => 'storage_temperature', 'role' => 'max'),
+			'humidity_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => '%', 'section' => 'BatteryEnvironment', 'group' => 'humidity', 'role' => 'min'),
+			'humidity_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => '%', 'section' => 'BatteryEnvironment', 'group' => 'humidity', 'role' => 'max'),
 			'max_altitude' => array('label' => 'BatteryMaxAltitude', 'type' => 'int', 'unit' => 'm', 'section' => 'BatteryEnvironment'),
 			'ip_rating' => array('label' => 'BatteryIPRating', 'type' => 'varchar', 'unit' => 'code', 'section' => 'BatteryEnvironment'),
 			'corrosion_class' => array('label' => 'BatteryCorrosionClass', 'type' => 'varchar', 'unit' => 'code', 'section' => 'BatteryEnvironment'),
 			'cooling' => array('label' => 'BatteryCooling', 'type' => 'varchar', 'unit' => 'text', 'section' => 'BatteryEnvironment'),
-			'noise' => array('label' => 'BatteryNoise', 'type' => 'double', 'unit' => 'dB(A)', 'section' => 'BatteryEnvironment'),
+			'noise_comparator' => array('label' => 'TechnicalValueComparator', 'type' => 'select', 'unit' => 'code', 'section' => 'BatteryEnvironment', 'group' => 'noise', 'role' => 'comparator', 'options' => PowerPlantPVTechnicalValue::getComparatorSymbols()),
+			'noise' => array('label' => 'TechnicalValueValue', 'type' => 'double', 'unit' => 'dB(A)', 'section' => 'BatteryEnvironment', 'group' => 'noise', 'role' => 'value'),
 			'installation_location' => array('label' => 'BatteryInstallationLocation', 'type' => 'select', 'unit' => 'code', 'section' => 'BatteryEnvironment', 'options' => self::getInstallationLocationOptions()),
 			'mounting' => array('label' => 'BatteryMounting', 'type' => 'varchar', 'unit' => 'text', 'section' => 'BatteryEnvironment'),
 		);
@@ -163,6 +166,9 @@ class ProductBattery
 		foreach ($fields as $field) {
 			$this->data[$field] = $obj->{$field};
 		}
+		if (($this->data['noise_comparator'] === null || $this->data['noise_comparator'] === '') && $this->data['noise'] !== null && $this->data['noise'] !== '') {
+			$this->data['noise_comparator'] = 'EQ';
+		}
 		return 1;
 	}
 
@@ -174,6 +180,12 @@ class ProductBattery
 	 */
 	public function saveForProduct($fkProduct, array $data, User $user)
 	{
+		$noisecomparator = isset($data['noise_comparator']) ? PowerPlantPVTechnicalValue::normalizeComparator($data['noise_comparator']) : '';
+		$noiseisset = isset($data['noise']) && $data['noise'] !== '' && $data['noise'] !== null;
+		if (($noisecomparator === '' && $noiseisset) || ($noisecomparator !== '' && !$noiseisset)) {
+			return $this->setError('TechnicalValueIncompleteThreshold');
+		}
+		$data['noise_comparator'] = $noisecomparator;
 		if (empty($data['storage_type'])) {
 			$data['storage_type'] = 'BATTERY_MODULE';
 		}
@@ -197,13 +209,13 @@ class ProductBattery
 			}
 		}
 		foreach (array(
-			array('voltage_min', 'voltage_max'),
-			array('operating_temperature_min', 'operating_temperature_max'),
-			array('storage_temperature_min', 'storage_temperature_max'),
-			array('humidity_min', 'humidity_max'),
-			array('min_modules', 'max_modules'),
+			array('voltage_min', 'nominal_voltage', 'voltage_max'),
+			array('operating_temperature_min', null, 'operating_temperature_max'),
+			array('storage_temperature_min', null, 'storage_temperature_max'),
+			array('humidity_min', null, 'humidity_max'),
+			array('min_modules', null, 'max_modules'),
 		) as $rangefields) {
-			if (isset($data[$rangefields[0]], $data[$rangefields[1]]) && $data[$rangefields[0]] !== '' && $data[$rangefields[1]] !== '' && $data[$rangefields[0]] !== null && $data[$rangefields[1]] !== null && (float) $data[$rangefields[0]] > (float) $data[$rangefields[1]]) {
+			if (!PowerPlantPVTechnicalValue::isValidRange(isset($data[$rangefields[0]]) ? $data[$rangefields[0]] : null, $rangefields[1] !== null && isset($data[$rangefields[1]]) ? $data[$rangefields[1]] : null, isset($data[$rangefields[2]]) ? $data[$rangefields[2]] : null)) {
 				return $this->setError('BatteryInvalidRange');
 			}
 		}

@@ -275,7 +275,8 @@ function powerplantpv_technical_import_field_label($field, $type)
 
 	$modulelabels = array(
 		'pmax' => 'PVPanelNominalPower',
-		'power_tolerance' => 'PVPanelPowerTolerance',
+		'power_tolerance_min' => 'PVPanelPowerTolerance',
+		'power_tolerance_max' => 'PVPanelPowerTolerance',
 		'module_efficiency' => 'PVPanelModuleEfficiency',
 		'vmp' => 'PVPanelVmp',
 		'imp' => 'PVPanelImp',
@@ -291,7 +292,8 @@ function powerplantpv_technical_import_field_label($field, $type)
 		'temp_coeff_isc' => 'PVPanelTempCoeffIsc',
 		'max_system_voltage' => 'PVPanelMaxSystemVoltage',
 		'max_series_fuse' => 'PVPanelMaxSeriesFuse',
-		'operating_temperature' => 'PVPanelOperatingTemperature',
+		'operating_temperature_min' => 'PVPanelOperatingTemperature',
+		'operating_temperature_max' => 'PVPanelOperatingTemperature',
 		'snow_load' => 'PVPanelSnowLoad',
 		'wind_load' => 'PVPanelWindLoad',
 		'product_warranty' => 'PVPanelProductWarranty',
@@ -303,7 +305,13 @@ function powerplantpv_technical_import_field_label($field, $type)
 	);
 
 	if ($type === 'MODULE' && isset($modulelabels[$field])) {
-		return $langs->trans($modulelabels[$field]);
+		$label = $langs->trans($modulelabels[$field]);
+		if (substr($field, -4) === '_min') {
+			$label .= ' - '.$langs->trans('Minimum');
+		} elseif (substr($field, -4) === '_max') {
+			$label .= ' - '.$langs->trans('Maximum');
+		}
+		return $label;
 	}
 	if ($type === 'BATTER') {
 		$attributelabels = array(
@@ -316,12 +324,22 @@ function powerplantpv_technical_import_field_label($field, $type)
 		}
 		$batteryfields = ProductBattery::getBatteryFields();
 		if (isset($batteryfields[$field]['label'])) {
+			if (!empty($batteryfields[$field]['group'])) {
+				$batterygroups = array('voltage' => 'BatteryVoltageRange', 'operating_temperature' => 'BatteryOperatingTemperatureRange', 'storage_temperature' => 'BatteryStorageTemperatureRange', 'humidity' => 'BatteryHumidityRange', 'noise' => 'BatteryNoise');
+				$group = (string) $batteryfields[$field]['group'];
+				return $langs->trans(isset($batterygroups[$group]) ? $batterygroups[$group] : $group).' - '.$langs->trans($batteryfields[$field]['label']);
+			}
 			return $langs->trans($batteryfields[$field]['label']);
 		}
 	}
 
 	$inverterfields = ProductInverter::getInverterFields();
 	if (isset($inverterfields[$field]['label'])) {
+		if (!empty($inverterfields[$field]['group'])) {
+			$invertergroups = array('ac_voltage' => 'PVInverterACVoltageRange', 'grid_frequency' => 'PVInverterGridFrequency', 'power_factor' => 'PVInverterPowerFactor', 'thd' => 'PVInverterTHD', 'backup_voltage' => 'PVInverterBackupVoltageRange', 'backup_thd' => 'PVInverterBackupTHD', 'operating_temperature' => 'PVInverterOperatingTemperature', 'relative_humidity' => 'PVInverterRelativeHumidity', 'noise' => 'PVInverterNoise');
+			$group = (string) $inverterfields[$field]['group'];
+			return $langs->trans(isset($invertergroups[$group]) ? $invertergroups[$group] : $group).' - '.$langs->trans($inverterfields[$field]['label']);
+		}
 		return $langs->trans($inverterfields[$field]['label']);
 	}
 
@@ -682,6 +700,15 @@ if ($action === 'upload_file') {
 					} else {
 						if (!empty($parsed['field_map']['unit_warnings'])) {
 							setEventMessages($langs->trans('ProductTechnicalImportMissingUnitWarning', count($parsed['field_map']['unit_warnings'])), null, 'warnings');
+						}
+						$legacywarningcount = 0;
+						foreach ($parsed['rows'] as $parsedrow) {
+							if (!empty($parsedrow['normalized']['_legacy_warnings'])) {
+								$legacywarningcount += count($parsedrow['normalized']['_legacy_warnings']);
+							}
+						}
+						if ($legacywarningcount > 0) {
+							setEventMessages($langs->trans('ProductTechnicalImportLegacyValueWarning', $legacywarningcount), null, 'warnings');
 						}
 						$metadata = array(
 							'entity' => (int) $conf->entity,

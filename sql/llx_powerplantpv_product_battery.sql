@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_battery(
 	ip_rating varchar(64),
 	corrosion_class varchar(64),
 	cooling varchar(128),
+	noise_comparator varchar(3),
 	noise double(24,8),
 	installation_location varchar(32),
 	mounting varchar(128),

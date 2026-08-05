@@ -156,6 +156,8 @@ Known limits:
 - The PDF model reads the report snapshot; it does not create or recalculate it.
 - No dedicated cron job is added for v1.3 Maintenance.
 
+Technical characteristics use structured numeric values whenever a datasheet expresses a constraint: min/nominal/max ranges, inductive/nominal/capacitive power factor, and thresholds with `LT`, `LTE`, `EQ`, `GTE` or `GT`. CSV/XLSX templates expose every component with its unit or expected code. Deterministic legacy strings are converted during activation or import; ambiguous values are preserved and reported for manual correction.
+
 
 
 ## Licenses

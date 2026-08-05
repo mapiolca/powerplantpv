@@ -42,6 +42,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/product.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 dol_include_once('/powerplantpv/class/productinverter.class.php');
 dol_include_once('/powerplantpv/class/productbattery.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_producttechnicalimport.lib.php');
@@ -73,9 +74,9 @@ function powerplantpv_product_check_token()
 function powerplantpv_get_pvpanel_fields()
 {
 	return array(
-		'pmax', 'power_tolerance', 'module_efficiency', 'vmp', 'imp', 'voc', 'isc',
+		'pmax', 'power_tolerance_min', 'power_tolerance_max', 'module_efficiency', 'vmp', 'imp', 'voc', 'isc',
 		'front_glass_thickness', 'back_glass_thickness', 'cable_section', 'cable_length',
-		'operating_temperature', 'max_system_voltage', 'max_series_fuse', 'snow_load', 'wind_load',
+		'operating_temperature_min', 'operating_temperature_max', 'max_system_voltage', 'max_series_fuse', 'snow_load', 'wind_load',
 		'noct', 'temp_coeff_pmax', 'temp_coeff_voc', 'temp_coeff_isc',
 		'first_year_degradation', 'annual_degradation', 'product_warranty', 'power_warranty',
 		'modules_per_box', 'modules_per_container40'
@@ -118,7 +119,7 @@ function powerplantpv_get_product_category_code($db, $categoryRowId)
  */
 function powerplantpv_fetch_pvpanel($db, $productId)
 {
-	$fields = array_merge(array('rowid', 'fk_product', 'entity'), powerplantpv_get_pvpanel_fields());
+	$fields = array_merge(array('rowid', 'fk_product', 'entity', 'power_tolerance', 'operating_temperature'), powerplantpv_get_pvpanel_fields());
 
 	$sql = 'SELECT '.implode(', ', $fields);
 	$sql .= ' FROM '.$db->prefix().'powerplantpv_product_pvpanel';
@@ -132,7 +133,16 @@ function powerplantpv_fetch_pvpanel($db, $productId)
 		return null;
 	}
 
-	return $db->fetch_object($resql);
+	$panel = $db->fetch_object($resql);
+	if ($panel) {
+		$panel->_legacy_warnings = array();
+		foreach (array('power_tolerance' => array('power_tolerance_min', 'power_tolerance_max'), 'operating_temperature' => array('operating_temperature_min', 'operating_temperature_max')) as $legacy => $structured) {
+			if ($panel->{$legacy} !== null && $panel->{$legacy} !== '' && $panel->{$structured[0]} === null && $panel->{$structured[1]} === null) {
+				$panel->_legacy_warnings[$legacy] = (string) $panel->{$legacy};
+			}
+		}
+	}
+	return $panel;
 }
 
 /**
@@ -161,11 +171,17 @@ function powerplantpv_get_numeric_post_value($field)
  */
 function powerplantpv_save_pvpanel($db, Product $product, $panel)
 {
-	global $conf;
+	global $conf, $langs;
 
 	$data = array();
 	foreach (powerplantpv_get_pvpanel_fields() as $field) {
 		$data[$field] = powerplantpv_get_numeric_post_value($field);
+	}
+	foreach (array(array('power_tolerance_min', 'power_tolerance_max'), array('operating_temperature_min', 'operating_temperature_max')) as $range) {
+		if (!PowerPlantPVTechnicalValue::isValidRange($data[$range[0]], null, $data[$range[1]])) {
+			setEventMessages($langs->trans('TechnicalValueInvalidRange'), null, 'errors');
+			return -1;
+		}
 	}
 
 	if ($panel && !empty($panel->rowid)) {
@@ -328,6 +344,56 @@ function powerplantpv_print_pvpanel_row($label, $name, $panel, $edit)
 }
 
 /**
+ * Print one structured range, directional value or threshold on a single row.
+ *
+ * @param string $label Group label
+ * @param array<int,string> $fieldNames Physical fields
+ * @param array<string,array<string,mixed>> $registry Field registry
+ * @param object|null $source Value source
+ * @param bool $edit Edit mode
+ * @return void
+ */
+function powerplantpv_print_structured_row($label, array $fieldNames, array $registry, $source, $edit)
+{
+	global $form, $langs, $conf;
+
+	print '<tr class="oddeven"><td class="titlefield">'.$label.'</td><td>';
+	$parts = array();
+	$threshold = isset($fieldNames[0], $registry[$fieldNames[0]]['type']) && $registry[$fieldNames[0]]['type'] === 'select';
+	foreach ($fieldNames as $field) {
+		$spec = $registry[$field];
+		$value = $source ? powerplantpv_get_field_value($source, $field) : null;
+		$rolelabel = $langs->trans($spec['label']);
+		$unit = !empty($spec['unit']) && !in_array($spec['unit'], array('code', 'text', 'ratio'), true) ? (string) $spec['unit'] : '';
+		if ($edit) {
+			if ($spec['type'] === 'select') {
+				$options = array();
+				foreach ($spec['options'] as $code => $symbol) {
+					$options[$code] = $symbol;
+				}
+				$control = $form->selectarray($field, $options, (string) $value, 1, 0, '', 0, 0, 0, '', 'flat maxwidth100');
+				if (!empty($conf->use_javascript_ajax) && function_exists('ajax_combobox')) {
+					$control .= ajax_combobox($field);
+				}
+			} else {
+				$control = '<input class="flat maxwidth75 right" type="text" name="'.$field.'" value="'.dol_escape_htmltag((string) $value).'">';
+			}
+			$parts[] = '<span class="nowrap"><span class="opacitymedium">'.dol_escape_htmltag($rolelabel).'</span> '.$control.($unit !== '' ? ' '.dol_escape_htmltag($unit) : '').'</span>';
+		} elseif ($value !== null && $value !== '') {
+			if ($spec['type'] === 'select') {
+				$display = isset($spec['options'][$value]) ? (string) $spec['options'][$value] : (string) $value;
+				$parts[] = dol_escape_htmltag($display);
+			} else {
+				$parts[] = '<span class="nowrap"><span class="opacitymedium">'.dol_escape_htmltag($rolelabel).'</span> '.price((float) $value).($unit !== '' ? ' '.dol_escape_htmltag($unit) : '').'</span>';
+			}
+		}
+	}
+	$separator = $threshold ? ' ' : ' <span class="opacitymedium">/</span> ';
+	print !empty($parts) ? implode($separator, $parts) : '<span class="opacitymedium">-</span>';
+	print '</td></tr>';
+}
+
+/**
  * Format a native product measure without storing a duplicate value.
  *
  * @param Product $product    Product object
@@ -380,13 +446,24 @@ function powerplantpv_print_inverter_general_rows(ProductInverter $inverter, $ed
 	global $langs;
 
 	$fields = ProductInverter::getInverterFields();
+	$groups = array(
+		'ac_voltage' => array('PVInverterACVoltageRange', array('ac_voltage_min', 'ac_voltage_nominal', 'ac_voltage_max')),
+		'grid_frequency' => array('PVInverterGridFrequency', array('grid_frequency_min', 'grid_frequency_nominal', 'grid_frequency_max')),
+		'power_factor' => array('PVInverterPowerFactor', array('power_factor_inductive', 'power_factor_nominal', 'power_factor_capacitive')),
+		'thd' => array('PVInverterTHD', array('thd_comparator', 'thd_value')),
+		'backup_voltage' => array('PVInverterBackupVoltageRange', array('backup_voltage_min', 'backup_voltage_nominal', 'backup_voltage_max')),
+		'backup_thd' => array('PVInverterBackupTHD', array('backup_thd_comparator', 'backup_thd_value')),
+		'operating_temperature' => array('PVInverterOperatingTemperature', array('operating_temperature_min', 'operating_temperature_max')),
+		'relative_humidity' => array('PVInverterRelativeHumidity', array('relative_humidity_min', 'relative_humidity_max')),
+		'noise' => array('PVInverterNoise', array('noise_comparator', 'noise_value')),
+	);
 	$sections = array(
 		'PVInverterDCData' => array('pv_max_power', 'dc_max_voltage', 'startup_voltage', 'mppt_voltage_min', 'mppt_voltage_max', 'nominal_dc_voltage'),
-		'PVInverterACData' => array('ac_nominal_power', 'ac_max_power', 'ac_apparent_power', 'ac_nominal_voltage', 'grid_frequency', 'ac_max_output_current', 'phase_count', 'power_factor', 'thd'),
-		'PVInverterBackupData' => array('backup_nominal_power', 'backup_peak_power', 'backup_peak_duration', 'backup_transfer_time', 'backup_nominal_voltage', 'backup_max_current', 'backup_thd', 'max_unbalanced_output'),
+		'PVInverterACData' => array('ac_nominal_power', 'ac_max_power', 'ac_apparent_power', '@ac_voltage', '@grid_frequency', 'ac_max_output_current', 'phase_count', '@power_factor', '@thd'),
+		'PVInverterBackupData' => array('backup_nominal_power', 'backup_peak_power', 'backup_peak_duration', 'backup_transfer_time', '@backup_voltage', 'backup_max_current', '@backup_thd', 'max_unbalanced_output'),
 		'PVInverterEfficiency' => array('max_efficiency', 'european_efficiency'),
 		'PVInverterProtections' => array('dc_switch', 'dc_spd', 'ac_spd', 'afci', 'pid_recovery', 'anti_islanding', 'dc_reverse_polarity_protection', 'insulation_monitoring', 'residual_current_monitoring'),
-		'PVInverterEnvironmentCommunication' => array('ip_rating', 'operating_temperature', 'relative_humidity', 'cooling', 'max_altitude', 'noise', 'topology', 'night_consumption', 'display_type', 'communication_interfaces', 'dc_connector', 'ac_connector', 'mounting', 'warranty', 'certifications'),
+		'PVInverterEnvironmentCommunication' => array('ip_rating', '@operating_temperature', '@relative_humidity', 'cooling', 'max_altitude', '@noise', 'topology', 'night_consumption', 'display_type', 'communication_interfaces', 'dc_connector', 'ac_connector', 'mounting', 'warranty', 'certifications'),
 	);
 
 	$half = 0;
@@ -400,10 +477,22 @@ function powerplantpv_print_inverter_general_rows(ProductInverter $inverter, $ed
 		print load_fiche_titre($langs->trans($sectionLabel), '', '');
 		print '<table class="noborder centpercent">';
 		foreach ($sectionFields as $field) {
-			powerplantpv_print_field_row($langs->trans($fields[$field]['label']), $field, $fields[$field], $inverter, $editMode);
+			if (substr($field, 0, 1) === '@') {
+				$group = substr($field, 1);
+				powerplantpv_print_structured_row($langs->trans($groups[$group][0]), $groups[$group][1], $fields, $inverter, $editMode);
+			} else {
+				powerplantpv_print_field_row($langs->trans($fields[$field]['label']), $field, $fields[$field], $inverter, $editMode);
+			}
 		}
 		print '</table><br>';
 		$half++;
+	}
+	if (!empty($inverter->legacy_warnings)) {
+		$legacyvalues = array();
+		foreach ($inverter->legacy_warnings as $legacyfield => $legacyvalue) {
+			$legacyvalues[] = dol_escape_htmltag($legacyfield.' = '.$legacyvalue);
+		}
+		print '<div class="warning">'.$langs->trans('TechnicalValueLegacyWarning', implode(', ', $legacyvalues)).'</div>';
 	}
 	print '</div><div class="clearboth"></div>';
 }
@@ -516,8 +605,16 @@ function powerplantpv_print_battery_sections(ProductBattery $battery, $editMode)
 {
 	global $langs;
 
+	$registry = ProductBattery::getBatteryFields();
+	$groups = array(
+		'voltage' => array('BatteryVoltageRange', array('voltage_min', 'nominal_voltage', 'voltage_max')),
+		'operating_temperature' => array('BatteryOperatingTemperatureRange', array('operating_temperature_min', 'operating_temperature_max')),
+		'storage_temperature' => array('BatteryStorageTemperatureRange', array('storage_temperature_min', 'storage_temperature_max')),
+		'humidity' => array('BatteryHumidityRange', array('humidity_min', 'humidity_max')),
+		'noise' => array('BatteryNoise', array('noise_comparator', 'noise')),
+	);
 	$sections = array();
-	foreach (ProductBattery::getBatteryFields() as $field => $spec) {
+	foreach ($registry as $field => $spec) {
 		$sections[$spec['section']][$field] = $spec;
 	}
 	$index = 0;
@@ -530,7 +627,16 @@ function powerplantpv_print_battery_sections(ProductBattery $battery, $editMode)
 		}
 		print load_fiche_titre($langs->trans($section), '', '');
 		print '<table class="noborder centpercent">';
+		$renderedgroups = array();
 		foreach ($fields as $field => $spec) {
+			$group = isset($spec['group']) ? (string) $spec['group'] : '';
+			if ($group !== '' && isset($groups[$group])) {
+				if (empty($renderedgroups[$group])) {
+					powerplantpv_print_structured_row($langs->trans($groups[$group][0]), $groups[$group][1], $registry, $battery, $editMode);
+					$renderedgroups[$group] = true;
+				}
+				continue;
+			}
 			powerplantpv_print_field_row($langs->trans($spec['label']), $field, $spec, $battery, $editMode);
 		}
 		print '</table><br>';
@@ -895,6 +1001,7 @@ if (!$hasDetailedCharacteristics) {
 
 if ($isPVPanel) {
 	$editmode = ($action === 'edit' || $action === 'edit_panel');
+	$panelstructuredfields = PowerPlantPVTechnicalValue::getPVPanelFields();
 
 	if ($editmode) {
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
@@ -906,7 +1013,7 @@ if ($isPVPanel) {
 	print load_fiche_titre($langs->trans('PVPanelElectricalSTC'), '', '');
 	print '<table class="noborder centpercent">';
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelNominalPower'), 'pmax', $panel, $editmode);
-	powerplantpv_print_pvpanel_row($langs->trans('PVPanelPowerTolerance'), 'power_tolerance', $panel, $editmode);
+	powerplantpv_print_structured_row($langs->trans('PVPanelPowerTolerance'), array('power_tolerance_min', 'power_tolerance_max'), $panelstructuredfields, $panel, $editmode);
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelVmp'), 'vmp', $panel, $editmode);
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelImp'), 'imp', $panel, $editmode);
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelVoc'), 'voc', $panel, $editmode);
@@ -944,7 +1051,7 @@ if ($isPVPanel) {
 	print '<table class="noborder centpercent">';
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelMaxSystemVoltage'), 'max_system_voltage', $panel, $editmode);
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelMaxSeriesFuse'), 'max_series_fuse', $panel, $editmode);
-	powerplantpv_print_pvpanel_row($langs->trans('PVPanelOperatingTemperature'), 'operating_temperature', $panel, $editmode);
+	powerplantpv_print_structured_row($langs->trans('PVPanelOperatingTemperature'), array('operating_temperature_min', 'operating_temperature_max'), $panelstructuredfields, $panel, $editmode);
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelSnowLoad'), 'snow_load', $panel, $editmode);
 	powerplantpv_print_pvpanel_row($langs->trans('PVPanelWindLoad'), 'wind_load', $panel, $editmode);
 	print '</table><br>';
@@ -957,6 +1064,13 @@ if ($isPVPanel) {
 	print '</div>';
 
 	print '<div class="clearboth"></div>';
+	if ($panel && !empty($panel->_legacy_warnings)) {
+		$legacyvalues = array();
+		foreach ($panel->_legacy_warnings as $legacyfield => $legacyvalue) {
+			$legacyvalues[] = dol_escape_htmltag($legacyfield.' = '.$legacyvalue);
+		}
+		print '<div class="warning">'.$langs->trans('TechnicalValueLegacyWarning', implode(', ', $legacyvalues)).'</div>';
+	}
 	print '<div class="tabsAction">';
 	if (!$editmode) {
 		if ($permissiontoadd) {

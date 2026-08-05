@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 	entity integer NOT NULL DEFAULT 1,
 	pmax double,
 	power_tolerance double,
+	power_tolerance_min double,
+	power_tolerance_max double,
 	module_efficiency double,
 	vmp double,
 	imp double,
@@ -43,6 +45,8 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 	cable_section double,
 	cable_length integer,
 	operating_temperature double,
+	operating_temperature_min double,
+	operating_temperature_max double,
 	max_system_voltage double,
 	max_series_fuse double,
 	snow_load double,
@@ -61,6 +65,10 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_pvpanel(
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_rowid (rowid);
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_fk_product (fk_product);
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD COLUMN IF NOT EXISTS entity integer NOT NULL DEFAULT 1;
+ALTER TABLE llx_powerplantpv_product_pvpanel ADD COLUMN IF NOT EXISTS power_tolerance_min double;
+ALTER TABLE llx_powerplantpv_product_pvpanel ADD COLUMN IF NOT EXISTS power_tolerance_max double;
+ALTER TABLE llx_powerplantpv_product_pvpanel ADD COLUMN IF NOT EXISTS operating_temperature_min double;
+ALTER TABLE llx_powerplantpv_product_pvpanel ADD COLUMN IF NOT EXISTS operating_temperature_max double;
 ALTER TABLE llx_powerplantpv_product_pvpanel ADD INDEX IF NOT EXISTS idx_powerplantpv_product_pvpanel_entity (entity);
 
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter(
@@ -78,9 +86,20 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter(
 	ac_apparent_power double(24,8),
 	ac_nominal_voltage varchar(128),
 	grid_frequency varchar(64),
+	ac_voltage_min double(24,8),
+	ac_voltage_nominal double(24,8),
+	ac_voltage_max double(24,8),
+	grid_frequency_min double(24,8),
+	grid_frequency_nominal double(24,8),
+	grid_frequency_max double(24,8),
 	ac_max_output_current double(24,8),
 	power_factor varchar(64),
 	thd varchar(64),
+	power_factor_inductive double(24,8),
+	power_factor_nominal double(24,8),
+	power_factor_capacitive double(24,8),
+	thd_comparator varchar(3),
+	thd_value double(24,8),
 	max_efficiency double(6,3),
 	european_efficiency double(6,3),
 	dc_switch smallint,
@@ -95,9 +114,15 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter(
 	ip_rating varchar(64),
 	operating_temperature varchar(128),
 	relative_humidity varchar(128),
+	operating_temperature_min double(24,8),
+	operating_temperature_max double(24,8),
+	relative_humidity_min double(24,8),
+	relative_humidity_max double(24,8),
 	cooling varchar(128),
 	max_altitude integer,
 	noise varchar(64),
+	noise_comparator varchar(3),
+	noise_value double(24,8),
 	topology varchar(128),
 	night_consumption varchar(64),
 	display_type varchar(128),
@@ -116,6 +141,29 @@ ALTER TABLE llx_powerplantpv_product_inverter ADD INDEX IF NOT EXISTS idx_powerp
 ALTER TABLE llx_powerplantpv_product_inverter ADD UNIQUE INDEX IF NOT EXISTS uk_powerplantpv_product_inverter_product_entity (fk_product, entity);
 ALTER TABLE llx_powerplantpv_product_inverter ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_fk_product (fk_product);
 ALTER TABLE llx_powerplantpv_product_inverter ADD INDEX IF NOT EXISTS idx_powerplantpv_product_inverter_entity (entity);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS ac_voltage_min double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS ac_voltage_nominal double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS ac_voltage_max double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS grid_frequency_min double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS grid_frequency_nominal double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS grid_frequency_max double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS power_factor_inductive double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS power_factor_nominal double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS power_factor_capacitive double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS thd_comparator varchar(3);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS thd_value double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS backup_voltage_min double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS backup_voltage_nominal double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS backup_voltage_max double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS backup_thd_comparator varchar(3);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS backup_thd_value double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS operating_temperature_min double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS operating_temperature_max double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS relative_humidity_min double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS relative_humidity_max double(24,8);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS noise_comparator varchar(3);
+ALTER TABLE llx_powerplantpv_product_inverter ADD COLUMN IF NOT EXISTS noise_value double(24,8);
+ALTER TABLE llx_powerplantpv_product_battery ADD COLUMN IF NOT EXISTS noise_comparator varchar(3);
 
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter_mppt(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,

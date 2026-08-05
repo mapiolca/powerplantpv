@@ -55,6 +55,7 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertArrayHasKey('roundtrip_efficiency_ac', $fields);
 		$this->assertArrayHasKey('max_parallel_systems', $fields);
 		$this->assertArrayHasKey('installation_location', $fields);
+		$this->assertArrayHasKey('noise_comparator', $fields);
 	}
 
 	public function testIntegratedStorageReusesExtendedInverterRegistry(): void
@@ -65,6 +66,11 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertArrayHasKey('backup_peak_power', $fields);
 		$this->assertArrayHasKey('backup_transfer_time', $fields);
 		$this->assertArrayHasKey('max_unbalanced_output', $fields);
+		$this->assertArrayHasKey('ac_voltage_min', $fields);
+		$this->assertArrayHasKey('ac_voltage_nominal', $fields);
+		$this->assertArrayHasKey('ac_voltage_max', $fields);
+		$this->assertArrayHasKey('power_factor_inductive', $fields);
+		$this->assertArrayHasKey('thd_comparator', $fields);
 	}
 
 	public function testNestedKitMultipliesEveryQuantityAndFlattensInventory(): void

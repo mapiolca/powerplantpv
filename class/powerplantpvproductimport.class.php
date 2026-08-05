@@ -23,6 +23,7 @@
 
 dol_include_once('/powerplantpv/class/productinverter.class.php');
 dol_include_once('/powerplantpv/class/productbattery.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvproductdatasource.class.php');
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
@@ -70,7 +71,8 @@ class PowerPlantPVProductImport
 	{
 		return array(
 			'pmax',
-			'power_tolerance',
+			'power_tolerance_min',
+			'power_tolerance_max',
 			'module_efficiency',
 			'vmp',
 			'imp',
@@ -86,7 +88,8 @@ class PowerPlantPVProductImport
 			'temp_coeff_isc',
 			'max_system_voltage',
 			'max_series_fuse',
-			'operating_temperature',
+			'operating_temperature_min',
+			'operating_temperature_max',
 			'snow_load',
 			'wind_load',
 			'product_warranty',
@@ -135,25 +138,42 @@ class PowerPlantPVProductImport
 	 */
 	public static function getImportFieldUnit($type, $field)
 	{
+		$legacyunits = array(
+			'_legacy_power_tolerance' => '%', '_legacy_operating_temperature' => '°C',
+			'_legacy_ac_voltage' => 'V', '_legacy_grid_frequency' => 'Hz', '_legacy_power_factor' => 'ratio',
+			'_legacy_thd' => '%', '_legacy_backup_voltage' => 'V', '_legacy_backup_thd' => '%',
+			'_legacy_relative_humidity' => '%', '_legacy_noise' => 'dB(A)',
+		);
+		if (isset($legacyunits[$field])) {
+			return $legacyunits[$field];
+		}
 		if ($type === 'battery') {
 			$fields = ProductBattery::getBatteryFields();
 			return isset($fields[$field]['unit']) ? (string) $fields[$field]['unit'] : 'text';
 		}
 		$moduleunits = array(
-			'pmax' => 'Wc', 'power_tolerance' => '%', 'module_efficiency' => '%', 'vmp' => 'V', 'imp' => 'A', 'voc' => 'V', 'isc' => 'A',
+			'pmax' => 'Wc', 'power_tolerance_min' => '%', 'power_tolerance_max' => '%', 'module_efficiency' => '%', 'vmp' => 'V', 'imp' => 'A', 'voc' => 'V', 'isc' => 'A',
 			'front_glass_thickness' => 'mm', 'back_glass_thickness' => 'mm', 'cable_section' => 'mm²', 'cable_length' => 'mm', 'noct' => '°C',
 			'temp_coeff_pmax' => '%/°C', 'temp_coeff_voc' => '%/°C', 'temp_coeff_isc' => '%/°C', 'max_system_voltage' => 'V', 'max_series_fuse' => 'A',
-			'operating_temperature' => '°C', 'snow_load' => 'Pa', 'wind_load' => 'Pa', 'product_warranty' => 'years', 'power_warranty' => 'years',
+			'operating_temperature_min' => '°C', 'operating_temperature_max' => '°C', 'snow_load' => 'Pa', 'wind_load' => 'Pa', 'product_warranty' => 'years', 'power_warranty' => 'years',
 			'first_year_degradation' => '%', 'annual_degradation' => '%/year', 'modules_per_box' => 'pcs', 'modules_per_container40' => 'pcs',
 		);
 		if ($type === 'module') {
+			$structuredmodulefields = PowerPlantPVTechnicalValue::getPVPanelFields();
+			if (isset($structuredmodulefields[$field]['unit'])) {
+				return (string) $structuredmodulefields[$field]['unit'];
+			}
 			return isset($moduleunits[$field]) ? $moduleunits[$field] : 'text';
+		}
+		$inverterfields = ProductInverter::getInverterFields();
+		if (isset($inverterfields[$field]['unit'])) {
+			return (string) $inverterfields[$field]['unit'];
 		}
 		$inverterunits = array(
 			'pv_max_power' => 'W', 'dc_max_voltage' => 'V', 'startup_voltage' => 'V', 'mppt_voltage_min' => 'V', 'mppt_voltage_max' => 'V', 'nominal_dc_voltage' => 'V',
-			'ac_nominal_power' => 'W', 'ac_max_power' => 'W', 'ac_apparent_power' => 'VA', 'ac_nominal_voltage' => 'V', 'grid_frequency' => 'Hz', 'ac_max_output_current' => 'A',
-			'phase_count' => 'pcs', 'power_factor' => 'ratio', 'thd' => '%', 'backup_nominal_power' => 'W', 'backup_peak_power' => 'W', 'backup_peak_duration' => 's',
-			'backup_transfer_time' => 'ms', 'backup_nominal_voltage' => 'V', 'backup_max_current' => 'A', 'backup_thd' => '%', 'max_unbalanced_output' => '%',
+			'ac_nominal_power' => 'W', 'ac_max_power' => 'W', 'ac_apparent_power' => 'VA', 'ac_max_output_current' => 'A',
+			'phase_count' => 'pcs', 'backup_nominal_power' => 'W', 'backup_peak_power' => 'W', 'backup_peak_duration' => 's',
+			'backup_transfer_time' => 'ms', 'backup_max_current' => 'A', 'max_unbalanced_output' => '%',
 			'max_efficiency' => '%', 'european_efficiency' => '%', 'dc_switch' => '0/1', 'afci' => '0/1', 'pid_recovery' => '0/1', 'anti_islanding' => '0/1',
 			'dc_reverse_polarity_protection' => '0/1', 'insulation_monitoring' => '0/1', 'residual_current_monitoring' => '0/1', 'max_altitude' => 'm',
 		);
@@ -219,7 +239,7 @@ class PowerPlantPVProductImport
 	 */
 	protected static function getPVFreeInverterImportFields()
 	{
-		return array('pv_max_power', 'dc_max_voltage', 'startup_voltage', 'mppt_voltage_min', 'mppt_voltage_max', 'nominal_dc_voltage', 'ac_nominal_power', 'ac_max_power', 'ac_apparent_power', 'ac_nominal_voltage', 'grid_frequency', 'ac_max_output_current', 'max_efficiency', 'european_efficiency');
+		return array('pv_max_power', 'dc_max_voltage', 'startup_voltage', 'mppt_voltage_min', 'mppt_voltage_max', 'nominal_dc_voltage', 'ac_nominal_power', 'ac_max_power', 'ac_apparent_power', 'ac_voltage_nominal', 'grid_frequency_nominal', 'ac_max_output_current', 'max_efficiency', 'european_efficiency');
 	}
 
 	/**
@@ -294,8 +314,8 @@ class PowerPlantPVProductImport
 			'ac_nominal_power' => $this->toFloat($rawData, 'Paco'),
 			'ac_max_power' => $this->toFloat($rawData, 'Paco'),
 			'ac_apparent_power' => null,
-			'ac_nominal_voltage' => $this->toScalarString($rawData, 'Vac'),
-			'grid_frequency' => null,
+			'ac_voltage_nominal' => $this->toFloat($rawData, 'Vac'),
+			'grid_frequency_nominal' => null,
 			'ac_max_output_current' => $this->toFloat($rawData, 'Idcmax'),
 			'max_efficiency' => null,
 			'european_efficiency' => null,
@@ -931,6 +951,19 @@ class PowerPlantPVProductImport
 		$current = $this->fetchPvPanel($fkProduct);
 		if ($this->error) {
 			return -1;
+		}
+		$values = array();
+		foreach (self::getModuleImportFields() as $field) {
+			$values[$field] = $current && property_exists($current, $field) ? $current->{$field} : null;
+		}
+		foreach ($changes as $field => $change) {
+			$values[$field] = $change['proposed'];
+		}
+		foreach (array(array('power_tolerance_min', 'power_tolerance_max'), array('operating_temperature_min', 'operating_temperature_max')) as $range) {
+			if (!PowerPlantPVTechnicalValue::isValidRange($values[$range[0]], null, $values[$range[1]])) {
+				$this->setError('TechnicalValueInvalidRange');
+				return -1;
+			}
 		}
 
 		if ($current && !empty($current->rowid)) {

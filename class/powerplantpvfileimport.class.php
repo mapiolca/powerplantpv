@@ -22,6 +22,7 @@
  */
 
 dol_include_once('/powerplantpv/class/powerplantpvproductimport.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
 
 /**
  * Read and normalize CSV/XLSX product technical characteristics.
@@ -353,6 +354,9 @@ class PowerPlantPVFileImport
 			} else {
 				$normalized = $this->normalizeModuleRow($raw);
 			}
+			if ($this->getLastError() !== '') {
+				return array();
+			}
 			$recognizedcount = $this->countRecognizedValues($normalized);
 
 			$importrows[] = array(
@@ -401,7 +405,10 @@ class PowerPlantPVFileImport
 	 */
 	public function normalizeModuleRow(array $row)
 	{
-		return $this->normalizeRowWithAliases($row, $this->getModuleAliases(), $this->getModuleFieldTypes(), 'module');
+		$normalized = $this->normalizeRowWithAliases($row, $this->getModuleAliases(), $this->getModuleFieldTypes(), 'module');
+		$this->expandLegacyRange($normalized, '_legacy_power_tolerance', 'power_tolerance_min', 'power_tolerance_max');
+		$this->expandLegacyRange($normalized, '_legacy_operating_temperature', 'operating_temperature_min', 'operating_temperature_max');
+		return $normalized;
 	}
 
 	/**
@@ -413,12 +420,86 @@ class PowerPlantPVFileImport
 	public function normalizeInverterRow(array $row)
 	{
 		$normalized = $this->normalizeRowWithAliases($row, $this->getInverterAliases(), $this->getInverterFieldTypes(), 'inverter');
+		foreach (array(
+			array('_legacy_ac_voltage', 'ac_voltage_min', 'ac_voltage_max', 'ac_voltage_nominal'),
+			array('_legacy_grid_frequency', 'grid_frequency_min', 'grid_frequency_max', 'grid_frequency_nominal'),
+			array('_legacy_backup_voltage', 'backup_voltage_min', 'backup_voltage_max', 'backup_voltage_nominal'),
+			array('_legacy_operating_temperature', 'operating_temperature_min', 'operating_temperature_max', null),
+			array('_legacy_relative_humidity', 'relative_humidity_min', 'relative_humidity_max', null),
+		) as $range) {
+			$this->expandLegacyRange($normalized, $range[0], $range[1], $range[2], $range[3]);
+		}
+		foreach (array(
+			array('_legacy_thd', 'thd_comparator', 'thd_value'),
+			array('_legacy_backup_thd', 'backup_thd_comparator', 'backup_thd_value'),
+			array('_legacy_noise', 'noise_comparator', 'noise_value'),
+		) as $threshold) {
+			$this->expandLegacyThreshold($normalized, $threshold[0], $threshold[1], $threshold[2]);
+		}
+		$this->normalizeComparatorFields($normalized, array('thd_comparator', 'backup_thd_comparator', 'noise_comparator'));
+		if (isset($normalized['_legacy_power_factor']) && $normalized['_legacy_power_factor'] !== '') {
+			$raw = (string) $normalized['_legacy_power_factor'];
+			$parsed = PowerPlantPVTechnicalValue::parsePowerFactor($raw);
+			if ($parsed !== null) {
+				$normalized['power_factor_inductive'] = $parsed['inductive'];
+				$normalized['power_factor_nominal'] = $parsed['nominal'];
+				$normalized['power_factor_capacitive'] = $parsed['capacitive'];
+			} else {
+				$normalized['_legacy_warnings']['power_factor'] = $raw;
+			}
+			unset($normalized['_legacy_power_factor']);
+		}
 		$composition = $this->normalizeMpptCompositionRow($row);
 		if (!empty($composition)) {
 			$normalized['_mppt_composition'] = $composition;
 		}
 
 		return $normalized;
+	}
+
+	/**
+	 * Expand one deprecated compact range field.
+	 *
+	 * @param array<string,mixed> $normalized Normalized row
+	 * @param string $legacy Legacy key
+	 * @param string $min Minimum key
+	 * @param string $max Maximum key
+	 * @param string|null $nominal Optional nominal key
+	 * @return void
+	 */
+	protected function expandLegacyRange(array &$normalized, $legacy, $min, $max, $nominal = null)
+	{
+		if (!isset($normalized[$legacy]) || $normalized[$legacy] === '') {
+			return;
+		}
+		$raw = (string) $normalized[$legacy];
+		$parsed = PowerPlantPVTechnicalValue::parseRange($raw);
+		if ($parsed !== null) {
+			$normalized[$min] = $parsed['min'];
+			$normalized[$max] = $parsed['max'];
+		} elseif ($nominal !== null && is_numeric(str_replace(',', '.', $raw))) {
+			$normalized[$nominal] = (float) str_replace(',', '.', $raw);
+		} else {
+			$normalized['_legacy_warnings'][$legacy] = $raw;
+		}
+		unset($normalized[$legacy]);
+	}
+
+	/** @param array<string,mixed> $normalized Row @return void */
+	protected function expandLegacyThreshold(array &$normalized, $legacy, $comparator, $value)
+	{
+		if (!isset($normalized[$legacy]) || $normalized[$legacy] === '') {
+			return;
+		}
+		$raw = (string) $normalized[$legacy];
+		$parsed = PowerPlantPVTechnicalValue::parseThreshold($raw);
+		if ($parsed !== null) {
+			$normalized[$comparator] = $parsed['comparator'];
+			$normalized[$value] = $parsed['value'];
+		} else {
+			$normalized['_legacy_warnings'][$legacy] = $raw;
+		}
+		unset($normalized[$legacy]);
 	}
 
 	/**
@@ -430,6 +511,7 @@ class PowerPlantPVFileImport
 	public function normalizeBatteryRow(array $row)
 	{
 		$normalized = $this->normalizeRowWithAliases($row, $this->getBatteryAliases(), $this->getBatteryFieldTypes(), 'battery');
+		$this->normalizeComparatorFields($normalized, array('noise_comparator'));
 		$attributes = array();
 		foreach ($row as $rawheader => $rawvalue) {
 			$descriptor = $this->parseBatteryAttributeHeader($this->normalizeHeader((string) $rawheader));
@@ -451,6 +533,28 @@ class PowerPlantPVFileImport
 			$normalized['_battery_attributes'] = $attributes;
 		}
 		return $normalized;
+	}
+
+	/**
+	 * Normalize explicit comparator columns and reject unknown codes.
+	 *
+	 * @param array<string,mixed> $normalized Row
+	 * @param array<int,string> $fields Comparator fields
+	 * @return void
+	 */
+	protected function normalizeComparatorFields(array &$normalized, array $fields)
+	{
+		foreach ($fields as $field) {
+			if (!isset($normalized[$field]) || trim((string) $normalized[$field]) === '') {
+				continue;
+			}
+			$comparator = PowerPlantPVTechnicalValue::normalizeComparator($normalized[$field]);
+			if ($comparator === '') {
+				$this->setError('TechnicalValueInvalidComparator');
+				return;
+			}
+			$normalized[$field] = $comparator;
+		}
 	}
 
 	/**
@@ -918,7 +1022,7 @@ class PowerPlantPVFileImport
 	{
 		$count = 0;
 		foreach ($normalized as $key => $value) {
-			if ($key === '_dataset') {
+			if ($key === '_dataset' || $key === '_legacy_warnings') {
 				continue;
 			}
 			if ($key === '_mppt_composition' && is_array($value)) {
@@ -1260,9 +1364,9 @@ class PowerPlantPVFileImport
 			'power' => 'pmax',
 			'puissance' => 'pmax',
 			'puissance_stc' => 'pmax',
-			'power_tolerance' => 'power_tolerance',
-			'tolerance' => 'power_tolerance',
-			'tolerance_puissance' => 'power_tolerance',
+			'power_tolerance' => '_legacy_power_tolerance',
+			'tolerance' => '_legacy_power_tolerance',
+			'tolerance_puissance' => '_legacy_power_tolerance',
 			'module_efficiency' => 'module_efficiency',
 			'efficiency' => 'module_efficiency',
 			'rendement' => 'module_efficiency',
@@ -1327,14 +1431,14 @@ class PowerPlantPVFileImport
 			'max_series_fuse' => 'max_series_fuse',
 			'fuse' => 'max_series_fuse',
 			'fusible_max' => 'max_series_fuse',
-			'operating_temperature' => 'operating_temperature',
-			'operating_temperature_c' => 'operating_temperature',
-			'temperature_fonctionnement' => 'operating_temperature',
-			'temperature_fonctionnement_c' => 'operating_temperature',
-			'temperature_de_fonctionnement' => 'operating_temperature',
-			'temperature_de_fonctionnement_c' => 'operating_temperature',
-			'temperature_service' => 'operating_temperature',
-			'temperature_service_c' => 'operating_temperature',
+			'operating_temperature' => '_legacy_operating_temperature',
+			'operating_temperature_c' => '_legacy_operating_temperature',
+			'temperature_fonctionnement' => '_legacy_operating_temperature',
+			'temperature_fonctionnement_c' => '_legacy_operating_temperature',
+			'temperature_de_fonctionnement' => '_legacy_operating_temperature',
+			'temperature_de_fonctionnement_c' => '_legacy_operating_temperature',
+			'temperature_service' => '_legacy_operating_temperature',
+			'temperature_service_c' => '_legacy_operating_temperature',
 			'snow_load' => 'snow_load',
 			'snow_load_pa' => 'snow_load',
 			'charge_neige' => 'snow_load',
@@ -1419,22 +1523,26 @@ class PowerPlantPVFileImport
 			'ac_apparent_power' => 'ac_apparent_power',
 			'puissance_apparente' => 'ac_apparent_power',
 			'kva' => 'ac_apparent_power',
-			'ac_nominal_voltage' => 'ac_nominal_voltage',
-			'vac_nominal' => 'ac_nominal_voltage',
-			'grid_frequency' => 'grid_frequency',
-			'frequency' => 'grid_frequency',
-			'frequence' => 'grid_frequency',
+			'ac_nominal_voltage' => '_legacy_ac_voltage',
+			'vac_nominal' => '_legacy_ac_voltage',
+			'grid_frequency' => '_legacy_grid_frequency',
+			'frequency' => '_legacy_grid_frequency',
+			'frequence' => '_legacy_grid_frequency',
 			'ac_max_output_current' => 'ac_max_output_current',
 			'iac_max' => 'ac_max_output_current',
 			'courant_ac_max' => 'ac_max_output_current',
-			'power_factor' => 'power_factor',
-			'cos_phi' => 'power_factor',
-			'cosphi' => 'power_factor',
-			'facteur_puissance' => 'power_factor',
-			'facteur_de_puissance' => 'power_factor',
-			'thd' => 'thd',
-			'taux_distorsion_harmonique' => 'thd',
-			'distorsion_harmonique' => 'thd',
+			'power_factor' => '_legacy_power_factor',
+			'cos_phi' => '_legacy_power_factor',
+			'cosphi' => '_legacy_power_factor',
+			'facteur_puissance' => '_legacy_power_factor',
+			'facteur_de_puissance' => '_legacy_power_factor',
+			'thd' => '_legacy_thd',
+			'taux_distorsion_harmonique' => '_legacy_thd',
+			'distorsion_harmonique' => '_legacy_thd',
+			'backup_nominal_voltage' => '_legacy_backup_voltage',
+			'tension_secours_nominale' => '_legacy_backup_voltage',
+			'backup_thd' => '_legacy_backup_thd',
+			'thd_secours' => '_legacy_backup_thd',
 			'max_efficiency' => 'max_efficiency',
 			'efficiency_max' => 'max_efficiency',
 			'rendement_max' => 'max_efficiency',
@@ -1477,21 +1585,21 @@ class PowerPlantPVFileImport
 			'surveillance_courant_residuel' => 'residual_current_monitoring',
 			'ip_rating' => 'ip_rating',
 			'indice_ip' => 'ip_rating',
-			'operating_temperature' => 'operating_temperature',
-			'temperature_fonctionnement' => 'operating_temperature',
-			'relative_humidity' => 'relative_humidity',
-			'humidity' => 'relative_humidity',
-			'humidite_relative' => 'relative_humidity',
-			'humidite' => 'relative_humidity',
+			'operating_temperature' => '_legacy_operating_temperature',
+			'temperature_fonctionnement' => '_legacy_operating_temperature',
+			'relative_humidity' => '_legacy_relative_humidity',
+			'humidity' => '_legacy_relative_humidity',
+			'humidite_relative' => '_legacy_relative_humidity',
+			'humidite' => '_legacy_relative_humidity',
 			'cooling' => 'cooling',
 			'refroidissement' => 'cooling',
 			'max_altitude' => 'max_altitude',
 			'altitude_max' => 'max_altitude',
 			'altitude_maximum' => 'max_altitude',
-			'noise' => 'noise',
-			'noise_db' => 'noise',
-			'bruit' => 'noise',
-			'bruit_db' => 'noise',
+			'noise' => '_legacy_noise',
+			'noise_db' => '_legacy_noise',
+			'bruit' => '_legacy_noise',
+			'bruit_db' => '_legacy_noise',
 			'topology' => 'topology',
 			'topologie' => 'topology',
 			'night_consumption' => 'night_consumption',
@@ -1559,6 +1667,8 @@ class PowerPlantPVFileImport
 		foreach (PowerPlantPVProductImport::getModuleImportFields() as $field) {
 			$types[$field] = 'double';
 		}
+		$types['_legacy_power_tolerance'] = 'varchar';
+		$types['_legacy_operating_temperature'] = 'varchar';
 
 		return $types;
 	}
@@ -1572,7 +1682,11 @@ class PowerPlantPVFileImport
 	{
 		$types = array();
 		foreach (ProductInverter::getInverterFields() as $field => $spec) {
-			$types[$field] = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$type = isset($spec['type']) ? (string) $spec['type'] : 'varchar';
+			$types[$field] = $type === 'select' ? 'varchar' : $type;
+		}
+		foreach (array('_legacy_ac_voltage', '_legacy_grid_frequency', '_legacy_power_factor', '_legacy_thd', '_legacy_backup_voltage', '_legacy_backup_thd', '_legacy_operating_temperature', '_legacy_relative_humidity', '_legacy_noise') as $field) {
+			$types[$field] = 'varchar';
 		}
 
 		return $types;

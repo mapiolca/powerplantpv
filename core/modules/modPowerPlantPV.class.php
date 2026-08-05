@@ -915,7 +915,7 @@ class modPowerPlantPV extends DolibarrModules
 		if ($result < 0) {
 			return -1;
 		}
-		$result = $this->ensureBatterySchema();
+		$result = $this->ensureTechnicalValueSchema();
 		if ($result < 0) {
 			return -1;
 		}
@@ -1265,37 +1265,69 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
-	 * Ensure storage-related fields added to existing technical tables.
+	 * Ensure structured technical fields are added to existing product tables.
 	 *
 	 * @return	int		1 if OK, <0 if KO
 	 */
-	private function ensureBatterySchema()
+	private function ensureTechnicalValueSchema()
 	{
-		$table = $this->db->prefix().'powerplantpv_product_inverter';
-		$sql = "SHOW TABLES LIKE '".$this->db->escape($table)."'";
-		$resql = $this->db->query($sql);
-		if (!$resql) {
-			$this->errors[] = $this->db->lasterror();
-			return -1;
-		}
-		$tableexists = ($this->db->num_rows($resql) > 0);
-		$this->db->free($resql);
-		if (!$tableexists) {
-			return 1;
-		}
-
-		$fields = array(
-			'phase_count' => array('type' => 'integer', 'value' => '', 'null' => ''),
-			'backup_nominal_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
-			'backup_peak_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
-			'backup_peak_duration' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
-			'backup_transfer_time' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
-			'backup_nominal_voltage' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
-			'backup_max_current' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
-			'backup_thd' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
-			'max_unbalanced_output' => array('type' => 'double', 'value' => '6,3', 'null' => ''),
+		$tables = array(
+			$this->db->prefix().'powerplantpv_product_inverter' => array(
+				'phase_count' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'backup_nominal_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_peak_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_peak_duration' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_transfer_time' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_nominal_voltage' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'backup_max_current' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_thd' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+				'max_unbalanced_output' => array('type' => 'double', 'value' => '6,3', 'null' => ''),
+				'ac_voltage_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'ac_voltage_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'ac_voltage_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'grid_frequency_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'grid_frequency_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'grid_frequency_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_factor_inductive' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_factor_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_factor_capacitive' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'thd_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+				'thd_value' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_voltage_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_voltage_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_voltage_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_thd_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+				'backup_thd_value' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'relative_humidity_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'relative_humidity_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'noise_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+				'noise_value' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_product_pvpanel' => array(
+				'power_tolerance_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_tolerance_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_product_battery' => array(
+				'noise_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+			),
 		);
-		foreach ($fields as $field => $fielddesc) {
+		foreach ($tables as $table => $fields) {
+			$sql = "SHOW TABLES LIKE '".$this->db->escape($table)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+			$tableexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if (!$tableexists) {
+				continue;
+			}
+			foreach ($fields as $field => $fielddesc) {
 			$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
 			$resql = $this->db->query($sql);
 			if (!$resql) {
@@ -1308,8 +1340,92 @@ class modPowerPlantPV extends DolibarrModules
 				$this->errors[] = $this->db->lasterror();
 				return -1;
 			}
+			}
+		}
+		$sql = 'UPDATE '.$this->db->prefix()."powerplantpv_product_battery SET noise_comparator = 'EQ' WHERE noise IS NOT NULL AND (noise_comparator IS NULL OR noise_comparator = '')";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
 		}
 
+		return $this->migrateLegacyTechnicalValues();
+	}
+
+	/**
+	 * Convert deterministic legacy inverter strings to structured columns.
+	 *
+	 * @return int 1 if OK, <0 if KO
+	 */
+	private function migrateLegacyTechnicalValues()
+	{
+		dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
+		$table = $this->db->prefix().'powerplantpv_product_inverter';
+		$sql = 'SELECT rowid, ac_nominal_voltage, grid_frequency, power_factor, thd, backup_nominal_voltage, backup_thd, operating_temperature, relative_humidity, noise,';
+		$sql .= ' ac_voltage_min, ac_voltage_nominal, ac_voltage_max, grid_frequency_min, grid_frequency_nominal, grid_frequency_max,';
+		$sql .= ' power_factor_inductive, power_factor_nominal, power_factor_capacitive, thd_comparator, thd_value,';
+		$sql .= ' backup_voltage_min, backup_voltage_nominal, backup_voltage_max, backup_thd_comparator, backup_thd_value,';
+		$sql .= ' operating_temperature_min, operating_temperature_max, relative_humidity_min, relative_humidity_max, noise_comparator, noise_value';
+		$sql .= ' FROM '.$table;
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		$ranges = array(
+			'ac_nominal_voltage' => array('ac_voltage_min', 'ac_voltage_nominal', 'ac_voltage_max'),
+			'grid_frequency' => array('grid_frequency_min', 'grid_frequency_nominal', 'grid_frequency_max'),
+			'backup_nominal_voltage' => array('backup_voltage_min', 'backup_voltage_nominal', 'backup_voltage_max'),
+			'operating_temperature' => array('operating_temperature_min', null, 'operating_temperature_max'),
+			'relative_humidity' => array('relative_humidity_min', null, 'relative_humidity_max'),
+		);
+		$thresholds = array('thd' => array('thd_comparator', 'thd_value'), 'backup_thd' => array('backup_thd_comparator', 'backup_thd_value'), 'noise' => array('noise_comparator', 'noise_value'));
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$updates = array();
+			foreach ($ranges as $legacy => $target) {
+				$raw = trim((string) $obj->{$legacy});
+				if ($raw === '' || $obj->{$target[0]} !== null || $obj->{$target[2]} !== null || ($target[1] !== null && $obj->{$target[1]} !== null)) {
+					continue;
+				}
+				$parsed = PowerPlantPVTechnicalValue::parseRange($raw);
+				if ($parsed !== null) {
+					$updates[] = $target[0].' = '.((float) $parsed['min']);
+					$updates[] = $target[2].' = '.((float) $parsed['max']);
+				} elseif ($target[1] !== null && is_numeric(str_replace(',', '.', $raw))) {
+					$updates[] = $target[1].' = '.((float) str_replace(',', '.', $raw));
+				}
+			}
+			foreach ($thresholds as $legacy => $target) {
+				$raw = trim((string) $obj->{$legacy});
+				if ($raw === '' || $obj->{$target[0]} !== null || $obj->{$target[1]} !== null) {
+					continue;
+				}
+				$parsed = PowerPlantPVTechnicalValue::parseThreshold($raw);
+				if ($parsed !== null) {
+					$updates[] = $target[0]." = '".$this->db->escape($parsed['comparator'])."'";
+					$updates[] = $target[1].' = '.((float) $parsed['value']);
+				}
+			}
+			$powerfactor = trim((string) $obj->power_factor);
+			if ($powerfactor !== '' && $obj->power_factor_inductive === null && $obj->power_factor_nominal === null && $obj->power_factor_capacitive === null) {
+				$parsed = PowerPlantPVTechnicalValue::parsePowerFactor($powerfactor);
+				if ($parsed !== null) {
+					foreach (array('inductive' => 'power_factor_inductive', 'nominal' => 'power_factor_nominal', 'capacitive' => 'power_factor_capacitive') as $source => $target) {
+						if ($parsed[$source] !== null) {
+							$updates[] = $target.' = '.((float) $parsed[$source]);
+						}
+					}
+				}
+			}
+			if (!empty($updates)) {
+				$sqlupdate = 'UPDATE '.$table.' SET '.implode(', ', $updates).' WHERE rowid = '.((int) $obj->rowid);
+				if (!$this->db->query($sqlupdate)) {
+					$this->db->free($resql);
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+		$this->db->free($resql);
 		return 1;
 	}
 
