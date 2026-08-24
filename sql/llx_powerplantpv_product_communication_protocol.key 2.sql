@@ -1,4 +1,0 @@
-ALTER TABLE llx_powerplantpv_product_communication_protocol ADD UNIQUE INDEX uk_powerplantpv_product_comm_protocol (entity, fk_product, fk_communication_protocol);
-ALTER TABLE llx_powerplantpv_product_communication_protocol ADD INDEX idx_powerplantpv_product_comm_entity (entity);
-ALTER TABLE llx_powerplantpv_product_communication_protocol ADD INDEX idx_powerplantpv_product_comm_product (fk_product);
-ALTER TABLE llx_powerplantpv_product_communication_protocol ADD INDEX idx_powerplantpv_product_comm_dictionary (fk_communication_protocol);

@@ -2,6 +2,7 @@
 
 ## 1.4.0
 
+- Installation : suppression de copies accidentelles de scripts SQL susceptibles d'être exécutées hors de l'ordre natif par le chargeur Dolibarr.
 - Attestations : ajout des libellés traduits des valeurs par défaut de fréquence maximale et de puissance de bridage dans les cinq langues livrées par le module.
 - Batteries et stockage : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées nécessaires à un futur configurateur sous contraintes, des rôles d'accessoires et de leurs règles de compatibilité normalisées.
 - Kits batteries : utilisation des compositions natives Dolibarr pour les gammes multi-capacités, avec résolution récursive des quantités, inventaire terminal en lecture seule et détection explicite des cycles.
