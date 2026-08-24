@@ -1,5 +1,18 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.4.0
+
+- Batteries et stockage : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées nécessaires à un futur configurateur sous contraintes, des rôles d'accessoires et de leurs règles de compatibilité normalisées.
+- Kits batteries : utilisation des compositions natives Dolibarr pour les gammes multi-capacités, avec résolution récursive des quantités, inventaire terminal en lecture seule et détection explicite des cycles.
+- Cycle commercial : ajout et mise à jour automatique de la `Capacité de stockage (kWh)` sur les devis, commandes et factures, y compris via les kits imbriqués, avec état incomplet non bloquant et recalcul global depuis les réglages.
+- Caractéristiques techniques : structuration des plages min/nominal/max, du cos φ inductif/nominal/capacitif et des seuils à comparateur pour les modules PV, onduleurs et batteries, avec migration prudente des anciennes valeurs compactes.
+- Onduleurs intégrés : ajout des phases et caractéristiques de sortie secours/EPS, réutilisées par les systèmes de stockage tout-en-un, et présentation native alignée des MPPT avec leurs entrées PV.
+- Unités techniques : centralisation des unités dans les registres typés, valeurs numériques sans unité en base et rendu harmonisé après la valeur en consultation comme en modification pour les modules PV, onduleurs, MPPT, entrées PV et batteries.
+- Dictionnaires techniques : stockage relationnel des protocoles de communication, certifications et protections, partagé par entité et exploité par les modules PV, onduleurs et batteries.
+- Imports CSV/XLSX : prise en charge des batteries et de la mise à jour multi-produit, modèles auto-documentés avec type, unité, format et cardinalité, compatibilité avertie avec les anciens en-têtes et rejet des unités contradictoires.
+- Import administrateur : prévalidation, aperçu, traçabilité, transactions indépendantes par produit et résolution interactive des codes techniques inconnus ou inactifs, avec contrôles de droits et jetons CSRF.
+- Activation et migration : évolutions de schéma, dictionnaires, relations techniques et extrafields ajoutés de manière idempotente, sans perte des réglages ni recréation des liaisons supprimées.
+
 ## 1.3.0
 
 - Tableau de bord maintenance : affichage du nom du tiers de la centrale dans la répartition par client, y compris lorsqu'aucun contrat validé n'est lié.

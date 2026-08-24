@@ -59,15 +59,30 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		if ($action == 'PRODUCT_DELETE') {
-			return $this->denyProductDeleteIfUsed($object, $langs);
+			$result = $this->denyProductDeleteIfUsed($object, $langs);
+			if ($result < 0) {
+				return $result;
+			}
+			if ($this->deleteProductTechnicalDictionaryLinks($object) < 0) {
+				return -1;
+			}
+			return 0;
 		}
 
 		$result = $this->recalculateCommercialDocumentPeakPower($action, $object, $user);
 		if ($result < 0) {
 			return -1;
 		}
+		$result = $this->recalculateCommercialDocumentStorageCapacity($action, $object);
+		if ($result < 0) {
+			return -1;
+		}
 
 		$result = $this->recalculateCommercialDocumentPeakPowerForProduct($action, $object, $user);
+		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->recalculateCommercialDocumentStorageCapacityForProduct($action, $object);
 		if ($result < 0) {
 			return -1;
 		}
@@ -286,6 +301,100 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 	}
 
 	/**
+	 * Recalculate useful storage capacity for a changed commercial document.
+	 *
+	 * @param string $action Event action code
+	 * @param CommonObject $object Trigger object
+	 * @return int 0 on success/ignored action, <0 on technical error
+	 */
+	private function recalculateCommercialDocumentStorageCapacity($action, $object)
+	{
+		$lineactions = array(
+			'LINEPROPAL_INSERT' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEPROPAL_MODIFY' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEPROPAL_UPDATE' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEPROPAL_DELETE' => array('elementtype' => 'propal', 'parentfield' => 'fk_propal'),
+			'LINEORDER_INSERT' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEORDER_MODIFY' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEORDER_UPDATE' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEORDER_DELETE' => array('elementtype' => 'commande', 'parentfield' => 'fk_commande'),
+			'LINEBILL_INSERT' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+			'LINEBILL_MODIFY' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+			'LINEBILL_UPDATE' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+			'LINEBILL_DELETE' => array('elementtype' => 'facture', 'parentfield' => 'fk_facture'),
+		);
+		$documentactions = array(
+			'PROPAL_CREATE' => 'propal', 'PROPAL_MODIFY' => 'propal', 'PROPAL_VALIDATE' => 'propal', 'PROPAL_REOPEN' => 'propal', 'PROPAL_CANCEL' => 'propal',
+			'ORDER_CREATE' => 'commande', 'ORDER_MODIFY' => 'commande', 'ORDER_VALIDATE' => 'commande', 'ORDER_UNVALIDATE' => 'commande', 'ORDER_REOPEN' => 'commande', 'ORDER_CLOSE' => 'commande', 'ORDER_CANCEL' => 'commande',
+			'BILL_CREATE' => 'facture', 'BILL_MODIFY' => 'facture', 'BILL_VALIDATE' => 'facture', 'BILL_UNVALIDATE' => 'facture', 'BILL_CANCEL' => 'facture',
+		);
+		$elementtype = '';
+		$documentid = 0;
+		$excludelineid = 0;
+		if (isset($lineactions[$action])) {
+			$elementtype = $lineactions[$action]['elementtype'];
+			$documentid = $this->getObjectIntProperty($object, $lineactions[$action]['parentfield']);
+			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+			if ($documentid <= 0) {
+				$documentid = $this->getDocumentIdFromLine($elementtype, $object, $lineactions[$action]['parentfield']);
+			}
+			if (substr($action, -7) === '_DELETE') {
+				$excludelineid = powerplantpvGetLineId($object);
+			}
+		} elseif (isset($documentactions[$action])) {
+			$elementtype = $documentactions[$action];
+			$documentid = $this->getObjectId($object);
+		}
+		if ($elementtype === '' || $documentid <= 0) {
+			return 0;
+		}
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+		$result = powerplantpvRecalculateCommercialDocumentStorageCapacity($elementtype, $documentid, $excludelineid);
+		if ($result['result'] < 0) {
+			$this->error = 'PowerPlantPVStorageCapacityRecalculationFailed';
+			$this->errors[] = $this->error;
+			dol_syslog(__METHOD__.' failed for '.$elementtype.' id='.$documentid.' '.implode('; ', $result['errors']), LOG_ERR);
+			return -1;
+		}
+		return 0;
+	}
+
+	/**
+	 * Recalculate documents after battery data or native kit composition changes.
+	 *
+	 * @param string $action Event action code
+	 * @param CommonObject $object Product object
+	 * @return int 0 on success/ignored action, <0 on error
+	 */
+	private function recalculateCommercialDocumentStorageCapacityForProduct($action, $object)
+	{
+		if (!in_array($action, array('PRODUCT_MODIFY', 'PRODUCT_SUBPRODUCT_ADD', 'PRODUCT_SUBPRODUCT_UPDATE', 'PRODUCT_SUBPRODUCT_DELETE'), true)) {
+			return 0;
+		}
+		dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+		if (strpos($action, 'PRODUCT_SUBPRODUCT_') === 0) {
+			$resultall = powerplantpvRecalculateAllCommercialDocumentStorageCapacity();
+			if ($resultall['result'] < 0) {
+				$this->error = 'PowerPlantPVStorageCapacityRecalculationFailed';
+				$this->errors[] = $this->error;
+				return -1;
+			}
+			return 0;
+		}
+		$productid = $this->getObjectId($object);
+		if ($productid <= 0) {
+			return 0;
+		}
+		$result = powerplantpvRecalculateCommercialDocumentStorageCapacityForProduct($productid);
+		if ($result < 0) {
+			$this->error = 'PowerPlantPVStorageCapacityRecalculationFailed';
+			$this->errors[] = $this->error;
+			return -1;
+		}
+		return 0;
+	}
+
+	/**
 	 * Return the commercial document id for a line object.
 	 *
 	 * @param	string	$elementtype	Element type
@@ -498,6 +607,33 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		}
 
 		$actioncomm->elementtype = $canonicalType;
+		return 0;
+	}
+
+	/**
+	 * Remove normalized technical dictionary links after product deletion was authorized.
+	 *
+	 * @param CommonObject $product Product being deleted
+	 * @return int
+	 */
+	private function deleteProductTechnicalDictionaryLinks($product)
+	{
+		if (empty($product->id)) {
+			return 0;
+		}
+		$entity = !empty($product->entity) ? (int) $product->entity : 0;
+		if ($entity <= 0) {
+			$this->errors[] = 'PowerPlantPVTechnicalDictionaryInvalidProduct';
+			return -1;
+		}
+
+		dol_include_once('/powerplantpv/class/powerplantpvproductdictionary.class.php');
+		$service = new PowerPlantPVProductDictionary($this->db);
+		$result = $service->deleteForProduct((int) $product->id, $entity);
+		if ($result < 0) {
+			$this->errors = array_merge($this->errors, $service->errors);
+			return -1;
+		}
 		return 0;
 	}
 

@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.3.0';
+		$this->version = '1.4.0';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -300,21 +300,33 @@ class modPowerPlantPV extends DolibarrModules
 				'c_powerplantpv_intervention_nature',
 				'c_powerplantpv_maintenance_service',
 				'c_powerplantpv_index_type',
+				'c_powerplantpv_communication_protocol',
+				'c_powerplantpv_certification',
+				'c_powerplantpv_protection',
 			),
 			'tablib' => array(
 				'PhotovoltaicCategoryDictionary',
 				'InterventionNatureDictionary',
 				'MaintenanceServiceDictionary',
 				'IndexTypeDictionary',
+				'PVTechnicalCommunicationProtocolDictionary',
+				'PVTechnicalCertificationDictionary',
+				'PVTechnicalProtectionDictionary',
 			),
 			'tabsql' => array(
 				'SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.$this->db->prefix().'c_powerplantpv_categorypv as f',
 				'SELECT f.rowid as rowid, f.code, f.label, f.report_template_code, f.is_maintenance, f.is_preventive, f.requires_report, f.requires_signature, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_intervention_nature as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_maintenance_service as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.default_unit, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_index_type as f WHERE f.entity = '.((int) $conf->entity),
+				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_communication_protocol as f WHERE f.entity = '.((int) $conf->entity),
+				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_certification as f WHERE f.entity = '.((int) $conf->entity),
+				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_protection as f WHERE f.entity = '.((int) $conf->entity),
 			),
 			'tabsqlsort' => array(
 				'f.label ASC',
+				'f.position ASC, f.label ASC',
+				'f.position ASC, f.label ASC',
+				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
@@ -324,27 +336,42 @@ class modPowerPlantPV extends DolibarrModules
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
 				'code,label,description,default_unit,position',
+				'code,label,description,position',
+				'code,label,description,position',
+				'code,label,description,position',
 			),
 			'tabfieldvalue' => array(
 				'code,label',
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
 				'code,label,description,default_unit,position',
+				'code,label,description,position',
+				'code,label,description,position',
+				'code,label,description,position',
 			),
 			'tabfieldinsert' => array(
 				'code,label',
 				'code,label,report_template_code,is_maintenance,is_preventive,requires_report,requires_signature,position',
 				'code,label,description,position',
 				'code,label,description,default_unit,position',
+				'code,label,description,position,entity',
+				'code,label,description,position,entity',
+				'code,label,description,position,entity',
 			),
-			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid'),
+			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid'),
 			'tabcond' => array(
+				isModEnabled('powerplantpv'),
+				isModEnabled('powerplantpv'),
+				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 			),
 			'tabhelp' => array(
+				array('code' => $langs->trans('CodeTooltipHelp')),
+				array('code' => $langs->trans('CodeTooltipHelp')),
+				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
@@ -886,7 +913,9 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	public function init($options = '')
 	{
-		global $conf, $langs;
+		global $conf, $langs, $user;
+
+		$langs->loadLangs(array('powerplantpv@powerplantpv'));
 
 		// Create tables of module at module activation
 		//$result = $this->_load_tables('/install/mysql/', 'powerplantpv');
@@ -913,6 +942,25 @@ class modPowerPlantPV extends DolibarrModules
 		}
 		$result = $this->ensureIndexReadingSchema();
 		if ($result < 0) {
+			return -1;
+		}
+		$result = $this->ensureTechnicalValueSchema();
+		if ($result < 0) {
+			return -1;
+		}
+
+		dol_include_once('/powerplantpv/class/powerplantpvproductdictionary.class.php');
+		dol_include_once('/powerplantpv/class/powerplantpvtechnicaldictionarymigration.class.php');
+		$technicalDictionaryService = new PowerPlantPVProductDictionary($this->db);
+		$result = $technicalDictionaryService->seedDefaults($langs, (int) $conf->entity);
+		if ($result < 0) {
+			$this->errors = array_merge($this->errors, $technicalDictionaryService->errors);
+			return -1;
+		}
+		$technicalDictionaryMigration = new PowerPlantPVTechnicalDictionaryMigration($this->db);
+		$result = $technicalDictionaryMigration->migrateOnce((int) $conf->entity, is_object($user) ? (int) $user->id : 0);
+		if ($result < 0) {
+			$this->errors = array_merge($this->errors, $technicalDictionaryMigration->errors);
 			return -1;
 		}
 
@@ -964,9 +1012,13 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
-		// Create commercial document extrafields storing the calculated total peak power.
+		// Create commercial document extrafields storing calculated technical totals.
 		foreach (array('propal', 'commande', 'facture') as $commercialElementType) {
 			$result = $this->ensureCommercialPeakPowerExtrafield($extrafields, $commercialElementType);
+			if ($result < 0) {
+				return -1;
+			}
+			$result = $this->ensureCommercialStorageCapacityExtrafield($extrafields, $commercialElementType);
 			if ($result < 0) {
 				return -1;
 			}
@@ -986,6 +1038,8 @@ class modPowerPlantPV extends DolibarrModules
 			'COFFAC' => 'Coffret AC',
 			'COFFDC' => 'Coffret DC',
 			'SYSINT' => 'Système d\'intégration',
+			'BATTER' => 'Batterie',
+			'BATACC' => 'Accessoire Batterie',
 		);
 		foreach ($categoryRows as $code => $label) {
 			$sql = "INSERT INTO ".$this->db->prefix()."c_powerplantpv_categorypv(code, label, active)";
@@ -1255,9 +1309,174 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
-	 * Ensure attestation tables contain fields added by V1.
+	 * Ensure structured technical fields are added to existing product tables.
 	 *
 	 * @return	int		1 if OK, <0 if KO
+	 */
+	private function ensureTechnicalValueSchema()
+	{
+		$tables = array(
+			$this->db->prefix().'powerplantpv_product_inverter' => array(
+				'phase_count' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'backup_nominal_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_peak_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_peak_duration' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_transfer_time' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_nominal_voltage' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'backup_max_current' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_thd' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+				'max_unbalanced_output' => array('type' => 'double', 'value' => '6,3', 'null' => ''),
+				'ac_voltage_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'ac_voltage_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'ac_voltage_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'grid_frequency_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'grid_frequency_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'grid_frequency_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_factor_inductive' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_factor_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_factor_capacitive' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'thd_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+				'thd_value' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_voltage_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_voltage_nominal' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_voltage_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'backup_thd_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+				'backup_thd_value' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'relative_humidity_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'relative_humidity_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'noise_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+				'noise_value' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_product_pvpanel' => array(
+				'power_tolerance_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'power_tolerance_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_min' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+				'operating_temperature_max' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
+			),
+			$this->db->prefix().'powerplantpv_product_battery' => array(
+				'noise_comparator' => array('type' => 'varchar', 'value' => '3', 'null' => ''),
+			),
+		);
+		foreach ($tables as $table => $fields) {
+			$sql = "SHOW TABLES LIKE '".$this->db->escape($table)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+			$tableexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if (!$tableexists) {
+				continue;
+			}
+			foreach ($fields as $field => $fielddesc) {
+			$sql = "SHOW COLUMNS FROM ".$this->db->sanitize($table)." LIKE '".$this->db->escape($field)."'";
+			$resql = $this->db->query($sql);
+			if (!$resql) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+			$fieldexists = ($this->db->num_rows($resql) > 0);
+			$this->db->free($resql);
+			if (!$fieldexists && $this->db->DDLAddField($table, $field, $fielddesc) < 0) {
+				$this->errors[] = $this->db->lasterror();
+				return -1;
+			}
+			}
+		}
+		$sql = 'UPDATE '.$this->db->prefix()."powerplantpv_product_battery SET noise_comparator = 'EQ' WHERE noise IS NOT NULL AND (noise_comparator IS NULL OR noise_comparator = '')";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return $this->migrateLegacyTechnicalValues();
+	}
+
+	/**
+	 * Convert deterministic legacy inverter strings to structured columns.
+	 *
+	 * @return int 1 if OK, <0 if KO
+	 */
+	private function migrateLegacyTechnicalValues()
+	{
+		dol_include_once('/powerplantpv/class/powerplantpvtechnicalvalue.class.php');
+		$table = $this->db->prefix().'powerplantpv_product_inverter';
+		$sql = 'SELECT rowid, ac_nominal_voltage, grid_frequency, power_factor, thd, backup_nominal_voltage, backup_thd, operating_temperature, relative_humidity, noise,';
+		$sql .= ' ac_voltage_min, ac_voltage_nominal, ac_voltage_max, grid_frequency_min, grid_frequency_nominal, grid_frequency_max,';
+		$sql .= ' power_factor_inductive, power_factor_nominal, power_factor_capacitive, thd_comparator, thd_value,';
+		$sql .= ' backup_voltage_min, backup_voltage_nominal, backup_voltage_max, backup_thd_comparator, backup_thd_value,';
+		$sql .= ' operating_temperature_min, operating_temperature_max, relative_humidity_min, relative_humidity_max, noise_comparator, noise_value';
+		$sql .= ' FROM '.$table;
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		$ranges = array(
+			'ac_nominal_voltage' => array('ac_voltage_min', 'ac_voltage_nominal', 'ac_voltage_max'),
+			'grid_frequency' => array('grid_frequency_min', 'grid_frequency_nominal', 'grid_frequency_max'),
+			'backup_nominal_voltage' => array('backup_voltage_min', 'backup_voltage_nominal', 'backup_voltage_max'),
+			'operating_temperature' => array('operating_temperature_min', null, 'operating_temperature_max'),
+			'relative_humidity' => array('relative_humidity_min', null, 'relative_humidity_max'),
+		);
+		$thresholds = array('thd' => array('thd_comparator', 'thd_value'), 'backup_thd' => array('backup_thd_comparator', 'backup_thd_value'), 'noise' => array('noise_comparator', 'noise_value'));
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$updates = array();
+			foreach ($ranges as $legacy => $target) {
+				$raw = trim((string) $obj->{$legacy});
+				if ($raw === '' || $obj->{$target[0]} !== null || $obj->{$target[2]} !== null || ($target[1] !== null && $obj->{$target[1]} !== null)) {
+					continue;
+				}
+				$parsed = PowerPlantPVTechnicalValue::parseRange($raw);
+				if ($parsed !== null) {
+					$updates[] = $target[0].' = '.((float) $parsed['min']);
+					$updates[] = $target[2].' = '.((float) $parsed['max']);
+				} elseif ($target[1] !== null && is_numeric(str_replace(',', '.', $raw))) {
+					$updates[] = $target[1].' = '.((float) str_replace(',', '.', $raw));
+				}
+			}
+			foreach ($thresholds as $legacy => $target) {
+				$raw = trim((string) $obj->{$legacy});
+				if ($raw === '' || $obj->{$target[0]} !== null || $obj->{$target[1]} !== null) {
+					continue;
+				}
+				$parsed = PowerPlantPVTechnicalValue::parseThreshold($raw);
+				if ($parsed !== null) {
+					$updates[] = $target[0]." = '".$this->db->escape($parsed['comparator'])."'";
+					$updates[] = $target[1].' = '.((float) $parsed['value']);
+				}
+			}
+			$powerfactor = trim((string) $obj->power_factor);
+			if ($powerfactor !== '' && $obj->power_factor_inductive === null && $obj->power_factor_nominal === null && $obj->power_factor_capacitive === null) {
+				$parsed = PowerPlantPVTechnicalValue::parsePowerFactor($powerfactor);
+				if ($parsed !== null) {
+					foreach (array('inductive' => 'power_factor_inductive', 'nominal' => 'power_factor_nominal', 'capacitive' => 'power_factor_capacitive') as $source => $target) {
+						if ($parsed[$source] !== null) {
+							$updates[] = $target.' = '.((float) $parsed[$source]);
+						}
+					}
+				}
+			}
+			if (!empty($updates)) {
+				$sqlupdate = 'UPDATE '.$table.' SET '.implode(', ', $updates).' WHERE rowid = '.((int) $obj->rowid);
+				if (!$this->db->query($sqlupdate)) {
+					$this->db->free($resql);
+					$this->errors[] = $this->db->lasterror();
+					return -1;
+				}
+			}
+		}
+		$this->db->free($resql);
+		return 1;
+	}
+
+	/**
+	 * Ensure attestation tables contain fields added by V1.
+	 *
+	 * @return int 1 if OK, <0 if KO
 	 */
 	private function ensureAttestationSchema()
 	{
@@ -2194,17 +2413,16 @@ class modPowerPlantPV extends DolibarrModules
 	{
 		$extrafields->fetch_name_optionals_label($elementtype);
 
-		$moreparams = array(
-			'css' => 'maxwidth100 right',
-			'csslist' => 'right',
-			'cssview' => 'right',
-		);
+		$moreparams = array();
 
 		$method = 'addExtraField';
 		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_peak_power'])) {
 			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_peak_power'] : '';
 			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_peak_power'] : '';
-			if ($currenttype === 'double' && $currentsize === '24,8') {
+			$currentcss = !empty($extrafields->attributes[$elementtype]['css']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['css']['powerplantpv_peak_power'] : '';
+			$currentcsslist = !empty($extrafields->attributes[$elementtype]['csslist']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['csslist']['powerplantpv_peak_power'] : '';
+			$currentcssview = !empty($extrafields->attributes[$elementtype]['cssview']['powerplantpv_peak_power']) ? (string) $extrafields->attributes[$elementtype]['cssview']['powerplantpv_peak_power'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8' && $currentcss === '' && $currentcsslist === '' && $currentcssview === '') {
 				return 1;
 			}
 
@@ -2239,6 +2457,60 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
+		return 1;
+	}
+
+	/**
+	 * Create or update the calculated useful storage-capacity extrafield.
+	 *
+	 * @param ExtraFields $extrafields Extrafields manager
+	 * @param string $elementtype Commercial document type
+	 * @return int 1 if OK, <0 if KO
+	 */
+	private function ensureCommercialStorageCapacityExtrafield($extrafields, $elementtype)
+	{
+		$extrafields->fetch_name_optionals_label($elementtype);
+		$moreparams = array();
+		$method = 'addExtraField';
+		if (!empty($extrafields->attributes[$elementtype]['label']['powerplantpv_storage_capacity'])) {
+			$currenttype = !empty($extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['type']['powerplantpv_storage_capacity'] : '';
+			$currentsize = !empty($extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['size']['powerplantpv_storage_capacity'] : '';
+			$currentcss = !empty($extrafields->attributes[$elementtype]['css']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['css']['powerplantpv_storage_capacity'] : '';
+			$currentcsslist = !empty($extrafields->attributes[$elementtype]['csslist']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['csslist']['powerplantpv_storage_capacity'] : '';
+			$currentcssview = !empty($extrafields->attributes[$elementtype]['cssview']['powerplantpv_storage_capacity']) ? (string) $extrafields->attributes[$elementtype]['cssview']['powerplantpv_storage_capacity'] : '';
+			if ($currenttype === 'double' && $currentsize === '24,8' && $currentcss === '' && $currentcsslist === '' && $currentcssview === '') {
+				return 1;
+			}
+			$method = 'updateExtraField';
+		}
+
+		$result = $extrafields->$method(
+			'powerplantpv_storage_capacity',
+			'PowerPlantPVStorageCapacity',
+			'double',
+			201,
+			'24,8',
+			$elementtype,
+			0,
+			0,
+			'',
+			'',
+			0,
+			'',
+			5,
+			'PowerPlantPVStorageCapacityHelp',
+			'',
+			'',
+			'powerplantpv@powerplantpv',
+			'isModEnabled("powerplantpv")',
+			1,
+			1,
+			$moreparams
+		);
+		if ($result < 0) {
+			$this->errors[] = $extrafields->error;
+			return -1;
+		}
 		return 1;
 	}
 

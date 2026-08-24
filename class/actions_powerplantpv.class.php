@@ -162,6 +162,30 @@ class ActionsPowerplantpv
 						'lang' => 'powerplantpv@powerplantpv',
 						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_index_type.sql',
 					),
+					'c_powerplantpv_communication_protocol' => array(
+						'type' => 'dictionary',
+						'icon' => 'network-wired',
+						'transkey' => 'PVTechnicalCommunicationProtocolDictionary',
+						'tooltip' => 'PVTechnicalCommunicationProtocolDictionarySharingInfo',
+						'lang' => 'powerplantpv@powerplantpv',
+						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_communication_protocol.sql',
+					),
+					'c_powerplantpv_certification' => array(
+						'type' => 'dictionary',
+						'icon' => 'certificate',
+						'transkey' => 'PVTechnicalCertificationDictionary',
+						'tooltip' => 'PVTechnicalCertificationDictionarySharingInfo',
+						'lang' => 'powerplantpv@powerplantpv',
+						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_certification.sql',
+					),
+					'c_powerplantpv_protection' => array(
+						'type' => 'dictionary',
+						'icon' => 'shield-alt',
+						'transkey' => 'PVTechnicalProtectionDictionary',
+						'tooltip' => 'PVTechnicalProtectionDictionarySharingInfo',
+						'lang' => 'powerplantpv@powerplantpv',
+						'filepath' => '/powerplantpv/sql/llx_c_powerplantpv_protection.sql',
+					),
 				),
 			),
 		);
@@ -325,6 +349,37 @@ class ActionsPowerplantpv
 			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 			$this->prefillInterventionNature($object, $contexts);
 			$this->resprints .= $this->renderNativePowerPlantOptionRows($object, $contexts, $parameters);
+		}
+
+		$commercialcontexts = array('propalcard' => 'propal', 'ordercard' => 'commande', 'invoicecard' => 'facture');
+		foreach ($commercialcontexts as $commercialcontext => $elementtype) {
+			if (!in_array($commercialcontext, $contexts, true) || empty($object->id)) {
+				continue;
+			}
+			dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+			$capacity = powerplantpvCalculateCommercialDocumentStorageCapacity($elementtype, (int) $object->id);
+			if ($capacity['result'] >= 0 && !$capacity['complete']) {
+				global $langs;
+				$langs->load('powerplantpv@powerplantpv');
+				$references = powerplantpvGetProductReferences($capacity['missing_product_ids']);
+				$labels = !empty($references) ? array_values($references) : array_map('strval', $capacity['missing_product_ids']);
+				$messages = array();
+				if (!empty($labels)) {
+					$messages[] = $langs->trans('PowerPlantPVStorageCapacityIncomplete', implode(', ', $labels));
+				}
+				foreach ($capacity['composition_anomalies'] as $compositionerror) {
+					$compositionerror = (string) $compositionerror;
+					if (strpos($compositionerror, 'BatteryKitCycle:') === 0) {
+						$messages[] = $langs->trans('BatteryKitCycleDetected', substr($compositionerror, strlen('BatteryKitCycle:')));
+					} else {
+						$messages[] = $langs->trans('BatteryKitCompositionAnomaly', $compositionerror);
+					}
+				}
+				$this->resprints .= '<tr class="oddeven"><td colspan="2"><div class="warning">';
+				$this->resprints .= implode('<br>', array_map('dol_escape_htmltag', $messages));
+				$this->resprints .= '</div></td></tr>';
+			}
+			break;
 		}
 
 		if (!in_array('ticketcard', $contexts)) {

@@ -601,7 +601,7 @@ function powerplantpvSerialImportPrintDialog($object, $selectedcategoryid = 0, $
 		$defaultserialcategory = (int) key($serialcategoryoptions);
 	}
 
-	$serialtemplatebaseurl = dol_buildpath('/powerplantpv/serialimport.php', 1).'?id='.(int) $object->id.'&action=downloadtemplate';
+	$serialtemplatebaseurl = dol_buildpath('/powerplantpv/serialimport.php', 1).'?id='.(int) $object->id.'&action=downloadtemplate&token='.newToken();
 	$serialtemplatecsvurl = $serialtemplatebaseurl.'&format=csv&fk_categorie='.(int) $defaultserialcategory;
 	$serialtemplatexlsxurl = $serialtemplatebaseurl.'&format=xlsx&fk_categorie='.(int) $defaultserialcategory;
 	$serialtemplatexlsxavailable = powerplantpvSerialImportIsXlsxAvailable();

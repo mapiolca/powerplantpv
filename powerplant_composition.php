@@ -461,6 +461,22 @@ if ($canmanagecomposition) {
 if ($canedit) {
 	$availablemassactions[] = 'massdelete';
 }
+$openingActions = array('addcomposition', 'editline', 'replaceline', 'configdc', 'serialimport');
+if (in_array($action, $openingActions, true)) {
+	$openingAllowed = ($action === 'addcomposition') ? $canedit : $canmanagecomposition;
+	if ($action === 'serialimport') {
+		$openingAllowed = $canimportserialnumbers;
+	}
+	if (!$openingAllowed || !powerplantpv_check_token()) {
+		accessforbidden();
+	}
+	if (in_array($action, array('editline', 'replaceline', 'configdc'), true)) {
+		$openingLine = powerplantCompositionFetchLine($object->id, $lineid, $powerplantentity);
+		if (!$openingLine || ($action === 'configdc' && !powerplantCompositionLineIsInverter($openingLine))) {
+			accessforbidden();
+		}
+	}
+}
 $showaddform = ($canedit && $action === 'addcomposition');
 $openaddmodal = 0;
 if ($showaddform) {
@@ -1602,6 +1618,7 @@ if ($id > 0 || !empty($ref)) {
 					$productstatic->label = (string) $inverterline->product_label;
 					$configurl = $_SERVER['PHP_SELF'].'?id='.(int) $object->id;
 					$configurl .= '&action=configdc&lineid='.(int) $inverterline->rowid;
+					$configurl .= '&token='.newToken();
 					$configurl .= '#powerplantpv-mppt-string-configuration';
 					$configlink = img_picto('', 'fa-bolt', 'class="pictofixedwidth"');
 					$configlink .= dol_escape_htmltag($langs->trans('PowerPlantPVMPPTStringConfiguration'));
@@ -1809,7 +1826,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<a class="editfielda reposition" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=editline&token='.newToken().'&lineid='.(int) $objline->rowid.'">'.img_edit().'</a>';
 				print '<a class="reposition marginleftonly marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=replaceline&lineid='.(int) $objline->rowid.'&token='.newToken().'" title="'.$langs->trans('PowerPlantReplace').'"><span class="fas fa-exchange-alt"></span></a>';
 				if (!empty($objline->inverter_catalog_id) || strpos(strtoupper((string) $objline->product_ref.' '.(string) $objline->product_label), 'ONDULEUR') !== false || strpos(strtoupper((string) $objline->product_ref.' '.(string) $objline->product_label), 'INVERTER') !== false) {
-					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=configdc&lineid='.(int) $objline->rowid.'" title="'.$langs->trans('PowerPlantPVMPPTStringConfiguration').'">'.img_picto('', 'fa-bolt').'</a>';
+					print '<a class="reposition marginrightonly" href="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'&action=configdc&token='.newToken().'&lineid='.(int) $objline->rowid.'" title="'.$langs->trans('PowerPlantPVMPPTStringConfiguration').'">'.img_picto('', 'fa-bolt').'</a>';
 				}
 			}
 			if ($canedit) {

@@ -1,0 +1,3 @@
+ALTER TABLE llx_c_powerplantpv_communication_protocol ADD UNIQUE INDEX uk_c_powerplantpv_comm_protocol_code (entity, code);
+ALTER TABLE llx_c_powerplantpv_communication_protocol ADD INDEX idx_c_powerplantpv_comm_protocol_entity (entity);
+ALTER TABLE llx_c_powerplantpv_communication_protocol ADD INDEX idx_c_powerplantpv_comm_protocol_active (active);

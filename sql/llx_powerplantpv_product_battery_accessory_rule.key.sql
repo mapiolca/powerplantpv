@@ -1,0 +1,6 @@
+-- Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr>
+
+ALTER TABLE llx_powerplantpv_product_battery_accessory_rule ADD INDEX idx_powerplantpv_battery_rule_accessory (fk_accessory);
+ALTER TABLE llx_powerplantpv_product_battery_accessory_rule ADD INDEX idx_powerplantpv_battery_rule_target (fk_target_product);
+ALTER TABLE llx_powerplantpv_product_battery_accessory_rule ADD INDEX idx_powerplantpv_battery_rule_criterion (criterion_type, value_code);
+ALTER TABLE llx_powerplantpv_product_battery_accessory_rule ADD INDEX idx_powerplantpv_battery_rule_entity (entity);
