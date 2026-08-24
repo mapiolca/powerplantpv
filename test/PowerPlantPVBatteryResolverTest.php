@@ -126,6 +126,18 @@ final class PowerPlantPVBatteryResolverTest extends TestCase
 		$this->assertArrayHasKey('ac_voltage_max', $fields);
 		$this->assertArrayHasKey('power_factor_inductive', $fields);
 		$this->assertArrayHasKey('thd_comparator', $fields);
+		$this->assertSame('W', $fields['ac_nominal_power']['unit']);
+		$this->assertSame('VA', $fields['ac_apparent_power']['unit']);
+		$this->assertSame('A', $fields['backup_max_current']['unit']);
+		$this->assertSame('W', $fields['night_consumption']['unit']);
+
+		$mpptFields = ProductInverter::getMpptFields();
+		$this->assertSame('V', $mpptFields['voltage_min']['unit']);
+		$this->assertSame('A', $mpptFields['max_input_current']['unit']);
+		$this->assertSame('W', $mpptFields['max_dc_power']['unit']);
+
+		$inputFields = ProductInverter::getPvInputFields();
+		$this->assertSame('A', $inputFields['max_input_current']['unit']);
 	}
 
 	public function testNestedKitMultipliesEveryQuantityAndFlattensInventory(): void

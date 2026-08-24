@@ -74,14 +74,7 @@ function powerplantpv_product_check_token()
  */
 function powerplantpv_get_pvpanel_fields()
 {
-	return array(
-		'pmax', 'power_tolerance_min', 'power_tolerance_max', 'module_efficiency', 'vmp', 'imp', 'voc', 'isc',
-		'front_glass_thickness', 'back_glass_thickness', 'cable_section', 'cable_length',
-		'operating_temperature_min', 'operating_temperature_max', 'max_system_voltage', 'max_series_fuse', 'snow_load', 'wind_load',
-		'noct', 'temp_coeff_pmax', 'temp_coeff_voc', 'temp_coeff_isc',
-		'first_year_degradation', 'annual_degradation', 'product_warranty', 'power_warranty',
-		'modules_per_box', 'modules_per_container40'
-	);
+	return array_keys(PowerPlantPVTechnicalValue::getPVPanelFields());
 }
 
 /**
@@ -420,7 +413,8 @@ function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit
  */
 function powerplantpv_print_pvpanel_row($label, $name, $panel, $edit)
 {
-	$spec = array('type' => 'double');
+	$fields = PowerPlantPVTechnicalValue::getPVPanelFields();
+	$spec = isset($fields[$name]) ? $fields[$name] : array('type' => 'double');
 	powerplantpv_print_field_row($label, $name, $spec, $panel, $edit);
 }
 
@@ -1131,11 +1125,7 @@ if (in_array($action, array('create_mppt', 'edit_mppt', 'delete_mppt', 'create_i
 
 $invalidExistingFields = array();
 if ($isPVPanel && $panel) {
-	$panelFields = array();
-	foreach (powerplantpv_get_pvpanel_fields() as $panelField) {
-		$panelFields[$panelField] = array('label' => $panelField, 'type' => 'double', 'unit' => 'technical');
-	}
-	$invalidExistingFields = array_merge($invalidExistingFields, powerplantpv_find_invalid_existing_numeric_fields($panel, $panelFields));
+	$invalidExistingFields = array_merge($invalidExistingFields, powerplantpv_find_invalid_existing_numeric_fields($panel, PowerPlantPVTechnicalValue::getPVPanelFields()));
 }
 if ($isBattery && !$isBatteryKit) {
 	$invalidExistingFields = array_merge($invalidExistingFields, powerplantpv_find_invalid_existing_numeric_fields($battery, ProductBattery::getBatteryFields()));
@@ -1519,6 +1509,9 @@ if ($hasInverterCharacteristics) {
 
 			print '<div class="div-table-responsive-no-min">';
 			print '<table class="noborder centpercent">';
+			$pvInputFields = ProductInverter::getPvInputFields();
+			$maxInputCurrentUnit = isset($pvInputFields['max_input_current']['unit']) ? (string) $pvInputFields['max_input_current']['unit'] : '';
+			$maxShortCircuitCurrentUnit = isset($pvInputFields['max_short_circuit_current']['unit']) ? (string) $pvInputFields['max_short_circuit_current']['unit'] : '';
 			print '<tr class="liste_titre">';
 			print '<td>'.$langs->trans('PVInverterPVInputPosition').'</td>';
 			print '<td>'.$langs->trans('PVInverterPVInputLabel').'</td>';
@@ -1540,8 +1533,8 @@ if ($hasInverterCharacteristics) {
 					print '<tr class="oddeven">';
 					print '<td>'.((int) $input->position).'</td>';
 					print '<td>'.$inputLabel.'</td>';
-					print '<td class="right">'.($input->max_input_current !== null && $input->max_input_current !== '' ? price((float) $input->max_input_current) : '<span class="opacitymedium">-</span>').'</td>';
-					print '<td class="right">'.($input->max_short_circuit_current !== null && $input->max_short_circuit_current !== '' ? price((float) $input->max_short_circuit_current) : '<span class="opacitymedium">-</span>').'</td>';
+					print '<td class="right">'.($input->max_input_current !== null && $input->max_input_current !== '' ? price((float) $input->max_input_current).($maxInputCurrentUnit !== '' ? ' '.dol_escape_htmltag($maxInputCurrentUnit) : '') : '<span class="opacitymedium">-</span>').'</td>';
+					print '<td class="right">'.($input->max_short_circuit_current !== null && $input->max_short_circuit_current !== '' ? price((float) $input->max_short_circuit_current).($maxShortCircuitCurrentUnit !== '' ? ' '.dol_escape_htmltag($maxShortCircuitCurrentUnit) : '') : '<span class="opacitymedium">-</span>').'</td>';
 					print '<td>'.$connectorType.'</td>';
 					print '<td>'.$inputNote.'</td>';
 					print '<td class="right nowrap">';

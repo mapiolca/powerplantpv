@@ -12,14 +12,38 @@
  */
 class PowerPlantPVTechnicalValue
 {
-	/** @return array<string,array<string,string>> Structured PV panel field registry */
+	/** @return array<string,array<string,string>> PV panel field registry */
 	public static function getPVPanelFields()
 	{
 		return array(
+			'pmax' => array('label' => 'PVPanelNominalPower', 'type' => 'double', 'unit' => 'Wc'),
 			'power_tolerance_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => '%', 'group' => 'power_tolerance', 'role' => 'min'),
 			'power_tolerance_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => '%', 'group' => 'power_tolerance', 'role' => 'max'),
+			'module_efficiency' => array('label' => 'PVPanelModuleEfficiency', 'type' => 'double', 'unit' => '%'),
+			'vmp' => array('label' => 'PVPanelVmp', 'type' => 'double', 'unit' => 'V'),
+			'imp' => array('label' => 'PVPanelImp', 'type' => 'double', 'unit' => 'A'),
+			'voc' => array('label' => 'PVPanelVoc', 'type' => 'double', 'unit' => 'V'),
+			'isc' => array('label' => 'PVPanelIsc', 'type' => 'double', 'unit' => 'A'),
+			'front_glass_thickness' => array('label' => 'PVPanelFrontGlassThickness', 'type' => 'double', 'unit' => 'mm'),
+			'back_glass_thickness' => array('label' => 'PVPanelBackGlassThickness', 'type' => 'double', 'unit' => 'mm'),
+			'cable_section' => array('label' => 'PVPanelCableSection', 'type' => 'double', 'unit' => 'mm²'),
+			'cable_length' => array('label' => 'PVPanelCableLength', 'type' => 'double', 'unit' => 'mm'),
 			'operating_temperature_min' => array('label' => 'Minimum', 'type' => 'double', 'unit' => '°C', 'group' => 'operating_temperature', 'role' => 'min'),
 			'operating_temperature_max' => array('label' => 'Maximum', 'type' => 'double', 'unit' => '°C', 'group' => 'operating_temperature', 'role' => 'max'),
+			'max_system_voltage' => array('label' => 'PVPanelMaxSystemVoltage', 'type' => 'double', 'unit' => 'V'),
+			'max_series_fuse' => array('label' => 'PVPanelMaxSeriesFuse', 'type' => 'double', 'unit' => 'A'),
+			'snow_load' => array('label' => 'PVPanelSnowLoad', 'type' => 'double', 'unit' => 'Pa'),
+			'wind_load' => array('label' => 'PVPanelWindLoad', 'type' => 'double', 'unit' => 'Pa'),
+			'noct' => array('label' => 'PVPanelNOCT', 'type' => 'double', 'unit' => '°C'),
+			'temp_coeff_pmax' => array('label' => 'PVPanelTempCoeffPmax', 'type' => 'double', 'unit' => '%/°C'),
+			'temp_coeff_voc' => array('label' => 'PVPanelTempCoeffVoc', 'type' => 'double', 'unit' => '%/°C'),
+			'temp_coeff_isc' => array('label' => 'PVPanelTempCoeffIsc', 'type' => 'double', 'unit' => '%/°C'),
+			'first_year_degradation' => array('label' => 'PVPanelFirstYearDegradation', 'type' => 'double', 'unit' => '%'),
+			'annual_degradation' => array('label' => 'PVPanelAnnualDegradation', 'type' => 'double', 'unit' => '%/year'),
+			'product_warranty' => array('label' => 'PVPanelProductWarranty', 'type' => 'double', 'unit' => 'years'),
+			'power_warranty' => array('label' => 'PVPanelPowerWarranty', 'type' => 'double', 'unit' => 'years'),
+			'modules_per_box' => array('label' => 'PVPanelModulesPerBox', 'type' => 'int', 'unit' => 'pcs'),
+			'modules_per_container40' => array('label' => 'PVPanelModulesPerContainer40', 'type' => 'int', 'unit' => 'pcs'),
 		);
 	}
 

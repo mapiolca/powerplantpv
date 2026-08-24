@@ -72,8 +72,20 @@ final class PowerPlantPVTechnicalValueTest extends TestCase
 		$this->assertFalse(PowerPlantPVTechnicalValue::isValidRange(65, null, 45));
 	}
 
+	public function testPvPanelRegistryCarriesDisplayUnits(): void
+	{
+		$fields = PowerPlantPVTechnicalValue::getPVPanelFields();
+		$this->assertSame('Wc', $fields['pmax']['unit']);
+		$this->assertSame('V', $fields['vmp']['unit']);
+		$this->assertSame('A', $fields['isc']['unit']);
+		$this->assertSame('mm²', $fields['cable_section']['unit']);
+		$this->assertSame('years', $fields['product_warranty']['unit']);
+		$this->assertSame('pcs', $fields['modules_per_box']['unit']);
+	}
+
 	public function testStructuredImportHeadersAndLegacyRows(): void
 	{
+		$this->assertSame('pmax [type=decimal; unit=Wc; format=SIGNED_DECIMAL]', PowerPlantPVProductImport::getTemplateHeader('module', 'pmax'));
 		$this->assertSame('ac_voltage_min [type=decimal; unit=V; format=SIGNED_DECIMAL]', PowerPlantPVProductImport::getTemplateHeader('inverter', 'ac_voltage_min'));
 		$this->assertSame('thd_comparator [type=select2; format=CODE; source=thd_comparator]', PowerPlantPVProductImport::getTemplateHeader('inverter', 'thd_comparator'));
 

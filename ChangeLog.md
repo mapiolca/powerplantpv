@@ -2,6 +2,7 @@
 
 ## 1.3.0
 
+- Caractéristiques produits : harmonisation des modules PV, onduleurs, MPPT et entrées PV avec le rendu batterie, les unités étant désormais portées par le registre et affichées après la valeur en consultation comme en modification.
 - Caractéristiques techniques : remplacement des plages et seuils textuels par des valeurs structurées min/nominal/max, cos φ inductif/nominal/capacitif et comparateurs contrôlés pour les modules PV, onduleurs et batteries.
 - Import technique : colonnes CSV/XLSX détaillées avec unités pour chaque composante, acceptation des symboles de comparaison et conversion prudente des anciens formats compacts avec avertissement pour les valeurs ambiguës.
 - Onduleurs : affichage de chaque MPPT et de ses entrées PV associées en deux colonnes natives alignées sur une même ligne.
