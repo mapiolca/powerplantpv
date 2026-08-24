@@ -1,0 +1,4 @@
+ALTER TABLE llx_powerplantpv_product_certification ADD UNIQUE INDEX uk_powerplantpv_product_certification (entity, fk_product, fk_certification);
+ALTER TABLE llx_powerplantpv_product_certification ADD INDEX idx_powerplantpv_product_cert_entity (entity);
+ALTER TABLE llx_powerplantpv_product_certification ADD INDEX idx_powerplantpv_product_cert_product (fk_product);
+ALTER TABLE llx_powerplantpv_product_certification ADD INDEX idx_powerplantpv_product_cert_dictionary (fk_certification);
