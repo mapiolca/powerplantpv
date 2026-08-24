@@ -1,24 +1,20 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.4.0
+
+- Batteries et stockage : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées nécessaires à un futur configurateur sous contraintes, des rôles d'accessoires et de leurs règles de compatibilité normalisées.
+- Kits batteries : utilisation des compositions natives Dolibarr pour les gammes multi-capacités, avec résolution récursive des quantités, inventaire terminal en lecture seule et détection explicite des cycles.
+- Cycle commercial : ajout et mise à jour automatique de la `Capacité de stockage (kWh)` sur les devis, commandes et factures, y compris via les kits imbriqués, avec état incomplet non bloquant et recalcul global depuis les réglages.
+- Caractéristiques techniques : structuration des plages min/nominal/max, du cos φ inductif/nominal/capacitif et des seuils à comparateur pour les modules PV, onduleurs et batteries, avec migration prudente des anciennes valeurs compactes.
+- Onduleurs intégrés : ajout des phases et caractéristiques de sortie secours/EPS, réutilisées par les systèmes de stockage tout-en-un, et présentation native alignée des MPPT avec leurs entrées PV.
+- Unités techniques : centralisation des unités dans les registres typés, valeurs numériques sans unité en base et rendu harmonisé après la valeur en consultation comme en modification pour les modules PV, onduleurs, MPPT, entrées PV et batteries.
+- Dictionnaires techniques : stockage relationnel des protocoles de communication, certifications et protections, partagé par entité et exploité par les modules PV, onduleurs et batteries.
+- Imports CSV/XLSX : prise en charge des batteries et de la mise à jour multi-produit, modèles auto-documentés avec type, unité, format et cardinalité, compatibilité avertie avec les anciens en-têtes et rejet des unités contradictoires.
+- Import administrateur : prévalidation, aperçu, traçabilité, transactions indépendantes par produit et résolution interactive des codes techniques inconnus ou inactifs, avec contrôles de droits et jetons CSRF.
+- Activation et migration : évolutions de schéma, dictionnaires, relations techniques et extrafields ajoutés de manière idempotente, sans perte des réglages ni recréation des liaisons supprimées.
+
 ## 1.3.0
 
-- Caractéristiques produits : harmonisation des modules PV, onduleurs, MPPT et entrées PV avec le rendu batterie, les unités étant désormais portées par le registre et affichées après la valeur en consultation comme en modification.
-- Caractéristiques techniques : remplacement des plages et seuils textuels par des valeurs structurées min/nominal/max, cos φ inductif/nominal/capacitif et comparateurs contrôlés pour les modules PV, onduleurs et batteries.
-- Import technique : colonnes CSV/XLSX détaillées avec unités pour chaque composante, acceptation des symboles de comparaison et conversion prudente des anciens formats compacts avec avertissement pour les valeurs ambiguës.
-- Onduleurs : affichage de chaque MPPT et de ses entrées PV associées en deux colonnes natives alignées sur une même ligne.
-- Import technique : modèles CSV/XLSX auto-documentés avec type, unité, cardinalité, format, règles et catalogues de valeurs actives par entité, tout en conservant les anciens en-têtes.
-- Import technique : résolution interactive des codes de protocoles, certifications et protections inconnus ou inactifs avant confirmation, avec création autorisée, remplacement ou ignorance, contrôles CSRF et transactions par produit.
-- Cycle commercial : alignement natif des extrafields calculés `Puissance-crête totale (kWc)` et `Capacité de stockage (kWh)` sur les devis, commandes et factures.
-- Données techniques : saisie et imports limités aux valeurs numériques pour les caractéristiques associées à une unité, sans unité ni texte dans la valeur.
-- Dictionnaires techniques : ajout des protocoles de communication, certifications et protections partagés par entité, avec sélections multiples normalisées sur les modules, onduleurs et batteries.
-- Migration : reprise unique et idempotente des anciens champs libres vers les dictionnaires techniques, sans recréation des liaisons supprimées lors d'une réactivation.
-- Import administrateur : création et mise à jour multi-produit CSV/XLSX avec prévalidation, aperçu, transactions indépendantes, caractéristiques détaillées, composition MPPT et traçabilité.
-- Sécurité : ajout des jetons CSRF aux actions MPPT, entrées PV, formulaires techniques, modèles d'import et actions personnalisées associées.
-- Batteries : ajout des catégories produit `BATTER` et `BATACC`, des caractéristiques détaillées des modules et systèmes de stockage, ainsi que des rôles et contraintes normalisées des accessoires.
-- Kits batteries : résolution récursive des compositions natives Dolibarr, multiplication des quantités à chaque niveau, inventaire terminal en lecture seule et détection explicite des cycles.
-- Cycle commercial : ajout de l'extrafield calculé `Capacité de stockage (kWh)` sur les devis, commandes et factures, avec mise à jour automatique, état incomplet non bloquant et recalcul global depuis les réglages.
-- Import technique : prise en charge des batteries, stockage relationnel des protocoles, protections et certifications, et ajout de l'unité ou du format attendu à tous les en-têtes CSV/XLSX MODULE, ONDULE et BATTER.
-- Onduleurs intégrés : ajout des phases et caractéristiques de sortie secours/EPS réutilisées par les systèmes de stockage tout-en-un.
 - Composition matérielle : ajout d'un accès direct à la configuration MPPT / strings pour chaque onduleur installé sur la centrale.
 - Liste maintenance : positionnement natif des boutons de filtre et du sélecteur de colonnes selon le réglage Dolibarr, avec enregistrement automatique des colonnes lors de la fermeture du menu.
 - Liste maintenance : exclusion des valeurs vides `-1` envoyées par les sélecteurs Dolibarr, centrage de l'entête `Statut` et maintien des centrales non éligibles en fin de liste.

@@ -120,18 +120,6 @@ Prerequisites:
 - Native contracts and interventions enabled for the operational workflow.
 - PowerPlantPV rights assigned to the target users.
 
-## Batteries and storage systems
-
-Assign the `BATTER` photovoltaic category to a battery or storage product and complete its detailed characteristics. The supported classifications are battery module, DC system, AC-coupled all-in-one system and hybrid all-in-one system. All-in-one products reuse the inverter, AC, MPPT and EPS characteristics stored by PowerPlantPV; native Dolibarr product dimensions and weight remain the source of truth.
-
-Multi-capacity ranges are represented with native Dolibarr product kits: create one kit for each commercial capacity and compose it from battery modules and accessories. PowerPlantPV recursively expands nested kits, multiplies quantities at every level and totals only terminal `BATTER` components. It deliberately does not aggregate voltage, current or power across a kit. Cyclic compositions are reported as incomplete.
-
-The calculated `Storage capacity (kWh)` extra field is maintained on proposals, orders and invoices. A document without a battery stores `0`; a document containing a battery without usable capacity stores an empty value and displays a non-blocking warning. Administrators can recalculate all accessible documents from the module settings.
-
-Assign `BATACC` to battery accessories. Their controlled role and normalized compatibility, requirement or incompatibility rules can target a product, family, brand, storage type, chemistry, protocol, capacity range or module count.
-
-CSV and XLSX templates state the expected unit or format in every header. Older headers without a suffix remain accepted with a warning, while a contradictory unit is rejected. Battery templates accept repeated protocol, protection and certification columns using `CODE` or `CODE|Label`; kits and accessory rules are intentionally excluded from this flat import.
-
 Quick overview:
 
 1. Administrators configure maintenance services, report templates, sections, fields and intervention natures.
@@ -156,9 +144,23 @@ Known limits:
 - The PDF model reads the report snapshot; it does not create or recalculate it.
 - No dedicated cron job is added for v1.3 Maintenance.
 
-Technical characteristics use structured numeric values whenever a datasheet expresses a constraint: min/nominal/max ranges, inductive/nominal/capacitive power factor, and thresholds with `LT`, `LTE`, `EQ`, `GTE` or `GT`. On battery, PV module and inverter forms, units come from the same typed registry and are displayed after the value in both view and edit modes. CSV/XLSX templates expose every component with its unit or expected code. Deterministic legacy strings are converted during activation or import; ambiguous values are preserved and reported for manual correction.
+## Technical product data v1.4
 
+Version 1.4.0 extends detailed product data to batteries and storage systems, structures technical ranges and thresholds, and unifies unit handling for PV modules, inverters and batteries. The same typed registries drive view and edit forms, validation, and CSV/XLSX templates.
 
+Technical characteristics use structured numeric values whenever a datasheet expresses a constraint: min/nominal/max ranges, inductive/nominal/capacitive power factor, and thresholds with `LT`, `LTE`, `EQ`, `GTE` or `GT`. Units are displayed after the value in both view and edit modes. Deterministic legacy strings are converted during activation or import; ambiguous values are preserved and reported for manual correction.
+
+### Batteries and storage systems
+
+Assign the `BATTER` photovoltaic category to a battery or storage product and complete its detailed characteristics. The supported classifications are battery module, DC system, AC-coupled all-in-one system and hybrid all-in-one system. All-in-one products reuse the inverter, AC, MPPT and EPS characteristics stored by PowerPlantPV; native Dolibarr product dimensions and weight remain the source of truth.
+
+Multi-capacity ranges are represented with native Dolibarr product kits: create one kit for each commercial capacity and compose it from battery modules and accessories. PowerPlantPV recursively expands nested kits, multiplies quantities at every level and totals only terminal `BATTER` components. It deliberately does not aggregate voltage, current or power across a kit. Cyclic compositions are reported as incomplete.
+
+The calculated `Storage capacity (kWh)` extra field is maintained on proposals, orders and invoices. A document without a battery stores `0`; a document containing a battery without usable capacity stores an empty value and displays a non-blocking warning. Administrators can recalculate all accessible documents from the module settings.
+
+Assign `BATACC` to battery accessories. Their controlled role and normalized compatibility, requirement or incompatibility rules can target a product, family, brand, storage type, chemistry, protocol, capacity range or module count.
+
+CSV and XLSX templates state the expected unit or format in every header. Older headers without a suffix remain accepted with a warning, while a contradictory unit is rejected. Battery templates accept repeated protocol, protection and certification columns using `CODE` or `CODE|Label`; kits and accessory rules are intentionally excluded from this flat import.
 
 ## Licenses
 
