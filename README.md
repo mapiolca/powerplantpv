@@ -99,8 +99,14 @@ Using your browser:
 
 ## Release 1.4.1
 
-Version 1.4.1 improves the PowerPlantPV dashboard for entities without power plant data. Status and category
-statistics now display Dolibarr's native empty-state message instead of attempting to render an empty graph.
+Version 1.4.1 aligns PowerPlantPV cards, tabs and documents with the native Multicompany scopes declared for
+`powerplant` and `attestation`. A user with read permission can open shared records and download their existing
+documents from the owner entity, while non-shared records and write operations remain protected.
+
+All dashboard empty states now use Dolibarr's native `NoRecordFound` message after local and shared data have been
+loaded. The fourteen maintenance home boxes are available as optional widgets and are no longer enabled globally by
+default; legacy automatic global activations are removed without deleting individual user selections. The three
+historical installed-power graphs remain enabled on Home by default.
 
 ## Attestations
 

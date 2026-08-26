@@ -394,22 +394,12 @@ $object = new PowerPlant($db);
 $form = new Form($db);
 $hookmanager->initHooks(array($object->element.'composition', 'globalcard'));
 
-$enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK');
-if ($enablepermissioncheck) {
-	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
-	$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write');
-	$permissiontoserialread = $user->hasRight('powerplantpv', 'serialnumber', 'read');
-	$permissiontoserialimport = $user->hasRight('powerplantpv', 'serialnumber', 'import');
-	$permissiontoserialdelete = $user->hasRight('powerplantpv', 'serialnumber', 'delete');
-	$permissiontoserialexport = $user->hasRight('powerplantpv', 'serialnumber', 'export');
-} else {
-	$permissiontoread = 1;
-	$permissiontoadd = 1;
-	$permissiontoserialread = 1;
-	$permissiontoserialimport = 1;
-	$permissiontoserialdelete = 1;
-	$permissiontoserialexport = 1;
-}
+$permissiontoread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'));
+$permissiontoadd = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'write'));
+$permissiontoserialread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'serialnumber', 'read'));
+$permissiontoserialimport = powerplantpvUserHasRightPath($user, array('powerplantpv', 'serialnumber', 'import'));
+$permissiontoserialdelete = powerplantpvUserHasRightPath($user, array('powerplantpv', 'serialnumber', 'delete'));
+$permissiontoserialexport = powerplantpvUserHasRightPath($user, array('powerplantpv', 'serialnumber', 'export'));
 
 if (!isModEnabled($object->module) || !$permissiontoread) {
 	accessforbidden();
@@ -419,7 +409,7 @@ include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php';
 
 $powerplantentity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 $isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft);
 
 powerplantHandleSetLabelAction($object, $action, $permissiontoadd, $user);
 powerplantHandleSetThirdpartyAction($object, $action, $permissiontoadd, $user);

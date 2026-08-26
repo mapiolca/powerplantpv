@@ -399,20 +399,6 @@ class modPowerPlantPV extends DolibarrModules
 				'note' => 'BoxPowerPlantPVInstalledPowerWeekly',
 				'enabledbydefaulton' => 'Home',
 			),
-			array('file' => 'powerplantpv_box_maintenance_status_summary.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceSummary'),
-			array('file' => 'powerplantpv_box_maintenance_to_schedule.php@powerplantpv', 'note' => 'PowerPlantPVMaintenancesToSchedule'),
-			array('file' => 'powerplantpv_box_maintenance_scheduled.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatusScheduled'),
-			array('file' => 'powerplantpv_box_maintenance_overdue.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceWidgetOverdue'),
-			array('file' => 'powerplantpv_box_maintenance_programming_rate.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceProgrammingRate'),
-			array('file' => 'powerplantpv_box_maintenance_due_windows.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceDueWindows'),
-			array('file' => 'powerplantpv_box_maintenance_overdue_age.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceOverdueAge'),
-			array('file' => 'powerplantpv_box_maintenance_monthly_load.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceMonthlyLoad'),
-			array('file' => 'powerplantpv_box_maintenance_by_powerplant.php@powerplantpv', 'note' => 'PowerPlantPVStatsByPowerPlant'),
-			array('file' => 'powerplantpv_box_maintenance_by_customer.php@powerplantpv', 'note' => 'PowerPlantPVStatsByCustomer'),
-			array('file' => 'powerplantpv_box_maintenance_by_nature.php@powerplantpv', 'note' => 'PowerPlantPVStatsByNature'),
-			array('file' => 'powerplantpv_box_maintenance_by_service.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatsByService'),
-			array('file' => 'powerplantpv_box_maintenance_by_recurrence.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatsByRecurrence'),
-			array('file' => 'powerplantpv_box_maintenance_configuration_quality.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceConfigurationQuality'),
 		);
 		/* END MODULEBUILDER WIDGETS */
 
@@ -904,6 +890,72 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
+	 * Return maintenance widgets that must remain optional on the Home page.
+	 *
+	 * @return	array<int,array{file:string,note:string}>	Widget definitions
+	 */
+	private function getOptionalMaintenanceBoxes()
+	{
+		return array(
+			array('file' => 'powerplantpv_box_maintenance_status_summary.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceSummary'),
+			array('file' => 'powerplantpv_box_maintenance_to_schedule.php@powerplantpv', 'note' => 'PowerPlantPVMaintenancesToSchedule'),
+			array('file' => 'powerplantpv_box_maintenance_scheduled.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatusScheduled'),
+			array('file' => 'powerplantpv_box_maintenance_overdue.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceWidgetOverdue'),
+			array('file' => 'powerplantpv_box_maintenance_programming_rate.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceProgrammingRate'),
+			array('file' => 'powerplantpv_box_maintenance_due_windows.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceDueWindows'),
+			array('file' => 'powerplantpv_box_maintenance_overdue_age.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceOverdueAge'),
+			array('file' => 'powerplantpv_box_maintenance_monthly_load.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceMonthlyLoad'),
+			array('file' => 'powerplantpv_box_maintenance_by_powerplant.php@powerplantpv', 'note' => 'PowerPlantPVStatsByPowerPlant'),
+			array('file' => 'powerplantpv_box_maintenance_by_customer.php@powerplantpv', 'note' => 'PowerPlantPVStatsByCustomer'),
+			array('file' => 'powerplantpv_box_maintenance_by_nature.php@powerplantpv', 'note' => 'PowerPlantPVStatsByNature'),
+			array('file' => 'powerplantpv_box_maintenance_by_service.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatsByService'),
+			array('file' => 'powerplantpv_box_maintenance_by_recurrence.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceStatsByRecurrence'),
+			array('file' => 'powerplantpv_box_maintenance_configuration_quality.php@powerplantpv', 'note' => 'PowerPlantPVMaintenanceConfigurationQuality'),
+		);
+	}
+
+	/**
+	 * Register maintenance widgets without changing Home page selections.
+	 *
+	 * @return	int	1 if OK, <0 if KO
+	 */
+	private function registerOptionalMaintenanceBoxes()
+	{
+		$defaultboxes = $this->boxes;
+		$this->boxes = $this->getOptionalMaintenanceBoxes();
+		$errorcount = $this->insert_boxes('newboxdefonly');
+		$this->boxes = $defaultboxes;
+
+		return $errorcount > 0 ? -1 : 1;
+	}
+
+	/**
+	 * Remove legacy automatic Home activations while preserving user choices.
+	 *
+	 * @return	int	1 if OK, <0 if KO
+	 */
+	private function removeLegacyAutomaticMaintenanceBoxes()
+	{
+		$files = array();
+		foreach ($this->getOptionalMaintenanceBoxes() as $box) {
+			$files[] = "'".$this->db->escape($box['file'])."'";
+		}
+
+		$sql = "DELETE FROM ".$this->db->prefix()."boxes";
+		$sql .= " WHERE fk_user = 0 AND position = 0";
+		$sql .= " AND box_id IN (";
+		$sql .= "SELECT rowid FROM ".$this->db->prefix()."boxes_def";
+		$sql .= " WHERE file IN (".implode(', ', $files).")";
+		$sql .= ")";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
 	 *  Function called when module is enabled.
 	 *  The init function add constants, boxes, permissions and menus (defined in constructor) into Dolibarr database.
 	 *  It also creates data directories
@@ -1187,6 +1239,17 @@ class modPowerPlantPV extends DolibarrModules
 		$result = $this->_init($sql, $options);
 		if ($result <= 0) {
 			return $result;
+		}
+
+		if (!preg_match('/noboxes/', $options)) {
+			$result = $this->registerOptionalMaintenanceBoxes();
+			if ($result < 0) {
+				return -1;
+			}
+			$result = $this->removeLegacyAutomaticMaintenanceBoxes();
+			if ($result < 0) {
+				return -1;
+			}
 		}
 
 		$result = $this->registerMulticompanyExternalSharing();
@@ -3694,8 +3757,9 @@ class modPowerPlantPV extends DolibarrModules
 	public function remove($options = '')
 	{
 		$sql = array();
+		$removeoptions = preg_match('/noboxes/', $options) ? $options : trim($options.' noboxes');
 
-		$result = $this->_remove($sql, $options);
+		$result = $this->_remove($sql, $removeoptions);
 		if ($result <= 0) {
 			return $result;
 		}

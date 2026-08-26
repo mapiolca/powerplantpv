@@ -103,8 +103,7 @@ if (!isModEnabled('powerplantpv')) {
 if ($user->socid > 0) {
 	$socid = $user->socid;
 }
-$enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK');
-$permissiontoread = ($enablepermissioncheck ? $user->hasRight('powerplantpv', 'powerplant', 'read') : 1);
+$permissiontoread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'));
 if (!$permissiontoread) {
 	accessforbidden();
 }
@@ -325,7 +324,7 @@ function powerplantpvIndexLatestTable($db, $langs, $powerplantstatic, $field, $t
 				$out .= '</tr>';
 			}
 		} else {
-			$out .= '<tr class="oddeven"><td colspan="4" class="opacitymedium">'.$langs->trans('None').'</td></tr>';
+			$out .= '<tr class="oddeven"><td colspan="4" class="center opacitymedium">'.$langs->trans('NoRecordFound').'</td></tr>';
 		}
 		$db->free($resql);
 	} else {
@@ -394,7 +393,7 @@ function powerplantpvIndexLatestAttestationTable($db, $langs, $attestationstatic
 				$out .= '</tr>';
 			}
 		} else {
-			$out .= '<tr class="oddeven"><td colspan="4" class="opacitymedium">'.$langs->trans('None').'</td></tr>';
+			$out .= '<tr class="oddeven"><td colspan="4" class="center opacitymedium">'.$langs->trans('NoRecordFound').'</td></tr>';
 		}
 		$db->free($resql);
 	} else {

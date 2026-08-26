@@ -113,6 +113,10 @@ class PowerPlantPVMaintenanceWidget
 	 */
 	public static function getBoxContents($code, array $data)
 	{
+		if (array_key_exists('has_data', $data) && empty($data['has_data'])) {
+			return self::emptyContents();
+		}
+
 		$counts = isset($data['counts']) && is_array($data['counts']) ? $data['counts'] : array();
 		if (in_array($code, array(self::TO_SCHEDULE, self::SCHEDULED, self::OVERDUE), true)) {
 			$value = isset($counts[$code]) ? (int) $counts[$code] : 0;

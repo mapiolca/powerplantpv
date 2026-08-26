@@ -92,7 +92,7 @@ if ($user->socid > 0) {
 	$socid = $user->socid;
 }
 $isdraft = (($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft);
 if (!isModEnabled('powerplantpv')) {
 	accessforbidden();
 }

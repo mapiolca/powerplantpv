@@ -117,25 +117,16 @@ if ($id > 0 || !empty($ref)) {
 }
 
 
-// There is several ways to check permission.
-// Set $enablepermissioncheck to 1 to enable a minimum low level of checks
-$enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK');
-if ($enablepermissioncheck) {
-	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
-	$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write');
-	$permissionnote = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_setnotes.inc.php
-} else {
-	$permissiontoread = 1;
-	$permissiontoadd = 1;
-	$permissionnote = 1;
-}
+$permissiontoread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'));
+$permissiontoadd = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'write'));
+$permissionnote = $permissiontoadd;
 
 // Security check (enable the most restrictive one)
 if ($user->socid > 0) {
 	$socid = $user->socid;
 }
 $isdraft = (($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft);
 if (!isModEnabled("powerplantpv")) {
 	accessforbidden();
 }

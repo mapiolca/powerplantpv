@@ -2,8 +2,17 @@
 
 ## 1.4.1
 
-- Tableau de bord : les graphiques de répartition par statut et par catégorie affichent désormais l'état vide natif
-  Dolibarr lorsqu'une entité ne contient aucune donnée, sans appeler `DolGraph` avec une série vide.
+- Multicompany : les fiches, onglets et documents des centrales et attestations utilisent désormais les clés de partage
+  canoniques `powerplant` et `attestation`, afin qu'un objet partagé soit ouvrable avec le droit de lecture tout en
+  conservant les restrictions de tiers et le refus des objets non partagés.
+- Documents : le droit de lecture permet de consulter et télécharger les documents existants depuis le répertoire de
+  l'entité propriétaire ; génération, téléversement et suppression restent réservés aux droits d'écriture dédiés.
+- Widgets maintenance : les quatorze widgets sont déclarés comme choix facultatifs sans être imposés sur l'accueil ;
+  l'activation nettoie leurs anciennes activations globales automatiques tout en conservant les choix des utilisateurs.
+- États vides : les widgets et tableaux du tableau de bord affichent le libellé natif `NoRecordFound` après prise en
+  compte de toutes les données locales et partagées accessibles.
+- Graphiques : les répartitions par statut et par catégorie n'appellent plus `DolGraph` avec une série vide ; les trois
+  graphiques historiques de puissance installée restent activés par défaut.
 
 ## 1.4.0
 

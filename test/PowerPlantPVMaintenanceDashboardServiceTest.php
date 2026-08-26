@@ -16,6 +16,7 @@ final class PowerPlantPVMaintenanceDashboardServiceTest extends TestCase
 	private function row($status, $start, $end)
 	{
 		return array(
+			'entity' => 1,
 			'status' => $status,
 			'period_start' => $start,
 			'period_end' => $end,
@@ -44,6 +45,7 @@ final class PowerPlantPVMaintenanceDashboardServiceTest extends TestCase
 		$service = new PowerPlantPVMaintenanceDashboardService($db);
 		$data = $service->aggregateRows($rows, $reference - (30 * 86400), $reference + (90 * 86400), $reference);
 
+		$this->assertTrue($data['has_data']);
 		$this->assertSame(1, $data['counts']['to_schedule']);
 		$this->assertSame(1, $data['counts']['scheduled']);
 		$this->assertSame(1, $data['counts']['overdue']);
@@ -83,8 +85,25 @@ final class PowerPlantPVMaintenanceDashboardServiceTest extends TestCase
 		$service = new PowerPlantPVMaintenanceDashboardService($db);
 		$data = $service->aggregateRows(array(), $dateStart, $dateEnd, $dateStart);
 
+		$this->assertFalse($data['has_data']);
 		$this->assertCount(12, $data['monthly_load']);
 		$this->assertSame(0, array_sum(array_column($data['monthly_load'], 'count')));
+	}
+
+	public function testSharedEntityRowsAreAggregatedLikeLocalRows(): void
+	{
+		global $db;
+
+		$reference = dol_mktime(0, 0, 0, 7, 15, 2026);
+		$row = $this->row(PowerPlantPVMaintenanceScheduler::STATUS_SCHEDULED, $reference, $reference + 86400);
+		$row['entity'] = 2;
+
+		$service = new PowerPlantPVMaintenanceDashboardService($db);
+		$data = $service->aggregateRows(array($row), $reference - 86400, $reference + (2 * 86400), $reference);
+
+		$this->assertTrue($data['has_data']);
+		$this->assertSame(1, $data['counts']['scheduled']);
+		$this->assertSame('PV-001', $data['distributions']['by_powerplant'][0]['label']);
 	}
 
 	public function testCustomerDistributionUsesPowerPlantThirdPartyLabelWithoutContract(): void

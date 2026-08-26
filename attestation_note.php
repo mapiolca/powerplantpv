@@ -46,7 +46,8 @@ $socid = GETPOSTINT('socid');
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	accessforbidden();
 }
-if (!powerplantpvAttestationUserHasRight($user, 'read')) {
+$permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
+if (!$permissiontoread) {
 	accessforbidden();
 }
 if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
@@ -69,7 +70,7 @@ if ($user->socid > 0) {
 	$socid = $user->socid;
 }
 $isdraft = ((int) $object->status === PowerPlantPVAttestation::STATUS_DRAFT ? 1 : 0);
-restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft);
 
 /*
  * Actions

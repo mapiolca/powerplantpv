@@ -126,7 +126,7 @@ if ($id > 0) {
 		$object->fetch_optionals();
 	}
 	$isdraft = ((int) $object->status === PowerPlantPVAttestation::STATUS_DRAFT ? 1 : 0);
-	restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+	powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft);
 	$permissiontoedit = powerplantpvAttestationCanEdit($user, $object);
 	$permissiontodeleteobject = powerplantpvAttestationCanDelete($user, $object);
 	$permissiontogeneratedocument = powerplantpvAttestationCanGenerateDocument($user, $object);
