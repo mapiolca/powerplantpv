@@ -179,18 +179,25 @@ function powerplantpvIndexStatusGraph($db, $langs, $powerplantstatic, $socid = 0
 		dol_print_error($db);
 	}
 
-	$dolgraph = new DolGraph();
-	$dolgraph->SetData($dataseries);
-	$dolgraph->setShowLegend(2);
-	$dolgraph->setShowPercent(1);
-	$dolgraph->SetType(array('pie'));
-	$dolgraph->setHeight('220');
-	$dolgraph->draw('idgraphpowerplantstatus');
-
 	$out = '<div class="div-table-responsive-no-min">';
 	$out .= '<table class="noborder centpercent">';
 	$out .= '<tr class="liste_titre"><th>'.$langs->trans('PowerPlantStatsByStatus').'</th></tr>';
-	$out .= '<tr><td class="center nopaddingleftimp nopaddingrightimp">'.$dolgraph->show($total ? 0 : 1).'</td></tr>';
+	if (empty($dataseries)) {
+		$out .= '<tr class="oddeven"><td class="center">';
+		$out .= '<span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span>';
+		$out .= '</td></tr>';
+	} else {
+		$dolgraph = new DolGraph();
+		$dolgraph->SetData($dataseries);
+		$dolgraph->setShowLegend(2);
+		$dolgraph->setShowPercent(1);
+		$dolgraph->SetType(array('pie'));
+		$dolgraph->setHeight('220');
+		$dolgraph->draw('idgraphpowerplantstatus');
+		$out .= '<tr><td class="center nopaddingleftimp nopaddingrightimp">';
+		$out .= $dolgraph->show($total ? 0 : 1);
+		$out .= '</td></tr>';
+	}
 	$out .= '</table>';
 	$out .= '</div><br>';
 
@@ -239,18 +246,25 @@ function powerplantpvIndexCategoryGraph($db, $langs, $socid = 0)
 		dol_print_error($db);
 	}
 
-	$dolgraph = new DolGraph();
-	$dolgraph->SetData($dataseries);
-	$dolgraph->setShowLegend(2);
-	$dolgraph->setShowPercent(1);
-	$dolgraph->SetType(array('pie'));
-	$dolgraph->setHeight('220');
-	$dolgraph->draw('idgraphpowerplantcategories');
-
 	$out = '<div class="div-table-responsive-no-min">';
 	$out .= '<table class="noborder centpercent">';
 	$out .= '<tr class="liste_titre"><th colspan="2">'.$langs->trans('PowerPlantStatsByCategories').'</th></tr>';
-	$out .= '<tr><td class="center nopaddingleftimp nopaddingrightimp" colspan="2">'.$dolgraph->show($total ? 0 : 1).'</td></tr>';
+	if (empty($dataseries)) {
+		$out .= '<tr class="oddeven"><td class="center" colspan="2">';
+		$out .= '<span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span>';
+		$out .= '</td></tr>';
+	} else {
+		$dolgraph = new DolGraph();
+		$dolgraph->SetData($dataseries);
+		$dolgraph->setShowLegend(2);
+		$dolgraph->setShowPercent(1);
+		$dolgraph->SetType(array('pie'));
+		$dolgraph->setHeight('220');
+		$dolgraph->draw('idgraphpowerplantcategories');
+		$out .= '<tr><td class="center nopaddingleftimp nopaddingrightimp" colspan="2">';
+		$out .= $dolgraph->show($total ? 0 : 1);
+		$out .= '</td></tr>';
+	}
 	$out .= '<tr class="liste_total"><td>'.$langs->trans('Total').'</td><td class="right">'.$total.'</td></tr>';
 	$out .= '</table>';
 	$out .= '</div><br>';

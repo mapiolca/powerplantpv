@@ -97,6 +97,11 @@ Using your browser:
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
 
+## Release 1.4.1
+
+Version 1.4.1 improves the PowerPlantPV dashboard for entities without power plant data. Status and category
+statistics now display Dolibarr's native empty-state message instead of attempting to render an empty graph.
+
 ## Attestations
 
 The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. Every attestation must be linked to a PV power plant. Place and installer data are read from the Dolibarr MyCompany information of the attestation entity, site data is read from the linked PV power plant, and writer data is read from the native author user (`fk_user_creat`).

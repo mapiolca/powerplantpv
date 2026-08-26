@@ -1,5 +1,10 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.4.1
+
+- Tableau de bord : les graphiques de répartition par statut et par catégorie affichent désormais l'état vide natif
+  Dolibarr lorsqu'une entité ne contient aucune donnée, sans appeler `DolGraph` avec une série vide.
+
 ## 1.4.0
 
 - Installation : suppression de copies accidentelles de scripts SQL susceptibles d'être exécutées hors de l'ordre natif par le chargeur Dolibarr.
