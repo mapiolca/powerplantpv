@@ -97,6 +97,17 @@ Using your browser:
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
 
+## Release 1.4.1
+
+Version 1.4.1 aligns PowerPlantPV cards, tabs and documents with the native Multicompany scopes declared for
+`powerplant` and `attestation`. A user with read permission can open shared records and download their existing
+documents from the owner entity, while non-shared records and write operations remain protected.
+
+All dashboard empty states now use Dolibarr's native `NoRecordFound` message after local and shared data have been
+loaded. The fourteen maintenance home boxes are available as optional widgets and are no longer enabled globally by
+default; legacy automatic global activations are removed without deleting individual user selections. The three
+historical installed-power graphs remain enabled on Home by default.
+
 ## Attestations
 
 The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. Every attestation must be linked to a PV power plant. Place and installer data are read from the Dolibarr MyCompany information of the attestation entity, site data is read from the linked PV power plant, and writer data is read from the native author user (`fk_user_creat`).

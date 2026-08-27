@@ -35,6 +35,7 @@ if (!is_readable(dol_buildpath('/powerplantpv/class/powerplantpvmaintenancesched
 }
 
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancescheduler.class.php');
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancereminder.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancewidget.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancedashboardservice.class.php');

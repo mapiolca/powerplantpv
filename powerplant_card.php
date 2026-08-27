@@ -157,26 +157,13 @@ if (empty($action) && empty($id) && empty($ref)) {
 // Load object
 include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php'; // Must be 'include', not 'include_once'.
 
-// There is several ways to check permission.
-// Set $enablepermissioncheck to 1 to enable a minimum low level of checks
-$enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK');
-if ($enablepermissioncheck) {
-	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
-	$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_addupdatedelete.inc.php and actions_lineupdown.inc.php
-	$permissiontodelete = $user->hasRight('powerplantpv', 'powerplant', 'delete') || ($permissiontoadd && isset($object->status) && $object->status == $object::STATUS_DRAFT);
-	$permissiontosetinservice = $user->hasRight('powerplantpv', 'powerplant', 'inservice');
-	$permissiontosetoutofservice = $user->hasRight('powerplantpv', 'powerplant', 'outofservice');
-	$permissionnote = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_setnotes.inc.php
-	$permissiondellink = $user->hasRight('powerplantpv', 'powerplant', 'write'); // Used by the include of actions_dellink.inc.php
-} else {
-	$permissiontoread = 1;
-	$permissiontoadd = 1; // Used by the include of actions_addupdatedelete.inc.php and actions_lineupdown.inc.php
-	$permissiontodelete = 1;
-	$permissiontosetinservice = 1;
-	$permissiontosetoutofservice = 1;
-	$permissionnote = 1;
-	$permissiondellink = 1;
-}
+$permissiontoread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'));
+$permissiontoadd = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'write'));
+$permissiontodelete = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'delete')) || ($permissiontoadd && isset($object->status) && $object->status == $object::STATUS_DRAFT);
+$permissiontosetinservice = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'inservice'));
+$permissiontosetoutofservice = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'outofservice'));
+$permissionnote = $permissiontoadd;
+$permissiondellink = $permissiontoadd;
 
 $upload_dir = null;
 if (!empty($object->id)) {
@@ -198,7 +185,7 @@ if ($user->socid > 0) {
 }
 $powerplantentity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 $isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft);
 if (!isModEnabled($object->module)) {
 	accessforbidden("Module ".$object->module." not enabled");
 }
@@ -1489,7 +1476,7 @@ $k_purchase_tariff = 'buyback_tariff';
 			$filedir = powerplantGetDocumentUploadDir($object);
 			$relativepathwithnofile = powerplantGetDocumentRelativePath($object);
 			$urlsource = $_SERVER["PHP_SELF"]."?id=".$object->id;
-			$genallowed = $permissiontoread; // If you can read, you can build the PDF to read content
+			$genallowed = $permissiontoadd;
 			$delallowed = $permissiontoadd; // If you can create/edit, you can remove a file on card
 			print $formfile->showdocuments($modulepart.':PowerPlant', $relativepathwithnofile, $filedir, $urlsource, $genallowed, $delallowed, $object->model_pdf, 1, 0, 0, 28, 0, '', '', '', $langs->defaultlang, '', $object);
 		}

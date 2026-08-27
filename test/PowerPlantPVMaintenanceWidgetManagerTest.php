@@ -76,9 +76,21 @@ final class PowerPlantPVMaintenanceWidgetManagerTest extends TestCase
 	{
 		$output = PowerPlantPVMaintenanceWidget::renderBoxContents(
 			PowerPlantPVMaintenanceWidget::TO_SCHEDULE,
-			array('counts' => array('to_schedule' => 7))
+			array('has_data' => true, 'counts' => array('to_schedule' => 7))
 		);
 		$this->assertStringContainsString('boxstatsindicator', $output);
 		$this->assertStringNotContainsString('powerplantpv-maintenance-indicator', $output);
+	}
+
+	public function testEveryEmptyMaintenanceWidgetUsesNativeNoRecordMessage(): void
+	{
+		global $langs;
+
+		$expected = dol_escape_htmltag($langs->trans('NoRecordFound'));
+		foreach (array_keys(PowerPlantPVMaintenanceWidget::getCatalog()) as $code) {
+			$output = PowerPlantPVMaintenanceWidget::renderBoxContents($code, array('has_data' => false));
+			$this->assertStringContainsString($expected, $output, $code);
+			$this->assertStringNotContainsString('boxstatsindicator', $output, $code);
+		}
 	}
 }

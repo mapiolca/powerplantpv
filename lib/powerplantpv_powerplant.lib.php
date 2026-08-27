@@ -23,6 +23,8 @@
  * \brief   Library files with common functions for PowerPlant
  */
 
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
+
 /**
  * Prepare array of tabs for PowerPlant
  *

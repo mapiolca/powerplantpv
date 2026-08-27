@@ -77,6 +77,7 @@ class PowerPlantPVMaintenanceDashboardService
 		$quality = array('incomplete' => 0, 'missing_period' => 0, 'missing_recurrence' => 0);
 		$distributions = array('by_powerplant' => array(), 'by_customer' => array(), 'by_nature' => array(), 'by_service' => array(), 'by_recurrence' => array());
 		$monthly = $this->initializeMonths($dateStart, $dateEnd);
+		$hasData = false;
 		$today = (int) dol_mktime(
 			0,
 			0,
@@ -106,6 +107,7 @@ class PowerPlantPVMaintenanceDashboardService
 			if (!$inRange) {
 				continue;
 			}
+			$hasData = true;
 
 			if ($status === PowerPlantPVMaintenanceScheduler::STATUS_PLANNED || $status === PowerPlantPVMaintenanceScheduler::STATUS_DUE) {
 				$counts['to_schedule']++;
@@ -162,6 +164,7 @@ class PowerPlantPVMaintenanceDashboardService
 		}
 
 		return array(
+			'has_data' => $hasData,
 			'counts' => $counts,
 			'programming_rate' => $programmingRate,
 			'due_windows' => $dueWindows,

@@ -48,7 +48,8 @@ if (!$sortorder) {
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)) {
 	accessforbidden();
 }
-if (!powerplantpvAttestationUserHasRight($user, 'read')) {
+$permissiontoread = powerplantpvAttestationUserHasRight($user, 'read');
+if (!$permissiontoread) {
 	accessforbidden();
 }
 if (function_exists('powerplantpvAttestationGetInstallationIssues')) {
@@ -65,7 +66,7 @@ if ($id <= 0 || $object->fetch($id) <= 0) {
 
 $permissiontoadd = powerplantpvAttestationCanGenerateDocument($user, $object);
 $permissiontodelete = powerplantpvAttestationCanDeleteDocument($user, $object);
-restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', 0);
+powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, 0);
 
 powerplantpvAttestationNormalizeDocumentDirectory($object);
 $permission = $permissiontoadd;

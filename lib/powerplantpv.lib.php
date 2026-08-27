@@ -2116,6 +2116,79 @@ function powerplantpvUserHasRightPath($user, $rightpath)
 }
 
 /**
+ * Return the native table/share declaration used by restrictedArea().
+ *
+ * @param	CommonObject	$object	Loaded business object
+ * @return	string				TableName&SharedElement declaration, empty if invalid
+ */
+function powerplantpvGetSharedObjectTableAndShare($object)
+{
+	if (!is_object($object) || empty($object->table_element) || empty($object->element)) {
+		return '';
+	}
+
+	return (string) $object->table_element.'&'.(string) $object->element;
+}
+
+/**
+ * Require read access to a PowerPlantPV object in its shared Multicompany scope.
+ *
+ * The explicit permission keeps module read rights authoritative, including the
+ * native administrator elevation. restrictedArea() then applies the object's
+ * owner entity, sharing key and third-party restrictions in one native check.
+ *
+ * @param	User			$user				Current user
+ * @param	CommonObject	$object			Loaded object, or a new object during creation
+ * @param	bool|int		$permissiontoread	Computed module read permission
+ * @param	int			$isdraft			1 when the loaded object is a draft
+ * @return	int<1,1>						Always 1, access is refused otherwise
+ */
+function powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft = 0)
+{
+	if (!is_object($user) || !is_object($object)) {
+		accessforbidden();
+	}
+	if (empty($user->admin) && empty($permissiontoread)) {
+		accessforbidden();
+	}
+
+	$objectid = powerplantpvGetCommonObjectId($object);
+	if ($objectid <= 0) {
+		return 1;
+	}
+	$tableandshare = powerplantpvGetSharedObjectTableAndShare($object);
+	if ($tableandshare === '') {
+		accessforbidden();
+	}
+
+	$objectentity = !empty($object->entity) ? (int) $object->entity : 0;
+	$sharedentities = powerplantpvSanitizeIdArray(explode(',', (string) getEntity((string) $object->element)));
+	if ($objectentity <= 0 || !in_array($objectentity, $sharedentities, true)) {
+		accessforbidden();
+	}
+	if (!empty($user->admin)) {
+		return 1;
+	}
+
+	$allowed = restrictedArea(
+		$user,
+		(string) $object->module,
+		$object,
+		$tableandshare,
+		(string) $object->element,
+		'fk_soc',
+		'rowid',
+		(int) $isdraft,
+		1
+	);
+	if (!$allowed) {
+		accessforbidden();
+	}
+
+	return 1;
+}
+
+/**
  * Check a maintenance permission with administrator bypass.
  *
  * @param	User	$user	Current user

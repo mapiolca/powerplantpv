@@ -111,18 +111,10 @@ $firstlineheaders = ($action === 'uploadserials' ? (GETPOSTISSET('first_line_hea
 $object = new PowerPlant($db);
 $form = new Form($db);
 
-$enablepermissioncheck = getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK');
-if ($enablepermissioncheck) {
-	$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
-	$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write');
-	$permissiontoserialread = $user->hasRight('powerplantpv', 'serialnumber', 'read');
-	$permissiontoserialimport = $user->hasRight('powerplantpv', 'serialnumber', 'import');
-} else {
-	$permissiontoread = 1;
-	$permissiontoadd = 1;
-	$permissiontoserialread = 1;
-	$permissiontoserialimport = 1;
-}
+$permissiontoread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'read'));
+$permissiontoadd = powerplantpvUserHasRightPath($user, array('powerplantpv', 'powerplant', 'write'));
+$permissiontoserialread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'serialnumber', 'read'));
+$permissiontoserialimport = powerplantpvUserHasRightPath($user, array('powerplantpv', 'serialnumber', 'import'));
 
 if (!isModEnabled('powerplantpv') || !$permissiontoread || !$permissiontoserialread) {
 	accessforbidden();
@@ -135,7 +127,7 @@ if (empty($object->id)) {
 
 $powerplantentity = (!empty($object->entity) ? (int) $object->entity : (int) $conf->entity);
 $isdraft = (isset($object->status) && ($object->status == $object::STATUS_DRAFT) ? 1 : 0);
-restrictedArea($user, $object->module, $object, $object->table_element, $object->element, 'fk_soc', 'rowid', $isdraft);
+powerplantpvRequireSharedObjectReadAccess($user, $object, $permissiontoread, $isdraft);
 
 $canimport = ($permissiontoadd && $permissiontoserialimport && (int) $object->status !== (int) $object::STATUS_CANCELED);
 $categories = powerplantpvSerialImportFetchCompositionCategories($object);
