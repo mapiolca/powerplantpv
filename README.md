@@ -97,6 +97,11 @@ Using your browser:
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
 
+## Release 1.4.2
+
+Version 1.4.2 harmonizes editable technical numbers with Dolibarr's native precision and fixes the Dolibarr v20 CSRF
+compatibility of the bulk CSV/XLSX product import, including template downloads and file submission.
+
 ## Release 1.4.1
 
 Version 1.4.1 aligns PowerPlantPV cards, tabs and documents with the native Multicompany scopes declared for

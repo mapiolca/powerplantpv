@@ -81,6 +81,26 @@ function powerplantpv_bulk_import_generate_token()
 	}
 }
 
+/**
+ * Validate the submitted Dolibarr CSRF token on every supported version.
+ *
+ * Dolibarr v20 performs its native check in main.inc.php but does not expose
+ * checkToken(). Keep an explicit server-side validation when the global CSRF
+ * level is lower, while using the core helper on versions that provide it.
+ *
+ * @return bool True when the submitted token matches the current session
+ */
+function powerplantpv_bulk_import_token_is_valid()
+{
+	if (function_exists('checkToken')) {
+		return (bool) checkToken();
+	}
+
+	$submittedToken = GETPOST('token', 'alpha');
+	$sessionToken = !empty($_SESSION['token']) ? (string) $_SESSION['token'] : (!empty($_SESSION['newtoken']) ? (string) $_SESSION['newtoken'] : '');
+	return $submittedToken !== '' && $sessionToken !== '' && hash_equals($sessionToken, $submittedToken);
+}
+
 /** @param string $token Import token @return string */
 function powerplantpv_bulk_import_meta_path($token)
 {
@@ -218,7 +238,7 @@ if ($maxrows <= 0) {
 }
 
 if ($action === 'download_template') {
-	if (!checkToken()) {
+	if (!powerplantpv_bulk_import_token_is_valid()) {
 		accessforbidden('Bad token');
 	}
 	$headers = PowerPlantPVBulkProductImport::getTemplateHeaders();
@@ -293,7 +313,7 @@ if ($action === 'download_template') {
 }
 
 if ($action === 'upload') {
-	if (!checkToken()) {
+	if (!powerplantpv_bulk_import_token_is_valid()) {
 		accessforbidden('Bad token');
 	}
 	$uploaded = isset($_FILES['bulk_product_file']) && is_array($_FILES['bulk_product_file']) ? $_FILES['bulk_product_file'] : array();
@@ -344,7 +364,7 @@ if ($action === 'upload') {
 
 
 if ($action === 'resolve_dictionaries') {
-	if (!checkToken()) {
+	if (!powerplantpv_bulk_import_token_is_valid()) {
 		accessforbidden('Bad token');
 	}
 	$metadata = powerplantpv_bulk_import_load_metadata($importtoken);
@@ -378,7 +398,7 @@ if ($action === 'resolve_dictionaries') {
 	}
 }
 if ($action === 'confirm_import') {
-	if (!checkToken()) {
+	if (!powerplantpv_bulk_import_token_is_valid()) {
 		accessforbidden('Bad token');
 	}
 	$metadata = powerplantpv_bulk_import_load_metadata($importtoken);
@@ -417,7 +437,7 @@ if ($action === 'confirm_import') {
 }
 
 if ($action === 'cancel_import') {
-	if (!checkToken()) {
+	if (!powerplantpv_bulk_import_token_is_valid()) {
 		accessforbidden('Bad token');
 	}
 	$metadata = powerplantpv_bulk_import_load_metadata($importtoken);
