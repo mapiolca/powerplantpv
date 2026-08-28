@@ -1,5 +1,12 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.4.2
+
+- Caractéristiques techniques : les valeurs numériques en modification utilisent le helper natif `price()` afin de
+  respecter la précision Dolibarr sans afficher les zéros de stockage superflus.
+- Import administrateur : correction des erreurs HTTP 500 sur Dolibarr v20 lors du téléchargement des modèles CSV/XLSX
+  et de l'envoi d'un fichier, avec validation CSRF compatible avec toutes les versions supportées.
+
 ## 1.4.1
 
 - Multicompany : les fiches, onglets et documents des centrales et attestations utilisent désormais les clés de partage

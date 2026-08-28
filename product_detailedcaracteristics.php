@@ -359,6 +359,9 @@ function powerplantpv_print_field_row($label, $name, array $spec, $source, $edit
 	$isnumeric = ($spec['type'] === 'double' || $spec['type'] === 'int' || !empty($spec['numeric']));
 	if ($edit && $isnumeric && GETPOSTISSET($name)) {
 		$value = GETPOST($name, 'alpha');
+	} elseif ($edit && $isnumeric && $spec['type'] !== 'int' && $value !== null && $value !== '' && is_numeric($value)) {
+		// Keep an HTML-compatible decimal separator while applying Dolibarr's native price precision.
+		$value = price((float) $value, 0, 'none');
 	}
 
 	print '<tr class="oddeven">';
@@ -438,6 +441,12 @@ function powerplantpv_print_structured_row($label, array $fieldNames, array $reg
 	foreach ($fieldNames as $field) {
 		$spec = $registry[$field];
 		$value = $source ? powerplantpv_get_field_value($source, $field) : null;
+		if ($edit && GETPOSTISSET($field)) {
+			$value = GETPOST($field, 'alpha');
+		} elseif ($edit && $spec['type'] !== 'select' && $value !== null && $value !== '' && is_numeric($value)) {
+			// Keep an HTML-compatible decimal separator while applying Dolibarr's native price precision.
+			$value = price((float) $value, 0, 'none');
+		}
 		$rolelabel = $langs->trans($spec['label']);
 		$unit = !empty($spec['unit']) && !in_array($spec['unit'], array('code', 'text', 'ratio'), true) ? (string) $spec['unit'] : '';
 		if ($edit) {
