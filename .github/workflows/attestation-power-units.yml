@@ -1,0 +1,62 @@
+name: Attestation power units
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  power-units:
+    name: Dolibarr ${{ matrix.dolibarr }} / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dolibarr: '20.0.0'
+            php: '8.0'
+            ref: '697bf01970740a3339cd99cf055b4428fc5e051c'
+          - dolibarr: '21.0.0'
+            php: '8.2'
+            ref: 'fd970b582a4d8c5779a2958a4e9f4fce225cf085'
+          - dolibarr: '22.0.0'
+            php: '8.2'
+            ref: '49b9a6d19f3deb6d410c0e9b3310e95be4ea7710'
+          - dolibarr: '23.0.0'
+            php: '8.4'
+            ref: '57a1f05d490a7a80944a8232e9c613e6556d2704'
+          - dolibarr: '24.0.0'
+            php: '8.4'
+            ref: '769c7db907099643558e77d7002c109cfda919e5'
+          # Development snapshot inspected on 2026-09-29; not a final v25 release.
+          - dolibarr: '25.0.0-alpha'
+            php: '8.4'
+            ref: '97f5408336b0544276e1c1c0a8bc2619e4afc5ee'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: powerplantpv
+      - uses: actions/checkout@v4
+        with:
+          repository: Dolibarr/dolibarr
+          ref: ${{ matrix.ref }}
+          path: dolibarr
+          sparse-checkout: htdocs/core
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring
+          coverage: none
+      - name: Check PHP syntax
+        working-directory: powerplantpv
+        run: |
+          php -l lib/powerplantpv_attestation.lib.php
+          php -l class/powerplantpvattestation.class.php
+          php -l core/modules/attestation/doc/pdf_attestation_bridage_dynamique.modules.php
+          php -l test/attestation_power_units.php
+      - name: Check power units with native helpers and simulated SQL
+        run: php powerplantpv/test/attestation_power_units.php dolibarr/htdocs

@@ -121,6 +121,20 @@ Attestations use native Dolibarr rights, menus, document generation, file storag
 
 Signed attestations remain locked for standard write/delete users. Grant the specific `powerplantpv / attestation / manage_signed` right, together with read access, to allow modification, deletion and PDF regeneration of signed attestations.
 
+Attestation equipment data converts inverter active power from W to kW (maximum, or nominal when maximum is absent)
+and apparent power from VA to kVA. Dynamic/static curtailment and maximum-frequency PDFs sum the apparent powers;
+if any inverter lacks that characteristic, the total is shown as not provided rather than substituting active power
+or displaying a partial total. Zero remains a valid value. Plant installed power is already stored in kWc after
+conversion from the PV modules' Wc, and export limits and legacy active-power values are already in kW: these values
+are not divided again. Product characteristics and stored attestation values are not rewritten by this correction.
+Existing PDF files retain their contents until explicitly regenerated with the appropriate rights, including the
+specific permission for signed attestations.
+
+The targeted regression check runs without an installed instance or database connection:
+`php test/attestation_power_units.php /path/to/dolibarr/htdocs`.
+It loads native Dolibarr helpers and the three PDF models with simulated SQL results; it does not render a PDF or
+validate a deployed instance, permissions or Multicompany sharing.
+
 ## Maintenance v1.3
 
 Version 1.3.0 stabilizes the preventive maintenance workflow. It adds entity-aware dictionaries, report templates, service-to-section mappings, contract/product/intervention extra fields, generated report snapshots, production/consumption readings, dynamic intervention PDF generation, and global maintenance list/calendar/statistics pages.
