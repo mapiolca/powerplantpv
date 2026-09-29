@@ -4,6 +4,7 @@
 
 - Manage photovoltaic power plants in Dolibarr.
 - Track the material composition of a power plant by PV product category.
+- In the composition status mass action, choose a common status and use **Apply to all lines** to fill the selected lines. Each line remains editable before saving with **Modify**.
 - Import PV Free technical data into existing Dolibarr PV module and inverter products from the detailed characteristics tab.
 - Import CSV/XLSX technical characteristics into existing Dolibarr PV module, inverter and battery products from the detailed characteristics tab, with unit-aware downloadable templates, preview and source traceability.
 - Describe batteries, storage systems and battery accessories with constraint-ready technical data, normalized communication/protection/certification relations, and native Dolibarr kit compositions.

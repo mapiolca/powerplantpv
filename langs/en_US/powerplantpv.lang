@@ -341,6 +341,7 @@ PowerPlantMassReplaceSelected = Replace selected elements
 PowerPlantMassUpdateCommissioningDate = Update commissioning date
 PowerPlantMassUpdateStatus = Update selected elements status
 PowerPlantApplyToAll = Apply to all
+PowerPlantApplyToAllLines = Apply to all lines
 PowerPlantStatus = Status
 PowerPlantCompositionLineModified = Equipment modified: %s
 PowerPlantCompositionLineModifiedDesc = Equipment line modified: %s
