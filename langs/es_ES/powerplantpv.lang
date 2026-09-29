@@ -272,6 +272,7 @@ PowerPlantMassReplaceSelected = Reemplazar elementos seleccionados
 PowerPlantMassUpdateCommissioningDate = Modificar fecha de puesta en servicio
 PowerPlantMassUpdateStatus = Modificar estado de elementos seleccionados
 PowerPlantApplyToAll = Aplicado a todos
+PowerPlantApplyToAllLines = Aplicar a todas las líneas
 PowerPlantStatus = Estado
 PowerPlantCompositionLineModified = Composicion modificada para %s
 PowerPlantCompositionLineModifiedDesc = Elemento: %s

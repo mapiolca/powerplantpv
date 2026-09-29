@@ -4,6 +4,7 @@
 
 - Manage photovoltaic power plants in Dolibarr.
 - Track the material composition of a power plant by PV product category.
+- In the composition status mass action, choose a common status and use **Apply to all lines** to fill the selected lines. Each line remains editable before saving with **Modify**.
 - Import PV Free technical data into existing Dolibarr PV module and inverter products from the detailed characteristics tab.
 - Import CSV/XLSX technical characteristics into existing Dolibarr PV module, inverter and battery products from the detailed characteristics tab, with unit-aware downloadable templates, preview and source traceability.
 - Describe batteries, storage systems and battery accessories with constraint-ready technical data, normalized communication/protection/certification relations, and native Dolibarr kit compositions.
@@ -97,6 +98,14 @@ Using your browser:
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
 
+## Release 1.4.3
+
+Version 1.4.3 converts inverter characteristics from W/VA to kW/kVA in attestations and uses apparent power for the
+inverter totals in curtailment and maximum-frequency PDFs. Values already expressed in kW or kWc retain their units.
+The composition status mass action adds a compact **Apply to all lines** button, while keeping individual adjustments
+available before saving. Existing PDFs require explicit regeneration with the appropriate rights after updating;
+historical data and signed documents are not rewritten automatically.
+
 ## Release 1.4.2
 
 Version 1.4.2 harmonizes editable technical numbers with Dolibarr's native precision and fixes the Dolibarr v20 CSRF
@@ -120,6 +129,20 @@ The attestation feature is enabled from the module settings tab `Attestations`. 
 Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The signature link uses Dolibarr's native online signature URL pattern when the installed core supports the `powerplantpv_attestation` source in `/public/onlinesign/newonlinesign.php` and `/core/ajax/onlineSign.php`. When the core does not support this source, PowerPlantPV exposes its own public fallback page with the same visual and functional flow, secured by `ref`, `entity` and `securekey`. It is not a qualified external e-signature provider workflow.
 
 Signed attestations remain locked for standard write/delete users. Grant the specific `powerplantpv / attestation / manage_signed` right, together with read access, to allow modification, deletion and PDF regeneration of signed attestations.
+
+Attestation equipment data converts inverter active power from W to kW (maximum, or nominal when maximum is absent)
+and apparent power from VA to kVA. Dynamic/static curtailment and maximum-frequency PDFs sum the apparent powers;
+if any inverter lacks that characteristic, the total is shown as not provided rather than substituting active power
+or displaying a partial total. Zero remains a valid value. Plant installed power is already stored in kWc after
+conversion from the PV modules' Wc, and export limits and legacy active-power values are already in kW: these values
+are not divided again. Product characteristics and stored attestation values are not rewritten by this correction.
+Existing PDF files retain their contents until explicitly regenerated with the appropriate rights, including the
+specific permission for signed attestations.
+
+The targeted regression check runs without an installed instance or database connection:
+`php test/attestation_power_units.php /path/to/dolibarr/htdocs`.
+It loads native Dolibarr helpers and the three PDF models with simulated SQL results; it does not render a PDF or
+validate a deployed instance, permissions or Multicompany sharing.
 
 ## Maintenance v1.3
 

@@ -1246,6 +1246,7 @@ function powerplantpvAttestationDatabaseTableExists($table)
 
 /**
  * Resolve an attestation equipment line from native referenced data.
+ * Product active/apparent powers are stored in W/VA; resolved powers are in kW/kVA.
  *
  * @param	PowerPlantPVAttestationEquipmentLine	$line			Equipment line
  * @param	Translate|null						$outputlangs	Output language
@@ -1270,6 +1271,7 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 		'brand' => !empty($line->brand) ? (string) $line->brand : '',
 		'manufacturer' => !empty($line->manufacturer) ? (string) $line->manufacturer : '',
 		'max_power_kw' => $legacyMaxPower,
+		'apparent_power_kva' => (isset($line->apparent_power_kva) && $line->apparent_power_kva !== '') ? $line->apparent_power_kva : null,
 		'equipment_type' => !empty($line->equipment_type) ? (string) $line->equipment_type : '',
 	);
 
@@ -1301,7 +1303,7 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 	$sql .= " cpv.code as category_code, cpv.label as category_label,";
 	$sql .= " c.serial_number as composition_serial_number,";
 	$sql .= " sn.serial_number as imported_serial_number,";
-	$sql .= " inv.ac_max_power, inv.ac_nominal_power";
+	$sql .= " inv.ac_max_power, inv.ac_nominal_power, inv.ac_apparent_power";
 	$sql .= " FROM ".$db->prefix()."product as p";
 	$sql .= " LEFT JOIN ".$db->prefix()."powerplantpv_powerplantcomp as c ON c.rowid = ".$fkPowerplantLine;
 	if ($entity > 0) {
@@ -1339,6 +1341,17 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 
 	$categoryid = $lineCategoryId > 0 ? $lineCategoryId : (!empty($obj->categorie_photovoltaique) ? (int) $obj->categorie_photovoltaique : 0);
 	$serialnumber = !empty($obj->imported_serial_number) ? (string) $obj->imported_serial_number : (!empty($obj->composition_serial_number) ? (string) $obj->composition_serial_number : $fallback['serial_number']);
+	// Convert only product characteristics. Legacy/specimen values already use kilounits.
+	$maxPowerKw = $fallback['max_power_kw'];
+	if ($obj->ac_max_power !== null && $obj->ac_max_power !== '') {
+		$maxPowerKw = (float) $obj->ac_max_power / 1000;
+	} elseif ($obj->ac_nominal_power !== null && $obj->ac_nominal_power !== '') {
+		$maxPowerKw = (float) $obj->ac_nominal_power / 1000;
+	}
+	$apparentPowerKva = $fallback['apparent_power_kva'];
+	if ($obj->ac_apparent_power !== null && $obj->ac_apparent_power !== '') {
+		$apparentPowerKva = (float) $obj->ac_apparent_power / 1000;
+	}
 	$resolved = array(
 		'category' => !empty($obj->category_label) ? (string) $obj->category_label : (!empty($obj->category_code) ? (string) $obj->category_code : $fallback['category']),
 		'category_code' => !empty($obj->category_code) ? (string) $obj->category_code : $fallback['category_code'],
@@ -1348,7 +1361,8 @@ function powerplantpvAttestationResolveEquipmentLine($line, $outputlangs = null)
 		'serial_number' => powerplantpvSerialNumberDisplayValue($serialnumber, $categoryid, $entity, $outputlangs),
 		'brand' => !empty($obj->product_photovoltaic_brand) ? (string) $obj->product_photovoltaic_brand : $fallback['brand'],
 		'manufacturer' => !empty($obj->product_photovoltaic_manufacturer) ? (string) $obj->product_photovoltaic_manufacturer : $fallback['manufacturer'],
-		'max_power_kw' => ($obj->ac_max_power !== null && $obj->ac_max_power !== '') ? $obj->ac_max_power : (($obj->ac_nominal_power !== null && $obj->ac_nominal_power !== '') ? $obj->ac_nominal_power : $fallback['max_power_kw']),
+		'max_power_kw' => $maxPowerKw,
+		'apparent_power_kva' => $apparentPowerKva,
 		'equipment_type' => '',
 	);
 	$resolved['equipment_type'] = powerplantpvAttestationGuessEquipmentType((object) array(

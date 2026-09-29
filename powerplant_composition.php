@@ -1421,6 +1421,13 @@ if ($id > 0 || !empty($ref)) {
 			foreach ($massselectedids as $selectedid) {
 				print '<input type="hidden" name="toselect[]" value="'.((int) $selectedid).'">';
 			}
+			if (!empty($conf->use_javascript_ajax) && !empty($masslines)) {
+				print '<div class="marginbottomonly">';
+				print '<label for="status_mass_all" class="marginrightonly">'.$langs->trans('PowerPlantStatus').'</label>';
+				print $form->selectarray('status_mass_all', $componentstatus, -1, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100 massstatus-all-select', 0);
+				print dolGetButtonAction($langs->trans('PowerPlantApplyToAllLines'), '', 'default', '#', 'massstatus-apply-all-btn', true, array('attr' => array('class' => 'small smallpaddingimp')));
+				print '</div>';
+			}
 			print '<table class="noborder centpercent">';
 			print '<tr class="liste_titre"><td>'.$langs->trans('Product').'</td><td>'.$langs->trans('PowerPlantSerialNumber').'</td><td>'.$langs->trans('PowerPlantCommissioningDate').'</td><td>'.$langs->trans('PowerPlantStatus').'</td></tr>';
 			if (!empty($masslines)) {
@@ -1430,7 +1437,7 @@ if ($id > 0 || !empty($ref)) {
 					print '<td><input type="hidden" name="lineid_mass_status['.$idx.']" value="'.((int) $massline->rowid).'">'.dol_escape_htmltag($productlabel).'</td>';
 					print '<td>'.dol_escape_htmltag($massline->serial_number).'</td>';
 					print '<td>'.(!empty($massline->commissioning_date) ? dol_print_date($db->jdate($massline->commissioning_date), 'day') : '').'</td>';
-					print '<td>'.$form->selectarray('status_mass_line['.$idx.']', $componentstatus, ($massline->fk_status !== null ? (int) $massline->fk_status : 4), 0, 0, '', 0, 0, 0, '', 'flat minwidth100 massstatus-line-select').'</td>';
+					print '<td>'.$form->selectarray('status_mass_line['.$idx.']', $componentstatus, ($massline->fk_status !== null ? (int) $massline->fk_status : 4), 0, 0, 0, '', 0, 0, 0, '', 'minwidth100 massstatus-line-select', 0).'</td>';
 					print '</tr>';
 				}
 			} else {
@@ -1443,25 +1450,34 @@ if ($id > 0 || !empty($ref)) {
 			print '</div>';
 			print '</form>';
 			print '</div>';
-			print '<script nonce="'.getNonce().'">';
-			print 'jQuery(function(){';
-			print 'jQuery("#dialog-massstatuscomposition").dialog({';
-			print 'autoOpen:true,';
-			print 'modal:true,';
-			print 'width:980,';
-			print 'title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateStatus')).'",';
-			print 'open:function(){';
-			print 'jQuery(this).find(".massstatus-line-select").each(function(){';
-			print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
-			print 'jQuery(this).select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
-			print '});';
-			print '}';
-			print '});';
-			print 'jQuery("#massstatus-cancel-btn").on("click", function(){';
-			print 'jQuery("#dialog-massstatuscomposition").dialog("close");';
-			print '});';
-			print '});';
-			print '</script>';
+			if (!empty($conf->use_javascript_ajax)) {
+				print '<script nonce="'.getNonce().'">';
+				print 'jQuery(function(){';
+				print 'var dialog = jQuery("#dialog-massstatuscomposition");';
+				print 'dialog.dialog({';
+				print 'autoOpen:true,';
+				print 'modal:true,';
+				print 'width:980,';
+				print 'title:"'.dol_escape_js($langs->transnoentitiesnoconv('PowerPlantMassUpdateStatus')).'",';
+				print 'open:function(){';
+				print 'jQuery(this).find(".massstatus-line-select, .massstatus-all-select").each(function(){';
+				print 'if (jQuery(this).hasClass("select2-hidden-accessible")) { jQuery(this).select2("destroy"); }';
+				print 'jQuery(this).select2({width:"resolve",minimumResultsForSearch:0,dropdownCssClass:"ui-dialog"});';
+				print '});';
+				print '}';
+				print '});';
+				print 'dialog.off("click.powerplantpvMassStatus", "#massstatus-apply-all-btn").on("click.powerplantpvMassStatus", "#massstatus-apply-all-btn", function(event){';
+				print 'event.preventDefault();';
+				print 'var status = dialog.find(".massstatus-all-select").val();';
+				print 'if (status === null || status === "-1") { return; }';
+				print 'dialog.find(".massstatus-line-select").val(status).trigger("change");';
+				print '});';
+				print 'dialog.off("click.powerplantpvMassStatus", "#massstatus-cancel-btn").on("click.powerplantpvMassStatus", "#massstatus-cancel-btn", function(){';
+				print 'dialog.dialog("close");';
+				print '});';
+				print '});';
+				print '</script>';
+			}
 		}
 
 		if ($canmanagecomposition && $action === 'massreplace' && !empty($massselectedids)) {

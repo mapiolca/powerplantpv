@@ -422,7 +422,8 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	}
 
 	/**
-	 * Sum inverter power from equipment lines.
+	 * Sum inverter apparent power in kVA from equipment lines.
+	 * An incomplete total is unavailable; active power in kW cannot substitute for kVA.
 	 *
 	 * @param	PowerPlantPVAttestation	$object	Attestation
 	 * @return	float|string						Total or empty string
@@ -436,10 +437,17 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		}
 		foreach ($object->lines as $line) {
 			$equipment = powerplantpvAttestationResolveEquipmentLine($line);
-			if ((string) $equipment['equipment_type'] !== 'INVERTER' || $equipment['max_power_kw'] === null || $equipment['max_power_kw'] === '') {
+			if ((string) $equipment['equipment_type'] === '') {
+				// Unresolved equipment must not silently reduce the declared total.
+				return '';
+			}
+			if ((string) $equipment['equipment_type'] !== 'INVERTER') {
 				continue;
 			}
-			$total += (float) $equipment['max_power_kw'];
+			if ($equipment['apparent_power_kva'] === null || $equipment['apparent_power_kva'] === '') {
+				return '';
+			}
+			$total += (float) $equipment['apparent_power_kva'];
 			$found = 1;
 		}
 

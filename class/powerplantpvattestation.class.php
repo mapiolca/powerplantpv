@@ -806,6 +806,7 @@ class PowerPlantPVAttestation extends CommonObject
 				'model' => 'Modèle',
 				'serial_number' => 'SN-EXAMPLE',
 				'max_power_kw' => 36,
+				'apparent_power_kva' => 36,
 				'rank' => 1,
 			)),
 		);
@@ -1400,6 +1401,8 @@ class PowerPlantPVAttestationEquipmentLine
 	public $bridage_enabled;
 	public $bridage_type;
 	public $max_power_kw;
+	/** @var float|null Apparent power in kVA for specimen data; real values come from the linked product. */
+	public $apparent_power_kva;
 	public $rank;
 	public $error = '';
 
