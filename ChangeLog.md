@@ -1,5 +1,16 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.4.3
+
+- Attestations : conversion des puissances actives et apparentes des onduleurs de W en kW et de VA en kVA,
+  sans nouvelle conversion des puissances déjà exprimées en kW ou kWc ; zéro reste une valeur valide.
+- PDF de bridage dynamique, de bridage statique et de fréquence maximale : utilisation des puissances apparentes
+  des onduleurs ; le total reste indisponible si une caractéristique manque ou si un équipement ne peut pas être résolu.
+- Composition : ajout d'un sélecteur d'état commun et d'un bouton compact « Appliquer à toutes les lignes » dans
+  la modification des états en masse, avec ajustement individuel possible avant l'enregistrement.
+- Après mise à jour : régénérer explicitement les attestations PDF concernées avec les droits appropriés.
+  Les données historiques et les documents existants, notamment signés, ne sont pas réécrits automatiquement.
+
 ## 1.4.2
 
 - Caractéristiques techniques : les valeurs numériques en modification utilisent le helper natif `price()` afin de

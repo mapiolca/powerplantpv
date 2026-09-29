@@ -98,6 +98,14 @@ Using your browser:
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
 
+## Release 1.4.3
+
+Version 1.4.3 converts inverter characteristics from W/VA to kW/kVA in attestations and uses apparent power for the
+inverter totals in curtailment and maximum-frequency PDFs. Values already expressed in kW or kWc retain their units.
+The composition status mass action adds a compact **Apply to all lines** button, while keeping individual adjustments
+available before saving. Existing PDFs require explicit regeneration with the appropriate rights after updating;
+historical data and signed documents are not rewritten automatically.
+
 ## Release 1.4.2
 
 Version 1.4.2 harmonizes editable technical numbers with Dolibarr's native precision and fixes the Dolibarr v20 CSRF
