@@ -1425,7 +1425,7 @@ if ($id > 0 || !empty($ref)) {
 				print '<div class="marginbottomonly">';
 				print '<label for="status_mass_all" class="marginrightonly">'.$langs->trans('PowerPlantStatus').'</label>';
 				print $form->selectarray('status_mass_all', $componentstatus, -1, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100 massstatus-all-select', 0);
-				print dolGetButtonAction($langs->trans('PowerPlantApplyToAllLines'), '', 'default', '#', 'massstatus-apply-all-btn', true);
+				print dolGetButtonAction($langs->trans('PowerPlantApplyToAllLines'), '', 'default', '#', 'massstatus-apply-all-btn', true, array('attr' => array('class' => 'small smallpaddingimp')));
 				print '</div>';
 			}
 			print '<table class="noborder centpercent">';
