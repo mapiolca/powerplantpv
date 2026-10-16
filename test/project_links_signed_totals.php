@@ -175,7 +175,9 @@ verify($totals->refresh($user) === 2, 'Refresh signed totals with native extrafi
 verify(scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=11') == 15, 'Only signed and billed power included');
 verify(scalar('SELECT powerplantpv_signed_storage_capacity FROM pvtest_projet_extrafields WHERE fk_object=11') == 10, 'Capacity summed');
 verify(scalar('SELECT jpsun_project_pc FROM pvtest_projet_extrafields WHERE fk_object=11') === 'legacy-preserved', 'Native update must preserve JPSUN data, including v20');
-verify(scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=12') === 0.0, 'Zero remains a known value');
+$knownZero = scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=12');
+// PDO SQLite before PHP 8.1 may return a numeric string; NULL and empty remain invalid.
+verify(is_numeric($knownZero) && (float) $knownZero === 0.0, 'Zero remains a known value: '.var_export($knownZero, true));
 $db->query('UPDATE pvtest_propal_extrafields SET powerplantpv_storage_capacity=NULL WHERE fk_object=2');
 verify($totals->refresh($user) === 2, 'Refresh incomplete capacity');
 verify(scalar('SELECT powerplantpv_signed_storage_capacity FROM pvtest_projet_extrafields WHERE fk_object=11') === null, 'Incomplete capacity is NULL rather than partial');
