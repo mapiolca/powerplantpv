@@ -117,7 +117,7 @@ if ($action === 'create_intervention') {
 			$action = 'create';
 		} else {
 			$socid = !empty($powerplant->fk_soc) ? (int) $powerplant->fk_soc : 0;
-			$projectid = !empty($powerplant->fk_project) ? (int) $powerplant->fk_project : 0;
+			$projectid = $powerplant->getSingleProjectId($user);
 			if ($contractid > 0 && class_exists('Contrat')) {
 				$contract = new Contrat($db);
 				if ($contract->fetch($contractid) > 0) {

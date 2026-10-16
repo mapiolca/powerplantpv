@@ -659,6 +659,10 @@ function powerplantpvApplyOriginDefaults(&$powerplant, $origin, $originid)
 	}
 	if (!empty($sourceobject->fk_project)) {
 		$powerplant->context['powerplantpv_origin_fk_project'] = (int) $sourceobject->fk_project;
+	} elseif (!empty($sourceobject->fk_projet)) {
+		$powerplant->context['powerplantpv_origin_fk_project'] = (int) $sourceobject->fk_projet;
+	} elseif (($sourceobject->element ?? '') === 'project') {
+		$powerplant->context['powerplantpv_origin_fk_project'] = (int) $sourceobject->id;
 	}
 	if (empty($powerplant->label) && !empty($sourceobject->ref)) {
 		$powerplant->label = (is_object($langs) ? $langs->trans('PowerPlantCreatedFrom', $sourceobject->ref) : $sourceobject->ref);

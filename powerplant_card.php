@@ -165,6 +165,16 @@ $permissiontosetoutofservice = powerplantpvUserHasRightPath($user, array('powerp
 $permissionnote = $permissiontoadd;
 $permissiondellink = $permissiontoadd;
 
+if (in_array($action, array('add', 'update'), true) && GETPOSTISSET('powerplantpv_projects_present')) {
+	if (!$user->hasRight('powerplantpv', 'powerplant', 'write')) {
+		accessforbidden();
+	}
+	$object->project_ids = array_map('intval', GETPOST('powerplantpv_projects', 'array:int'));
+	if ($action === 'update') {
+		$object->project_links_revision = GETPOST('powerplantpv_links_revision', 'aZ09');
+	}
+}
+
 $upload_dir = null;
 if (!empty($object->id)) {
 	$upload_dir = powerplantGetDocumentUploadDir($object);
@@ -277,7 +287,7 @@ if ($action == 'delcomposition' && $permissiontoadd) {
 		// Security: allow only known fields from $object->fields.
 		if (empty($field) || empty($object->fields[$field])) {
 			setEventMessages($langs->trans("ErrorBadParameter"), null, 'errors');
-		} elseif ($field == 'installed_power') {
+		} elseif ($field == 'installed_power' || $field == 'fk_project') {
 			setEventMessages($langs->trans("ErrorForbidden"), null, 'errors');
 		} else {
 			$res = 0;
@@ -481,7 +491,7 @@ if ($action == 'create') {
 
 	print load_fiche_titre($title, '', $object->picto);
 
-	print '<form method="POST" action="'.dolBuildUrl($_SERVER["PHP_SELF"]).'">';
+	print '<form method="POST" action="'.dol_escape_htmltag($_SERVER["PHP_SELF"]).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="add">';
 	if (!empty($origin) && $originid > 0) {
@@ -669,6 +679,7 @@ if ($action == 'create') {
 		print '</div>';
 	}
 
+	print powerplantRenderProjectSelection($object, $user);
 	print $form->buttonsSaveCancel("Create");
 
 	print '</form>';
@@ -680,7 +691,7 @@ if ($action == 'create') {
 if (($id || $ref) && $action == 'edit') {
 	print load_fiche_titre($langs->trans("PowerPlant"), '', $object->picto);
 
-	print '<form method="POST" action="'.dolBuildUrl($_SERVER["PHP_SELF"]).'">';
+	print '<form method="POST" action="'.dol_escape_htmltag($_SERVER["PHP_SELF"]).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="update">';
 	print '<input type="hidden" name="id" value="'.$object->id.'">';
@@ -859,6 +870,7 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print dol_get_fiche_end();
 
+	print powerplantRenderProjectSelection($object, $user);
 	print $form->buttonsSaveCancel();
 
 	print '</form>';
@@ -1186,13 +1198,13 @@ $k_purchase_tariff = 'buyback_tariff';
 		print '<td class="titlefield">'.$langs->trans('Categories').'</td>';
 		if ($action == 'editcategories' && $permissiontoadd) {
 			print '<td>';
-			print '<form method="POST" action="'.dolBuildUrl($_SERVER["PHP_SELF"]).'">';
+			print '<form method="POST" action="'.dol_escape_htmltag($_SERVER["PHP_SELF"]).'">';
 			print '<input type="hidden" name="token" value="'.newToken().'">';
 			print '<input type="hidden" name="action" value="setcategories">';
 			print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
 			print powerplantSelectCategories($form, 'powerplant', 'categories', $object);
 			print ' <input type="submit" class="button valignmiddle" value="'.$langs->trans('Save').'">';
-			print ' <a class="button button-cancel" href="'.dolBuildUrl($_SERVER["PHP_SELF"], array('id' => $object->id)).'">'.$langs->trans('Cancel').'</a>';
+			print ' <a class="button button-cancel" href="'.dol_escape_htmltag($_SERVER["PHP_SELF"]).'?id='.((int) $object->id).'">'.$langs->trans('Cancel').'</a>';
 			print '</form>';
 			print '</td>';
 			print '<td class="right nowraponall">&nbsp;</td>';
@@ -1201,7 +1213,7 @@ $k_purchase_tariff = 'buyback_tariff';
 			print '<td>'.($categorieshtml !== '' ? $categorieshtml : '<span class="opacitymedium">'.$langs->trans('None').'</span>').'</td>';
 			print '<td class="right nowraponall">';
 			if ($permissiontoadd) {
-				print '<a class="editfielda reposition" href="'.dolBuildUrl($_SERVER["PHP_SELF"], array('id' => $object->id, 'action' => 'editcategories')).'">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a>';
+				print '<a class="editfielda reposition" href="'.dol_escape_htmltag($_SERVER["PHP_SELF"]).'?id='.((int) $object->id).'&action=editcategories">'.img_edit($langs->transnoentitiesnoconv('Modify'), 0).'</a>';
 			} else {
 				print '&nbsp;';
 			}
@@ -1393,8 +1405,9 @@ $k_purchase_tariff = 'buyback_tariff';
 				if (!empty($object->fk_soc)) {
 					$urlCreateIntervention .= '&socid='.((int) $object->fk_soc);
 				}
-				if (!empty($object->fk_project)) {
-					$urlCreateIntervention .= '&projectid='.((int) $object->fk_project);
+				$projectid = $object->getSingleProjectId($user);
+				if ($projectid > 0) {
+					$urlCreateIntervention .= '&projectid='.$projectid;
 				}
 				$urlCreateIntervention .= '&backtopage='.urlencode($_SERVER['PHP_SELF'].'?id='.(int) $object->id);
 				$createInterventionTooltip = empty($object->fk_soc) ? $langs->trans('ErrorFieldRequired', $langs->trans('ThirdParty')) : '';

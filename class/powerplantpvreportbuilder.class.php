@@ -1525,6 +1525,7 @@ class PowerPlantPVReportBuilder
 	 */
 	private function fetchLinkedPowerPlantContext($intervention)
 	{
+		global $user;
 		$rows = array();
 		foreach (powerplantpvGetLinkedPowerPlants($intervention) as $powerplantId => $powerplant) {
 			$id = powerplantpvGetCommonObjectId($powerplant);
@@ -1536,7 +1537,7 @@ class PowerPlantPVReportBuilder
 				'ref' => (string) $powerplant->ref,
 				'label' => (string) $powerplant->label,
 				'fk_soc' => !empty($powerplant->fk_soc) ? (int) $powerplant->fk_soc : 0,
-				'fk_project' => !empty($powerplant->fk_project) ? (int) $powerplant->fk_project : 0,
+				'fk_project' => $powerplant->getSingleProjectId($user),
 			);
 		}
 

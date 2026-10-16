@@ -1752,3 +1752,17 @@ PowerPlantPVImportApplyDictionaryResolutions=Apply mappings
 PowerPlantPVImportDictionaryResolutionIncomplete=Some dictionary issues still require a decision.
 PowerPlantPVImportDictionaryResolutionApplied=Mappings were applied and the preview was recalculated without database writes.
 PowerPlantPVBulkImportStatusREVIEW=Needs review
+
+# Project links and signed totals (1.5.0)
+PowerPlantPVSignedPeakPower = Signed peak power
+PowerPlantPVSignedStorageCapacity = Signed capacity
+PowerPlantPVProjectSignedTotalsHelp = Sum of signed and billed proposals linked to the project. Draft, refused and reopened proposals are excluded. After upgrading, recalculate commercial power and capacity first, then project totals.
+PowerPlantPVRecalculateProjectTotals = Recalculate signed project totals
+PowerPlantPVProjectTotalsDone = Signed totals updated for %s project(s).
+PowerPlantPVProjectTotalsFailed = Unable to update signed project totals.
+PowerPlantPVProjectLinksFailed = Unable to save project and power plant links.
+PowerPlantPVProjectLinksConflict = The links have changed since this form was opened. Reload the card before saving.
+Notify_POWERPLANTPV_POWERPLANT_UPDATE = Power plant modified
+PowerPlantPVProjectLinksFeature = Project links and signed totals
+PowerPlantPVProjectLinksCompatibilityDescription = Multiple links, reciprocal banners and signed proposal totals on projects, available from Dolibarr v20.
+PowerPlantPVRequiresProjects = Enable the Projects module to use this feature.

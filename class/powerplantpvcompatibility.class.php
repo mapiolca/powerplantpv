@@ -163,6 +163,14 @@ class PowerPlantPVCompatibility
 				'available' => $baseavailable,
 				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
 			),
+			'project_links_signed_totals' => array(
+				'label' => 'PowerPlantPVProjectLinksFeature',
+				'description' => 'PowerPlantPVProjectLinksCompatibilityDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable && isModEnabled('project'),
+				'reason' => !$baseavailable ? 'PowerPlantPVRequiresDolibarr20Php80' : (isModEnabled('project') ? '' : 'PowerPlantPVRequiresProjects'),
+			),
 			'battery_characteristics' => array(
 				'label' => 'PowerPlantPVBatteryCharacteristicsFeature',
 				'description' => 'PowerPlantPVBatteryCharacteristicsCompatibilityDescription',

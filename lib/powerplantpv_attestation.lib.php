@@ -1075,7 +1075,7 @@ function powerplantpvAttestationPrefillFromPowerPlant($attestation, $fkPowerPlan
 	$attestation->entity = !empty($powerplant->entity) ? (int) $powerplant->entity : (int) $conf->entity;
 	$attestation->fk_soc = !empty($powerplant->fk_soc) ? (int) $powerplant->fk_soc : null;
 	$attestation->socid = $attestation->fk_soc;
-	$attestation->fk_project = !empty($powerplant->fk_project) ? (int) $powerplant->fk_project : null;
+	$attestation->fk_project = $powerplant->getSingleProjectId($user) ?: null;
 	if ($attestation->max_export_power_kw === '' || $attestation->max_export_power_kw === null) {
 		$attestation->max_export_power_kw = !empty($powerplant->connection_contract_power) ? $powerplant->connection_contract_power : $powerplant->installed_power;
 	}

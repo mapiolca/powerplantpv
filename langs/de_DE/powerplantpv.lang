@@ -1269,3 +1269,17 @@ PowerPlantPVImportApplyDictionaryResolutions=Zuordnungen anwenden
 PowerPlantPVImportDictionaryResolutionIncomplete=Einige Wörterbuchprobleme müssen noch geklärt werden.
 PowerPlantPVImportDictionaryResolutionApplied=Die Zuordnungen wurden angewendet und die Vorschau ohne Datenbankänderung neu berechnet.
 PowerPlantPVBulkImportStatusREVIEW=Zu prüfen
+
+# Project links and signed totals (1.5.0)
+PowerPlantPVSignedPeakPower = Unterzeichnete Spitzenleistung
+PowerPlantPVSignedStorageCapacity = Unterzeichnete Kapazität
+PowerPlantPVProjectSignedTotalsHelp = Summe der unterzeichneten und abgerechneten Angebote des Projekts. Entwürfe, abgelehnte und erneut geöffnete Angebote sind ausgeschlossen. Nach dem Update zuerst die Leistungen und Kapazitäten der Angebote und dann die Projektsummen neu berechnen.
+PowerPlantPVRecalculateProjectTotals = Unterzeichnete Projektsummen neu berechnen
+PowerPlantPVProjectTotalsDone = Unterzeichnete Summen für %s Projekt(e) aktualisiert.
+PowerPlantPVProjectTotalsFailed = Die unterzeichneten Projektsummen konnten nicht aktualisiert werden.
+PowerPlantPVProjectLinksFailed = Die Verknüpfungen zwischen Anlagen und Projekten konnten nicht gespeichert werden.
+PowerPlantPVProjectLinksConflict = Die Verknüpfungen wurden seit dem Öffnen des Formulars geändert. Laden Sie die Seite vor dem Speichern neu.
+Notify_POWERPLANTPV_POWERPLANT_UPDATE = Kraftwerk geändert
+PowerPlantPVProjectLinksFeature = Projektverknüpfungen und unterzeichnete Summen
+PowerPlantPVProjectLinksCompatibilityDescription = Mehrfachverknüpfungen, gegenseitige Banner und Summen unterzeichneter Angebote auf Projekten, verfügbar ab Dolibarr v20.
+PowerPlantPVRequiresProjects = Aktivieren Sie das Projektmodul für diese Funktion.

@@ -1752,3 +1752,17 @@ PowerPlantPVImportApplyDictionaryResolutions=Appliquer les correspondances
 PowerPlantPVImportDictionaryResolutionIncomplete=Certaines anomalies de dictionnaire restent à résoudre.
 PowerPlantPVImportDictionaryResolutionApplied=Les correspondances ont été appliquées ; l’aperçu a été recalculé sans écriture en base.
 PowerPlantPVBulkImportStatusREVIEW=À vérifier
+
+# Project links and signed totals (1.5.0)
+PowerPlantPVSignedPeakPower = Puissance-crête signée
+PowerPlantPVSignedStorageCapacity = Capacité signée
+PowerPlantPVProjectSignedTotalsHelp = Cumul des devis signés et facturés rattachés au projet. Les brouillons, devis refusés et devis rouverts sont exclus. Après mise à jour, recalculer les puissances et capacités commerciales, puis les totaux des projets.
+PowerPlantPVRecalculateProjectTotals = Recalculer les totaux signés des projets
+PowerPlantPVProjectTotalsDone = Totaux signés actualisés pour %s projet(s).
+PowerPlantPVProjectTotalsFailed = Impossible d’actualiser les totaux signés des projets.
+PowerPlantPVProjectLinksFailed = Impossible d’enregistrer les liaisons entre centrales et projets.
+PowerPlantPVProjectLinksConflict = Les liaisons ont été modifiées depuis l’ouverture du formulaire. Rechargez la fiche avant d’enregistrer.
+Notify_POWERPLANTPV_POWERPLANT_UPDATE = Centrale modifiée
+PowerPlantPVProjectLinksFeature = Liaisons projets et totaux signés
+PowerPlantPVProjectLinksCompatibilityDescription = Liaisons multiples, bannières réciproques et cumuls des devis signés sur les projets, disponibles dès Dolibarr v20.
+PowerPlantPVRequiresProjects = Activer le module Projets pour utiliser cette fonctionnalité.

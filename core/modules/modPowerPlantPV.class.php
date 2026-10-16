@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.4.3';
+		$this->version = '1.5.0';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -113,6 +113,7 @@ class modPowerPlantPV extends DolibarrModules
 			// Set this to relative path of css file if module has its own css file
 			'css' => array(
 				'/powerplantpv/css/powerplantpv_maintenance_dashboard.css',
+				'/powerplantpv/css/powerplantpv_units.css',
 			),
 			// Set this to relative path of js file if module must load a js on all pages
 			'js' => array(
@@ -123,6 +124,14 @@ class modPowerPlantPV extends DolibarrModules
 			'hooks' => array(
 				'data' => array(
 					'commonobject',
+					'projectcard',
+					'projectlist',
+					'projetnote',
+					'projectcarddocument',
+					'projectcardinfo',
+					'projectOverview',
+					'powerplantcard',
+					'globalcard',
 					'ordercard',
 					'propalcard',
 					'invoicecard',
@@ -1065,6 +1074,10 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		// Create commercial document extrafields storing calculated technical totals.
+		$result = $this->ensureProjectSignedExtrafields($extrafields);
+		if ($result < 0) {
+			return -1;
+		}
 		foreach (array('propal', 'commande', 'facture') as $commercialElementType) {
 			$result = $this->ensureCommercialPeakPowerExtrafield($extrafields, $commercialElementType);
 			if ($result < 0) {
@@ -1122,11 +1135,13 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array();
 
-		// Migrate legacy single project links to native linked objects.
+		// Keep the historical column, but import it only once per owning entity.
+		$migrateProjectLinks = !getDolGlobalInt('POWERPLANTPV_PROJECT_LINKS_V150_MIGRATED');
 		$sqlmigrateproject = "INSERT INTO ".$this->db->prefix()."element_element (fk_source, sourcetype, fk_target, targettype)";
 		$sqlmigrateproject .= " SELECT p.fk_project, 'project', p.rowid, 'powerplant@powerplantpv'";
 		$sqlmigrateproject .= " FROM ".$this->db->prefix()."powerplantpv_powerplant as p";
 		$sqlmigrateproject .= " WHERE p.fk_project IS NOT NULL AND p.fk_project > 0";
+		$sqlmigrateproject .= " AND p.entity = ".((int) $conf->entity);
 		$sqlmigrateproject .= " AND NOT EXISTS (";
 		$sqlmigrateproject .= " SELECT 1 FROM ".$this->db->prefix()."element_element as ee";
 		$sqlmigrateproject .= " WHERE ee.fk_source = p.fk_project";
@@ -1134,7 +1149,9 @@ class modPowerPlantPV extends DolibarrModules
 		$sqlmigrateproject .= " AND ee.fk_target = p.rowid";
 		$sqlmigrateproject .= " AND ee.targettype = 'powerplant@powerplantpv'";
 		$sqlmigrateproject .= ")";
-		$sql[] = $sqlmigrateproject;
+		if ($migrateProjectLinks) {
+			$sql[] = $sqlmigrateproject;
+		}
 
 		// Ensure PV product natures are present in dictionary
 		$natureTable = $this->db->prefix()."c_product_nature";
@@ -1239,6 +1256,11 @@ class modPowerPlantPV extends DolibarrModules
 		$result = $this->_init($sql, $options);
 		if ($result <= 0) {
 			return $result;
+		}
+		if ($migrateProjectLinks && dolibarr_set_const($this->db, 'POWERPLANTPV_PROJECT_LINKS_V150_MIGRATED',
+			'1', 'chaine', 0, '', (int) $conf->entity) <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
 		}
 
 		if (!preg_match('/noboxes/', $options)) {
@@ -2466,6 +2488,34 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
+	 * Install derived project fields without touching JPSUN-owned definitions or data.
+	 * @param ExtraFields $extrafields Native manager
+	 * @return int 1 on success, -1 on failure
+	 */
+	private function ensureProjectSignedExtrafields($extrafields)
+	{
+		global $conf;
+		$extrafields->fetch_name_optionals_label('projet');
+		foreach (array(
+			'powerplantpv_signed_peak_power' => array('PowerPlantPVSignedPeakPower', 'kwc', 200),
+			'powerplantpv_signed_storage_capacity' => array('PowerPlantPVSignedStorageCapacity', 'kwh', 201),
+		) as $key => $definition) {
+			if (isset($extrafields->attributes['projet']['label'][$key])) {
+				continue;
+			}
+			$result = $extrafields->addExtraField($key, $definition[0], 'double', $definition[2], '24,8',
+				'projet', 0, 0, '', '', 0, '', 5, 'PowerPlantPVProjectSignedTotalsHelp', '', (int) $conf->entity,
+				'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")', 1, 0,
+				array('cssview' => 'powerplantpv-unit-'.$definition[1]));
+			if ($result < 0) {
+				$this->errors[] = $extrafields->error;
+				return -1;
+			}
+		}
+		return 1;
+	}
+
+	/**
 	 * Create or update the stored peak-power extrafield for commercial documents.
 	 *
 	 * @param	ExtraFields	$extrafields	Extrafields manager
@@ -3508,6 +3558,7 @@ class modPowerPlantPV extends DolibarrModules
 		return array(
 			array('code' => 'POWERPLANTPV_POWERPLANT_CREATE', 'label' => 'PowerPlantTriggerCreate', 'description' => 'PowerPlantTriggerCreateDesc', 'rang' => 45000400),
 			array('code' => 'POWERPLANTPV_POWERPLANT_MODIFY', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 45000401),
+			array('code' => 'POWERPLANTPV_POWERPLANT_UPDATE', 'label' => 'PowerPlantTriggerModify', 'description' => 'PowerPlantTriggerModifyDesc', 'rang' => 45000401),
 			array('code' => 'POWERPLANTPV_POWERPLANT_DELETE', 'label' => 'PowerPlantTriggerDelete', 'description' => 'PowerPlantTriggerDeleteDesc', 'rang' => 45000402),
 			array('code' => 'POWERPLANTPV_POWERPLANT_VALIDATE', 'label' => 'PowerPlantTriggerValidate', 'description' => 'PowerPlantTriggerValidateDesc', 'rang' => 45000403),
 			array('code' => 'POWERPLANTPV_POWERPLANT_UNVALIDATE', 'label' => 'PowerPlantTriggerUnvalidate', 'description' => 'PowerPlantTriggerUnvalidateDesc', 'rang' => 45000404),

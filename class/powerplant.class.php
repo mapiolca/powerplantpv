@@ -162,7 +162,7 @@ class PowerPlant extends CommonObject
 		"buyback_contract_number" => array("type" => "varchar(128)", "label" => "PowerPlantBuybackContractNumber", "enabled" => "1", 'position' => 47, 'notnull' => 0, "visible" => "1", "searchall" => "1", "validate" => "1",),
 		"buyback_tariff" => array("type" => "price", "label" => "PowerPlantBuybackTariff", "enabled" => "1", 'position' => 48, 'notnull' => 0, "visible" => "1", "validate" => "1",),
 		"fk_soc" => array("type" => "integer:Societe:societe/class/societe.class.php:1:((status:=:1) AND (entity:IN:__SHARED_ENTITIES__))", "label" => "ThirdParty", "picto" => "company", "enabled" => "isModEnabled('societe')", 'position' => 31, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "help" => "OrganizationEventLinkToThirdParty", "validate" => "1",),
-		"fk_project" => array("type" => "integer:Project:projet/class/project.class.php:1", "label" => "Project", "picto" => "project", "enabled" => "isModEnabled('project')", 'position' => 32, 'notnull' => -1, "visible" => "1", "index" => "1", "css" => "maxwidth500 widthcentpercentminusxx", "csslist" => "tdoverflowmax150", "validate" => "1",),
+		"fk_project" => array("type" => "integer", "label" => "Project", "enabled" => 1, 'position' => 32, 'notnull' => -1, "visible" => 0, "noteditable" => 1, "index" => 1), // Legacy column; native object links are authoritative.
 		"description" => array("type" => "text", "label" => "Description", "enabled" => "1", 'position' => 60, 'notnull' => 0, "visible" => "3", "validate" => "1",),
 		"note_public" => array("type" => "html", "label" => "NotePublic", "enabled" => "1", 'position' => 61, 'notnull' => 0, "visible" => "0", "cssview" => "wordbreak", "validate" => "1",),
 		"note_private" => array("type" => "html", "label" => "NotePrivate", "enabled" => "1", 'position' => 62, 'notnull' => 0, "visible" => "0", "cssview" => "wordbreak", "validate" => "1",),
@@ -197,6 +197,10 @@ class PowerPlant extends CommonObject
 	public $fk_soc;
 	public $socid;
 	public $fk_project;
+	/** @var list<int>|null Explicit multiple-project selection; null leaves relations untouched. */
+	public $project_ids = null;
+	/** @var string|null Link revision shown by the edit form. */
+	public $project_links_revision = null;
 	public $description;
 	public $note_public;
 	public $note_private;
@@ -453,6 +457,15 @@ class PowerPlant extends CommonObject
 	{
 		global $conf;
 
+		$projectids = $this->project_ids;
+		if ($projectids === null && !empty($this->fk_project)) {
+			$projectids = array((int) $this->fk_project);
+		}
+		if ($projectids === null && !empty($this->context['powerplantpv_origin_fk_project'])) {
+			$projectids = array((int) $this->context['powerplantpv_origin_fk_project']);
+		}
+		$this->fk_project = null;
+
 		if (empty($this->fk_soc) && !empty($this->socid)) {
 			$this->fk_soc = (int) $this->socid;
 		}
@@ -474,7 +487,10 @@ class PowerPlant extends CommonObject
 			$this->status = self::STATUS_DRAFT;
 		}
 
-		$this->db->begin();
+		if (!$this->db->begin()) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
 
 		$result = $this->createCommon($user, 1);
 		if ($result < 0) {
@@ -506,12 +522,13 @@ class PowerPlant extends CommonObject
 			}
 		}
 
-		if ($result > 0 && !empty($this->context['powerplantpv_origin_fk_project'])) {
-			$linkResult = $this->linkProjectObject((int) $this->context['powerplantpv_origin_fk_project'], $user, $notrigger);
+		if ($result > 0 && $projectids !== null) {
+			require_once __DIR__.'/powerplantpvprojectlink.class.php';
+			$links = new PowerPlantPVProjectLink($this->db);
+			$linkResult = $links->sync($this, $projectids, $user, 1);
 			if ($linkResult < 0) {
-				if (!empty($this->error)) {
-					$this->errors[] = $this->error;
-				}
+				$this->error = $links->error;
+				$this->errors[] = $this->error;
 				$this->db->rollback();
 				return $linkResult;
 			}
@@ -544,7 +561,11 @@ class PowerPlant extends CommonObject
 			}
 		}
 
-		$this->db->commit();
+		if (!$this->db->commit()) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
 
 		return $result;
 	}
@@ -612,52 +633,6 @@ class PowerPlant extends CommonObject
 		if ($result <= 0) {
 			if (empty($this->error)) {
 				$this->error = 'ErrorFailedToLinkToOrigin';
-			}
-			return -1;
-		}
-
-		return 1;
-	}
-
-	/**
-	 * Link this power plant to a project with the native object link table.
-	 *
-	 * @param	int			$projectid	Project id
-	 * @param	User		$user		User that creates the link
-	 * @param	int<0,1>	$notrigger	1=disable triggers
-	 * @return	int<-1,1>				Return integer <0 if KO, >0 if OK
-	 */
-	protected function linkProjectObject($projectid, User $user, $notrigger = 0)
-	{
-		$projectid = (int) $projectid;
-		if ($projectid <= 0 || empty($this->id)) {
-			return 1;
-		}
-
-		$targettype = $this->getElementType();
-		$sql = "SELECT ee.rowid";
-		$sql .= " FROM ".$this->db->prefix()."element_element as ee";
-		$sql .= " WHERE ee.fk_source = ".$projectid;
-		$sql .= " AND ee.sourcetype = 'project'";
-		$sql .= " AND ee.fk_target = ".((int) $this->id);
-		$sql .= " AND ee.targettype = '".$this->db->escape($targettype)."'";
-
-		$resql = $this->db->query($sql);
-		if ($resql) {
-			if ($this->db->num_rows($resql) > 0) {
-				$this->db->free($resql);
-				return 1;
-			}
-			$this->db->free($resql);
-		} else {
-			$this->error = $this->db->lasterror();
-			return -1;
-		}
-
-		$result = $this->add_object_linked('project', $projectid, $user, $notrigger);
-		if ($result <= 0) {
-			if (empty($this->error)) {
-				$this->error = 'ErrorFailedToLinkToProject';
 			}
 			return -1;
 		}
@@ -1056,6 +1031,10 @@ class PowerPlant extends CommonObject
 	 */
 	public function update(User $user, $notrigger = 0)
 	{
+		if (!$this->db->begin()) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
 		if (empty($this->fk_soc) && !empty($this->socid)) {
 			$this->fk_soc = (int) $this->socid;
 		}
@@ -1067,14 +1046,47 @@ class PowerPlant extends CommonObject
 		}
 
 		$result = $this->updateCommon($user, 1);
+		if ($result > 0 && $this->project_ids !== null) {
+			require_once __DIR__.'/powerplantpvprojectlink.class.php';
+			$links = new PowerPlantPVProjectLink($this->db);
+			if ($links->sync($this, $this->project_ids, $user, 1, $this->project_links_revision) < 0) {
+				$this->error = $links->error;
+				$this->errors[] = $this->error;
+				$result = -1;
+			}
+		}
 		if ($result > 0 && !$notrigger) {
+			// Preserve the historical card event and its existing Agenda/notification settings.
 			$triggerResult = $this->callPowerPlantTrigger('MODIFY', $user);
 			if ($triggerResult < 0) {
-				return -1;
+				$result = -1;
 			}
+		}
+		if ($result <= 0) {
+			$this->db->rollback();
+			return $result;
+		}
+		if (!$this->db->commit()) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Single-project consumers must not choose an arbitrary project from multiple links.
+	 * @param User $user Actor
+	 * @return int Unique visible project id, or 0 when absent or ambiguous
+	 */
+	public function getSingleProjectId(User $user)
+	{
+		require_once __DIR__.'/powerplantpvprojectlink.class.php';
+		$links = new PowerPlantPVProjectLink($this->db);
+		$projects = $links->linked($this, $user);
+		$allprojectids = array_unique(array_column($links->rows($this), 'project'));
+		return $links->error === '' && count($allprojectids) === 1 && count($projects) === 1 ? (int) key($projects) : 0;
 	}
 
 	/**
@@ -1438,7 +1450,7 @@ class PowerPlant extends CommonObject
 				$query = array_merge($query, ['save_lastsearch_values' => 1]);
 			}
 		}
-		$url = dolBuildUrl($baseurl, $query);
+		$url = $baseurl.'?'.http_build_query($query, '', '&');
 
 		$linkclose = '';
 		if (empty($notooltip)) {

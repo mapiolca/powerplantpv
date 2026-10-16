@@ -1269,3 +1269,17 @@ PowerPlantPVImportApplyDictionaryResolutions=Applica corrispondenze
 PowerPlantPVImportDictionaryResolutionIncomplete=Alcune anomalie del dizionario devono ancora essere risolte.
 PowerPlantPVImportDictionaryResolutionApplied=Le corrispondenze sono state applicate e l’anteprima è stata ricalcolata senza scrivere nel database.
 PowerPlantPVBulkImportStatusREVIEW=Da verificare
+
+# Project links and signed totals (1.5.0)
+PowerPlantPVSignedPeakPower = Potenza di picco firmata
+PowerPlantPVSignedStorageCapacity = Capacità firmata
+PowerPlantPVProjectSignedTotalsHelp = Somma dei preventivi firmati e fatturati collegati al progetto. Bozze, preventivi rifiutati e riaperti sono esclusi. Dopo l’aggiornamento, ricalcolare prima le potenze e capacità commerciali, poi i totali dei progetti.
+PowerPlantPVRecalculateProjectTotals = Ricalcola i totali firmati dei progetti
+PowerPlantPVProjectTotalsDone = Totali firmati aggiornati per %s progetto/i.
+PowerPlantPVProjectTotalsFailed = Impossibile aggiornare i totali firmati dei progetti.
+PowerPlantPVProjectLinksFailed = Impossibile salvare i collegamenti tra impianti e progetti.
+PowerPlantPVProjectLinksConflict = I collegamenti sono cambiati dall’apertura del modulo. Ricaricare la scheda prima di salvare.
+Notify_POWERPLANTPV_POWERPLANT_UPDATE = Impianto modificato
+PowerPlantPVProjectLinksFeature = Collegamenti ai progetti e totali firmati
+PowerPlantPVProjectLinksCompatibilityDescription = Collegamenti multipli, intestazioni reciproche e totali dei preventivi firmati sui progetti, disponibili da Dolibarr v20.
+PowerPlantPVRequiresProjects = Attivare il modulo Progetti per utilizzare questa funzione.

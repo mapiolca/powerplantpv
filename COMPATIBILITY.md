@@ -6,6 +6,13 @@ Copyright (C) 2026  Pierre Ardoin <developpeur@lesmetiersdubatiment.fr>
 
 Dolibarr v20.0.
 
+## Version 1.5.0 — projets
+
+Les liaisons multiples, les bannières réciproques et les totaux techniques signés des projets utilisent les objets,
+liens, champs complémentaires et hooks natifs disponibles à partir de v20. Les unités sont présentées par les
+métadonnées CSS natives, sans dépendance au hook plus récent `showOutputExtraField`.
+Voir la [matrice de validation et ses limites](docs/release/v1.5.0-projects-validation.md).
+
 ## Multicompany
 
 - Les centrales utilisent la colonne `entity` et suivent le périmètre natif `getEntity('powerplant')`.
