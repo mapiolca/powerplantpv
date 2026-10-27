@@ -200,7 +200,9 @@ function powerplantpvAttestationSetFromPost($object, $allowSignatureMetadata = 0
 		$object->fk_soc = GETPOSTINT('fk_soc') ?: null;
 	}
 	$object->socid = $object->fk_soc;
-	$object->fk_project = GETPOSTINT('fk_project') ?: null;
+	if (GETPOSTISSET('fk_project')) {
+		$object->fk_project = GETPOSTINT('fk_project') ?: null;
+	}
 	$object->date_attestation = powerplantpvAttestationGetPostDate('date_attestation');
 	$object->date_setting = powerplantpvAttestationGetPostDate('date_setting');
 	$object->date_completion = powerplantpvAttestationGetPostDate('date_completion');
@@ -458,7 +460,8 @@ if ($action == 'create' || $action == 'edit') {
 	if (($action == 'create' && !$permissiontoadd) || ($action == 'edit' && !$permissiontoedit)) {
 		accessforbidden();
 	}
-	if ($action == 'create') {
+	$isFormSubmission = in_array(GETPOST('action', 'aZ09'), array('add', 'update'), true);
+	if ($action == 'create' && !$isFormSubmission) {
 		$object = new PowerPlantPVAttestation($db);
 		$object->type_code = PowerPlantPVAttestationTypes::isValidType($typeCode) ? $typeCode : '';
 		if ($object->type_code !== '') {
@@ -469,6 +472,12 @@ if ($action == 'create' || $action == 'edit') {
 		} else {
 			powerplantpvAttestationPrefillFromPowerPlant($object, 0, $user);
 			$object->fk_powerplant = $fkPowerPlant > 0 ? $fkPowerPlant : null;
+		}
+	} elseif ($action == 'edit' && !$isFormSubmission && (empty($object->fk_soc) || empty($object->fk_project))) {
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		$powerplant = new PowerPlant($db);
+		if ($powerplant->fetch((int) $object->fk_powerplant) > 0) {
+			$object->setDefaultLinksFromPowerPlant($powerplant, $user);
 		}
 	}
 
@@ -496,9 +505,7 @@ if ($action == 'create' || $action == 'edit') {
 		print '<tr><td class="titlefieldcreate">'.$langs->trans('AttestationType').'</td><td>'.$form->selectarray('type_code', PowerPlantPVAttestationTypes::getTypeLabels($langs), $object->type_code, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	}
 	print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlant').'</td><td>'.$form->selectarray('fk_powerplant', powerplantpvAttestationPowerPlantOptions(), (int) $object->fk_powerplant, 1, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
-	if ($object->id > 0) {
-		print '<tr><td>'.$langs->trans('ThirdParty').'</td><td>'.$form->select_company($object->fk_soc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300').'</td></tr>';
-	}
+	print '<tr><td>'.$langs->trans('ThirdParty').'</td><td>'.$form->select_company($object->fk_soc, 'fk_soc', '', 1, 0, 0, array(), 0, 'minwidth300').'</td></tr>';
 	if (isModEnabled('project')) {
 		print '<tr><td>'.$langs->trans('Project').'</td><td>'.$formproject->select_projects($object->fk_soc, $object->fk_project, 'fk_project', 0, 0, 1, 1, 0, 0, 0, '', 1, 0, 'maxwidth500').'</td></tr>';
 	}

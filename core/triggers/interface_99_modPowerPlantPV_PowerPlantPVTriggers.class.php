@@ -325,6 +325,7 @@ class InterfacePowerPlantPVTriggers extends DolibarrTriggers
 		);
 		$documentactions = array(
 			'PROPAL_CREATE' => 'propal', 'PROPAL_MODIFY' => 'propal', 'PROPAL_VALIDATE' => 'propal', 'PROPAL_REOPEN' => 'propal', 'PROPAL_CANCEL' => 'propal',
+			'PROPAL_CLOSE_SIGNED' => 'propal', 'PROPAL_CLOSE_REFUSED' => 'propal', 'PROPAL_CLASSIFY_BILLED' => 'propal',
 			'ORDER_CREATE' => 'commande', 'ORDER_MODIFY' => 'commande', 'ORDER_VALIDATE' => 'commande', 'ORDER_UNVALIDATE' => 'commande', 'ORDER_REOPEN' => 'commande', 'ORDER_CLOSE' => 'commande', 'ORDER_CANCEL' => 'commande',
 			'BILL_CREATE' => 'facture', 'BILL_MODIFY' => 'facture', 'BILL_VALIDATE' => 'facture', 'BILL_UNVALIDATE' => 'facture', 'BILL_CANCEL' => 'facture',
 		);

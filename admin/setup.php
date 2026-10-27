@@ -530,6 +530,22 @@ if ($action == 'updateMask') {
 	} else {
 		setEventMessages($langs->trans("Error"), null, 'errors');
 	}
+} elseif ($action == 'recalculate_project_signed_totals') {
+	// main.inc.php validates the native CSRF token of this POST action.
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || GETPOST('token', 'alphanohtml') === '') {
+		accessforbidden();
+	}
+	dol_include_once('/powerplantpv/class/powerplantpvprojectsignedtotals.class.php');
+	$totals = new PowerPlantPVProjectSignedTotals($db);
+	$result = $totals->refresh($user);
+	if ($result < 0) {
+		setEventMessages($langs->trans('PowerPlantPVProjectTotalsFailed'), null, 'errors');
+		dol_syslog(__FILE__.' '.$totals->error, LOG_ERR);
+	} else {
+		setEventMessages($langs->trans('PowerPlantPVProjectTotalsDone', $result), null, 'mesgs');
+	}
+	header('Location: '.$_SERVER['PHP_SELF']);
+	exit;
 } elseif ($action == 'recalculate_commercial_peak_power') {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
@@ -1094,6 +1110,15 @@ print dolGetButtonAction(
 	true
 );
 print '</div>';
+
+if (isModEnabled('project')) {
+	print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="action" value="recalculate_project_signed_totals">';
+	print '<p>'.$langs->trans('PowerPlantPVProjectSignedTotalsHelp').'</p>';
+	print $form->buttonsSaveCancel('PowerPlantPVRecalculateProjectTotals', '');
+	print '</form>';
+}
 
 if (empty($setupnotempty)) {
 	print '<br>'.$langs->trans("NothingToSetup");

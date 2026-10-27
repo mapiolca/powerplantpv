@@ -1,0 +1,8 @@
+/* Units belong to the displayed value. Native extrafield CSS metadata is available in v20+. */
+.powerplantpv-unit-kwc:not(:empty)::after {
+	content: "\00a0kWc";
+}
+
+.powerplantpv-unit-kwh:not(:empty)::after {
+	content: "\00a0kWh";
+}

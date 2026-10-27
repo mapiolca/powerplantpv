@@ -1073,9 +1073,7 @@ function powerplantpvAttestationPrefillFromPowerPlant($attestation, $fkPowerPlan
 
 	$attestation->fk_powerplant = (int) $powerplant->id;
 	$attestation->entity = !empty($powerplant->entity) ? (int) $powerplant->entity : (int) $conf->entity;
-	$attestation->fk_soc = !empty($powerplant->fk_soc) ? (int) $powerplant->fk_soc : null;
-	$attestation->socid = $attestation->fk_soc;
-	$attestation->fk_project = !empty($powerplant->fk_project) ? (int) $powerplant->fk_project : null;
+	$attestation->setDefaultLinksFromPowerPlant($powerplant, $user);
 	if ($attestation->max_export_power_kw === '' || $attestation->max_export_power_kw === null) {
 		$attestation->max_export_power_kw = !empty($powerplant->connection_contract_power) ? $powerplant->connection_contract_power : $powerplant->installed_power;
 	}
@@ -1167,13 +1165,31 @@ function powerplantpvAttestationBuildEquipmentSnapshot($powerplant, $typeCode)
 }
 
 /**
- * Guess equipment type from product category.
+ * Resolve equipment type from the stable PV category code, then legacy labels.
  *
  * @param	object	$obj	Composition row
  * @return	string			Equipment type
  */
 function powerplantpvAttestationGuessEquipmentType($obj)
 {
+	// Category codes take precedence: an inverter accessory is not an inverter.
+	$categoryCode = strtoupper(trim((string) ($obj->category_code ?? '')));
+	$categoryTypes = array(
+		'MODULE' => 'MODULE',
+		'ONDULE' => 'INVERTER',
+		'ONDACC' => 'ACCESSORY',
+		'DATLOG' => 'ACCESSORY',
+		'OPTMIZ' => 'ACCESSORY',
+		'COFFAC' => 'BOX',
+		'COFFDC' => 'BOX',
+		'SYSINT' => 'MODULE',
+		'BATTER' => 'ACCESSORY',
+		'BATACC' => 'ACCESSORY',
+	);
+	if (isset($categoryTypes[$categoryCode])) {
+		return $categoryTypes[$categoryCode];
+	}
+
 	$text = strtoupper((string) $obj->category_code.' '.(string) $obj->category_label.' '.(string) $obj->product_label);
 	if (strpos($text, 'ONDULEUR') !== false || strpos($text, 'INVERTER') !== false) {
 		return 'INVERTER';

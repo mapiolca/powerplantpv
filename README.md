@@ -98,6 +98,47 @@ Using your browser:
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
 
+## Version 1.5.0 — 2026-10-27
+
+Attestations classify equipment by its stable photovoltaic category code before using legacy labels.
+Inverter accessories (`ONDACC`) are excluded from inverter power totals, even when their category label contains
+"Onduleur" or "Inverter". Dynamic/static curtailment and maximum-frequency PDFs therefore keep the complete apparent
+power of the actual inverters. For example, two inverters rated at 125,000 VA produce a total of 250 kVA with or
+without Rogowski probes and other inverter accessories in an existing attestation.
+
+New attestations of these three types select only inverters. Existing attestation lines and PDFs are preserved;
+explicitly regenerate affected PDFs after updating, with the appropriate rights (including the specific right for
+signed attestations). A genuine inverter with missing apparent power still makes the total unavailable.
+Attestation forms propose the plant's third party and its unique accessible linked project when those fields are
+empty, both at creation and when editing an existing attestation. Manual choices remain unchanged; the proposed
+values are saved through the normal attestation form. With multiple linked projects, no project is chosen arbitrarily.
+See [attestation validation and manual checks](docs/release/v1.5.0-attestations-validation.md).
+
+Power plants and projects can be linked many-to-many using Dolibarr's native multiple selector. Both banners show
+the linked objects and offer an inline editor; the power plant creation and edit forms also offer project selection.
+The card being edited requires its own write permission; linked counterparts require read permission and access
+to their entity and business scope. Invisible relations are preserved. A stale selection is rejected on save.
+The project overview lists the linked plants with their reference, label and native status, and counts them in its
+summary. Plant links are independent of the overview's commercial date filter and do not affect financial profit.
+
+On project cards, the six photovoltaic JPSUN fields are replaced visually by **Signed peak power** and **Signed capacity**.
+Their definitions and historical data remain intact. The new read-only fields sum the stored technical totals of proposals
+attached through Dolibarr's native project field, with signed or billed status. Signing updates them after JPSUN's automatic
+project creation. Reopening, refusal, deletion, moving a proposal and changes to product data update them as well.
+Attaching or removing a proposal from the project overview also updates both signed totals automatically. Moving a
+proposal refreshes its former and new projects together. A failed recalculation rolls back the relation change.
+Unknown capacity stays empty rather than displaying a partial sum; an unavailable proposal entity makes the corresponding
+project total unavailable. A known zero remains zero. Units are displayed after values through native extrafield CSS metadata.
+
+Upgrade each entity by reactivating PowerPlantPV to register its hooks and extrafields, preserving existing settings.
+Activation retires an obsolete entity-local hook declaration so the current global contexts are loaded.
+In module settings, run the commercial power and capacity recalculations, followed by **Recalculate signed project totals**.
+Legacy `fk_project` values are imported once per owning entity into native object links and kept as historical data.
+Afterward only native links are authoritative; reactivation does not restore a removed link. Attestations and interventions
+prefill a project only when exactly one project is linked and accessible; multiple links require an explicit choice.
+
+See [validation and manual checks](docs/release/v1.5.0-projects-validation.md). These changes do not publish a release.
+
 ## Release 1.4.3
 
 Version 1.4.3 converts inverter characteristics from W/VA to kW/kVA in attestations and uses apparent power for the

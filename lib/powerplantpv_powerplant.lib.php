@@ -724,6 +724,43 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 }
 
 /**
+ * Render the native multiple-project input inside a power plant creation/edit form.
+ * @param PowerPlant $object Power plant
+ * @param User $user Actor
+ * @return string Form fragment
+ */
+function powerplantRenderProjectSelection($object, User $user)
+{
+	global $db, $langs;
+	if (!isModEnabled('project') || $user->socid > 0 || !$user->hasRight('powerplantpv', 'powerplant', 'write')
+		|| (!$user->hasRight('projet', 'lire') && !$user->hasRight('projet', 'all', 'lire'))) {
+		return '';
+	}
+	require_once __DIR__.'/../class/powerplantpvprojectlink.class.php';
+	$service = new PowerPlantPVProjectLink($db);
+	$options = array();
+	foreach ($service->projects($user) as $id => $project) {
+		$options[$id] = $project->ref.' - '.$project->title;
+	}
+	$selected = $object->project_ids;
+	if ($selected === null) {
+		$selected = array_keys($service->linked($object, $user));
+		if (empty($object->id) && !empty($object->context['powerplantpv_origin_fk_project'])) {
+			$selected[] = (int) $object->context['powerplantpv_origin_fk_project'];
+		}
+	}
+	if ($service->error !== '') {
+		return '<div class="error">'.$langs->trans('PowerPlantPVProjectLinksFailed').'</div>';
+	}
+	$form = new Form($db);
+	$html = '<table class="border centpercent tableforfield"><tr><td class="titlefield">'.$langs->trans('Projects').'</td><td>';
+	$html .= '<input type="hidden" name="powerplantpv_projects_present" value="1">';
+	$html .= '<input type="hidden" name="powerplantpv_links_revision" value="'.hash('sha256', json_encode($service->rows($object))).'">';
+	$html .= $form->multiselectarray('powerplantpv_projects', $options, $selected, 0, 0, 'minwidth300 maxwidth500', 0, 0);
+	return $html.'</td></tr></table>';
+}
+
+/**
  * Handle the native label edition action from banner.
  *
  * @param	PowerPlant	$object				PowerPlant

@@ -6,6 +6,28 @@ Copyright (C) 2026  Pierre Ardoin <developpeur@lesmetiersdubatiment.fr>
 
 Dolibarr v20.0.
 
+## Version 1.5.0 — attestations
+
+Le classement utilise les codes du dictionnaire photovoltaïque existant du module. Il ne dépend d'aucune nouvelle
+API core et conserve la résolution native des produits et le périmètre `getEntity('product')`.
+Les conversions W/VA vers kW/kVA, zéro valide et refus des totaux incomplets restent inchangés.
+Les valeurs par défaut de tiers et de projet utilisent les contrôles natifs d'accès et les liaisons existantes de
+la centrale. Elles restent soumises aux droits de lecture, aux entités et à l'unicité du projet accessible.
+Voir la [matrice de validation et ses limites](docs/release/v1.5.0-attestations-validation.md).
+
+## Version 1.5.0 — projets
+
+La vue d’ensemble utilise les hooks natifs `llxHeader`, `completeListOfReferent`, `printOverviewProfit` et
+`printOverviewDetail`, présents dans les sources v20–v25 examinées. Les actions devis sont traitées avant toute
+sortie HTML, avec les méthodes natives `Project::update_element()` / `remove_element()` et une redirection.
+Sur les sources v20–v24 examinées, les anciens liens de retrait sans token sont complétés côté interface lorsque
+JavaScript est actif ; le serveur refuse tout token absent ou invalide. Aucune protection core n’est désactivée.
+
+Les liaisons multiples, les bannières réciproques et les totaux techniques signés des projets utilisent les objets,
+liens, champs complémentaires et hooks natifs disponibles à partir de v20. Les unités sont présentées par les
+métadonnées CSS natives, sans dépendance au hook plus récent `showOutputExtraField`.
+Voir la [matrice de validation et ses limites](docs/release/v1.5.0-projects-validation.md).
+
 ## Multicompany
 
 - Les centrales utilisent la colonne `entity` et suivent le périmètre natif `getEntity('powerplant')`.

@@ -274,6 +274,35 @@ class ActionsPowerplantpv
 		}
 
 		$contexts = $this->getContexts($parameters, $hookmanager);
+		// The native project card already owns the banner's surrounding POST form.
+		if ($object instanceof Project && $action === 'update' && in_array('projectcard', $contexts, true)
+			&& GETPOST('powerplantpv_links_action', 'aZ09') === 'powerplantpv_save_plants') {
+			$action = 'powerplantpv_save_plants';
+		}
+		$this->prepareProjectExtrafields($object, $action);
+		if ($object instanceof Project || $object instanceof PowerPlant) {
+			if ($action === 'powerplantpv_save_projects' || $action === 'powerplantpv_save_plants') {
+				if (GETPOST('cancel', 'alpha')) {
+					header('Location: '.$_SERVER['PHP_SELF'].'?id='.((int) $object->id));
+					exit;
+				}
+				if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !$this->isSubmittedTokenValid()) {
+					accessforbidden('Invalid CSRF token');
+				}
+				require_once __DIR__.'/powerplantpvprojectlink.class.php';
+				$links = new PowerPlantPVProjectLink($db);
+				$ids = array_map('intval', GETPOST('powerplantpv_link_ids', 'array:int'));
+				$revision = GETPOST('powerplantpv_links_revision', 'aZ09');
+				if (!preg_match('/^[a-f0-9]{64}$/', $revision) || $links->sync($object, $ids, $user, 0, $revision) < 0) {
+					$this->error = $langs->trans(in_array($links->error, array('ErrorForbidden', 'PowerPlantPVProjectLinksConflict'), true) ? $links->error : 'PowerPlantPVProjectLinksFailed');
+					setEventMessages($this->error, null, 'errors');
+					return -1;
+				}
+				setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+				header('Location: '.$_SERVER['PHP_SELF'].'?id='.((int) $object->id));
+				exit;
+			}
+		}
 		if (in_array('ticketcard', $contexts) || in_array('publicnewticketcard', $contexts)) {
 			$langs->load('powerplantpv@powerplantpv');
 		}
@@ -324,6 +353,306 @@ class ActionsPowerplantpv
 			}
 		}
 
+		return 0;
+	}
+
+	/**
+	 * element.php has no doActions hook. Dispatch its proposal mutations at the last
+	 * pre-output hook, so native methods and totals commit together before redirecting.
+	 * Never mutate on a plain overview read or from a banner/detail rendering hook.
+	 * @param array<string,mixed> $parameters Header parameters
+	 * @param CommonObject|null $hookobject Unused header hook object
+	 * @param string $hookaction Unused header hook action
+	 * @param HookManager $hookmanager Native manager
+	 * @return int 0 for unrelated requests; handled mutations redirect
+	 */
+	public function llxHeader($parameters, &$hookobject, &$hookaction, $hookmanager)
+	{
+		global $object, $action, $db, $langs, $user;
+		if (!isModEnabled('powerplantpv') || !isModEnabled('project')
+			|| !in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)
+			|| !in_array($action, array('addelement', 'unlink'), true) || GETPOST('tablename', 'aZ09') !== 'propal'
+			|| !($object instanceof Project)) {
+			return 0;
+		}
+		if (!$this->isSubmittedTokenValid()) {
+			accessforbidden('Invalid CSRF token');
+		}
+		require_once __DIR__.'/powerplantpvprojectsignedtotals.class.php';
+		$langs->load('powerplantpv@powerplantpv');
+		$totals = new PowerPlantPVProjectSignedTotals($db);
+		$result = $totals->setProposalProject($object, GETPOSTINT('elementselect'), $action === 'unlink', $user);
+		if ($result < 0) {
+			if ($totals->error === 'ErrorForbidden') {
+				accessforbidden();
+			}
+			dol_syslog(__METHOD__.' '.$totals->error, LOG_ERR);
+			setEventMessages($langs->trans('PowerPlantPVProjectTotalsFailed'), null, 'errors');
+		} else {
+			setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+		}
+		$query = array('id' => (int) $object->id);
+		foreach (array('datesrfc', 'dateerfc', 'datesday', 'datesmonth', 'datesyear', 'dateeday', 'dateemonth', 'dateeyear') as $key) {
+			if (GETPOSTISSET($key)) {
+				$query[$key] = GETPOST($key, 'alphanohtml');
+			}
+		}
+		header('Location: '.DOL_URL_ROOT.'/projet/element.php?'.http_build_query($query, '', '&').'#table_propal');
+		exit;
+	}
+
+	/**
+	 * Register a read-only many-to-many section. A null table prevents the core from
+	 * treating the obsolete single fk_project column as an editable project relation.
+	 * @param array<string,mixed> $parameters Overview parameters
+	 * @param CommonObject $object Current project
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Native manager
+	 * @return int 0: merge referents
+	 */
+	public function completeListOfReferent($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user;
+		$this->results = array();
+		if (!isModEnabled('powerplantpv') || !isModEnabled('project') || !($object instanceof Project)
+			|| !in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)
+			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			return 0;
+		}
+		$this->results = array('powerplantpv_powerplant' => array(
+			'name' => 'PowerPlantPVCentrals', 'title' => 'PowerPlantPVCentrals', 'class' => 'PowerPlant',
+			'table' => null, 'datefieldname' => '', 'lang' => 'powerplantpv@powerplantpv', 'test' => true,
+		));
+		return 0;
+	}
+
+	/**
+	 * Plants carry no commercial amount: expose a count without affecting project profit.
+	 * @param array<string,mixed> $parameters Overview parameters
+	 * @param CommonObject $object Current project
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Native manager
+	 * @return int 1 replaces only this registered row (native overview hook contract)
+	 */
+	public function printOverviewProfit($parameters, &$object, &$action, $hookmanager)
+	{
+		global $db, $user, $langs;
+		$this->resprints = '';
+		if (($parameters['key'] ?? '') !== 'powerplantpv_powerplant' || !isModEnabled('powerplantpv')
+			|| !isModEnabled('project') || !($object instanceof Project)
+			|| !in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)) {
+			return 0;
+		}
+		require_once __DIR__.'/powerplantpvprojectlink.class.php';
+		$links = new PowerPlantPVProjectLink($db);
+		$entityfilter = array_map('intval', GETPOST('powerplantpv_overview_entities', 'array:int'));
+		$plants = $links->linked($object, $user, $entityfilter);
+		if ($links->error !== '') {
+			$this->error = $links->error;
+			return -1;
+		}
+		if ($user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			$langs->load('powerplantpv@powerplantpv');
+			$this->resprints = '<tr class="oddeven"><td><a href="#table_powerplantpv_powerplant">'
+				.$langs->trans('PowerPlantPVCentrals').'</a></td><td class="right">'.count($plants).'</td><td></td><td></td></tr>';
+		}
+		return 1;
+	}
+
+	/**
+	 * Native overview extension for normalized object links, without fake monetary columns.
+	 * @param array<string,mixed> $parameters Overview parameters (date filters concern commercial documents)
+	 * @param CommonObject $object Current project
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Native manager
+	 * @return int 1 replaces only the plant section; 0 unrelated; -1 failure
+	 */
+	public function printOverviewDetail($parameters, &$object, &$action, $hookmanager)
+	{
+		global $db, $langs, $user;
+		$this->resprints = '';
+		if (($parameters['key'] ?? '') !== 'powerplantpv_powerplant' || !isModEnabled('powerplantpv')
+			|| !isModEnabled('project') || !($object instanceof Project)
+			|| !in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)) {
+			return 0;
+		}
+		if (!$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			return 1;
+		}
+		require_once __DIR__.'/powerplantpvprojectlink.class.php';
+		require_once __DIR__.'/../lib/powerplantpv_powerplant.lib.php';
+		$links = new PowerPlantPVProjectLink($db);
+		$entityfilter = array_map('intval', GETPOST('powerplantpv_overview_entities', 'array:int'));
+		$plants = $links->linked($object, $user, $entityfilter);
+		if ($links->error !== '') {
+			$this->error = $links->error;
+			return -1;
+		}
+		$langs->load('powerplantpv@powerplantpv');
+		$entities = powerplantGetAccessibleEntityOptions(getEntity('powerplant'));
+		$showentity = isModEnabled('multicompany') && count($entities) > 1;
+		$html = '<a id="table_powerplantpv_powerplant"></a>'.load_fiche_titre($langs->trans('PowerPlantPVCentrals'), '', '');
+		if ($showentity) {
+			$form = new Form($db);
+			$html .= '<form method="GET" action="'.DOL_URL_ROOT.'/projet/element.php#table_powerplantpv_powerplant">';
+			$html .= '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+			foreach (array('dates' => 'datesrfc', 'datee' => 'dateerfc') as $key => $name) {
+				$html .= '<input type="hidden" name="'.$name.'" value="'.dol_escape_htmltag(dol_print_date($parameters[$key] ?? '', 'dayhourrfc')).'">';
+			}
+			$html .= $langs->trans('PowerPlantEnvironment').' ';
+			$html .= $form->multiselectarray('powerplantpv_overview_entities', $entities, $entityfilter, 0, 0, 'minwidth200', 0, 0);
+			$html .= $form->showFilterButtons(0).'</form>';
+		}
+		$html .= '<div class="div-table-responsive-no-min"><table class="noborder centpercent">';
+		$html .= '<tr class="liste_titre"><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('Label').'</td>';
+		if ($showentity) {
+			$html .= '<td class="center">'.$langs->trans('PowerPlantEnvironment').'</td>';
+		}
+		$html .= '<td class="right">'.$langs->trans('Status').'</td></tr>';
+		foreach ($plants as $plant) {
+			$html .= '<tr class="oddeven"><td class="nowraponall">'.$plant->getNomUrl(1).'</td>';
+			$html .= '<td>'.dol_escape_htmltag($plant->label).'</td>';
+			if ($showentity) {
+				$html .= '<td align="center"><div class="refidno multicompany-entity-card-container"><span class="fa fa-globe"></span>';
+				$html .= '<span class="multiselect-selected-title-text">'.dol_escape_htmltag($entities[(int) $plant->entity] ?? (string) $plant->entity).'</span></div></td>';
+			}
+			$html .= '<td class="right">'.$plant->getLibStatut(5).'</td></tr>';
+		}
+		if (!$plants) {
+			$html .= '<tr class="oddeven"><td colspan="'.($showentity ? 4 : 3).'"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+		}
+		$this->resprints = $html.'</table></div>';
+		return 1;
+	}
+
+	/**
+	 * Replace obsolete JPSUN project fields only while this module is active.
+	 * Keep their definitions and values intact; never let direct POSTs override derived totals.
+	 * @param CommonObject $object Current object
+	 * @param string $action Current action
+	 * @return void
+	 */
+	private function prepareProjectExtrafields($object, $action)
+	{
+		global $extrafields, $langs;
+
+		$langs->load('powerplantpv@powerplantpv');
+		if (!is_object($extrafields) || !is_object($object)) {
+			return;
+		}
+		if (($object->element ?? '') === 'project') {
+			$legacy = array('jpsun_project_pc', 'jpsun_project_n_ddr', 'jpsun_project_t0',
+				'jpsun_project_prix_rachat', 'jpsun_project_type_racc', 'jpsun_project_mes_date');
+			foreach ($legacy as $key) {
+				unset($extrafields->attributes['projet']['label'][$key]);
+			}
+			if ($action === 'update_extras' && in_array(GETPOST('attribute', 'aZ09'), array_merge($legacy,
+				array('powerplantpv_signed_peak_power', 'powerplantpv_signed_storage_capacity')), true)) {
+				accessforbidden();
+			}
+		}
+		// Native CSS metadata works since v20, without backporting a v23 output hook.
+		if (empty($object->id)) {
+			return;
+		}
+		foreach (array('powerplantpv_signed_peak_power', 'powerplantpv_signed_storage_capacity') as $key) {
+			$value = $object->array_options['options_'.$key] ?? null;
+			if ($value === null || $value === '') {
+				$table = $object->table_element ?? '';
+				if (isset($extrafields->attributes[$table]['cssview'][$key])) {
+					$extrafields->attributes[$table]['cssview'][$key] = '';
+				}
+			}
+		}
+	}
+
+	/**
+	 * Show links and their native multiselect2 editor in either object's banner.
+	 * @param array<string,mixed> $parameters Hook parameters
+	 * @param CommonObject $object Banner object
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Native manager
+	 * @return int 0: append to the native banner
+	 */
+	public function formDolBanner($parameters, &$object, &$action, $hookmanager)
+	{
+		global $db, $langs, $user, $conf;
+		$this->resprints = '';
+		// Older native overviews omit the CSRF token on their proposal unlink anchors.
+		// Supply it in the generated UI; the server still rejects every missing/bad token.
+		if (isModEnabled('powerplantpv') && $object instanceof Project && !empty($conf->use_javascript_ajax)
+			&& in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)) {
+			$this->resprints = '<script nonce="'.getNonce().'">jQuery(function () {'
+				.'document.querySelectorAll("a[href]").forEach(function (link) {'
+				.'var url; try {url = new URL(link.href, window.location.href);} catch (e) {return;}'
+				.'if (url.origin === window.location.origin && url.pathname === '.json_encode(DOL_URL_ROOT.'/projet/element.php')
+				.' && url.searchParams.get("action") === "unlink" && url.searchParams.get("tablename") === "propal"'
+				.' && !url.searchParams.has("token")) {'
+				.'url.searchParams.set("token", '.json_encode(newToken()).'); link.href = url.href;}'
+				.'});});</script>';
+		}
+		if (!isModEnabled('powerplantpv') || !isModEnabled('project') || empty($object->id)
+			|| !in_array($object->element ?? '', array('project', 'powerplant'), true)
+			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			return 0;
+		}
+		require_once __DIR__.'/powerplantpvprojectlink.class.php';
+		$isproject = $object instanceof Project;
+		if (!$isproject && !($object instanceof PowerPlant)) {
+			return 0;
+		}
+		$service = new PowerPlantPVProjectLink($db);
+		$owners = $isproject ? $service->projects($user) : $service->powerplants($user);
+		if (!isset($owners[(int) $object->id])) {
+			return 0;
+		}
+		$linked = $service->linked($object, $user);
+		if ($service->error !== '') {
+			dol_syslog(__METHOD__.' '.$service->error, LOG_ERR);
+			return 0;
+		}
+		$langs->loadLangs(array('powerplantpv@powerplantpv', 'projects'));
+		$canedit = $user->socid <= 0 && ($isproject
+			? (($user->hasRight('projet', 'creer') || $user->hasRight('projet', 'all', 'creer')) && $object->restrictedProjectArea($user, 'write') > 0)
+			: $user->hasRight('powerplantpv', 'powerplant', 'write'));
+		$editaction = $isproject ? 'powerplantpv_edit_plants' : 'powerplantpv_edit_projects';
+		$cardurl = $isproject ? DOL_URL_ROOT.'/projet/card.php' : dol_buildpath('/powerplantpv/powerplant_card.php', 1);
+		$html = '<div class="refidno">'.($isproject ? img_picto('', 'fa-sun', 'class="pictofixedwidth"') : '')
+			.$langs->trans($isproject ? 'PowerPlantPVCentrals' : 'Projects');
+		if ($canedit && $action !== $editaction) {
+			$url = $cardurl.'?id='.((int) $object->id).'&action='.$editaction.'&token='.newToken();
+			$html .= ' <a class="editfielda reposition" href="'.dol_escape_htmltag($url).'">'.img_edit($langs->trans('Modify')).'</a>';
+		}
+		$html .= ' : ';
+		if ($canedit && $action === $editaction) {
+			$form = new Form($db);
+			$options = $isproject ? $service->powerplants($user) : $service->projects($user);
+			$labels = array();
+			foreach ($options as $id => $item) {
+				$labels[$id] = $item->ref.' - '.($isproject ? $item->label : $item->title);
+			}
+			if ($isproject) {
+				$html .= '<input type="hidden" name="powerplantpv_links_action" value="powerplantpv_save_plants">';
+			} else {
+				$html .= '<form method="POST" action="'.dol_escape_htmltag($cardurl).'">';
+				$html .= '<input type="hidden" name="token" value="'.newToken().'">';
+				$html .= '<input type="hidden" name="action" value="powerplantpv_save_projects">';
+				$html .= '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+			}
+			$html .= '<input type="hidden" name="powerplantpv_links_revision" value="'.hash('sha256', json_encode($service->rows($object))).'">';
+			$html .= $form->multiselectarray('powerplantpv_link_ids', $labels, array_keys($linked), 0, 0, 'minwidth300 maxwidth500', 0, 0);
+			$html .= $form->buttonsSaveCancel('Save');
+			if (!$isproject) {
+				$html .= '</form>';
+			}
+		} else {
+			$labels = array();
+			foreach ($linked as $item) {
+				$labels[] = $item->getNomUrl(1);
+			}
+			$html .= $labels ? implode(' &nbsp; ', $labels) : '<span class="opacitymedium">'.$langs->trans('None').'</span>';
+		}
+		$this->resprints .= $html.'</div>';
 		return 0;
 	}
 
@@ -788,6 +1117,7 @@ class ActionsPowerplantpv
 			'arrayofnotifsupported' => array(
 				'POWERPLANTPV_POWERPLANT_CREATE',
 				'POWERPLANTPV_POWERPLANT_MODIFY',
+				'POWERPLANTPV_POWERPLANT_UPDATE',
 				'POWERPLANTPV_POWERPLANT_DELETE',
 				'POWERPLANTPV_POWERPLANT_VALIDATE',
 				'POWERPLANTPV_POWERPLANT_UNVALIDATE',

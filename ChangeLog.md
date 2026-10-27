@@ -1,5 +1,32 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.5.0 — 2026-10-27
+
+- Vue d’ensemble des projets : affichage des centrales liées et de leur nombre, selon les droits et les entités
+  accessibles. Le rattachement, le déplacement et le retrait d’un devis y recalculent automatiquement les deux
+  totaux signés ; en cas d’échec, la liaison et les totaux sont annulés ensemble, sans recalcul manuel.
+- Centrales et projets : sélection multiple native dans les bannières des deux objets et dans les formulaires
+  des centrales, avec liens réciproques via `element_element`, respect des droits et partages et détection
+  des modifications concurrentes. Les relations non visibles restent conservées. Le pictogramme soleil identifie
+  les centrales dans la bannière projet ; leur édition réutilise le formulaire natif sans formulaire imbriqué.
+- Projets : remplacement à l’affichage des six anciens champs photovoltaïques JPSUN par « Puissance-crête signée »
+  et « Capacité signée », calculées depuis les devis signés ou facturés. Les données JPSUN sont conservées.
+- Totaux signés : actualisation transactionnelle à la signature, y compris après la création automatique d’un
+  projet par JPSUN, puis lors des réouvertures, refus, suppressions, changements de projet depuis le devis et modifications des données sources.
+  Une capacité incomplète reste inconnue ; zéro reste une valeur valide.
+- Unités : affichage de `kWc` et `kWh` après la valeur des nouveaux champs projets, sans unité dans le libellé.
+  Les parcours ne permettant qu’un projet préremplissent ce projet uniquement si la liaison est unique.
+- Attestations : proposition par défaut du tiers et du projet unique liés à la centrale, à la création et lors de
+  l'édition des champs vides. Les choix manuels sont conservés et les valeurs sont enregistrées avec l'attestation.
+- Attestations PDF : classement par code de catégorie photovoltaïque ; les accessoires d'onduleur ne bloquent plus
+  leur puissance apparente totale. Les nouvelles attestations de bridage et de fréquence sélectionnent uniquement
+  les onduleurs. Régénérer explicitement les PDF concernés avec les droits appropriés ; les documents existants,
+  notamment signés, et les données historiques ne sont pas réécrits automatiquement.
+- Mise à jour : réactiver le module dans chaque entité pour enregistrer les hooks et champs, puis recalculer
+  les puissances et capacités commerciales et les totaux signés depuis les réglages. La migration des anciens
+  liens est exécutée une fois par entité, sans rétablir ensuite les liens supprimés. Les anciennes surcharges
+  de hooks de l’entité réactivée sont retirées pour permettre le chargement des nouveaux contextes.
+
 ## 1.4.3
 
 - Attestations : conversion des puissances actives et apparentes des onduleurs de W en kW et de VA en kVA,

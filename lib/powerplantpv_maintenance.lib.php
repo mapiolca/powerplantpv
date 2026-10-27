@@ -404,13 +404,13 @@ function powerplantpvMaintenanceRenderPrestations($services)
  */
 function powerplantpvMaintenanceBuildCreateInterventionUrl($powerplant, $item, $backtopage = '')
 {
-	global $langs;
+	global $langs, $user;
 
 	$sourceItem = (!empty($item['item']) && is_array($item['item'])) ? $item['item'] : $item;
 	$contract = isset($sourceItem['contract']) && is_array($sourceItem['contract']) ? $sourceItem['contract'] : array();
 	$contractId = !empty($contract['id']) ? (int) $contract['id'] : 0;
 	$socid = !empty($contract['fk_soc']) ? (int) $contract['fk_soc'] : (int) $powerplant->fk_soc;
-	$projectId = !empty($contract['fk_project']) ? (int) $contract['fk_project'] : (int) $powerplant->fk_project;
+	$projectId = !empty($contract['fk_project']) ? (int) $contract['fk_project'] : $powerplant->getSingleProjectId($user);
 	$periodStart = !empty($sourceItem['period_start']) ? (int) $sourceItem['period_start'] : 0;
 	$periodEnd = !empty($sourceItem['period_end']) ? (int) $sourceItem['period_end'] : 0;
 

@@ -2,7 +2,7 @@ name: Attestation power units
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, fix/v1.5.0-project-links-signed-totals]
   push:
     branches: [main]
 
@@ -45,11 +45,11 @@ jobs:
           repository: Dolibarr/dolibarr
           ref: ${{ matrix.ref }}
           path: dolibarr
-          sparse-checkout: htdocs/core
+          sparse-checkout: htdocs
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring
+          extensions: mbstring, mysqli, pdo_sqlite
           coverage: none
       - name: Check PHP syntax
         working-directory: powerplantpv
@@ -58,5 +58,9 @@ jobs:
           php -l class/powerplantpvattestation.class.php
           php -l core/modules/attestation/doc/pdf_attestation_bridage_dynamique.modules.php
           php -l test/attestation_power_units.php
+          php -l test/attestation_link_defaults.php
+          php -l attestation_card.php
       - name: Check power units with native helpers and simulated SQL
         run: php powerplantpv/test/attestation_power_units.php dolibarr/htdocs
+      - name: Check attestation third-party and project defaults with native access checks
+        run: php powerplantpv/test/attestation_link_defaults.php dolibarr/htdocs
