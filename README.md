@@ -98,7 +98,21 @@ Using your browser:
   - Go to "Setup"> "Modules"
   - You should now be able to find and enable the module
 
-## Version 1.5.0 (in preparation)
+## Version 1.5.0 — 2026-10-27
+
+Attestations classify equipment by its stable photovoltaic category code before using legacy labels.
+Inverter accessories (`ONDACC`) are excluded from inverter power totals, even when their category label contains
+"Onduleur" or "Inverter". Dynamic/static curtailment and maximum-frequency PDFs therefore keep the complete apparent
+power of the actual inverters. For example, two inverters rated at 125,000 VA produce a total of 250 kVA with or
+without Rogowski probes and other inverter accessories in an existing attestation.
+
+New attestations of these three types select only inverters. Existing attestation lines and PDFs are preserved;
+explicitly regenerate affected PDFs after updating, with the appropriate rights (including the specific right for
+signed attestations). A genuine inverter with missing apparent power still makes the total unavailable.
+Attestation forms propose the plant's third party and its unique accessible linked project when those fields are
+empty, both at creation and when editing an existing attestation. Manual choices remain unchanged; the proposed
+values are saved through the normal attestation form. With multiple linked projects, no project is chosen arbitrarily.
+See [attestation validation and manual checks](docs/release/v1.5.0-attestations-validation.md).
 
 Power plants and projects can be linked many-to-many using Dolibarr's native multiple selector. Both banners show
 the linked objects and offer an inline editor; the power plant creation and edit forms also offer project selection.
@@ -122,7 +136,7 @@ Legacy `fk_project` values are imported once per owning entity into native objec
 Afterward only native links are authoritative; reactivation does not restore a removed link. Attestations and interventions
 prefill a project only when exactly one project is linked and accessible; multiple links require an explicit choice.
 
-See [validation and manual checks](docs/release/v1.5.0-projects-validation.md). This branch prepares 1.5.0; it does not publish a release.
+See [validation and manual checks](docs/release/v1.5.0-projects-validation.md). These changes do not publish a release.
 
 ## Release 1.4.3
 
