@@ -364,6 +364,9 @@ class ActionsPowerplantpv
 	public function llxHeader($parameters, &$hookobject, &$hookaction, $hookmanager)
 	{
 		global $object, $action, $db, $langs, $user;
+		if (getDolGlobalInt('MAIN_HOOK_DEBUG') && GETPOST('tablename', 'aZ09') === 'propal') {
+			dol_syslog('PPVHEAD '.(string) $action.' '.(is_object($object) ? get_class($object) : gettype($object)), LOG_DEBUG);
+		}
 		if (!isModEnabled('powerplantpv') || !isModEnabled('project')
 			|| !in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)
 			|| !in_array($action, array('addelement', 'unlink'), true) || GETPOST('tablename', 'aZ09') !== 'propal'
@@ -573,6 +576,9 @@ class ActionsPowerplantpv
 	{
 		global $db, $langs, $user, $conf;
 		$this->resprints = '';
+		if (getDolGlobalInt('MAIN_HOOK_DEBUG') && is_object($object)) {
+			dol_syslog('PPVBANNER '.get_class($object).' '.(string) $object->element, LOG_DEBUG);
+		}
 		// Older native overviews omit the CSRF token on their proposal unlink anchors.
 		// Supply it in the generated UI; the server still rejects every missing/bad token.
 		if (isModEnabled('powerplantpv') && $object instanceof Project && !empty($conf->use_javascript_ajax)
