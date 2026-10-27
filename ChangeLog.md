@@ -7,7 +7,8 @@
   totaux signés ; en cas d’échec, la liaison et les totaux sont annulés ensemble, sans recalcul manuel.
 - Centrales et projets : sélection multiple native dans les bannières des deux objets et dans les formulaires
   des centrales, avec liens réciproques via `element_element`, respect des droits et partages et détection
-  des modifications concurrentes. Les relations non visibles restent conservées.
+  des modifications concurrentes. Les relations non visibles restent conservées. Le pictogramme soleil identifie
+  les centrales dans la bannière projet ; leur édition réutilise le formulaire natif sans formulaire imbriqué.
 - Projets : remplacement à l’affichage des six anciens champs photovoltaïques JPSUN par « Puissance-crête signée »
   et « Capacité signée », calculées depuis les devis signés ou facturés. Les données JPSUN sont conservées.
 - Totaux signés : actualisation transactionnelle à la signature, y compris après la création automatique d’un

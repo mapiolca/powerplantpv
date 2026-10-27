@@ -274,6 +274,11 @@ class ActionsPowerplantpv
 		}
 
 		$contexts = $this->getContexts($parameters, $hookmanager);
+		// The native project card already owns the banner's surrounding POST form.
+		if ($object instanceof Project && $action === 'update' && in_array('projectcard', $contexts, true)
+			&& GETPOST('powerplantpv_links_action', 'aZ09') === 'powerplantpv_save_plants') {
+			$action = 'powerplantpv_save_plants';
+		}
 		$this->prepareProjectExtrafields($object, $action);
 		if ($object instanceof Project || $object instanceof PowerPlant) {
 			if ($action === 'powerplantpv_save_projects' || $action === 'powerplantpv_save_plants') {
@@ -612,7 +617,8 @@ class ActionsPowerplantpv
 			: $user->hasRight('powerplantpv', 'powerplant', 'write'));
 		$editaction = $isproject ? 'powerplantpv_edit_plants' : 'powerplantpv_edit_projects';
 		$cardurl = $isproject ? DOL_URL_ROOT.'/projet/card.php' : dol_buildpath('/powerplantpv/powerplant_card.php', 1);
-		$html = '<div class="refidno">'.$langs->trans($isproject ? 'PowerPlantPVCentrals' : 'Projects');
+		$html = '<div class="refidno">'.($isproject ? img_picto('', 'fa-sun', 'class="pictofixedwidth"') : '')
+			.$langs->trans($isproject ? 'PowerPlantPVCentrals' : 'Projects');
 		if ($canedit && $action !== $editaction) {
 			$url = $cardurl.'?id='.((int) $object->id).'&action='.$editaction.'&token='.newToken();
 			$html .= ' <a class="editfielda reposition" href="'.dol_escape_htmltag($url).'">'.img_edit($langs->trans('Modify')).'</a>';
@@ -625,14 +631,20 @@ class ActionsPowerplantpv
 			foreach ($options as $id => $item) {
 				$labels[$id] = $item->ref.' - '.($isproject ? $item->label : $item->title);
 			}
-			$html .= '<form method="POST" action="'.dol_escape_htmltag($cardurl).'">';
-			$html .= '<input type="hidden" name="token" value="'.newToken().'">';
-			$html .= '<input type="hidden" name="action" value="'.($isproject ? 'powerplantpv_save_plants' : 'powerplantpv_save_projects').'">';
-			$html .= '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+			if ($isproject) {
+				$html .= '<input type="hidden" name="powerplantpv_links_action" value="powerplantpv_save_plants">';
+			} else {
+				$html .= '<form method="POST" action="'.dol_escape_htmltag($cardurl).'">';
+				$html .= '<input type="hidden" name="token" value="'.newToken().'">';
+				$html .= '<input type="hidden" name="action" value="powerplantpv_save_projects">';
+				$html .= '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+			}
 			$html .= '<input type="hidden" name="powerplantpv_links_revision" value="'.hash('sha256', json_encode($service->rows($object))).'">';
 			$html .= $form->multiselectarray('powerplantpv_link_ids', $labels, array_keys($linked), 0, 0, 'minwidth300 maxwidth500', 0, 0);
 			$html .= $form->buttonsSaveCancel('Save');
-			$html .= '</form>';
+			if (!$isproject) {
+				$html .= '</form>';
+			}
 		} else {
 			$labels = array();
 			foreach ($linked as $item) {

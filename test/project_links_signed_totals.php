@@ -227,12 +227,16 @@ verify(strpos($hookmanager->resPrint, 'PV1') !== false && strpos($hookmanager->r
 $banneraction = 'powerplantpv_edit_plants';
 verify($hookmanager->executeHooks('formDolBanner', array(), $bannerobject, $banneraction) === 0, 'Second hook call supports manager reset');
 $html = $hookmanager->resPrint;
+verify(strpos($html, 'fa-sun') !== false, 'Project banner uses the native power plant sun icon');
+verify(strpos($html, '<form') === false && strpos($html, 'name="powerplantpv_links_action"') !== false, 'Project link editor reuses its native parent form without a nested form or duplicate action');
 libxml_use_internal_errors(true);
 $dom = new DOMDocument();
-$dom->loadHTML($html);
+// Match the native project card's surrounding form, including its unique CSRF token and action.
+$dom->loadHTML('<form method="POST" action="/projet/card.php"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="update"><input type="hidden" name="id" value="11">'.$html.'</form>');
 $xpath = new DOMXPath($dom);
+verify($xpath->query('//form')->length === 1 && $xpath->query('//input[@name="action"]')->length === 1, 'Project editor has one form and one native action');
 verify($xpath->query('//select[@multiple and @name="powerplantpv_link_ids[]"]')->length === 1, 'Banner uses native multiple selection');
-verify($xpath->query('//input[@name="token" and string-length(@value)>0]')->length === 1, 'Editor contains a native CSRF token');
+verify($xpath->query('//input[@name="token" and string-length(@value)>0]')->length === 1, 'Editor inherits the native parent form CSRF token');
 verify($xpath->query('//input[@name="powerplantpv_links_revision" and string-length(@value)=64]')->length === 1, 'Editor contains a conflict revision');
 $unrelated = new stdClass();
 $unrelated->id = 5;
