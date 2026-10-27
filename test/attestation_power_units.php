@@ -50,18 +50,29 @@ final class AttestationPowerUnitsDatabase
 {
 	/** @var array<int,object> */
 	public array $products = array();
+	/** @var list<object> */
+	public array $compositionRows = array();
 	public bool $failProductQuery = false;
 	public ?float $savedInstalledPower = null;
 
 	public function prefix(): string { return MAIN_DB_PREFIX; }
 	public function sanitize(string $value): string { return $value; }
 	public function escape(string $value): string { return addslashes($value); }
+	public function plimit(int $limit): string { return ' LIMIT '.$limit; }
 
 	/** @return ArrayIterator<int,object>|false */
 	public function query(string $sql)
 	{
 		if (strpos($sql, 'SHOW COLUMNS') === 0) {
 			return new ArrayIterator(array());
+		}
+		if (strpos($sql, 'SELECT value FROM '.MAIN_DB_PREFIX.'const') === 0) {
+			// Explicitly configured: no category is exempt from serial-number controls.
+			$value = strpos($sql, '_CONFIGURED') !== false ? '1' : '';
+			return new ArrayIterator(array((object) array('value' => $value)));
+		}
+		if (strpos($sql, 'SELECT c.rowid as fk_powerplant_line') === 0) {
+			return new ArrayIterator($this->compositionRows);
 		}
 		if (strpos($sql, 'SELECT p.rowid as fk_product') === 0) {
 			if ($this->failProductQuery) {
@@ -153,6 +164,58 @@ $legacy = PowerPlantPVAttestationEquipmentLine::fromArray(array('equipment_type'
 $specimen = (new ReflectionClass(PowerPlantPVAttestation::class))->newInstanceWithoutConstructor();
 $specimen->initAsSpecimen();
 
+// Reproduce attestation 13: two 125 kVA inverters and five inverter accessories.
+$huawei = equipmentFixture('115000', '115000', '125000');
+$db->products[$huawei->fk_product]->product_label = 'Onduleur HUAWEI SUN2000-115KTL-M2';
+$rogowski = equipmentFixture(null, null, null, 'ONDACC');
+$db->products[$rogowski->fk_product]->category_label = 'Accessoire Onduleur';
+$db->products[$rogowski->fk_product]->product_label = "Transformateur d'intensité ouvrant Rogowski";
+$supply = equipmentFixture(null, null, null, 'ONDACC');
+$db->products[$supply->fk_product]->category_label = 'Inverter accessory';
+$db->products[$supply->fk_product]->product_label = 'Alimentation AC-DC DIN';
+$integrator = equipmentFixture(null, null, null, 'ONDACC');
+$db->products[$integrator->fk_product]->category_label = 'Accessoire Onduleur';
+$db->products[$integrator->fk_product]->product_label = 'Intégrateur triphasé pour sonde Rogowski';
+$incidentLines = array($huawei, $huawei, $rogowski, $rogowski, $rogowski, $supply, $integrator);
+foreach ($incidentLines as $rank => $incidentLine) {
+	$row = clone $db->products[$incidentLine->fk_product];
+	$row->fk_powerplant_line = $rank + 1;
+	$row->fk_powerplant_serialnumber = null;
+	$row->categorie_photovoltaique = 1;
+	$db->compositionRows[] = $row;
+}
+foreach (array(
+	'canonical inverter code without translated label' => array('ONDULE', '', 'SUN2000-115KTL-M2', 'INVERTER'),
+	'French inverter accessory' => array('ONDACC', 'Accessoire Onduleur', 'Sonde Rogowski', 'ACCESSORY'),
+	'English inverter accessory' => array('ONDACC', 'Inverter accessory', 'Meter', 'ACCESSORY'),
+	'accessory labelled as an inverter' => array('ONDACC', '', 'Inverter monitoring kit', 'ACCESSORY'),
+	'module mentioning an inverter' => array('MODULE', 'Module photovoltaïque', 'Module pour onduleur', 'MODULE'),
+	'AC box mentioning an inverter' => array('COFFAC', 'Coffret AC', 'Coffret onduleur', 'BOX'),
+	'DC box' => array('COFFDC', '', '', 'BOX'),
+	'datalogger' => array('DATLOG', '', 'Inverter datalogger', 'ACCESSORY'),
+	'optimizer' => array('OPTMIZ', '', 'Inverter optimizer', 'ACCESSORY'),
+	'battery' => array('BATTER', '', 'Battery with inverter', 'ACCESSORY'),
+	'battery accessory' => array('BATACC', '', 'Inverter adapter', 'ACCESSORY'),
+	'integration system remains installer equipment' => array('SYSINT', '', '', 'MODULE'),
+	'legacy French inverter label' => array('', 'Onduleur', '', 'INVERTER'),
+	'custom English inverter label' => array('CUSTOM', 'Inverter', '', 'INVERTER'),
+	'legacy connector' => array('', 'Connecteur', '', 'CONNECTOR'),
+	'legacy box' => array('', 'Coffret', '', 'BOX'),
+) as $label => $case) {
+	checkValue($case[3], powerplantpvAttestationGuessEquipmentType((object) array(
+		'category_code' => $case[0], 'category_label' => $case[1], 'product_label' => $case[2],
+	)), $label);
+}
+foreach (array(
+	PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR,
+	PowerPlantPVAttestationTypes::TYPE_BRIDAGE_STATIQUE_ONDULEUR,
+	PowerPlantPVAttestationTypes::TYPE_REGLAGE_MAX_FREQ_51_5HZ,
+) as $typeCode) {
+	$snapshot = powerplantpvAttestationBuildEquipmentSnapshot((object) array('id' => 13, 'entity' => 1), $typeCode);
+	checkValue(2, count($snapshot), $typeCode.' snapshot keeps only the two inverters');
+	checkValue(array(1, 2), array_map(static function ($line) { return $line->fk_powerplant_line; }, $snapshot), $typeCode.' keeps distinct installed units');
+}
+
 foreach (array(
 	'maximum' => array($first, 30.0, 33.0),
 	'fractional sub-kilo' => array($second, 0.500125, 0.5505),
@@ -207,6 +270,10 @@ foreach (array('bridage_dynamique', 'bridage_statique', 'reglage_max_freq') as $
 		'query failure prevents partial total' => array(array($first, $failedLine), ''),
 		'missing product prevents partial total' => array(array($first, $absentLine), ''),
 		'specimen already in kVA' => array($specimen->lines, 36.0),
+		'attestation 13 with existing accessory lines' => array($incidentLines, 250.0),
+		'attestation 13 new snapshot' => array($snapshot, 250.0),
+		'accessories alone' => array(array($rogowski, $supply, $integrator), ''),
+		'accessory cannot hide missing inverter power' => array(array($huawei, $missing, $rogowski), ''),
 	) as $label => $case) {
 		$attestation = (object) array('lines' => $case[0]);
 		checkValue($case[1], $sum->invoke($pdfModel, $attestation), $model.' '.$label);

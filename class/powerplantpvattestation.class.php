@@ -142,6 +142,55 @@ class PowerPlantPVAttestation extends CommonObject
 	}
 
 	/**
+	 * Propose missing links from the selected plant, without saving or replacing a choice.
+	 *
+	 * @param PowerPlant $powerplant Loaded source plant
+	 * @param User $user Actor
+	 * @return int Number of defaults applied
+	 */
+	public function setDefaultLinksFromPowerPlant(PowerPlant $powerplant, User $user): int
+	{
+		if ((int) $powerplant->id <= 0
+			|| (int) $powerplant->id !== (int) $this->fk_powerplant
+			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			return 0;
+		}
+		$entities = array_map('intval', explode(',', getEntity('powerplant')));
+		if (!in_array((int) $powerplant->entity, $entities, true)) {
+			return 0;
+		}
+		require_once DOL_DOCUMENT_ROOT.'/core/lib/security.lib.php';
+		if (!checkUserAccessToObject($user, array('powerplantpv'), $powerplant, 'powerplantpv_powerplant&powerplant', '', 'fk_soc')) {
+			return 0;
+		}
+
+		$applied = 0;
+		$fkSoc = (int) $powerplant->fk_soc;
+		if (empty($this->fk_soc) && $fkSoc > 0 && isModEnabled('societe') && $user->hasRight('societe', 'lire')
+			&& checkUserAccessToObject($user, array('societe'), $fkSoc, 'societe')) {
+			// The native access check does not always query existence when Multicompany is off.
+			$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'societe WHERE rowid = '.$fkSoc;
+			$sql .= ' AND entity IN ('.$this->db->sanitize(getEntity('societe')).')';
+			$resql = $this->db->query($sql);
+			if ($resql) {
+				if (is_object($this->db->fetch_object($resql))) {
+					$this->fk_soc = $this->socid = $fkSoc;
+					$applied++;
+				}
+				$this->db->free($resql);
+			}
+		}
+		if (empty($this->fk_project)) {
+			$fkProject = $powerplant->getSingleProjectId($user);
+			if ($fkProject > 0) {
+				$this->fk_project = $fkProject;
+				$applied++;
+			}
+		}
+		return $applied;
+	}
+
+	/**
 	 * Create object into database.
 	 *
 	 * @param	User		$user		User

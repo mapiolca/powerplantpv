@@ -6,6 +6,15 @@ Copyright (C) 2026  Pierre Ardoin <developpeur@lesmetiersdubatiment.fr>
 
 Dolibarr v20.0.
 
+## Version 1.5.0 — attestations
+
+Le classement utilise les codes du dictionnaire photovoltaïque existant du module. Il ne dépend d'aucune nouvelle
+API core et conserve la résolution native des produits et le périmètre `getEntity('product')`.
+Les conversions W/VA vers kW/kVA, zéro valide et refus des totaux incomplets restent inchangés.
+Les valeurs par défaut de tiers et de projet utilisent les contrôles natifs d'accès et les liaisons existantes de
+la centrale. Elles restent soumises aux droits de lecture, aux entités et à l'unicité du projet accessible.
+Voir la [matrice de validation et ses limites](docs/release/v1.5.0-attestations-validation.md).
+
 ## Version 1.5.0 — projets
 
 La vue d’ensemble utilise les hooks natifs `llxHeader`, `completeListOfReferent`, `printOverviewProfit` et
