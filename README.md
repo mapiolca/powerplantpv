@@ -131,6 +131,7 @@ Unknown capacity stays empty rather than displaying a partial sum; an unavailabl
 project total unavailable. A known zero remains zero. Units are displayed after values through native extrafield CSS metadata.
 
 Upgrade each entity by reactivating PowerPlantPV to register its hooks and extrafields, preserving existing settings.
+Activation retires an obsolete entity-local hook declaration so the current global contexts are loaded.
 In module settings, run the commercial power and capacity recalculations, followed by **Recalculate signed project totals**.
 Legacy `fk_project` values are imported once per owning entity into native object links and kept as historical data.
 Afterward only native links are authoritative; reactivation does not restore a removed link. Attestations and interventions

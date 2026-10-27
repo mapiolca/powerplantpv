@@ -965,12 +965,29 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
-	 *  Function called when module is enabled.
-	 *  The init function add constants, boxes, permissions and menus (defined in constructor) into Dolibarr database.
-	 *  It also creates data directories
-	 *
-	 *  @param      string  $options    Options when enabling module ('', 'noboxes')
-	 *  @return     int<-1,1>          	1 if OK, <=0 if KO
+	 * Register native module parts and retire a stale entity-local hook declaration.
+	 * Business constants and declarations belonging to other entities stay untouched.
+	 * @return int Error count, following the native module registration contract
+	 */
+	public function insert_module_parts()
+	{
+		global $conf;
+
+		$error = parent::insert_module_parts();
+		// The native global declaration does not remove an older entity-local override.
+		// Such a row shadows the new contexts loaded from entity 0 on the next request.
+		if (!$error && (int) $conf->entity > 0
+			&& dolibarr_del_const($this->db, $this->const_name.'_HOOKS', (int) $conf->entity) < 0) {
+			$this->error = $this->db->lasterror();
+			$error++;
+		}
+		return $error;
+	}
+
+	/**
+	 * Enable the module and run conservative schema/data migrations.
+	 * @param string $options Native module activation options
+	 * @return int Positive on success, negative on failure
 	 */
 	public function init($options = '')
 	{

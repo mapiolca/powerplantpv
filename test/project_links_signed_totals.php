@@ -112,6 +112,24 @@ $db->query("INSERT INTO pvtest_powerplantpv_powerplant VALUES (1,'PV1','Plant on
 $checks = 0;
 function verify($value, $message) { global $checks; $checks++; if (!$value) { throw new RuntimeException($message); } }
 function scalar($sql) { global $db; return $db->pdo->query($sql)->fetchColumn(); }
+// Upgrade from the historical entity-local hooks to the descriptor's global contexts.
+require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+require_once dirname(__DIR__).'/core/modules/modPowerPlantPV.class.php';
+$db->query('CREATE TABLE pvtest_const (rowid INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, value TEXT, note TEXT, visible INTEGER, entity INTEGER, UNIQUE(name,entity))');
+$db->query("INSERT INTO pvtest_const (name,value,entity) VALUES ('MAIN_MODULE_POWERPLANTPV_HOOKS','[\"commonobject\"]',1),('MAIN_MODULE_POWERPLANTPV_HOOKS','[\"other-entity-legacy\"]',2),('POWERPLANTPV_KEEP_ZERO','0',1),('POWERPLANTPV_KEEP_EMPTY','',1)");
+$descriptor = new modPowerPlantPV($db);
+$descriptor->module_parts = array('hooks' => $descriptor->module_parts['hooks']);
+verify($descriptor->delete_module_parts() === 0 && $descriptor->insert_module_parts() === 0, 'Native module registration upgrades hook declarations');
+verify(scalar("SELECT COUNT(*) FROM pvtest_const WHERE name='MAIN_MODULE_POWERPLANTPV_HOOKS' AND entity=1") == 0, 'Old local hook override must no longer shadow the global declaration');
+$registeredHooks = json_decode(scalar("SELECT value FROM pvtest_const WHERE name='MAIN_MODULE_POWERPLANTPV_HOOKS' AND entity=0"), true);
+verify(in_array('projectcard', $registeredHooks, true) && in_array('projectOverview', $registeredHooks, true) && in_array('globalcard', $registeredHooks, true), 'Persisted contexts enable project mutation and banner hooks');
+verify(scalar("SELECT value FROM pvtest_const WHERE name='POWERPLANTPV_KEEP_ZERO'") === '0' && scalar("SELECT value FROM pvtest_const WHERE name='POWERPLANTPV_KEEP_EMPTY'") === '', 'Zero and empty business settings survive hook migration');
+verify(scalar("SELECT value FROM pvtest_const WHERE name='MAIN_MODULE_POWERPLANTPV_HOOKS' AND entity=2") === '["other-entity-legacy"]', 'Another entity is migrated only when it is reactivated');
+verify($descriptor->delete_module_parts() === 0 && $descriptor->insert_module_parts() === 0 && scalar("SELECT COUNT(*) FROM pvtest_const WHERE name='MAIN_MODULE_POWERPLANTPV_HOOKS' AND entity=0") == 1, 'Repeated native registration keeps one global hook declaration');
+$conf->entity = 2;
+verify($descriptor->delete_module_parts() === 0 && $descriptor->insert_module_parts() === 0 && scalar("SELECT COUNT(*) FROM pvtest_const WHERE name='MAIN_MODULE_POWERPLANTPV_HOOKS' AND entity=2") == 0, 'Secondary entity activation removes only its obsolete override');
+$conf->entity = 1;
+
 $links = new PowerPlantPVProjectLink($db);
 $plants = $links->powerplants($user);
 $projects = $links->projects($user);

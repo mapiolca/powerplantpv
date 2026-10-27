@@ -23,7 +23,8 @@
   notamment signés, et les données historiques ne sont pas réécrits automatiquement.
 - Mise à jour : réactiver le module dans chaque entité pour enregistrer les hooks et champs, puis recalculer
   les puissances et capacités commerciales et les totaux signés depuis les réglages. La migration des anciens
-  liens est exécutée une fois par entité, sans rétablir ensuite les liens supprimés.
+  liens est exécutée une fois par entité, sans rétablir ensuite les liens supprimés. Les anciennes surcharges
+  de hooks de l’entité réactivée sont retirées pour permettre le chargement des nouveaux contextes.
 
 ## 1.4.3
 
