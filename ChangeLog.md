@@ -2,6 +2,9 @@
 
 ## 1.5.0 — En préparation
 
+- Vue d’ensemble des projets : affichage des centrales liées et de leur nombre, selon les droits et les entités
+  accessibles. Le rattachement, le déplacement et le retrait d’un devis y recalculent automatiquement les deux
+  totaux signés ; en cas d’échec, la liaison et les totaux sont annulés ensemble, sans recalcul manuel.
 - Centrales et projets : sélection multiple native dans les bannières des deux objets et dans les formulaires
   des centrales, avec liens réciproques via `element_element`, respect des droits et partages et détection
   des modifications concurrentes. Les relations non visibles restent conservées.

@@ -8,6 +8,12 @@ Dolibarr v20.0.
 
 ## Version 1.5.0 — projets
 
+La vue d’ensemble utilise les hooks natifs `llxHeader`, `completeListOfReferent`, `printOverviewProfit` et
+`printOverviewDetail`, présents dans les sources v20–v25 examinées. Les actions devis sont traitées avant toute
+sortie HTML, avec les méthodes natives `Project::update_element()` / `remove_element()` et une redirection.
+Sur les sources v20–v24 examinées, les anciens liens de retrait sans token sont complétés côté interface lorsque
+JavaScript est actif ; le serveur refuse tout token absent ou invalide. Aucune protection core n’est désactivée.
+
 Les liaisons multiples, les bannières réciproques et les totaux techniques signés des projets utilisent les objets,
 liens, champs complémentaires et hooks natifs disponibles à partir de v20. Les unités sont présentées par les
 métadonnées CSS natives, sans dépendance au hook plus récent `showOutputExtraField`.

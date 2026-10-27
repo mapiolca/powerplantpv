@@ -54,4 +54,8 @@ jobs:
       - name: Check module PHP syntax
         run: find powerplantpv -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Check native project links, banners and signed totals using isolated SQL
-        run: php powerplantpv/test/project_links_signed_totals.php dolibarr/htdocs
+        run: |
+          php powerplantpv/test/project_links_signed_totals.php dolibarr/htdocs
+          for mode in overview-link overview-move overview-unlink overview-failure overview-no-token overview-bad-token; do
+            php powerplantpv/test/project_links_signed_totals.php dolibarr/htdocs "$mode"
+          done

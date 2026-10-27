@@ -20,6 +20,110 @@ class PowerPlantPVProjectSignedTotals
 	}
 
 	/**
+	 * Overview mutations use native methods without proposal triggers. Keep the relation
+	 * and its derived totals atomic, including the former project when moving a proposal.
+	 * The overview requires project write and proposal read, not proposal creation rights.
+	 * @param Project $project Loaded destination/current project
+	 * @param int $proposalid Proposal selected by the native overview
+	 * @param bool $unlink Remove only this project's relation
+	 * @param User $user Native operation actor
+	 * @return int 1 changed, 0 already applied, -1 refused or failed
+	 */
+	public function setProposalProject(Project $project, $proposalid, $unlink, User $user)
+	{
+		$this->error = '';
+		if (!isModEnabled('powerplantpv') || !isModEnabled('project') || !isModEnabled('propal')
+			|| $user->socid > 0 || !$user->hasRight('projet', 'creer') || !$user->hasRight('propal', 'lire')
+			|| (int) $proposalid <= 0 || (int) $project->id <= 0
+			|| (!$unlink && getDolGlobalString('PROJECT_LINK_ON_OVERWIEW_DISABLED'))
+			|| ($unlink && getDolGlobalString('PROJECT_DISABLE_UNLINK_FROM_OVERVIEW') && !$user->admin)) {
+			$this->error = 'ErrorForbidden';
+			return -1;
+		}
+		require_once __DIR__.'/powerplantpvprojectlink.class.php';
+		$links = new PowerPlantPVProjectLink($this->db);
+		$projects = $links->projects($user);
+		if ($links->error !== '' || !isset($projects[(int) $project->id])
+			|| $project->restrictedProjectArea($user, 'write') <= 0) {
+			$this->error = $links->error ?: 'ErrorForbidden';
+			return -1;
+		}
+		$sql = 'SELECT d.fk_projet FROM '.MAIN_DB_PREFIX.'propal as d';
+		$sql .= ' WHERE d.rowid = '.((int) $proposalid).' AND d.entity IN ('.$this->db->sanitize(getEntity('propal')).')';
+		if (!$user->hasRight('societe', 'client', 'voir')) {
+			$userids = array((int) $user->id);
+			if (getDolGlobalInt('MAIN_SEE_SUBORDINATES')) {
+				$userids = array_merge($userids, $user->getAllChildIds());
+			}
+			$sql .= ' AND EXISTS (SELECT sc.fk_soc FROM '.MAIN_DB_PREFIX.'societe_commerciaux as sc';
+			$sql .= ' WHERE sc.fk_soc = d.fk_soc AND sc.fk_user IN ('.$this->db->sanitize(implode(',', array_map('intval', $userids))).'))';
+		}
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		$row = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!$row) {
+			$this->error = 'ErrorForbidden';
+			return -1;
+		}
+		$oldproject = (int) $row->fk_projet;
+		if (($unlink && $oldproject !== (int) $project->id) || (!$unlink && $oldproject === (int) $project->id)) {
+			return 0;
+		}
+		if ($oldproject > 0 && (!isset($projects[$oldproject]) || $projects[$oldproject]->restrictedProjectArea($user, 'write') <= 0)) {
+			$this->error = 'ErrorForbidden';
+			return -1;
+		}
+		$ids = array_values(array_unique(array_filter(array($oldproject, (int) $project->id))));
+		sort($ids, SORT_NUMERIC);
+		if (!$this->db->begin()) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		// Same parent-first lock order as refresh(); reject concurrent reassignment.
+		$resql = $this->db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'projet WHERE rowid IN ('
+			.$this->db->sanitize(implode(',', $ids)).') AND entity IN ('.$this->db->sanitize(getEntity('project')).') ORDER BY rowid FOR UPDATE');
+		if ($resql) {
+			$parentsfound = $this->db->num_rows($resql) === count($ids);
+			$this->db->free($resql);
+			if (!$parentsfound) {
+				$this->error = 'PowerPlantPVProjectLinksConflict';
+				$this->db->rollback();
+				return -1;
+			}
+			$resql = $this->db->query($sql.' FOR UPDATE');
+		}
+		$row = $resql ? $this->db->fetch_object($resql) : false;
+		if ($resql) {
+			$this->db->free($resql);
+		}
+		if (!$row || (int) $row->fk_projet !== $oldproject) {
+			$this->error = $resql ? 'PowerPlantPVProjectLinksConflict' : $this->db->lasterror();
+		} else {
+			$result = $unlink ? $project->remove_element('propal', (int) $proposalid, 'fk_projet')
+				: $project->update_element('propal', (int) $proposalid);
+			if ($result < 0) {
+				$this->error = $project->error ?: ($this->db->lasterror() ?: 'PowerPlantPVProjectTotalsFailed');
+			} elseif ($this->refresh($user, 0, $ids) < 0 && $this->error === '') {
+				$this->error = 'PowerPlantPVProjectTotalsFailed';
+			}
+		}
+		if ($this->error !== '') {
+			$this->db->rollback();
+			return -1;
+		}
+		if (!$this->db->commit()) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		return 1;
+	}
+
+	/**
 	 * Rebuild from signed/billed proposals, never increment: retries cannot double totals.
 	 * Rebuilding the scope also clears a project's total after a proposal is moved away.
 	 * No project-edit right is required for this derived invariant of an authorized signing.

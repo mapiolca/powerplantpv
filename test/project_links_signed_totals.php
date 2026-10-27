@@ -195,7 +195,7 @@ verify($totals->refresh($user) === -1, 'Extrafield write failure propagated');
 $db->failure = '';
 
 // Run actual HookManager resets and native HTML generation; no deployed instance is bootstrapped.
-$conf->modules_parts['hooks'] = array('powerplantpv' => array('projectcard', 'powerplantcard'));
+$conf->modules_parts['hooks'] = array('powerplantpv' => array('projectcard', 'powerplantcard', 'projectOverview'));
 $conf->file->dol_url_root = array('main' => '', 'module' => '/custom');
 $conf->use_javascript_ajax = 1;
 $conf->dol_no_mouse_hover = 1;
@@ -247,5 +247,157 @@ verify(scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafie
 $db->query('UPDATE pvtest_propal SET fk_statut=1 WHERE rowid=50');
 verify($trigger->runTrigger('PROPAL_REOPEN', $proposal, $user, $langs, $conf) === 0
 	&& scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=13') == 0, 'Late reopen event clears signed power');
+
+// The overview bypasses proposal triggers. Exercise its native update/remove methods
+// through the transactional service, then its actual pre-output request hook below.
+$conf->propal = (object) array('enabled' => 1);
+$conf->modules['propal'] = 1;
+$user->rights->propal = (object) array('lire' => 1);
+$db->query('ALTER TABLE pvtest_propal ADD COLUMN fk_soc INTEGER DEFAULT 1');
+$db->query("INSERT INTO pvtest_projet (rowid,ref,title,entity,fk_soc,public,fk_statut) VALUES (14,'OV14','Overview source',1,1,1,1),(15,'OV15','Overview target',1,1,1,1)");
+$db->query('INSERT INTO pvtest_propal (rowid,fk_projet,entity,fk_statut) VALUES (60,NULL,1,2),(61,14,1,4),(62,NULL,1,1)');
+$db->query('INSERT INTO pvtest_propal_extrafields VALUES (60,10,2),(61,5,3),(62,999,999)');
+$projects = $links->projects($user);
+verify($totals->setProposalProject($projects[14], 60, false, $user) === 1, 'Overview attaches signed proposal using native project method');
+verify(scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=14') == 15
+	&& scalar('SELECT powerplantpv_signed_storage_capacity FROM pvtest_projet_extrafields WHERE fk_object=14') == 5, 'Overview attachment refreshes both totals automatically');
+verify($totals->setProposalProject($projects[14], 60, false, $user) === 0, 'Repeated attachment is idempotent');
+verify($totals->setProposalProject($projects[15], 60, false, $user) === 1
+	&& scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=14') == 5
+	&& scalar('SELECT powerplantpv_signed_storage_capacity FROM pvtest_projet_extrafields WHERE fk_object=14') == 3
+	&& scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=15') == 10, 'Moving a proposal refreshes former and new projects');
+verify($totals->setProposalProject($projects[15], 60, true, $user) === 1
+	&& scalar('SELECT fk_projet FROM pvtest_propal WHERE rowid=60') === null
+	&& scalar('SELECT powerplantpv_signed_storage_capacity FROM pvtest_projet_extrafields WHERE fk_object=15') == 0, 'Overview removal clears relation and signed totals');
+verify($totals->setProposalProject($projects[15], 60, true, $user) === 0, 'Repeated removal is idempotent');
+verify($totals->setProposalProject($projects[15], 62, false, $user) === 1
+	&& scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=15') == 0, 'Attaching a draft contributes no signed power');
+$db->failure = 'UPDATE pvtest_projet_extrafields';
+verify($totals->setProposalProject($projects[15], 60, false, $user) === -1, 'Failed automatic total update must fail the relation mutation');
+$db->failure = '';
+verify(scalar('SELECT fk_projet FROM pvtest_propal WHERE rowid=60') === null, 'Total failure rolls back the native proposal attachment');
+$db->failCommit = true;
+verify($totals->setProposalProject($projects[15], 60, false, $user) === -1, 'Overview commit failure is reported');
+$db->failCommit = false;
+verify(scalar('SELECT fk_projet FROM pvtest_propal WHERE rowid=60') === null
+	&& scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=15') == 0, 'Failed commit restores relation and total together');
+foreach (array('PROJECT_LINK_ON_OVERWIEW_DISABLED' => false, 'PROJECT_DISABLE_UNLINK_FROM_OVERVIEW' => true) as $setting => $unlink) {
+	$conf->global->$setting = '1';
+	verify($totals->setProposalProject($projects[14], 61, $unlink, $user) === -1, 'Native overview setting enforced: '.$setting);
+	unset($conf->global->$setting);
+}
+$user->rights->projet->creer = 0;
+$user->admin = 1;
+verify($totals->setProposalProject($projects[15], 60, false, $user) === -1, 'Admin without project write cannot mutate overview relations');
+$user->rights->projet->creer = 1;
+$user->admin = 0;
+$user->rights->propal->lire = 0;
+verify($totals->setProposalProject($projects[15], 60, false, $user) === -1, 'Missing proposal read permission is refused');
+$user->rights->propal->lire = 1;
+verify($totals->setProposalProject($projects[15], 10, false, $user) === -1, 'Proposal from hidden entity is refused');
+$db->query('UPDATE pvtest_propal SET fk_projet=99 WHERE rowid=60');
+verify($totals->setProposalProject($projects[15], 60, false, $user) === -1, 'Cannot detach from an inaccessible former project');
+$db->query('UPDATE pvtest_propal SET fk_projet=NULL,fk_soc=2 WHERE rowid=60');
+$user->rights->societe->client->voir = 0;
+verify($totals->setProposalProject($projects[15], 60, false, $user) === -1, 'Proposal third-party commercial restriction is enforced');
+$user->rights->societe->client->voir = 1;
+$db->query('UPDATE pvtest_propal SET fk_soc=1 WHERE rowid=60');
+
+// Native overview referents, summary count and detail HTML, with no display-driven write.
+$hookmanager->initHooks(array('projectOverview'));
+$object = $projects[11];
+$action = '';
+$before = scalar('SELECT COUNT(*) FROM pvtest_element_element');
+verify($hookmanager->executeHooks('completeListOfReferent', array(), $object, $action) === 0
+	&& array_key_exists('powerplantpv_powerplant', $hookmanager->resArray), 'Native overview discovers central referent');
+$parameters = array('key' => 'powerplantpv_powerplant');
+verify($hookmanager->executeHooks('printOverviewProfit', $parameters, $object, $action) > 0
+	&& strpos($hookmanager->resPrint, '<td class="right">2</td>') !== false, 'Overview summary counts visible linked plants');
+verify($hookmanager->executeHooks('printOverviewDetail', $parameters, $object, $action) > 0, 'Native overview detail hook replaces only plant section');
+$dom->loadHTML($hookmanager->resPrint);
+$xpath = new DOMXPath($dom);
+verify($xpath->query('//table//tr[contains(@class,"oddeven")]')->length === 2
+	&& strpos($hookmanager->resPrint, 'PV1') !== false && strpos($hookmanager->resPrint, 'PV2') !== false
+	&& strpos($hookmanager->resPrint, 'SECRET') === false, 'Overview actually lists both authorized centrals');
+verify($xpath->query('//td[contains(@class,"right")]//*[contains(@class,"badge")]')->length === 2, 'Overview plant statuses retain native badges');
+verify($hookmanager->executeHooks('printOverviewDetail', array('key' => 'propal'), $object, $action) === 0
+	&& $hookmanager->resPrint === '', 'Successive hook call cannot leak plant rows into proposal section');
+$object = $projects[15];
+verify($hookmanager->executeHooks('printOverviewDetail', $parameters, $object, $action) > 0
+	&& strpos($hookmanager->resPrint, 'NoRecordFound') !== false, 'Empty central section uses native empty row');
+$user->rights->powerplantpv->powerplant->read = 0;
+verify($hookmanager->executeHooks('printOverviewDetail', $parameters, $object, $action) > 0
+	&& $hookmanager->resPrint === '', 'No central detail leaks without central read');
+verify($hookmanager->executeHooks('llxHeader', array()) === 0
+	&& scalar('SELECT COUNT(*) FROM pvtest_element_element') == $before, 'Plain overview read performs no relation mutation');
+// CSRF URL enrichment also works for a project editor without central read permission.
+verify($hookmanager->executeHooks('formDolBanner', array(), $object, $action) === 0
+	&& strpos($hookmanager->resPrint, 'searchParams.set("token"') !== false, 'Historical overview unlink UI receives native CSRF token');
+$user->rights->powerplantpv->powerplant->read = 1;
+
+// SQL environment filtering remains inside the access scope. The MC service below
+// is a fixture for native getEntity(), not a real Multicompany installation.
+verify(count($links->linked($projects[11], $user, array(1))) === 2, 'Authorized SQL environment filter retains both plants');
+verify(count($links->linked($projects[11], $user, array(2,999))) === 0, 'SQL environment filter cannot extend authorized entities');
+$mc = new class {
+	public function getEntity($element, $shared = 1, $currentobject = null) { return $element === 'powerplant' ? '1,2' : '1'; }
+};
+$conf->multicompany = (object) array('enabled' => 1);
+$conf->modules['multicompany'] = 1;
+$db->query('CREATE TABLE pvtest_entity (rowid INTEGER PRIMARY KEY, label TEXT)');
+$db->query("INSERT INTO pvtest_entity VALUES (1,'Main Lab'),(2,'Shared Lab')");
+$db->query("INSERT INTO pvtest_element_element (fk_source,sourcetype,fk_target,targettype) VALUES (11,'project',9,'powerplant@powerplantpv')");
+$_GET['powerplantpv_overview_entities'] = array('2');
+$object = $projects[11];
+verify($hookmanager->executeHooks('printOverviewDetail', $parameters, $object, $action) > 0, 'Overview renders shared-entity filter');
+$dom->loadHTML($hookmanager->resPrint);
+$xpath = new DOMXPath($dom);
+verify($xpath->query('//select[@multiple and @name="powerplantpv_overview_entities[]"]')->length === 1, 'Shared overview filter uses native multiselect2');
+verify($xpath->query('//tr[contains(@class,"oddeven")]')->length === 1
+	&& strpos($hookmanager->resPrint, 'multicompany-entity-card-container') !== false
+	&& strpos($hookmanager->resPrint, 'Shared Lab') !== false
+	&& strpos($hookmanager->resPrint, '>PV1<') === false, 'Shared overview lists only the selected authorized environment with its native badge');
+verify($hookmanager->executeHooks('printOverviewProfit', $parameters, $object, $action) > 0
+	&& strpos($hookmanager->resPrint, '<td class="right">1</td>') !== false, 'Summary and detail use the same SQL environment filter');
+unset($_GET['powerplantpv_overview_entities'], $conf->modules['multicompany'], $conf->multicompany, $mc);
+$db->query("DELETE FROM pvtest_element_element WHERE fk_source=11 AND fk_target=9 AND sourcetype='project'");
+
+// Separate invocations reach the real header dispatch and its terminating redirect.
+// The shutdown assertion observes persisted SQL after the hook exits (CLI has no HTTP headers).
+$requestMode = $argv[2] ?? '';
+if (in_array($requestMode, array('overview-link', 'overview-move', 'overview-unlink', 'overview-failure', 'overview-no-token', 'overview-bad-token'), true)) {
+	if ($requestMode === 'overview-unlink') {
+		verify($totals->setProposalProject($projects[15], 60, false, $user) === 1, 'Prepare request removal');
+	} elseif ($requestMode === 'overview-move') {
+		verify($totals->setProposalProject($projects[14], 60, false, $user) === 1, 'Prepare request move');
+	}
+	$db->failure = $requestMode === 'overview-failure' ? 'UPDATE pvtest_projet_extrafields' : '';
+	$object = $projects[15];
+	$action = $requestMode === 'overview-unlink' ? 'unlink' : 'addelement';
+	$_SERVER['PHP_SELF'] = '/projet/element.php';
+	$_GET = array('tablename' => 'propal', 'elementselect' => '60', 'token' => newToken(), 'projectfield' => 'forged_field');
+	if ($requestMode === 'overview-no-token') {
+		unset($_GET['token']);
+	} elseif ($requestMode === 'overview-bad-token') {
+		$_GET['token'] = 'invalid';
+	}
+	ob_start(); // Capture the native access-forbidden response in negative request scenarios.
+	register_shutdown_function(function () use ($requestMode) {
+		$response = ob_get_clean();
+		$linked = scalar('SELECT fk_projet FROM pvtest_propal WHERE rowid=60');
+		$power = scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=15');
+		$attaches = in_array($requestMode, array('overview-link', 'overview-move'), true);
+		verify($attaches ? ($linked == 15 && $power == 10) : ($linked === null && $power == 0), 'Actual overview request commits or rolls back relation and totals together');
+		if ($requestMode === 'overview-move') {
+			verify(scalar('SELECT powerplantpv_signed_peak_power FROM pvtest_projet_extrafields WHERE fk_object=14') == 5, 'Actual move clears former project total');
+		}
+		if (in_array($requestMode, array('overview-no-token', 'overview-bad-token'), true)) {
+			verify(strpos($response, 'Invalid CSRF token') !== false, 'Native forbidden response rejects missing or forged token');
+		}
+		echo 'Overview request passed: '.$requestMode."\n";
+	});
+	$hookmanager->executeHooks('llxHeader', array());
+	throw new RuntimeException('Handled overview request did not redirect');
+}
 
 echo $checks.' checks passed; PHP '.PHP_VERSION.', Dolibarr '.DOL_VERSION."; native objects/helpers, SQLite SQL, locking not simulated.\n";

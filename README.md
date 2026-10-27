@@ -104,12 +104,15 @@ Power plants and projects can be linked many-to-many using Dolibarr's native mul
 the linked objects and offer an inline editor; the power plant creation and edit forms also offer project selection.
 The card being edited requires its own write permission; linked counterparts require read permission and access
 to their entity and business scope. Invisible relations are preserved. A stale selection is rejected on save.
+The project overview lists the linked plants with their reference, label and native status, and counts them in its
+summary. Plant links are independent of the overview's commercial date filter and do not affect financial profit.
 
 On project cards, the six photovoltaic JPSUN fields are replaced visually by **Signed peak power** and **Signed capacity**.
 Their definitions and historical data remain intact. The new read-only fields sum the stored technical totals of proposals
 attached through Dolibarr's native project field, with signed or billed status. Signing updates them after JPSUN's automatic
 project creation. Reopening, refusal, deletion, moving a proposal and changes to product data update them as well.
-Some historical project overview link/unlink operations emit no proposal event; run the administrator recalculation after using those paths.
+Attaching or removing a proposal from the project overview also updates both signed totals automatically. Moving a
+proposal refreshes its former and new projects together. A failed recalculation rolls back the relation change.
 Unknown capacity stays empty rather than displaying a partial sum; an unavailable proposal entity makes the corresponding
 project total unavailable. A known zero remains zero. Units are displayed after values through native extrafield CSS metadata.
 

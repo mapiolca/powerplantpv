@@ -61,9 +61,10 @@ class PowerPlantPVProjectLink
 	/**
 	 * Read available power plants, including the native sales representative restriction.
 	 * @param User $user Actor
+	 * @param list<int> $entityids Optional environment filter, intersected with the authorized SQL scope
 	 * @return array<int,PowerPlant> Power plants indexed by id
 	 */
-	public function powerplants(User $user)
+	public function powerplants(User $user, array $entityids = array())
 	{
 		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
 			return array();
@@ -71,6 +72,9 @@ class PowerPlantPVProjectLink
 		$sql = 'SELECT p.rowid, p.ref, p.label, p.entity, p.fk_soc, p.status';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'powerplantpv_powerplant as p';
 		$sql .= ' WHERE p.entity IN ('.$this->db->sanitize(getEntity('powerplant')).')';
+		if ($entityids) {
+			$sql .= ' AND p.entity IN ('.$this->db->sanitize(implode(',', array_map('intval', $entityids))).')';
+		}
 		if ($user->socid > 0) {
 			$sql .= ' AND p.fk_soc = '.((int) $user->socid);
 		} elseif (isModEnabled('societe') && !$user->hasRight('societe', 'client', 'voir')) {
@@ -147,15 +151,16 @@ class PowerPlantPVProjectLink
 	 * Visible counterparts, sharing the exact same scope as the selectors.
 	 * @param CommonObject $object Project or power plant
 	 * @param User $user Actor
+	 * @param list<int> $entityids Optional power plant environment filter
 	 * @return array<int,CommonObject> Linked objects
 	 */
-	public function linked($object, User $user)
+	public function linked($object, User $user, array $entityids = array())
 	{
 		$owners = $object instanceof Project ? $this->projects($user) : $this->powerplants($user);
 		if (!isset($owners[(int) $object->id])) {
 			return array();
 		}
-		$options = $object instanceof Project ? $this->powerplants($user) : $this->projects($user);
+		$options = $object instanceof Project ? $this->powerplants($user, $entityids) : $this->projects($user);
 		$linked = array();
 		$key = $object instanceof Project ? 'powerplant' : 'project';
 		foreach ($this->rows($object) as $row) {
