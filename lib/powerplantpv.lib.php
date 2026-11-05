@@ -2722,3 +2722,5 @@ function powerplantpvSyncNativePowerPlantLinks($object, $selectedids, $user)
 
 	return 1;
 }
+
+require_once __DIR__.'/powerplantpv_proposal_modules.lib.php';

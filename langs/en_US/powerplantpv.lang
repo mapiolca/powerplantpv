@@ -1766,3 +1766,6 @@ Notify_POWERPLANTPV_POWERPLANT_UPDATE = Power plant modified
 PowerPlantPVProjectLinksFeature = Project links and signed totals
 PowerPlantPVProjectLinksCompatibilityDescription = Multiple links, reciprocal banners and signed proposal totals on projects, available from Dolibarr v20.
 PowerPlantPVRequiresProjects = Enable the Projects module to use this feature.
+
+PowerPlantPVConsumptionType=Consumption type
+PowerPlantPVConsumptionTypeHelp=Optional consumption wording (for example: total self-consumption per dwelling), also used on PDF covers.

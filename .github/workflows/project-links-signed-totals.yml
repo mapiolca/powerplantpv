@@ -59,3 +59,6 @@ jobs:
           for mode in overview-link overview-move overview-unlink overview-failure overview-no-token overview-bad-token; do
             php powerplantpv/test/project_links_signed_totals.php dolibarr/htdocs "$mode"
           done
+
+      - name: Proposal module count without commercial writes
+        run: php powerplantpv/test/proposal_modules.php
