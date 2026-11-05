@@ -6,7 +6,15 @@ if (PHP_SAPI !== 'cli') {
 	exit(1);
 }
 define('MAIN_DB_PREFIX', 'fixture_');
-require_once __DIR__.'/../lib/powerplantpv.lib.php';
+// Isolated SQL harness: emulate only module-path resolution, without an ERP bootstrap.
+function dol_include_once($path) {
+    if (!in_array($path, array('/powerplantpv/lib/powerplantpv.lib.php', '/powerplantpv/lib/powerplantpv_proposal_modules.lib.php'), true)) {
+        throw new RuntimeException('Unexpected module include');
+    }
+    require_once dirname(__DIR__).substr($path, strlen('/powerplantpv'));
+    return 1;
+}
+dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 $allowed = true;
 $active = true;
 function isModEnabled($key) { return $GLOBALS['active']; }
