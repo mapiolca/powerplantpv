@@ -434,6 +434,9 @@ class ConsumptionFieldFixture
         $this->attributes[$element]['label'] = array();
         foreach ($this->definitions[$element] ?? array() as $key => $definition) {
             $this->attributes[$element]['label'][$key] = $definition['label'];
+            foreach ($definition['metadata'] ?? array() as $attribute => $value) {
+                $this->attributes[$element][$attribute][$key] = $value;
+            }
         }
         return 1;
     }
@@ -441,6 +444,14 @@ class ConsumptionFieldFixture
         if ($this->fail) { $this->error = 'Simulated extrafield initialization failure'; return -1; }
         $this->writes[] = $args;
         $this->definitions[$args[5]][$args[0]] = array('label' => $args[1], 'args' => $args);
+        return 1;
+    }
+    public function update(...$args) {
+        if ($this->fail) { $this->error = 'Simulated upgrade failure'; return -1; }
+        $this->writes[] = $args;
+        $key = $args[0]; $element = $args[4];
+        $this->definitions[$element][$key]['metadata']['type'] = $args[2];
+        $this->definitions[$element][$key]['metadata']['enabled'] = $args[17];
         return 1;
     }
 }
@@ -502,5 +513,35 @@ foreach (array('propal', 'commande', 'facture', 'lmdblead_lead') as $target) {
 }
 $conf->entity = 1;
 unset($conf->modules['lmdblead'], $conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA);
+
+// Existing module-owned metadata is upgraded, without converting a single document value.
+$fields = new ConsumptionFieldFixture();
+$fieldKey = 'powerplantpv_consumption_type';
+$metadata = array('type' => 'varchar', 'entityid' => '2', 'pos' => 217, 'list' => '3', 'alwayseditable' => 0,
+    'required' => 0, 'unique' => 0, 'enabled' => 'isModEnabled("powerplantpv")', 'css' => 'minwidth100',
+    'aiprompt' => 'Keep prompt', 'emptyonclone' => 1, 'showintooltip' => 1, 'personal_data' => 1);
+$fields->definitions['propal'][$fieldKey] = array('label' => 'PowerPlantPVConsumptionType', 'metadata' => $metadata, 'value' => 'Existing text');
+verify($method->invoke($descriptor, $fields) === 1, 'Original text definition upgrades successfully');
+$upgrade = $fields->writes[0];
+verify($upgrade[2] === 'select' && $upgrade[8]['options'] === PowerPlant::getConnectionTypeOptions()
+    && $upgrade[7] === 217 && $upgrade[9] === 0 && $upgrade[11] === '3' && $upgrade[15] === '2'
+    && $upgrade[20]['css'] === 'minwidth100', 'Metadata upgrade preserves owner, position, visibility, editability and CSS');
+verify($fields->definitions['propal'][$fieldKey]['value'] === 'Existing text', 'No historical document value conversion');
+if (version_compare(DOL_VERSION, '22.0.0', '>=')) {
+    verify($upgrade[21] === 'Keep prompt', 'AI prompt is preserved where supported');
+}
+if (version_compare(DOL_VERSION, '23.0.0', '>=')) {
+    verify($upgrade[22] === 1, 'Clone metadata is preserved where supported');
+}
+if (version_compare(DOL_VERSION, '24.0.0', '>=')) {
+    verify($upgrade[23] === 1 && $upgrade[24] === 1, 'Tooltip and personal-data metadata are preserved where supported');
+}
+$count = count($fields->writes);
+verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === $count, 'Upgraded definitions are idempotent');
+$fields->definitions['propal'][$fieldKey]['metadata']['enabled'] = 'isModEnabled(powerplantpv)';
+verify($method->invoke($descriptor, $fields) === 1 && end($fields->writes)[17] === 'isModEnabled("powerplantpv")', 'Repair native editor lost quotes without weakening CSRF or eval');
+$fields->definitions['propal'][$fieldKey]['metadata']['type'] = 'varchar';
+$fields->fail = true;
+verify($method->invoke($descriptor, $fields) < 0, 'Metadata upgrade error is reported');
 
 echo $checks.' checks passed; PHP '.PHP_VERSION.', Dolibarr '.DOL_VERSION."; native objects/helpers, SQLite SQL, locking not simulated.\n";

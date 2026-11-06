@@ -5,6 +5,7 @@
 - « Type de consommation » : liste native sur devis, commandes et factures, basée sur les clés et traductions des types de raccordement des centrales (`PowerPlant::getConnectionTypeOptions()`).
 - Même extrafield sur les leads de LMDB Lead lorsque le module et son schéma d’extrafields sont actifs ; initialisation dans l’entité courante, définitions existantes conservées.
 - Pas de reprise de textes historiques ni de conversion de données. Actualiser PowerPlantPV après l’activation de LMDB Lead pour installer le champ manquant ; la couverture JPSUN 1.25.1 affiche le libellé traduit.
+- Actualisation native de l’ancienne définition texte appartenant au module, avec conservation des réglages et des valeurs ; réparation ciblée de la condition d’activation lorsque l’éditeur natif retire ses guillemets.
 
 ## 1.6.0 — 2026-11-06
 

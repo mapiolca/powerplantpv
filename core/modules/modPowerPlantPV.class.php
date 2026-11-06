@@ -2551,13 +2551,59 @@ class modPowerPlantPV extends DolibarrModules
 			$targets[] = 'lmdblead_lead';
 		}
 		$params = array('options' => PowerPlant::getConnectionTypeOptions());
+		$key = 'powerplantpv_consumption_type';
 		foreach ($targets as $elementtype) {
 			$extrafields->fetch_name_optionals_label($elementtype);
 			if ($extrafields->error !== '') {
 				$this->errors[] = $extrafields->error;
 				return -1;
 			}
-			if (!isset($extrafields->attributes[$elementtype]['label']['powerplantpv_consumption_type'])) {
+			if (isset($extrafields->attributes[$elementtype]['label'][$key])) {
+				// Native fetch stores expression strings and entity IDs not fully described by its PHPDoc.
+				/** @var array{label:array<string,string>, type?:array<string,string>, enabled?:array<string,string|int>,
+				 * unique?:array<string,int>, required?:array<string,int>, pos?:array<string,int>, alwayseditable?:array<string,int>,
+				 * perms?:array<string,string>, list?:array<string,string|int>, help?:array<string,string>, default?:array<string,string|null>,
+				 * computed?:array<string,string>, entityid?:array<string,string|int>, langfile?:array<string,string>,
+				 * totalizable?:array<string,int>, printable?:array<string,int>, css?:array<string,string>, cssview?:array<string,string>,
+				 * csslist?:array<string,string>, aiprompt?:array<string,string>, emptyonclone?:array<string,int>,
+				 * showintooltip?:array<string,int>, personal_data?:array<string,int>} $definition */
+				$definition = $extrafields->attributes[$elementtype];
+				$type = $definition['type'][$key] ?? '';
+				$enabled = $definition['enabled'][$key] ?? 'isModEnabled("powerplantpv")';
+				// Upgrade only our original text definition, or repair the native editor's lost quotes.
+				if ($definition['label'][$key] !== 'PowerPlantPVConsumptionType'
+					|| !($type === 'varchar' || ($type === 'select' && $enabled === 'isModEnabled(powerplantpv)'))) {
+					continue;
+				}
+				$arguments = array($key, $definition['label'][$key], 'select', '255', $elementtype,
+					(int) ($definition['unique'][$key] ?? 0), (int) ($definition['required'][$key] ?? 0),
+					(int) ($definition['pos'][$key] ?? 202), $params, (int) ($definition['alwayseditable'][$key] ?? 1),
+					(string) ($definition['perms'][$key] ?? ''), (string) ($definition['list'][$key] ?? '-1'),
+					(string) ($definition['help'][$key] ?? 'PowerPlantPVConsumptionTypeHelp'),
+					(string) ($definition['default'][$key] ?? ''), (string) ($definition['computed'][$key] ?? ''),
+					(string) ($definition['entityid'][$key] ?? (int) $conf->entity),
+					(string) ($definition['langfile'][$key] ?? 'powerplantpv@powerplantpv'),
+					$enabled === 'isModEnabled(powerplantpv)' ? 'isModEnabled("powerplantpv")' : (string) $enabled,
+					(int) ($definition['totalizable'][$key] ?? 0), (int) ($definition['printable'][$key] ?? 0),
+					array('css' => (string) ($definition['css'][$key] ?? ''),
+						'cssview' => (string) ($definition['cssview'][$key] ?? ''), 'csslist' => (string) ($definition['csslist'][$key] ?? '')));
+				// Native update() preserves the AI prompt too; later metadata is passed only where supported.
+				if (version_compare(DOL_VERSION, '22.0.0', '>=')) {
+					$arguments[] = (string) ($definition['aiprompt'][$key] ?? '');
+				}
+				if (version_compare(DOL_VERSION, '23.0.0', '>=')) {
+					$arguments[] = (int) ($definition['emptyonclone'][$key] ?? 0);
+				}
+				if (version_compare(DOL_VERSION, '24.0.0', '>=')) {
+					$arguments[] = (int) ($definition['showintooltip'][$key] ?? 0);
+					$arguments[] = (int) ($definition['personal_data'][$key] ?? 0);
+				}
+				$result = $extrafields->update(...$arguments);
+				if ($result <= 0) {
+					$this->errors[] = $extrafields->error;
+					return -1;
+				}
+			} else {
 				$result = $extrafields->addExtraField('powerplantpv_consumption_type', 'PowerPlantPVConsumptionType', 'select', 202, '255', $elementtype, 0, 0, '', $params, 1, '', '-1', 'PowerPlantPVConsumptionTypeHelp', '', (string) (int) $conf->entity, 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
 				if ($result < 0) {
 					$this->errors[] = $extrafields->error;

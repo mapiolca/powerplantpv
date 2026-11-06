@@ -4,16 +4,17 @@
 
 Lead initialization requires LMDB Lead to be active and `LMDBLEAD_EXTRAFIELDS_SCHEMA = 1`, matching its native extrafields storage contract. PowerPlantPV does not install lead tables or modify LMDB Lead code, permissions or revision controls. Activate/update LMDB Lead first, then update PowerPlantPV in each relevant entity. The Compatibilité page reports this dependency. Lead-to-proposal propagation is not added by this change.
 
-Existing definitions are deliberately preserved on repeat initialization. On a test instance retaining an earlier free-text definition, adjust/remove it through native extrafield administration before initializing this select. The user explicitly excluded historical conversion from this patch. No document values, rights, module settings or business records are rewritten.
+Existing customized definitions are deliberately preserved on repeat initialization. The original module-owned text definition is upgraded with `ExtraFields::update()`, preserving metadata, while the exact lost-quote activation condition observed in the native editor is repaired. No historical choices are added and no document values, rights or business records are rewritten. The user explicitly excluded historical value conversion from this patch.
 
 ## Checks
 
 `php -d extension=pdo_sqlite test/project_links_signed_totals.php /path/to/dolibarr/htdocs`
 
-- 151 checks with native objects/helpers, HookManager and SQLite SQL; the extrafield installation manager is simulated.
+- 160 checks on v25 with native objects/helpers, HookManager and SQLite SQL; the extrafield installation manager is simulated (157–160 depending on metadata supported by the core revision).
 - All three commercial targets use exactly the connection dictionary; installed leads receive the same field. Absent leads and an incomplete schema are skipped.
 - Entity IDs 1 and 2, repeat initialization, deliberately empty values and customized definitions are preserved; installation errors are reported.
 - Real native ExtraFields input/output rendering covers all four targets and all four values, empty output and French/English labels. Native selectors retain technical keys.
+- Original text-definition upgrade, settings/owner/CSS preservation, version-dependent AI/clone/tooltip/personal-data metadata, repeat activation, unchanged business value and failure of the metadata upgrade.
 
 Local execution: PHP 8.4.22, Dolibarr 25.0.0-alpha sources `0ac96524bf68b063a44d6af8137e05bf11c227c8`. Local caches 20–24 are incomplete and cannot run the complete scenario; the existing six-version CI uses complete checkouts and must be checked on the published SHA. This is not six full ERP instances or a real LMDB Lead browser acceptance.
 
