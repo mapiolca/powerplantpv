@@ -2722,3 +2722,5 @@ function powerplantpvSyncNativePowerPlantLinks($object, $selectedids, $user)
 
 	return 1;
 }
+
+dol_include_once('/powerplantpv/lib/powerplantpv_proposal_modules.lib.php');

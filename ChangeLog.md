@@ -1,5 +1,11 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.6.0 — 2026-11-06
+
+- Devis, commandes et factures : nouveau champ texte facultatif « Type de consommation », conservé lors des réactivations et utilisable dans les couvertures documentaires.
+- API PHP de comptage des modules photovoltaïques d’un devis en lecture seule, selon la classification MODULE, les droits natifs et les entités autorisées ; aucun recalcul des totaux techniques.
+- Après mise à jour : actualiser le module par le parcours natif pour créer l’extrafield manquant, sans écrasement d’une définition existante.
+
 ## 1.5.0 — 2026-10-27
 
 - Vue d’ensemble des projets : affichage des centrales liées et de leur nombre, selon les droits et les entités

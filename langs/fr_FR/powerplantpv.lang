@@ -1766,3 +1766,6 @@ Notify_POWERPLANTPV_POWERPLANT_UPDATE = Centrale modifiée
 PowerPlantPVProjectLinksFeature = Liaisons projets et totaux signés
 PowerPlantPVProjectLinksCompatibilityDescription = Liaisons multiples, bannières réciproques et cumuls des devis signés sur les projets, disponibles dès Dolibarr v20.
 PowerPlantPVRequiresProjects = Activer le module Projets pour utiliser cette fonctionnalité.
+
+PowerPlantPVConsumptionType=Type de consommation
+PowerPlantPVConsumptionTypeHelp=Texte facultatif décrivant la consommation (exemple : autoconsommation totale par logement), repris notamment sur les couvertures PDF.

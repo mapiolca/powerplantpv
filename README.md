@@ -251,3 +251,13 @@ GPLv3 or (at your option) any later version. See file COPYING for more informati
 ### Documentation
 
 All texts and readme's are licensed under [GFDL](https://www.gnu.org/licenses/fdl-1.3.en.html).
+
+### Consumption type and offer covers — 1.6.0
+
+The optional proposal, order and invoice extrafield `powerplantpv_consumption_type` stores free-text consumption wording (also used as the offer cover subtitle).
+Update the module through the native administration workflow to create it; existing definitions and values are preserved.
+`powerplantpvCountProposalModules($proposal, $actor)` returns `result`, `quantity` and `error` for a loaded proposal.
+It checks native proposal access and sums quantities of products classified as MODULE, within authorized proposal and product entities, without changing peak power or storage capacity. Negative quantities offset positive lines. Missing classification returns zero; read errors remain errors.
+JPSUN 1.25.0 uses this API for its optional cover module count.
+
+The field uses the same technical key on proposals, orders and invoices, allowing native document conversion to transfer its value. Existing documents are not synchronized retroactively; manual destination choices remain independent.

@@ -422,4 +422,42 @@ if (in_array($requestMode, array('overview-link', 'overview-move', 'overview-unl
 	throw new RuntimeException('Handled overview request did not redirect');
 }
 
+// Descriptor orchestration test: field-manager replies are simulated; native API contract above remains unchanged.
+class ConsumptionFieldFixture
+{
+    public $definitions = array();
+    public $attributes = array();
+    public $writes = array();
+    public $fail = false;
+    public $error = 'Simulated extrafield initialization failure';
+    public function fetch_name_optionals_label($element) {
+        $this->attributes[$element]['label'] = array();
+        foreach ($this->definitions[$element] ?? array() as $key => $definition) {
+            $this->attributes[$element]['label'][$key] = $definition['label'];
+        }
+        return 1;
+    }
+    public function addExtraField(...$args) {
+        if ($this->fail) { return -1; }
+        $this->writes[] = $args;
+        $this->definitions[$args[5]][$args[0]] = array('label' => $args[1], 'args' => $args);
+        return 1;
+    }
+}
+$method = new ReflectionMethod(modPowerPlantPV::class, 'ensureCommercialConsumptionTypeExtrafields');
+$method->setAccessible(true);
+$fields = new ConsumptionFieldFixture();
+verify($method->invoke($descriptor, $fields) === 1, 'Consumption type initialization succeeds');
+verify(count($fields->writes) === 3, 'Consumption type exists on proposals, orders and invoices');
+foreach (array('propal', 'commande', 'facture') as $target) {
+    verify($fields->definitions[$target]['powerplantpv_consumption_type']['args'][2] === 'varchar', 'Consumption wording is editable text on '.$target);
+    $fields->definitions[$target]['powerplantpv_consumption_type']['label'] = 'Customized wording';
+    $fields->definitions[$target]['powerplantpv_consumption_type']['value'] = '';
+}
+$before = $fields->definitions;
+verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === 3 && $fields->definitions === $before, 'Repeated initialization preserves customized definitions and deliberately empty values');
+$fields = new ConsumptionFieldFixture();
+$fields->fail = true;
+verify($method->invoke($descriptor, $fields) < 0, 'Consumption field initialization error is not hidden');
+
 echo $checks.' checks passed; PHP '.PHP_VERSION.', Dolibarr '.DOL_VERSION."; native objects/helpers, SQLite SQL, locking not simulated.\n";
