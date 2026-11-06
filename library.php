@@ -53,8 +53,8 @@ try {
 	setEventMessages($langs->trans($message), null, 'errors');
 }
 llxHeader('', $langs->trans('PVLibraryTitle'));
-print load_fiche_titre($langs->trans('PVLibraryTitle'), '', 'book');
 if (is_array($item)) {
+	print load_fiche_titre($langs->trans('PVLibraryTitle'), '', 'book');
 	print '<table class="border centpercent tableforfield">';
 	foreach (array('manufacturer' => 'PVLibraryManufacturer', 'model' => 'PVLibraryModel', 'label' => 'Label', 'revision' => 'PVLibraryRevision') as $key => $label) {
 		print '<tr><td class="titlefield">'.$langs->trans($label).'</td><td>'.dol_escape_htmltag((string) $item[$key]).'</td></tr>';
