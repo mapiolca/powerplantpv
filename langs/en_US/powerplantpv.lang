@@ -1768,4 +1768,7 @@ PowerPlantPVProjectLinksCompatibilityDescription = Multiple links, reciprocal ba
 PowerPlantPVRequiresProjects = Enable the Projects module to use this feature.
 
 PowerPlantPVConsumptionType=Consumption type
-PowerPlantPVConsumptionTypeHelp=Optional consumption wording (for example: total self-consumption per dwelling), also used on PDF covers.
+PowerPlantPVConsumptionTypeHelp=Optional choice from the same list as power plant connection types, also used on PDF covers.
+PowerPlantPVLeadConsumptionType=Lead consumption type
+PowerPlantPVLeadConsumptionTypeDescription=Shared connection-type list for power plants, proposals, orders, invoices and LMDB Lead records. Available from Dolibarr v20 with LMDB Lead and its extrafields schema enabled.
+PowerPlantPVRequiresLeadExtrafields=Enable LMDB Lead and its extrafields schema, then update PowerPlantPV in the relevant entity.
