@@ -84,6 +84,16 @@ class PowerPlantPVCompatibility
 		return $supported;
 	}
 
+	/** Lead storage must have its native extrafields schema installed first.
+	 * @return bool
+	 */
+	public static function isLeadConsumptionTypeAvailable()
+	{
+		return self::isDolibarrVersionAtLeast(self::MIN_DOLIBARR_VERSION)
+			&& self::isPhpVersionAtLeast(self::MIN_PHP_VERSION)
+			&& isModEnabled('lmdblead') && getDolGlobalInt('LMDBLEAD_EXTRAFIELDS_SCHEMA') === 1;
+	}
+
 	/**
 	 * Return feature compatibility definitions.
 	 *
@@ -162,6 +172,14 @@ class PowerPlantPVCompatibility
 				'min_php' => self::MIN_PHP_VERSION,
 				'available' => $baseavailable,
 				'reason' => ($baseavailable ? '' : 'PowerPlantPVRequiresDolibarr20Php80'),
+			),
+			'lead_consumption_type' => array(
+				'label' => 'PowerPlantPVLeadConsumptionType',
+				'description' => 'PowerPlantPVLeadConsumptionTypeDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => self::isLeadConsumptionTypeAvailable(),
+				'reason' => self::isLeadConsumptionTypeAvailable() ? '' : 'PowerPlantPVRequiresLeadExtrafields',
 			),
 			'project_links_signed_totals' => array(
 				'label' => 'PowerPlantPVProjectLinksFeature',

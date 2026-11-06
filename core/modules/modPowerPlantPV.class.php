@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.6.0';
+		$this->version = '1.6.1';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -2537,16 +2537,28 @@ class modPowerPlantPV extends DolibarrModules
 		return 1;
 	}
 
-	/** Initialize optional wording on all three document types without altering existing definitions.
+	/** Initialize connection-type choices without altering existing definitions or values.
 	 * @param ExtraFields $extrafields Native extrafield manager
 	 * @return int
 	 */
 	private function ensureCommercialConsumptionTypeExtrafields($extrafields)
 	{
-		foreach (array('propal', 'commande', 'facture') as $elementtype) {
+		global $conf;
+		require_once __DIR__.'/../../class/powerplant.class.php';
+		require_once __DIR__.'/../../class/powerplantpvcompatibility.class.php';
+		$targets = array('propal', 'commande', 'facture');
+		if (PowerPlantPVCompatibility::isLeadConsumptionTypeAvailable()) {
+			$targets[] = 'lmdblead_lead';
+		}
+		$params = array('options' => PowerPlant::getConnectionTypeOptions());
+		foreach ($targets as $elementtype) {
 			$extrafields->fetch_name_optionals_label($elementtype);
+			if ($extrafields->error !== '') {
+				$this->errors[] = $extrafields->error;
+				return -1;
+			}
 			if (!isset($extrafields->attributes[$elementtype]['label']['powerplantpv_consumption_type'])) {
-				$result = $extrafields->addExtraField('powerplantpv_consumption_type', 'PowerPlantPVConsumptionType', 'varchar', 202, '255', $elementtype, 0, 0, '', '', 1, '', '-1', 'PowerPlantPVConsumptionTypeHelp', '', '', 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
+				$result = $extrafields->addExtraField('powerplantpv_consumption_type', 'PowerPlantPVConsumptionType', 'select', 202, '255', $elementtype, 0, 0, '', $params, 1, '', '-1', 'PowerPlantPVConsumptionTypeHelp', '', (string) (int) $conf->entity, 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
 				if ($result < 0) {
 					$this->errors[] = $extrafields->error;
 					return -1;

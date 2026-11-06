@@ -429,7 +429,7 @@ class ConsumptionFieldFixture
     public $attributes = array();
     public $writes = array();
     public $fail = false;
-    public $error = 'Simulated extrafield initialization failure';
+    public $error = '';
     public function fetch_name_optionals_label($element) {
         $this->attributes[$element]['label'] = array();
         foreach ($this->definitions[$element] ?? array() as $key => $definition) {
@@ -438,7 +438,7 @@ class ConsumptionFieldFixture
         return 1;
     }
     public function addExtraField(...$args) {
-        if ($this->fail) { return -1; }
+        if ($this->fail) { $this->error = 'Simulated extrafield initialization failure'; return -1; }
         $this->writes[] = $args;
         $this->definitions[$args[5]][$args[0]] = array('label' => $args[1], 'args' => $args);
         return 1;
@@ -450,7 +450,9 @@ $fields = new ConsumptionFieldFixture();
 verify($method->invoke($descriptor, $fields) === 1, 'Consumption type initialization succeeds');
 verify(count($fields->writes) === 3, 'Consumption type exists on proposals, orders and invoices');
 foreach (array('propal', 'commande', 'facture') as $target) {
-    verify($fields->definitions[$target]['powerplantpv_consumption_type']['args'][2] === 'varchar', 'Consumption wording is editable text on '.$target);
+    $args = $fields->definitions[$target]['powerplantpv_consumption_type']['args'];
+    verify($args[2] === 'select' && $args[9]['options'] === PowerPlant::getConnectionTypeOptions(), 'Consumption uses the power plant connection dictionary on '.$target);
+    verify($args[15] === '1', 'Consumption field belongs to the active entity on '.$target);
     $fields->definitions[$target]['powerplantpv_consumption_type']['label'] = 'Customized wording';
     $fields->definitions[$target]['powerplantpv_consumption_type']['value'] = '';
 }
@@ -459,5 +461,46 @@ verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) ===
 $fields = new ConsumptionFieldFixture();
 $fields->fail = true;
 verify($method->invoke($descriptor, $fields) < 0, 'Consumption field initialization error is not hidden');
+
+// The optional lead integration never installs a table for an absent/incomplete module.
+$conf->modules['lmdblead'] = 1;
+$conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA = 0;
+$fields = new ConsumptionFieldFixture();
+verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === 3, 'Lead field is omitted before the lead extrafields schema is ready');
+$conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA = 1;
+$conf->entity = 2;
+$fields = new ConsumptionFieldFixture();
+verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === 4, 'Installed LMDB Lead receives the same field');
+$args = $fields->definitions['lmdblead_lead']['powerplantpv_consumption_type']['args'];
+verify($args[2] === 'select' && $args[9]['options'] === PowerPlant::getConnectionTypeOptions() && $args[15] === '2', 'Lead uses the exact dictionary in its owning configuration entity');
+$before = $fields->definitions;
+verify($method->invoke($descriptor, $fields) === 1 && $fields->definitions === $before && count($fields->writes) === 4, 'Repeated activation preserves all four definitions');
+
+// Exercise native select rendering: values remain technical keys; labels follow the output language.
+$nativeFields = new ExtraFields($db);
+$fieldKey = 'powerplantpv_consumption_type';
+foreach (array('propal', 'commande', 'facture', 'lmdblead_lead') as $target) {
+    foreach (array('label' => 'PowerPlantPVConsumptionType', 'type' => 'select', 'size' => '255', 'default' => '',
+        'computed' => '', 'unique' => 0, 'required' => 0, 'param' => array('options' => PowerPlant::getConnectionTypeOptions()),
+        'langfile' => 'powerplantpv@powerplantpv', 'alwayseditable' => 1, 'perms' => '', 'list' => '-1',
+        'css' => '', 'cssview' => '', 'csslist' => '', 'help' => '', 'enabled' => '1', 'totalizable' => 0) as $attribute => $value) {
+        $nativeFields->attributes[$target][$attribute][$fieldKey] = $value;
+    }
+    foreach (array('fr_FR', 'en_US') as $language) {
+        $output = new Translate('', $conf);
+        $output->setDefaultLang($language);
+        $output->load('powerplantpv@powerplantpv');
+        foreach (PowerPlant::getConnectionTypeOptions() as $key => $labelKey) {
+            verify($nativeFields->showOutputField($fieldKey, $key, '', $target, $output) === $output->trans($labelKey), 'Native output translates '.$key.' on '.$target.' in '.$language);
+        }
+        verify($nativeFields->showOutputField($fieldKey, '', '', $target, $output) === '', 'Empty consumption remains empty on '.$target);
+    }
+    $html = $nativeFields->showInputField($fieldKey, PowerPlant::CONNECTION_TYPE_TOTAL_SALE, '', '', '', '', 0, $target);
+    $dom->loadHTML($html);
+    $xpath = new DOMXPath($dom);
+    verify($xpath->query('//select/option[@value="total_sale" and @selected]')->length === 1, 'Native selector retains the selected technical value on '.$target);
+}
+$conf->entity = 1;
+unset($conf->modules['lmdblead'], $conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA);
 
 echo $checks.' checks passed; PHP '.PHP_VERSION.', Dolibarr '.DOL_VERSION."; native objects/helpers, SQLite SQL, locking not simulated.\n";
