@@ -145,6 +145,8 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][2] = 'settings';
 	$h++;
 
+	$head[$h] = array(dol_buildpath('/powerplantpv/admin/library.php', 1), $langs->trans('PVLibraryTitle'), 'library');
+	$h++;
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/product_import.php", 1));
 	$head[$h][1] = $langs->trans("PowerPlantPVBulkImport");
 	$head[$h][2] = 'product_import';

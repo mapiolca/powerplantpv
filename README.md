@@ -263,3 +263,7 @@ It checks native proposal access and sums quantities of products classified as M
 JPSUN 1.25.0 uses this API for its optional cover module count.
 
 The field uses the same technical key on leads, proposals, orders and invoices. Native commercial document conversion can transfer its value. This does not add a lead-to-proposal synchronization: lead workflows remain owned by LMDB Lead. Existing documents are not synchronized retroactively; manual destination choices remain independent.
+
+## Connecteur Bibliothèque PV 1.7.0 — recette
+
+Recherche dans une bibliothèque distante, aperçu des données sourcées et premier import de panneaux et d’onduleurs. Voir [le contrat et la configuration](docs/pvlibrary-connector.md). Les mises à jour de produits déjà importés restent différées.

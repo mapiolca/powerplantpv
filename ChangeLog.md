@@ -1,6 +1,6 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
-## 1.6.1 (à publier)
+## 1.6.1 — 2026-11-06
 
 - « Type de consommation » : liste native sur devis, commandes et factures, basée sur les clés et traductions des types de raccordement des centrales (`PowerPlant::getConnectionTypeOptions()`).
 - Même extrafield sur les leads de LMDB Lead lorsque le module et son schéma d’extrafields sont actifs ; initialisation dans l’entité courante, définitions existantes conservées.

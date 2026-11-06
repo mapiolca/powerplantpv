@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.6.1';
+		$this->version = '1.7.0';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -583,6 +583,16 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][4] = 'maintenance';
 		$this->rights[$r][5] = 'config';
 
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'PVLibraryPermissionRead';
+		$this->rights[$r][4] = 'library';
+		$this->rights[$r][5] = 'read';
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'PVLibraryPermissionImport';
+		$this->rights[$r][4] = 'library';
+		$this->rights[$r][5] = 'import';
 		/* END MODULEBUILDER PERMISSIONS */
 
 
@@ -607,6 +617,15 @@ class modPowerPlantPV extends DolibarrModules
 			'user' => 2, // 0=Menu for internal users, 1=external users, 2=both
 		);
 		/* END MODULEBUILDER TOPMENU */
+		$this->menu[$r++] = array(
+			'fk_menu' => 'fk_mainmenu=products', 'type' => 'left', 'titre' => 'PVLibraryTitle',
+			'mainmenu' => 'products', 'leftmenu' => 'powerplantpvlibrary', 'url' => '/powerplantpv/library.php',
+			'langs' => 'powerplantpv@powerplantpv', 'position' => 1200,
+			'enabled' => 'isModEnabled("powerplantpv")',
+			'perms' => '$user->hasRight("powerplantpv", "library", "read") && $user->hasRight("produit", "lire")',
+			'target' => '', 'user' => 0,
+		);
+
 
 		/* BEGIN MODULEBUILDER LEFTMENU POWERPLANT */
 		$this->menu[$r++] = array(
