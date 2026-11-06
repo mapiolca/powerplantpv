@@ -252,7 +252,7 @@ GPLv3 or (at your option) any later version. See file COPYING for more informati
 
 All texts and readme's are licensed under [GFDL](https://www.gnu.org/licenses/fdl-1.3.en.html).
 
-### Consumption type and offer covers — 1.6.0 (pending release)
+### Consumption type and offer covers — 1.6.0
 
 The optional proposal, order and invoice extrafield `powerplantpv_consumption_type` stores free-text consumption wording (also used as the offer cover subtitle).
 Update the module through the native administration workflow to create it; existing definitions and values are preserved.
