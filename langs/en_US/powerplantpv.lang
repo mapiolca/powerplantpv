@@ -1767,9 +1767,9 @@ PowerPlantPVProjectLinksFeature = Project links and signed totals
 PowerPlantPVProjectLinksCompatibilityDescription = Multiple links, reciprocal banners and signed proposal totals on projects, available from Dolibarr v20.
 PowerPlantPVRequiresProjects = Enable the Projects module to use this feature.
 
-PowerPlantPVConsumptionType=Consumption type
+PowerPlantPVConsumptionType=Connection
 PowerPlantPVConsumptionTypeHelp=Optional choice from the same list as power plant connection types, also used on PDF covers.
-PowerPlantPVLeadConsumptionType=Lead consumption type
+PowerPlantPVLeadConsumptionType=Lead connection
 PowerPlantPVLeadConsumptionTypeDescription=Shared connection-type list for power plants, proposals, orders, invoices and LMDB Lead records. Available from Dolibarr v20 with LMDB Lead and its extrafields schema enabled.
 PowerPlantPVRequiresLeadExtrafields=Enable LMDB Lead and its extrafields schema, then update PowerPlantPV in the relevant entity.
 

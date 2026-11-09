@@ -1767,9 +1767,9 @@ PowerPlantPVProjectLinksFeature = Liaisons projets et totaux signés
 PowerPlantPVProjectLinksCompatibilityDescription = Liaisons multiples, bannières réciproques et cumuls des devis signés sur les projets, disponibles dès Dolibarr v20.
 PowerPlantPVRequiresProjects = Activer le module Projets pour utiliser cette fonctionnalité.
 
-PowerPlantPVConsumptionType=Type de consommation
+PowerPlantPVConsumptionType=Raccordement
 PowerPlantPVConsumptionTypeHelp=Choix facultatif dans la même liste que les types de raccordement des centrales, repris notamment sur les couvertures PDF.
-PowerPlantPVLeadConsumptionType=Type de consommation des leads
+PowerPlantPVLeadConsumptionType=Raccordement des leads
 PowerPlantPVLeadConsumptionTypeDescription=Même liste de raccordement pour les centrales, devis, commandes, factures et leads LMDB Lead. Disponible dès Dolibarr v20 avec LMDB Lead et son schéma d’extrafields activés.
 PowerPlantPVRequiresLeadExtrafields=Activer LMDB Lead et son schéma d’extrafields, puis actualiser PowerPlantPV dans l’entité concernée.
 

@@ -2,6 +2,7 @@
 
 ## 1.6.1 — 2026-11-09
 
+- Leads, devis, commandes et factures : libellé « Raccordement » ; puissance-crête, capacité et raccordement affichés sur les PDF compatibles uniquement si non vides (réglage natif 2). Les valeurs et les autres paramètres des champs sont conservés. Actualiser le module pour appliquer ce réglage aux champs existants.
 - Types de consommation/raccordement administrables dans Configuration → Dictionnaires : référentiel commun aux entités, libellés modifiables, activation/désactivation et conservation des codes et valeurs enregistrées.
 - Centrales, devis, commandes et factures utilisent le même référentiel. Les choix désactivés déjà enregistrés restent conservés sur les fiches ; les définitions personnalisées et les réglages existants sont préservés.
 - LMDB Lead : champ de sélection historique conservé ; raccordement dynamique au dictionnaire à partir de Dolibarr 24, via le hook natif de chargement. Le seuil et les dépendances apparaissent dans Compatibilité. Aucune conversion des textes historiques ; la couverture JPSUN 1.25.1 conserve la résolution des libellés.
