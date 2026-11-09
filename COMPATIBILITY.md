@@ -69,3 +69,13 @@ Voir la [matrice de validation et ses limites](docs/release/v1.5.0-projects-vali
 | Liaison multi-projets | v20.0 | Utilise `llx_element_element`; l'ancien `fk_project` est conservé en base et migré en lien objet à l'activation. | `core/modules/modPowerPlantPV.class.php` |
 | Import CSV des numéros de série | v20.0 | Lecture CSV dédiée au module avec `fgetcsv()` et validation métier PowerPlantPV. | `lib/powerplantpv_serialnumber.lib.php` |
 | Import CSV des caractéristiques produit | v20.0 | Lecture CSV dédiée au module avec détection de séparateur et mapping d'alias FR/EN. | `class/powerplantpvfileimport.class.php` |
+
+## Dictionnaire consommation / raccordement — révision 1.6.1
+
+Le dictionnaire `c_powerplantpv_connection_type` est un référentiel transversal commun aux entités, comme les types natifs globaux. Les objets métier conservent leurs droits, partages et filtres d’entité. Le descripteur et l’éditeur natif des dictionnaires portent l’administration ; aucun écran parallèle ni fichier core modifié.
+
+Les valeurs sont liées au `code` stable du dictionnaire, sans conversion des colonnes varchar historiques en identifiants numériques. Le type natif `sellist` et sa clé texte sont présents dans les sources officielles v20.0.0 examinées. La préparation des métadonnées par `formObjectOptions` conserve le choix désactivé existant sur les fiches ; les hooks de métadonnées conservent un retour neutre et laissent le rendu aux composants natifs. L’absence de ce hook en v20 ne déclenche aucun appel à une API absente.
+
+Validation locale : PHP 8.4.22, sources Dolibarr 25 alpha en cache, objets/helpers natifs et adaptateur SQLite. Les versions 20–24 restent à exécuter ; aucune compatibilité d’instance complète ni validation de l’installateur n’est déduite de la lecture des sources.
+
+Dynamic LMDB Lead dictionary choices require Dolibarr 24+ and its native `completeFetchNameOptionalsLabel` hook. The module adapts only its own dictionary-bound definition to a native plain select in memory, matching LMDB Lead's accepted types. On Dolibarr 20–23 the existing lead select remains intact; the dynamic capability is reported unavailable in Compatibility. In the initial v20 core, filtered sellists produce an invalid `AND` without `WHERE`; the module uses the native unfiltered sellist definition there and prepares active card choices before rendering. Other supported versions keep the native USF filter.

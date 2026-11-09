@@ -94,6 +94,14 @@ class PowerPlantPVCompatibility
 			&& isModEnabled('lmdblead') && getDolGlobalInt('LMDBLEAD_EXTRAFIELDS_SCHEMA') === 1;
 	}
 
+	/** Native fetch enrichment required to keep LMDB Lead's plain-select contract.
+	 * @return bool Whether dictionary choices can be refreshed during native fetch
+	 */
+	public static function isLeadConsumptionDictionaryAvailable()
+	{
+		return self::isLeadConsumptionTypeAvailable() && version_compare(DOL_VERSION, '24.0.0', '>=');
+	}
+
 	/**
 	 * Return feature compatibility definitions.
 	 *
@@ -180,6 +188,14 @@ class PowerPlantPVCompatibility
 				'min_php' => self::MIN_PHP_VERSION,
 				'available' => self::isLeadConsumptionTypeAvailable(),
 				'reason' => self::isLeadConsumptionTypeAvailable() ? '' : 'PowerPlantPVRequiresLeadExtrafields',
+			),
+			'lead_consumption_dictionary' => array(
+				'label' => 'PowerPlantPVLeadConsumptionDictionary',
+				'description' => 'PowerPlantPVLeadConsumptionDictionaryDescription',
+				'min_dolibarr' => '24.0.0',
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => self::isLeadConsumptionDictionaryAvailable(),
+				'reason' => (self::isLeadConsumptionDictionaryAvailable()) ? '' : 'PowerPlantPVRequiresLeadDictionaryHook',
 			),
 			'project_links_signed_totals' => array(
 				'label' => 'PowerPlantPVProjectLinksFeature',

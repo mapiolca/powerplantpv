@@ -1772,3 +1772,10 @@ PowerPlantPVConsumptionTypeHelp=Optional choice from the same list as power plan
 PowerPlantPVLeadConsumptionType=Lead consumption type
 PowerPlantPVLeadConsumptionTypeDescription=Shared connection-type list for power plants, proposals, orders, invoices and LMDB Lead records. Available from Dolibarr v20 with LMDB Lead and its extrafields schema enabled.
 PowerPlantPVRequiresLeadExtrafields=Enable LMDB Lead and its extrafields schema, then update PowerPlantPV in the relevant entity.
+
+PowerPlantPVConnectionTypeDictionary=Photovoltaic consumption / connection types
+PowerPlantPVConnectionCodeHelp=Stable technical code: do not rename a code in use. Edit the label or disable the row.
+
+PowerPlantPVLeadConsumptionDictionary=Dynamic lead consumption dictionary
+PowerPlantPVLeadConsumptionDictionaryDescription=Refresh lead choices from the dictionary through the native fetch hook available from Dolibarr 24. Versions 20 to 23 retain the existing select field.
+PowerPlantPVRequiresLeadDictionaryHook=Requires Dolibarr 24 or later, active LMDB Lead and its installed extrafields schema.

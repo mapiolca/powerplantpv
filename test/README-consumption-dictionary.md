@@ -1,25 +1,26 @@
-# Consumption dictionary — PowerPlantPV 1.6.1
+# Consumption dictionary — PowerPlantPV 1.6.1 revision
 
-`powerplantpv_consumption_type` is initialized as a native `select` on `propal`, `commande`, `facture` and, optionally, `lmdblead_lead`. Its four options come directly from `PowerPlant::getConnectionTypeOptions()`; translation keys are stored as labels, technical keys as values. No independent connection dictionary, historical choices or data conversion is introduced.
+The module declares `c_powerplantpv_connection_type` through its native descriptor dictionaries. It is a global reference: consumption modes are shared across entities. Plant `connection_type` and commercial/lead extrafield values keep their existing technical string codes. There is no document-value conversion or numeric-ID migration. Native `ExtraFields::update()` changes only module-owned original metadata to a code-keyed `sellist`; customized definitions remain untouched.
 
-Lead initialization requires LMDB Lead to be active and `LMDBLEAD_EXTRAFIELDS_SCHEMA = 1`, matching its native extrafields storage contract. PowerPlantPV does not install lead tables or modify LMDB Lead code, permissions or revision controls. Activate/update LMDB Lead first, then update PowerPlantPV in each relevant entity. The Compatibilité page reports this dependency. Lead-to-proposal propagation is not added by this change.
+The activation seeds the four defaults once; a transverse initialization marker prevents later reactivation from restoring deleted defaults or overwriting edited labels/activation. No data is removed on module deactivation. Existing table/constant installation remains native. The About tab reads descriptor version 1.6.1.
 
-Existing customized definitions are deliberately preserved on repeat initialization. The original module-owned text definition is upgraded with `ExtraFields::update()`, preserving metadata, while the exact lost-quote activation condition observed in the native editor is repaired. No historical choices are added and no document values, rights or business records are rewritten. The user explicitly excluded historical value conversion from this patch.
+## Executed checks
 
-## Checks
+`php -d extension=mysqli -d extension=pdo_sqlite test/project_links_signed_totals.php /path/to/25-alpha/htdocs`
 
-`php -d extension=pdo_sqlite test/project_links_signed_totals.php /path/to/dolibarr/htdocs`
+187 assertions on PHP 8.4.22 and cached Dolibarr 25.0.0-alpha sources: native objects, HookManager, ExtraFields rendering, isolated SQLite adapter and simulated extrafield installation manager. Covers the original project scenarios, aligned dictionary declarations, commercial and optional lead metadata, preservation of original values, custom/new/disabled labels, disabled saved selection, unmapped saved text and repeated initialization. Native selector markup is parsed with DOMXPath. This is not a MySQL activation or a deployed browser test.
 
-- 160 checks on v25 with native objects/helpers, HookManager and SQLite SQL; the extrafield installation manager is simulated (157–160 depending on metadata supported by the core revision).
-- All three commercial targets use exactly the connection dictionary; installed leads receive the same field. Absent leads and an incomplete schema are skipped.
-- Entity IDs 1 and 2, repeat initialization, deliberately empty values and customized definitions are preserved; installation errors are reported.
-- Real native ExtraFields input/output rendering covers all four targets and all four values, empty output and French/English labels. Native selectors retain technical keys.
-- Original text-definition upgrade, settings/owner/CSS preservation, version-dependent AI/clone/tooltip/personal-data metadata, repeat activation, unchanged business value and failure of the metadata upgrade.
+Source review of official Dolibarr 20.0.0 confirms that `sellist` has varchar storage and allows a string `code` key. Its output lookup uses that code. Unlike the examined v25 sources, v20 has no `showInputExtraField` hook: `formObjectOptions` prepares native select metadata on cards to retain saved inactive choices. Rendering uses neutral metadata hooks only, without replacing native selectors. No core file or hook context is initialized inside a library.
 
-Local execution: PHP 8.4.22, Dolibarr 25.0.0-alpha sources `0ac96524bf68b063a44d6af8137e05bf11c227c8`. Local caches 20–24 are incomplete and cannot run the complete scenario; the existing six-version CI uses complete checkouts and must be checked on the published SHA. This is not six full ERP instances or a real LMDB Lead browser acceptance.
+PHP syntax and diff whitespace checked. PHPStan is unavailable in this checkout (no configured binary/configuration); no suppression or baseline added. Versions 20–24 and complete v25 instances remain unexecuted. Native dictionary CRUD, actual module activation, CSRF/rights and Multicompany browser acceptance remain manual. No ZIP installer validation or Dolistore submission is claimed.
 
-Syntax and diff checks pass. PHPStan level 5 / PHP 8.0 target, native bootstrap, on the descriptor and compatibility class: 28 pre-existing diagnostics, identical to main by message/identifier; no new diagnostic, baseline or ignore. The proposal module count regression also passes (12 assertions).
+## Manual acceptance
 
-JPSUN 1.25.1 resolves the consumption key through `PowerPlant::getConnectionTypeLabel()` before printing its cover, including output language handling. This uses the resolver already present in PowerPlantPV 1.6.0, so the JPSUN tests pin that published source.
+1. Update the module in each entity; verify the four defaults appear in Setup → Dictionaries.
+2. Edit a label, add a code, disable a used code; verify plant and commercial/optional lead forms, list filters and PDF labels. A new record must not offer the disabled code; an existing card must keep its saved value.
+3. Disable/reactivate PowerPlantPV; verify edited labels, disabled/deleted defaults and all stored plant/document values persist. Verify the dictionary is shared while business data permissions and entity restrictions remain unchanged.
+4. Use native dictionary admin permissions and CSRF checks. Keep codes stable: change labels or disable entries rather than renaming/deleting used codes.
 
-The published stable 1.6.0 release and tag resolve to `57cb7bcd563ac83ae3ae00053f63621583601764`, verified before this increment. No deployment, native installer validation or Dolistore acceptance is claimed for 1.6.1. The previous 1.6.0 acceptance report remains historical evidence only.
+The published 1.6.1 tag remains immutable. A corrected source archive, identified by commit and SHA-256 in the release notes, can be attached without presenting it as an installer-validated Dolibarr package.
+
+Dynamic LMDB Lead dictionary choices require Dolibarr 24+ and its native `completeFetchNameOptionalsLabel` hook. The module adapts only its own dictionary-bound definition to a native plain select in memory, matching LMDB Lead's accepted types. On Dolibarr 20–23 the existing lead select remains intact; the dynamic capability is reported unavailable in Compatibility. In the initial v20 core, filtered sellists produce an invalid `AND` without `WHERE`; the module uses the native unfiltered sellist definition there and prepares active card choices before rendering. Other supported versions keep the native USF filter.

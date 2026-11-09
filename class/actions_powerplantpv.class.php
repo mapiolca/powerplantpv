@@ -656,6 +656,44 @@ class ActionsPowerplantpv
 		return 0;
 	}
 
+	/** Preserve LMDB Lead's plain-select contract using the native v24+ fetch hook.
+	 * Older cores do not call this hook; their original lead select is retained.
+	 * @param array<string,mixed> $parameters Native fetch parameters
+	 * @param ExtraFields $object Native extrafield manager
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int Always neutral; only fetched metadata is enriched
+	 */
+	public function completeFetchNameOptionalsLabel($parameters, &$object, &$action, $hookmanager)
+	{
+		dol_include_once('/powerplantpv/class/powerplantpvcompatibility.class.php');
+		if (!isModEnabled('powerplantpv') || !PowerPlantPVCompatibility::isLeadConsumptionDictionaryAvailable()) {
+			return 0;
+		}
+		$target = 'lmdblead_lead';
+		$key = 'powerplantpv_consumption_type';
+		if (($object->attributes[$target]['type'][$key] ?? '') !== 'sellist') {
+			return 0;
+		}
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		if (!array_key_exists(PowerPlant::getConnectionTypeDictionaryFilter(), $object->attributes[$target]['param'][$key]['options'] ?? array())) {
+			return 0;
+		}
+		$object->attributes[$target]['type'][$key] = 'select';
+		$options = PowerPlant::getConnectionTypeOptions();
+		// Native lead rendering supplies objectoffield; page/API contexts may supply object.
+		$record = $GLOBALS['objectoffield'] ?? ($GLOBALS['object'] ?? null);
+		if (is_object($record) && ($record->table_element ?? '') === $target && !empty($record->id)) {
+			$value = (string) ($record->array_options['options_'.$key] ?? '');
+			if ($value !== '' && !isset($options[$value])) {
+				$options[$value] = PowerPlant::getConnectionTypeLabel($value);
+			}
+		}
+		$object->attributes[$target]['param'][$key] = array('options' => $options);
+		$object->attributes[$target]['powerplantpv_dictionary'][$key] = 1;
+		return 0;
+	}
+
 	/**
 	 * Add native icon before the ticket power plant extrafield selector on ticket creation.
 	 *
@@ -671,6 +709,25 @@ class ActionsPowerplantpv
 
 		if (!isModEnabled('powerplantpv')) {
 			return 0;
+		}
+
+		// Prepare choices before native card rendering; all hook returns remain neutral.
+		global $extrafields;
+		$target = is_object($object) ? ($object->table_element ?? '') : '';
+		$key = 'powerplantpv_consumption_type';
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		if (in_array($target, array('propal', 'commande', 'facture', 'lmdblead_lead'), true)
+			&& is_object($extrafields)
+			&& ($extrafields->attributes[$target]['type'][$key] ?? '') === 'sellist'
+			&& array_key_exists(PowerPlant::getConnectionTypeDictionaryFilter(), $extrafields->attributes[$target]['param'][$key]['options'] ?? array())) {
+			dol_include_once('/powerplantpv/class/powerplant.class.php');
+			$options = PowerPlant::getConnectionTypeOptions();
+			$value = (string) ($object->array_options['options_'.$key] ?? '');
+			if ($value !== '' && !isset($options[$value])) {
+				$options[$value] = PowerPlant::getConnectionTypeLabel($value);
+			}
+			$extrafields->attributes[$target]['type'][$key] = 'select';
+			$extrafields->attributes[$target]['param'][$key] = array('options' => $options);
 		}
 
 		$contexts = $this->getContexts($parameters, $hookmanager);
