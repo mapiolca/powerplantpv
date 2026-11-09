@@ -2686,7 +2686,6 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	private function configureCommercialPdfExtrafields()
 	{
-		global $conf;
 		$targets = "'propal', 'commande', 'facture'";
 		if (PowerPlantPVCompatibility::isLeadConsumptionTypeAvailable()) {
 			$targets .= ", 'lmdblead_lead'";
@@ -2695,7 +2694,7 @@ class modPowerPlantPV extends DolibarrModules
 		$sql = "UPDATE ".MAIN_DB_PREFIX."extrafields SET printable = 2";
 		$sql .= " WHERE elementtype IN (".$targets.")";
 		$sql .= " AND name IN ('powerplantpv_peak_power', 'powerplantpv_storage_capacity', 'powerplantpv_consumption_type')";
-		$sql .= " AND entity IN (0, ".((int) $conf->entity).") AND printable <> 2";
+		$sql .= " AND entity IN (0, ".$this->db->sanitize(getEntity('extrafields', 0)).") AND printable <> 2";
 		if (!$this->db->query($sql)) {
 			$this->errors[] = $this->db->lasterror();
 			return -1;
