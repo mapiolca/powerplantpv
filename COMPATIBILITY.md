@@ -74,7 +74,7 @@ Voir la [matrice de validation et ses limites](docs/release/v1.5.0-projects-vali
 
 Le dictionnaire `c_powerplantpv_connection_type` est un référentiel transversal commun aux entités, comme les types natifs globaux. Les objets métier conservent leurs droits, partages et filtres d’entité. Le descripteur et l’éditeur natif des dictionnaires portent l’administration ; aucun écran parallèle ni fichier core modifié.
 
-Les valeurs sont liées au `code` stable du dictionnaire, sans conversion des colonnes varchar historiques en identifiants numériques. Le type natif `sellist` et sa clé texte sont présents dans les sources officielles v20.0.0 examinées. La préparation des métadonnées par `formObjectOptions` conserve le choix désactivé existant sur les fiches ; le hook de rendu complémentaire est utilisé uniquement par les cores qui l’appellent. L’absence de ce hook en v20 ne déclenche aucun appel à une API absente.
+Les valeurs sont liées au `code` stable du dictionnaire, sans conversion des colonnes varchar historiques en identifiants numériques. Le type natif `sellist` et sa clé texte sont présents dans les sources officielles v20.0.0 examinées. La préparation des métadonnées par `formObjectOptions` conserve le choix désactivé existant sur les fiches ; les hooks de métadonnées conservent un retour neutre et laissent le rendu aux composants natifs. L’absence de ce hook en v20 ne déclenche aucun appel à une API absente.
 
 Validation locale : PHP 8.4.22, sources Dolibarr 25 alpha en cache, objets/helpers natifs et adaptateur SQLite. Les versions 20–24 restent à exécuter ; aucune compatibilité d’instance complète ni validation de l’installateur n’est déduite de la lecture des sources.
 

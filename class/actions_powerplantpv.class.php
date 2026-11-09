@@ -680,53 +680,18 @@ class ActionsPowerplantpv
 			return 0;
 		}
 		$object->attributes[$target]['type'][$key] = 'select';
-		$object->attributes[$target]['param'][$key] = array('options' => PowerPlant::getConnectionTypeOptions(false));
+		$options = PowerPlant::getConnectionTypeOptions();
+		// Native lead rendering supplies objectoffield; page/API contexts may supply object.
+		$record = $GLOBALS['objectoffield'] ?? ($GLOBALS['object'] ?? null);
+		if (is_object($record) && ($record->table_element ?? '') === $target && !empty($record->id)) {
+			$value = (string) ($record->array_options['options_'.$key] ?? '');
+			if ($value !== '' && !isset($options[$value])) {
+				$options[$value] = PowerPlant::getConnectionTypeLabel($value);
+			}
+		}
+		$object->attributes[$target]['param'][$key] = array('options' => $options);
 		$object->attributes[$target]['powerplantpv_dictionary'][$key] = 1;
 		return 0;
-	}
-
-	/** Retain saved inactive choices using the native select renderer.
-	 * @param array<string,mixed> $parameters Native renderer parameters
-	 * @param ExtraFields $object Native extrafield manager
-	 * @param string $action Current action
-	 * @param HookManager $hookmanager Hook manager
-	 * @return int 0 for unrelated fields, 1 for the supplied native selector
-	 */
-	public function showInputExtraField($parameters, &$object, &$action, $hookmanager)
-	{
-		$this->resprints = '';
-		$target = $parameters['extrafieldsobjectkey'] ?? '';
-		$key = $parameters['key'] ?? '';
-		if ($key === 'powerplantpv_consumption_type') {
-			dol_include_once('/powerplantpv/class/powerplant.class.php');
-		}
-		if (!isModEnabled('powerplantpv') || $key !== 'powerplantpv_consumption_type'
-			|| !in_array($target, array('propal', 'commande', 'facture', 'lmdblead_lead'), true)
-			|| (empty($object->attributes[$target]['powerplantpv_dictionary'][$key])
-				&& (($object->attributes[$target]['type'][$key] ?? '') !== 'sellist'
-					|| !array_key_exists(PowerPlant::getConnectionTypeDictionaryFilter(), $object->attributes[$target]['param'][$key]['options'] ?? array())))) {
-			return 0;
-		}
-		dol_include_once('/powerplantpv/class/powerplant.class.php');
-		global $langs, $db;
-		$langs->load('powerplantpv@powerplantpv');
-		$options = PowerPlant::getConnectionTypeOptions();
-		$value = (string) ($parameters['value'] ?? '');
-		if ($value !== '' && !isset($options[$value])) {
-			$options[$value] = PowerPlant::getConnectionTypeLabel($value);
-		}
-		foreach ($options as &$label) {
-			$label = $langs->trans($label);
-		}
-		unset($label);
-		$prefix = (string) ($parameters['keyprefix'] ?? '');
-		if (!preg_match('/options_$/', $prefix)) {
-			$prefix .= 'options_';
-		}
-		$form = new Form($db);
-		$this->resprints = $form->selectarray($prefix.$key.($parameters['keysuffix'] ?? ''), $options, $value, 1, 0, 0,
-			(string) ($parameters['moreparam'] ?? ''), 0, 0, 0, '', (string) ($parameters['morecss'] ?? ''), 1);
-		return 1;
 	}
 
 	/**
@@ -746,7 +711,7 @@ class ActionsPowerplantpv
 			return 0;
 		}
 
-		// v20 has no showInputExtraField hook: prepare metadata before native card rendering.
+		// Prepare choices before native card rendering; all hook returns remain neutral.
 		global $extrafields;
 		$target = is_object($object) ? ($object->table_element ?? '') : '';
 		$key = 'powerplantpv_consumption_type';

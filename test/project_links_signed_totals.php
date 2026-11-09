@@ -561,22 +561,26 @@ verify(PowerPlant::getConnectionTypeLabel('self_consumption') === 'Custom solar 
 verify(PowerPlant::getConnectionTypeOptions()['island'] === 'Island mode', 'New dictionary row is available without reactivation');
 verify(PowerPlant::normalizeConnectionTypeValue('island') === 'island', 'Custom technical codes are preserved');
 $hook = new ActionsPowerplantpv();
-$nativeFields->attributes['propal']['type'][$fieldKey] = 'sellist';
-$parameters = array('key' => $fieldKey, 'extrafieldsobjectkey' => 'propal', 'value' => 'self_consumption');
-$action = '';
-verify($hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager) === 1, 'Native select supplies the saved inactive choice');
-$dom->loadHTML($hook->resprints); $xpath = new DOMXPath($dom);
-verify($xpath->query('//option[@value="self_consumption" and @selected]')->length === 1, 'Inactive stored code remains selected on edit');
-$parameters['value'] = '';
-$hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager);
-$dom->loadHTML($hook->resprints); $xpath = new DOMXPath($dom);
+$renderCurrentChoice = static function ($value) use ($hook, $nativeFields, $fieldKey, $hookmanager) {
+    global $extrafields;
+    $extrafields = $nativeFields;
+    $extrafields->attributes['propal']['type'][$fieldKey] = 'sellist';
+    $extrafields->attributes['propal']['param'][$fieldKey] = array('options' => array(PowerPlant::getConnectionTypeDictionaryFilter() => null));
+    $record = (object) array('table_element' => 'propal', 'id' => 1, 'array_options' => array('options_'.$fieldKey => $value));
+    $parameters = array('context' => 'globalcard'); $action = '';
+    verify($hook->formObjectOptions($parameters, $record, $action, $hookmanager) === 0, 'Card metadata preparation is neutral');
+    return $extrafields->showInputField($fieldKey, $value, '', '', '', '', 0, 'propal');
+};
+$dom->loadHTML($renderCurrentChoice('self_consumption')); $xpath = new DOMXPath($dom);
+verify($xpath->query('//option[@value="self_consumption" and @selected]')->length === 1, 'Inactive stored code remains selected through native rendering');
+$dom->loadHTML($renderCurrentChoice('')); $xpath = new DOMXPath($dom);
 verify($xpath->query('//option[@value="self_consumption"]')->length === 0, 'Inactive code is absent for a new document');
-$parameters['value'] = 'Legacy custom text';
-$hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager);
-$dom->loadHTML($hook->resprints); $xpath = new DOMXPath($dom);
-verify($xpath->query('//option[@value="Legacy custom text" and @selected]')->length === 1, 'Unmapped historical text survives editing');
-$parameters['key'] = 'unrelated';
-verify($hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager) === 0 && $hook->resprints === '', 'Unrelated fields remain native and previous hook output is cleared');
+$dom->loadHTML($renderCurrentChoice('Legacy custom text')); $xpath = new DOMXPath($dom);
+verify($xpath->query('//option[@value="Legacy custom text" and @selected]')->length === 1, 'Unmapped historical text survives native editing');
+$before = $nativeFields->attributes;
+$record = (object) array('table_element' => 'unrelated');
+$parameters = array('context' => 'globalcard'); $action = '';
+verify($hook->formObjectOptions($parameters, $record, $action, $hookmanager) === 0 && $nativeFields->attributes === $before, 'Unrelated fields remain untouched');
 foreach ($descriptor->dictionaries as $name => $definitions) {
     if ($name !== 'langs') { verify(count($definitions) === 8, 'Dictionary descriptor arrays stay aligned: '.$name); }
 }
@@ -587,6 +591,8 @@ verify($seed->invoke($descriptor) === 1 && PowerPlant::getConnectionTypeLabel('s
 
 // Exercise the v20-compatible card metadata path independently of newer rendering hooks.
 $extrafields = $nativeFields;
+$extrafields->attributes['propal']['type'][$fieldKey] = 'sellist';
+$extrafields->attributes['propal']['param'][$fieldKey] = array('options' => array(PowerPlant::getConnectionTypeDictionaryFilter() => null));
 $record = (object) array('table_element' => 'propal', 'array_options' => array('options_'.$fieldKey => 'self_consumption'));
 $parameters = array('context' => 'globalcard');
 verify($hook->formObjectOptions($parameters, $record, $action, $hookmanager) === 0, 'Native card enrichment keeps its neutral hook return');
