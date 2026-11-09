@@ -381,11 +381,11 @@ function powerplantApplyPowerPlantRuntimeFields($object, $outputlangs = null)
 		if ($currentvalue !== '') {
 			$normalizedvalue = PowerPlant::normalizeConnectionTypeValue($currentvalue);
 			if ($normalizedvalue !== '' && !isset($options[$normalizedvalue]) && !isset($options[$currentvalue])) {
-				$options[$currentvalue] = $currentvalue;
+				$options[$currentvalue] = PowerPlant::getConnectionTypeLabel($currentvalue, $translator);
 			}
 		}
 
-		$object->fields['connection_type']['arrayofkeyval'] = $options;
+		$object->fields['connection_type']['arrayofkeyval'] = $options ?: array('' => '');
 	}
 }
 

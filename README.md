@@ -263,3 +263,11 @@ It checks native proposal access and sums quantities of products classified as M
 JPSUN 1.25.0 uses this API for its optional cover module count.
 
 The field uses the same technical key on leads, proposals, orders and invoices. Native commercial document conversion can transfer its value. This does not add a lead-to-proposal synchronization: lead workflows remain owned by LMDB Lead. Existing documents are not synchronized retroactively; manual destination choices remain independent.
+
+### Consumption / connection dictionary (1.6.1 revision)
+
+Update PowerPlantPV through the native module administration in each entity. Then open **Setup → Dictionaries → Photovoltaic consumption / connection types**. This is a global reference shared by all entities, like the four consumption modes themselves. Its labels and activation state apply throughout PowerPlantPV; business records and their permissions remain entity scoped.
+
+The four existing codes and all saved document/plant values remain unchanged. Module-owned commercial and optional LMDB Lead fields use a native `sellist` keyed by `code`, keeping their varchar storage. Customized extrafield definitions remain untouched. Change labels or disable rows; do not rename/delete codes already in use. Default labels are translation keys; replace them with a literal label to customize them. Updating the module does not reset edited labels or disabled/deleted defaults after initialization.
+
+Native card rendering retains the current inactive or unmapped value. Unrelated fields and permissions are preserved. See [targeted validation](test/README-consumption-dictionary.md). No deployment is implied by this source revision.

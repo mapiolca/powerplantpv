@@ -275,7 +275,7 @@ class PowerPlant extends CommonObject
 			$this->fields['entity']['enabled'] = 0;
 		}
 		if (isset($this->fields['connection_type'])) {
-			$this->fields['connection_type']['arrayofkeyval'] = self::getConnectionTypeOptions();
+			$this->fields['connection_type']['arrayofkeyval'] = self::getConnectionTypeOptions() ?: array('' => '');
 		}
 
 		// Example to show how to set values of fields definition dynamically
@@ -312,7 +312,7 @@ class PowerPlant extends CommonObject
 	 *
 	 * @return	array<string,string>	Technical key => translation key
 	 */
-	public static function getConnectionTypeOptions()
+	public static function getDefaultConnectionTypeOptions()
 	{
 		return array(
 			self::CONNECTION_TYPE_SELF_CONSUMPTION => 'PowerPlantConnectionTypeSelfConsumption',
@@ -320,6 +320,30 @@ class PowerPlant extends CommonObject
 			self::CONNECTION_TYPE_TOTAL_SALE => 'PowerPlantConnectionTypeTotalSale',
 			self::CONNECTION_TYPE_COLLECTIVE_SELF_CONSUMPTION => 'PowerPlantConnectionTypeCollectiveSelfConsumption',
 		);
+	}
+
+	/** Read the native global dictionary. Inactive values remain readable in documents.
+	 * @param bool $activeOnly Restrict choices to active rows
+	 * @return array<string,string> Stable stored code => label or translation key
+	 */
+	public static function getConnectionTypeOptions($activeOnly = true)
+	{
+		global $db;
+		$sql = 'SELECT code, label FROM '.MAIN_DB_PREFIX.'c_powerplantpv_connection_type';
+		if ($activeOnly) {
+			$sql .= ' WHERE active = 1';
+		}
+		$sql .= ' ORDER BY position, label';
+		$result = $db->query($sql);
+		if (!$result) {
+			throw new RuntimeException('PowerPlantPV connection dictionary unavailable; update the module.');
+		}
+		$options = array();
+		while (is_object($row = $db->fetch_object($result))) {
+			$options[(string) $row->code] = (string) $row->label;
+		}
+		$db->free($result);
+		return $options;
 	}
 
 	/**
@@ -338,7 +362,7 @@ class PowerPlant extends CommonObject
 			return '';
 		}
 
-		$options = self::getConnectionTypeOptions();
+		$options = self::getConnectionTypeOptions(false);
 		if (array_key_exists($value, $options)) {
 			return $value;
 		}
@@ -402,7 +426,7 @@ class PowerPlant extends CommonObject
 		if ($normalized === '') {
 			return '';
 		}
-		$options = self::getConnectionTypeOptions();
+		$options = self::getConnectionTypeOptions(false);
 		if (!isset($options[$normalized])) {
 			return $value;
 		}

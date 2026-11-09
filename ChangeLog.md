@@ -1,11 +1,13 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
-## 1.6.1 (à publier)
+## 1.6.1 — 2026-11-09
 
 - « Type de consommation » : liste native sur devis, commandes et factures, basée sur les clés et traductions des types de raccordement des centrales (`PowerPlant::getConnectionTypeOptions()`).
 - Même extrafield sur les leads de LMDB Lead lorsque le module et son schéma d’extrafields sont actifs ; initialisation dans l’entité courante, définitions existantes conservées.
 - Pas de reprise de textes historiques ni de conversion de données. Actualiser PowerPlantPV après l’activation de LMDB Lead pour installer le champ manquant ; la couverture JPSUN 1.25.1 affiche le libellé traduit.
 - Actualisation native de l’ancienne définition texte appartenant au module, avec conservation des réglages et des valeurs ; réparation ciblée de la condition d’activation lorsque l’éditeur natif retire ses guillemets.
+
+- Types de consommation/raccordement administrables dans Configuration → Dictionnaires : référentiel commun aux entités, codes existants conservés, libellés modifiables et désactivation sans effacement des valeurs enregistrées. Actualiser PowerPlantPV dans chaque entité pour rattacher les champs commerciaux au dictionnaire. Ne pas renommer les codes utilisés ; modifier leurs libellés ou désactiver les lignes.
 
 ## 1.6.0 — 2026-11-06
 

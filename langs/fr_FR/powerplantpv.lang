@@ -1772,3 +1772,6 @@ PowerPlantPVConsumptionTypeHelp=Choix facultatif dans la même liste que les typ
 PowerPlantPVLeadConsumptionType=Type de consommation des leads
 PowerPlantPVLeadConsumptionTypeDescription=Même liste de raccordement pour les centrales, devis, commandes, factures et leads LMDB Lead. Disponible dès Dolibarr v20 avec LMDB Lead et son schéma d’extrafields activés.
 PowerPlantPVRequiresLeadExtrafields=Activer LMDB Lead et son schéma d’extrafields, puis actualiser PowerPlantPV dans l’entité concernée.
+
+PowerPlantPVConnectionTypeDictionary=Types de consommation / raccordement photovoltaïque
+PowerPlantPVConnectionCodeHelp=Code technique stable : ne pas renommer un code utilisé. Modifier le libellé ou désactiver la ligne.

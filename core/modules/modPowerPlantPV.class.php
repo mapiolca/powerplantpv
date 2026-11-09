@@ -124,6 +124,10 @@ class modPowerPlantPV extends DolibarrModules
 			'hooks' => array(
 				'data' => array(
 					'commonobject',
+					'leadcard',
+					'propallist',
+					'orderlist',
+					'invoicelist',
 					'projectcard',
 					'projectlist',
 					'projetnote',
@@ -312,6 +316,7 @@ class modPowerPlantPV extends DolibarrModules
 				'c_powerplantpv_communication_protocol',
 				'c_powerplantpv_certification',
 				'c_powerplantpv_protection',
+				'c_powerplantpv_connection_type',
 			),
 			'tablib' => array(
 				'PhotovoltaicCategoryDictionary',
@@ -321,6 +326,7 @@ class modPowerPlantPV extends DolibarrModules
 				'PVTechnicalCommunicationProtocolDictionary',
 				'PVTechnicalCertificationDictionary',
 				'PVTechnicalProtectionDictionary',
+				'PowerPlantPVConnectionTypeDictionary',
 			),
 			'tabsql' => array(
 				'SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.$this->db->prefix().'c_powerplantpv_categorypv as f',
@@ -330,9 +336,11 @@ class modPowerPlantPV extends DolibarrModules
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_communication_protocol as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_certification as f WHERE f.entity = '.((int) $conf->entity),
 				'SELECT f.rowid as rowid, f.code, f.label, f.description, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_protection as f WHERE f.entity = '.((int) $conf->entity),
+				'SELECT f.rowid, f.code, f.label, f.active, f.position FROM '.$this->db->prefix().'c_powerplantpv_connection_type as f',
 			),
 			'tabsqlsort' => array(
 				'f.label ASC',
+				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
 				'f.position ASC, f.label ASC',
@@ -348,6 +356,7 @@ class modPowerPlantPV extends DolibarrModules
 				'code,label,description,position',
 				'code,label,description,position',
 				'code,label,description,position',
+				'code,label,position',
 			),
 			'tabfieldvalue' => array(
 				'code,label',
@@ -357,6 +366,7 @@ class modPowerPlantPV extends DolibarrModules
 				'code,label,description,position',
 				'code,label,description,position',
 				'code,label,description,position',
+				'code,label,position',
 			),
 			'tabfieldinsert' => array(
 				'code,label',
@@ -366,9 +376,11 @@ class modPowerPlantPV extends DolibarrModules
 				'code,label,description,position,entity',
 				'code,label,description,position,entity',
 				'code,label,description,position,entity',
+				'code,label,position',
 			),
-			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid'),
+			'tabrowid' => array('rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid', 'rowid'),
 			'tabcond' => array(
+				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
 				isModEnabled('powerplantpv'),
@@ -385,6 +397,7 @@ class modPowerPlantPV extends DolibarrModules
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
 				array('code' => $langs->trans('CodeTooltipHelp')),
+				array('code' => $langs->trans('PowerPlantPVConnectionCodeHelp')),
 			),
 		);
 		/* END MODULEBUILDER DICTIONARIES */
@@ -1000,6 +1013,11 @@ class modPowerPlantPV extends DolibarrModules
 		$result = $this->_load_tables('/powerplantpv/sql/');
 		if ($result < 0) {
 			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
+		}
+
+		$result = $this->seedConnectionTypeDictionary();
+		if ($result < 0) {
+			return -1;
 		}
 
 		$result = $this->ensurePowerPlantSchema();
@@ -2537,7 +2555,44 @@ class modPowerPlantPV extends DolibarrModules
 		return 1;
 	}
 
-	/** Initialize connection-type choices without altering existing definitions or values.
+	/** Seed the global dictionary once, without resetting administrator choices.
+	 * @return int 1 on success, -1 on SQL failure
+	 */
+	private function seedConnectionTypeDictionary()
+	{
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		if (getDolGlobalInt('POWERPLANTPV_CONNECTION_DICTIONARY_INITIALIZED')) {
+			return 1;
+		}
+		if (!$this->db->begin()) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		foreach (PowerPlant::getDefaultConnectionTypeOptions() as $code => $label) {
+			$sql = "INSERT INTO ".$this->db->prefix()."c_powerplantpv_connection_type (code, label, active, position)";
+			$sql .= " SELECT '".$this->db->escape($code)."', '".$this->db->escape($label)."', 1, 0";
+			$sql .= " WHERE NOT EXISTS (SELECT 1 FROM ".$this->db->prefix()."c_powerplantpv_connection_type WHERE code = '".$this->db->escape($code)."')";
+			if (!$this->db->query($sql)) {
+				$this->errors[] = $this->db->lasterror();
+				$this->db->rollback();
+				return -1;
+			}
+		}
+		// Transverse configuration: consumption modes have the same meaning in every entity.
+		if (dolibarr_set_const($this->db, 'POWERPLANTPV_CONNECTION_DICTIONARY_INITIALIZED', '1', 'chaine', 0, '', 0) <= 0) {
+			$this->db->rollback();
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		if (!$this->db->commit()) {
+			$this->errors[] = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		return 1;
+	}
+
+	/** Bind module-owned consumption fields to the native dictionary without rewriting values.
 	 * @param ExtraFields $extrafields Native extrafield manager
 	 * @return int
 	 */
@@ -2550,7 +2605,7 @@ class modPowerPlantPV extends DolibarrModules
 		if (PowerPlantPVCompatibility::isLeadConsumptionTypeAvailable()) {
 			$targets[] = 'lmdblead_lead';
 		}
-		$params = array('options' => PowerPlant::getConnectionTypeOptions());
+		$params = array('options' => array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null));
 		$key = 'powerplantpv_consumption_type';
 		foreach ($targets as $elementtype) {
 			$extrafields->fetch_name_optionals_label($elementtype);
@@ -2561,7 +2616,7 @@ class modPowerPlantPV extends DolibarrModules
 			if (isset($extrafields->attributes[$elementtype]['label'][$key])) {
 				// Native fetch stores expression strings and entity IDs not fully described by its PHPDoc.
 				/** @var array{label:array<string,string>, type?:array<string,string>, enabled?:array<string,string|int>,
-				 * unique?:array<string,int>, required?:array<string,int>, pos?:array<string,int>, alwayseditable?:array<string,int>,
+				 * param?:array<string,array{options:array<string,string|null>}>, unique?:array<string,int>, required?:array<string,int>, pos?:array<string,int>, alwayseditable?:array<string,int>,
 				 * perms?:array<string,string>, list?:array<string,string|int>, help?:array<string,string>, default?:array<string,string|null>,
 				 * computed?:array<string,string>, entityid?:array<string,string|int>, langfile?:array<string,string>,
 				 * totalizable?:array<string,int>, printable?:array<string,int>, css?:array<string,string>, cssview?:array<string,string>,
@@ -2572,10 +2627,10 @@ class modPowerPlantPV extends DolibarrModules
 				$enabled = $definition['enabled'][$key] ?? 'isModEnabled("powerplantpv")';
 				// Upgrade only our original text definition, or repair the native editor's lost quotes.
 				if ($definition['label'][$key] !== 'PowerPlantPVConsumptionType'
-					|| !($type === 'varchar' || ($type === 'select' && $enabled === 'isModEnabled(powerplantpv)'))) {
+					|| !($type === 'varchar' || ($type === 'select' && ($definition['param'][$key]['options'] ?? array()) === PowerPlant::getDefaultConnectionTypeOptions()))) {
 					continue;
 				}
-				$arguments = array($key, $definition['label'][$key], 'select', '255', $elementtype,
+				$arguments = array($key, $definition['label'][$key], 'sellist', '255', $elementtype,
 					(int) ($definition['unique'][$key] ?? 0), (int) ($definition['required'][$key] ?? 0),
 					(int) ($definition['pos'][$key] ?? 202), $params, (int) ($definition['alwayseditable'][$key] ?? 1),
 					(string) ($definition['perms'][$key] ?? ''), (string) ($definition['list'][$key] ?? '-1'),
@@ -2604,7 +2659,7 @@ class modPowerPlantPV extends DolibarrModules
 					return -1;
 				}
 			} else {
-				$result = $extrafields->addExtraField('powerplantpv_consumption_type', 'PowerPlantPVConsumptionType', 'select', 202, '255', $elementtype, 0, 0, '', $params, 1, '', '-1', 'PowerPlantPVConsumptionTypeHelp', '', (string) (int) $conf->entity, 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
+				$result = $extrafields->addExtraField('powerplantpv_consumption_type', 'PowerPlantPVConsumptionType', 'sellist', 202, '255', $elementtype, 0, 0, '', $params, 1, '', '-1', 'PowerPlantPVConsumptionTypeHelp', '', (string) (int) $conf->entity, 'powerplantpv@powerplantpv', 'isModEnabled("powerplantpv")');
 				if ($result < 0) {
 					$this->errors[] = $extrafields->error;
 					return -1;

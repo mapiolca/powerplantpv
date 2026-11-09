@@ -87,6 +87,12 @@ foreach (array('powerplantpv', 'project', 'societe') as $module) {
 	$conf->modules[$module] = 1;
 }
 $db = new ProjectTestDatabase();
+$db->pdo->exec('CREATE TABLE pvtest_c_powerplantpv_connection_type (rowid INTEGER PRIMARY KEY, code TEXT UNIQUE, label TEXT, active INTEGER DEFAULT 1, position INTEGER DEFAULT 0)');
+foreach (array('self_consumption' => 'PowerPlantConnectionTypeSelfConsumption', 'self_consumption_surplus' => 'PowerPlantConnectionTypeSelfConsumptionSurplus', 'total_sale' => 'PowerPlantConnectionTypeTotalSale', 'collective_self_consumption' => 'PowerPlantConnectionTypeCollectiveSelfConsumption') as $code => $label) {
+    $statement = $db->pdo->prepare('INSERT INTO pvtest_c_powerplantpv_connection_type (code,label) VALUES (?,?)');
+    $statement->execute(array($code,$label));
+}
+
 $hookmanager = new HookManager($db);
 $langs = new Translate('', $conf);
 $langs->defaultlang = 'en_US';
@@ -452,6 +458,7 @@ class ConsumptionFieldFixture
         $key = $args[0]; $element = $args[4];
         $this->definitions[$element][$key]['metadata']['type'] = $args[2];
         $this->definitions[$element][$key]['metadata']['enabled'] = $args[17];
+        $this->definitions[$element][$key]['metadata']['param'] = $args[8];
         return 1;
     }
 }
@@ -462,7 +469,7 @@ verify($method->invoke($descriptor, $fields) === 1, 'Consumption type initializa
 verify(count($fields->writes) === 3, 'Consumption type exists on proposals, orders and invoices');
 foreach (array('propal', 'commande', 'facture') as $target) {
     $args = $fields->definitions[$target]['powerplantpv_consumption_type']['args'];
-    verify($args[2] === 'select' && $args[9]['options'] === PowerPlant::getConnectionTypeOptions(), 'Consumption uses the power plant connection dictionary on '.$target);
+    verify($args[2] === 'sellist' && $args[9]['options'] === array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null), 'Consumption uses the power plant connection dictionary on '.$target);
     verify($args[15] === '1', 'Consumption field belongs to the active entity on '.$target);
     $fields->definitions[$target]['powerplantpv_consumption_type']['label'] = 'Customized wording';
     $fields->definitions[$target]['powerplantpv_consumption_type']['value'] = '';
@@ -483,7 +490,7 @@ $conf->entity = 2;
 $fields = new ConsumptionFieldFixture();
 verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === 4, 'Installed LMDB Lead receives the same field');
 $args = $fields->definitions['lmdblead_lead']['powerplantpv_consumption_type']['args'];
-verify($args[2] === 'select' && $args[9]['options'] === PowerPlant::getConnectionTypeOptions() && $args[15] === '2', 'Lead uses the exact dictionary in its owning configuration entity');
+verify($args[2] === 'sellist' && $args[9]['options'] === array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null) && $args[15] === '2', 'Lead uses the exact dictionary in its owning configuration entity');
 $before = $fields->definitions;
 verify($method->invoke($descriptor, $fields) === 1 && $fields->definitions === $before && count($fields->writes) === 4, 'Repeated activation preserves all four definitions');
 
@@ -491,8 +498,8 @@ verify($method->invoke($descriptor, $fields) === 1 && $fields->definitions === $
 $nativeFields = new ExtraFields($db);
 $fieldKey = 'powerplantpv_consumption_type';
 foreach (array('propal', 'commande', 'facture', 'lmdblead_lead') as $target) {
-    foreach (array('label' => 'PowerPlantPVConsumptionType', 'type' => 'select', 'size' => '255', 'default' => '',
-        'computed' => '', 'unique' => 0, 'required' => 0, 'param' => array('options' => PowerPlant::getConnectionTypeOptions()),
+    foreach (array('label' => 'PowerPlantPVConsumptionType', 'type' => 'sellist', 'size' => '255', 'default' => '',
+        'computed' => '', 'unique' => 0, 'required' => 0, 'param' => array('options' => array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null)),
         'langfile' => 'powerplantpv@powerplantpv', 'alwayseditable' => 1, 'perms' => '', 'list' => '-1',
         'css' => '', 'cssview' => '', 'csslist' => '', 'help' => '', 'enabled' => '1', 'totalizable' => 0) as $attribute => $value) {
         $nativeFields->attributes[$target][$attribute][$fieldKey] = $value;
@@ -502,7 +509,7 @@ foreach (array('propal', 'commande', 'facture', 'lmdblead_lead') as $target) {
         $output->setDefaultLang($language);
         $output->load('powerplantpv@powerplantpv');
         foreach (PowerPlant::getConnectionTypeOptions() as $key => $labelKey) {
-            verify($nativeFields->showOutputField($fieldKey, $key, '', $target, $output) === $output->trans($labelKey), 'Native output translates '.$key.' on '.$target.' in '.$language);
+            verify($nativeFields->showOutputField($fieldKey, $key, '', $target, $output) === dol_trunc($output->trans($labelKey), 18), 'Native output translates '.$key.' on '.$target.' in '.$language);
         }
         verify($nativeFields->showOutputField($fieldKey, '', '', $target, $output) === '', 'Empty consumption remains empty on '.$target);
     }
@@ -523,7 +530,7 @@ $metadata = array('type' => 'varchar', 'entityid' => '2', 'pos' => 217, 'list' =
 $fields->definitions['propal'][$fieldKey] = array('label' => 'PowerPlantPVConsumptionType', 'metadata' => $metadata, 'value' => 'Existing text');
 verify($method->invoke($descriptor, $fields) === 1, 'Original text definition upgrades successfully');
 $upgrade = $fields->writes[0];
-verify($upgrade[2] === 'select' && $upgrade[8]['options'] === PowerPlant::getConnectionTypeOptions()
+verify($upgrade[2] === 'sellist' && $upgrade[8]['options'] === array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null)
     && $upgrade[7] === 217 && $upgrade[9] === 0 && $upgrade[11] === '3' && $upgrade[15] === '2'
     && $upgrade[20]['css'] === 'minwidth100', 'Metadata upgrade preserves owner, position, visibility, editability and CSS');
 verify($fields->definitions['propal'][$fieldKey]['value'] === 'Existing text', 'No historical document value conversion');
@@ -538,10 +545,52 @@ if (version_compare(DOL_VERSION, '24.0.0', '>=')) {
 }
 $count = count($fields->writes);
 verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === $count, 'Upgraded definitions are idempotent');
+$fields->definitions['propal'][$fieldKey]['metadata']['type'] = 'select';
+$fields->definitions['propal'][$fieldKey]['metadata']['param'] = array('options' => PowerPlant::getDefaultConnectionTypeOptions());
 $fields->definitions['propal'][$fieldKey]['metadata']['enabled'] = 'isModEnabled(powerplantpv)';
 verify($method->invoke($descriptor, $fields) === 1 && end($fields->writes)[17] === 'isModEnabled("powerplantpv")', 'Repair native editor lost quotes without weakening CSRF or eval');
 $fields->definitions['propal'][$fieldKey]['metadata']['type'] = 'varchar';
 $fields->fail = true;
 verify($method->invoke($descriptor, $fields) < 0, 'Metadata upgrade error is reported');
+
+// Native dictionary edits are visible immediately; stored codes never change.
+$db->pdo->exec("UPDATE pvtest_c_powerplantpv_connection_type SET label = 'Custom solar use', active = 0 WHERE code = 'self_consumption'");
+$db->pdo->exec("INSERT INTO pvtest_c_powerplantpv_connection_type (code,label,active,position) VALUES ('island', 'Island mode', 1, 10)");
+verify(!isset(PowerPlant::getConnectionTypeOptions()['self_consumption']), 'Inactive type is not a new choice');
+verify(PowerPlant::getConnectionTypeLabel('self_consumption') === 'Custom solar use', 'Existing inactive type retains its customized display label');
+verify(PowerPlant::getConnectionTypeOptions()['island'] === 'Island mode', 'New dictionary row is available without reactivation');
+verify(PowerPlant::normalizeConnectionTypeValue('island') === 'island', 'Custom technical codes are preserved');
+$hook = new ActionsPowerplantpv();
+$nativeFields->attributes['propal']['type'][$fieldKey] = 'sellist';
+$parameters = array('key' => $fieldKey, 'extrafieldsobjectkey' => 'propal', 'value' => 'self_consumption');
+$action = '';
+verify($hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager) === 1, 'Native select supplies the saved inactive choice');
+$dom->loadHTML($hook->resprints); $xpath = new DOMXPath($dom);
+verify($xpath->query('//option[@value="self_consumption" and @selected]')->length === 1, 'Inactive stored code remains selected on edit');
+$parameters['value'] = '';
+$hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager);
+$dom->loadHTML($hook->resprints); $xpath = new DOMXPath($dom);
+verify($xpath->query('//option[@value="self_consumption"]')->length === 0, 'Inactive code is absent for a new document');
+$parameters['value'] = 'Legacy custom text';
+$hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager);
+$dom->loadHTML($hook->resprints); $xpath = new DOMXPath($dom);
+verify($xpath->query('//option[@value="Legacy custom text" and @selected]')->length === 1, 'Unmapped historical text survives editing');
+$parameters['key'] = 'unrelated';
+verify($hook->showInputExtraField($parameters, $nativeFields, $action, $hookmanager) === 0 && $hook->resprints === '', 'Unrelated fields remain native and previous hook output is cleared');
+foreach ($descriptor->dictionaries as $name => $definitions) {
+    if ($name !== 'langs') { verify(count($definitions) === 8, 'Dictionary descriptor arrays stay aligned: '.$name); }
+}
+$conf->global->POWERPLANTPV_CONNECTION_DICTIONARY_INITIALIZED = 1;
+$seed = new ReflectionMethod(modPowerPlantPV::class, 'seedConnectionTypeDictionary');
+$seed->setAccessible(true);
+verify($seed->invoke($descriptor) === 1 && PowerPlant::getConnectionTypeLabel('self_consumption') === 'Custom solar use', 'Reactivation preserves edited labels and disabled defaults');
+
+// Exercise the v20-compatible card metadata path independently of newer rendering hooks.
+$extrafields = $nativeFields;
+$record = (object) array('table_element' => 'propal', 'array_options' => array('options_'.$fieldKey => 'self_consumption'));
+$parameters = array('context' => 'globalcard');
+verify($hook->formObjectOptions($parameters, $record, $action, $hookmanager) === 0, 'Native card enrichment keeps its neutral hook return');
+verify($extrafields->attributes['propal']['type'][$fieldKey] === 'select'
+    && $extrafields->attributes['propal']['param'][$fieldKey]['options']['self_consumption'] === 'Custom solar use', 'Card metadata retains the inactive selection without requiring a recent core hook');
 
 echo $checks.' checks passed; PHP '.PHP_VERSION.', Dolibarr '.DOL_VERSION."; native objects/helpers, SQLite SQL, locking not simulated.\n";
