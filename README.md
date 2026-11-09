@@ -252,12 +252,14 @@ GPLv3 or (at your option) any later version. See file COPYING for more informati
 
 All texts and readme's are licensed under [GFDL](https://www.gnu.org/licenses/fdl-1.3.en.html).
 
-### Consumption type and offer covers — 1.6.0
+### Consumption type and offer covers — 1.6.1
 
-The optional proposal, order and invoice extrafield `powerplantpv_consumption_type` stores free-text consumption wording (also used as the offer cover subtitle).
+The optional proposal, order and invoice extrafield `powerplantpv_consumption_type` is a native select using `PowerPlant::getConnectionTypeOptions()`, the same four technical keys and translated labels as power plant connection types. JPSUN 1.25.1 displays the translated choice as its offer cover subtitle.
 Update the module through the native administration workflow to create it; existing definitions and values are preserved.
+The same field is installed on `lmdblead_lead` when LMDB Lead is active and `LMDBLEAD_EXTRAFIELDS_SCHEMA` is set to 1. If LMDB Lead is installed later, update PowerPlantPV again in the relevant entity. No LMDB Lead dependency is imposed on the commercial fields, and no lead table is installed by PowerPlantPV. The native LMDB Lead rights, revision checks and extrafield rendering remain responsible for lead access.
+No historical free-text choices or value conversions are added. The original module-owned text definition is upgraded to the select through the native ExtraFields API, preserving its metadata and all stored document values. Customized labels or other field types are preserved. The exact malformed condition `isModEnabled(powerplantpv)` produced by the native editor losing its quotes is repaired to `isModEnabled("powerplantpv")` on the module-owned field.
 `powerplantpvCountProposalModules($proposal, $actor)` returns `result`, `quantity` and `error` for a loaded proposal.
 It checks native proposal access and sums quantities of products classified as MODULE, within authorized proposal and product entities, without changing peak power or storage capacity. Negative quantities offset positive lines. Missing classification returns zero; read errors remain errors.
 JPSUN 1.25.0 uses this API for its optional cover module count.
 
-The field uses the same technical key on proposals, orders and invoices, allowing native document conversion to transfer its value. Existing documents are not synchronized retroactively; manual destination choices remain independent.
+The field uses the same technical key on leads, proposals, orders and invoices. Native commercial document conversion can transfer its value. This does not add a lead-to-proposal synchronization: lead workflows remain owned by LMDB Lead. Existing documents are not synchronized retroactively; manual destination choices remain independent.

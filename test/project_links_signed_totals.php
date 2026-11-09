@@ -429,18 +429,29 @@ class ConsumptionFieldFixture
     public $attributes = array();
     public $writes = array();
     public $fail = false;
-    public $error = 'Simulated extrafield initialization failure';
+    public $error = '';
     public function fetch_name_optionals_label($element) {
         $this->attributes[$element]['label'] = array();
         foreach ($this->definitions[$element] ?? array() as $key => $definition) {
             $this->attributes[$element]['label'][$key] = $definition['label'];
+            foreach ($definition['metadata'] ?? array() as $attribute => $value) {
+                $this->attributes[$element][$attribute][$key] = $value;
+            }
         }
         return 1;
     }
     public function addExtraField(...$args) {
-        if ($this->fail) { return -1; }
+        if ($this->fail) { $this->error = 'Simulated extrafield initialization failure'; return -1; }
         $this->writes[] = $args;
         $this->definitions[$args[5]][$args[0]] = array('label' => $args[1], 'args' => $args);
+        return 1;
+    }
+    public function update(...$args) {
+        if ($this->fail) { $this->error = 'Simulated upgrade failure'; return -1; }
+        $this->writes[] = $args;
+        $key = $args[0]; $element = $args[4];
+        $this->definitions[$element][$key]['metadata']['type'] = $args[2];
+        $this->definitions[$element][$key]['metadata']['enabled'] = $args[17];
         return 1;
     }
 }
@@ -450,7 +461,9 @@ $fields = new ConsumptionFieldFixture();
 verify($method->invoke($descriptor, $fields) === 1, 'Consumption type initialization succeeds');
 verify(count($fields->writes) === 3, 'Consumption type exists on proposals, orders and invoices');
 foreach (array('propal', 'commande', 'facture') as $target) {
-    verify($fields->definitions[$target]['powerplantpv_consumption_type']['args'][2] === 'varchar', 'Consumption wording is editable text on '.$target);
+    $args = $fields->definitions[$target]['powerplantpv_consumption_type']['args'];
+    verify($args[2] === 'select' && $args[9]['options'] === PowerPlant::getConnectionTypeOptions(), 'Consumption uses the power plant connection dictionary on '.$target);
+    verify($args[15] === '1', 'Consumption field belongs to the active entity on '.$target);
     $fields->definitions[$target]['powerplantpv_consumption_type']['label'] = 'Customized wording';
     $fields->definitions[$target]['powerplantpv_consumption_type']['value'] = '';
 }
@@ -459,5 +472,76 @@ verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) ===
 $fields = new ConsumptionFieldFixture();
 $fields->fail = true;
 verify($method->invoke($descriptor, $fields) < 0, 'Consumption field initialization error is not hidden');
+
+// The optional lead integration never installs a table for an absent/incomplete module.
+$conf->modules['lmdblead'] = 1;
+$conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA = 0;
+$fields = new ConsumptionFieldFixture();
+verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === 3, 'Lead field is omitted before the lead extrafields schema is ready');
+$conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA = 1;
+$conf->entity = 2;
+$fields = new ConsumptionFieldFixture();
+verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === 4, 'Installed LMDB Lead receives the same field');
+$args = $fields->definitions['lmdblead_lead']['powerplantpv_consumption_type']['args'];
+verify($args[2] === 'select' && $args[9]['options'] === PowerPlant::getConnectionTypeOptions() && $args[15] === '2', 'Lead uses the exact dictionary in its owning configuration entity');
+$before = $fields->definitions;
+verify($method->invoke($descriptor, $fields) === 1 && $fields->definitions === $before && count($fields->writes) === 4, 'Repeated activation preserves all four definitions');
+
+// Exercise native select rendering: values remain technical keys; labels follow the output language.
+$nativeFields = new ExtraFields($db);
+$fieldKey = 'powerplantpv_consumption_type';
+foreach (array('propal', 'commande', 'facture', 'lmdblead_lead') as $target) {
+    foreach (array('label' => 'PowerPlantPVConsumptionType', 'type' => 'select', 'size' => '255', 'default' => '',
+        'computed' => '', 'unique' => 0, 'required' => 0, 'param' => array('options' => PowerPlant::getConnectionTypeOptions()),
+        'langfile' => 'powerplantpv@powerplantpv', 'alwayseditable' => 1, 'perms' => '', 'list' => '-1',
+        'css' => '', 'cssview' => '', 'csslist' => '', 'help' => '', 'enabled' => '1', 'totalizable' => 0) as $attribute => $value) {
+        $nativeFields->attributes[$target][$attribute][$fieldKey] = $value;
+    }
+    foreach (array('fr_FR', 'en_US') as $language) {
+        $output = new Translate('', $conf);
+        $output->setDefaultLang($language);
+        $output->load('powerplantpv@powerplantpv');
+        foreach (PowerPlant::getConnectionTypeOptions() as $key => $labelKey) {
+            verify($nativeFields->showOutputField($fieldKey, $key, '', $target, $output) === $output->trans($labelKey), 'Native output translates '.$key.' on '.$target.' in '.$language);
+        }
+        verify($nativeFields->showOutputField($fieldKey, '', '', $target, $output) === '', 'Empty consumption remains empty on '.$target);
+    }
+    $html = $nativeFields->showInputField($fieldKey, PowerPlant::CONNECTION_TYPE_TOTAL_SALE, '', '', '', '', 0, $target);
+    $dom->loadHTML($html);
+    $xpath = new DOMXPath($dom);
+    verify($xpath->query('//select/option[@value="total_sale" and @selected]')->length === 1, 'Native selector retains the selected technical value on '.$target);
+}
+$conf->entity = 1;
+unset($conf->modules['lmdblead'], $conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA);
+
+// Existing module-owned metadata is upgraded, without converting a single document value.
+$fields = new ConsumptionFieldFixture();
+$fieldKey = 'powerplantpv_consumption_type';
+$metadata = array('type' => 'varchar', 'entityid' => '2', 'pos' => 217, 'list' => '3', 'alwayseditable' => 0,
+    'required' => 0, 'unique' => 0, 'enabled' => 'isModEnabled("powerplantpv")', 'css' => 'minwidth100',
+    'aiprompt' => 'Keep prompt', 'emptyonclone' => 1, 'showintooltip' => 1, 'personal_data' => 1);
+$fields->definitions['propal'][$fieldKey] = array('label' => 'PowerPlantPVConsumptionType', 'metadata' => $metadata, 'value' => 'Existing text');
+verify($method->invoke($descriptor, $fields) === 1, 'Original text definition upgrades successfully');
+$upgrade = $fields->writes[0];
+verify($upgrade[2] === 'select' && $upgrade[8]['options'] === PowerPlant::getConnectionTypeOptions()
+    && $upgrade[7] === 217 && $upgrade[9] === 0 && $upgrade[11] === '3' && $upgrade[15] === '2'
+    && $upgrade[20]['css'] === 'minwidth100', 'Metadata upgrade preserves owner, position, visibility, editability and CSS');
+verify($fields->definitions['propal'][$fieldKey]['value'] === 'Existing text', 'No historical document value conversion');
+if (version_compare(DOL_VERSION, '22.0.0', '>=')) {
+    verify($upgrade[21] === 'Keep prompt', 'AI prompt is preserved where supported');
+}
+if (version_compare(DOL_VERSION, '23.0.0', '>=')) {
+    verify($upgrade[22] === 1, 'Clone metadata is preserved where supported');
+}
+if (version_compare(DOL_VERSION, '24.0.0', '>=')) {
+    verify($upgrade[23] === 1 && $upgrade[24] === 1, 'Tooltip and personal-data metadata are preserved where supported');
+}
+$count = count($fields->writes);
+verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === $count, 'Upgraded definitions are idempotent');
+$fields->definitions['propal'][$fieldKey]['metadata']['enabled'] = 'isModEnabled(powerplantpv)';
+verify($method->invoke($descriptor, $fields) === 1 && end($fields->writes)[17] === 'isModEnabled("powerplantpv")', 'Repair native editor lost quotes without weakening CSRF or eval');
+$fields->definitions['propal'][$fieldKey]['metadata']['type'] = 'varchar';
+$fields->fail = true;
+verify($method->invoke($descriptor, $fields) < 0, 'Metadata upgrade error is reported');
 
 echo $checks.' checks passed; PHP '.PHP_VERSION.', Dolibarr '.DOL_VERSION."; native objects/helpers, SQLite SQL, locking not simulated.\n";
