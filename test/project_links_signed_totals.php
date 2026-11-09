@@ -469,7 +469,7 @@ verify($method->invoke($descriptor, $fields) === 1, 'Consumption type initializa
 verify(count($fields->writes) === 3, 'Consumption type exists on proposals, orders and invoices');
 foreach (array('propal', 'commande', 'facture') as $target) {
     $args = $fields->definitions[$target]['powerplantpv_consumption_type']['args'];
-    verify($args[2] === 'sellist' && $args[9]['options'] === array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null), 'Consumption uses the power plant connection dictionary on '.$target);
+    verify($args[2] === 'sellist' && $args[9]['options'] === array(PowerPlant::getConnectionTypeDictionaryFilter() => null), 'Consumption uses the power plant connection dictionary on '.$target);
     verify($args[15] === '1', 'Consumption field belongs to the active entity on '.$target);
     $fields->definitions[$target]['powerplantpv_consumption_type']['label'] = 'Customized wording';
     $fields->definitions[$target]['powerplantpv_consumption_type']['value'] = '';
@@ -490,7 +490,7 @@ $conf->entity = 2;
 $fields = new ConsumptionFieldFixture();
 verify($method->invoke($descriptor, $fields) === 1 && count($fields->writes) === 4, 'Installed LMDB Lead receives the same field');
 $args = $fields->definitions['lmdblead_lead']['powerplantpv_consumption_type']['args'];
-verify($args[2] === 'sellist' && $args[9]['options'] === array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null) && $args[15] === '2', 'Lead uses the exact dictionary in its owning configuration entity');
+verify((version_compare(DOL_VERSION, '24.0.0', '>=') ? ($args[2] === 'sellist' && $args[9]['options'] === array(PowerPlant::getConnectionTypeDictionaryFilter() => null)) : ($args[2] === 'select' && $args[9]['options'] === PowerPlant::getConnectionTypeOptions())) && $args[15] === '2', 'Lead uses the exact dictionary in its owning configuration entity');
 $before = $fields->definitions;
 verify($method->invoke($descriptor, $fields) === 1 && $fields->definitions === $before && count($fields->writes) === 4, 'Repeated activation preserves all four definitions');
 
@@ -499,7 +499,7 @@ $nativeFields = new ExtraFields($db);
 $fieldKey = 'powerplantpv_consumption_type';
 foreach (array('propal', 'commande', 'facture', 'lmdblead_lead') as $target) {
     foreach (array('label' => 'PowerPlantPVConsumptionType', 'type' => 'sellist', 'size' => '255', 'default' => '',
-        'computed' => '', 'unique' => 0, 'required' => 0, 'param' => array('options' => array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null)),
+        'computed' => '', 'unique' => 0, 'required' => 0, 'param' => array('options' => array(PowerPlant::getConnectionTypeDictionaryFilter() => null)),
         'langfile' => 'powerplantpv@powerplantpv', 'alwayseditable' => 1, 'perms' => '', 'list' => '-1',
         'css' => '', 'cssview' => '', 'csslist' => '', 'help' => '', 'enabled' => '1', 'totalizable' => 0) as $attribute => $value) {
         $nativeFields->attributes[$target][$attribute][$fieldKey] = $value;
@@ -530,7 +530,7 @@ $metadata = array('type' => 'varchar', 'entityid' => '2', 'pos' => 217, 'list' =
 $fields->definitions['propal'][$fieldKey] = array('label' => 'PowerPlantPVConsumptionType', 'metadata' => $metadata, 'value' => 'Existing text');
 verify($method->invoke($descriptor, $fields) === 1, 'Original text definition upgrades successfully');
 $upgrade = $fields->writes[0];
-verify($upgrade[2] === 'sellist' && $upgrade[8]['options'] === array('c_powerplantpv_connection_type:label:code::(active:=:1)' => null)
+verify($upgrade[2] === 'sellist' && $upgrade[8]['options'] === array(PowerPlant::getConnectionTypeDictionaryFilter() => null)
     && $upgrade[7] === 217 && $upgrade[9] === 0 && $upgrade[11] === '3' && $upgrade[15] === '2'
     && $upgrade[20]['css'] === 'minwidth100', 'Metadata upgrade preserves owner, position, visibility, editability and CSS');
 verify($fields->definitions['propal'][$fieldKey]['value'] === 'Existing text', 'No historical document value conversion');
@@ -592,5 +592,15 @@ $parameters = array('context' => 'globalcard');
 verify($hook->formObjectOptions($parameters, $record, $action, $hookmanager) === 0, 'Native card enrichment keeps its neutral hook return');
 verify($extrafields->attributes['propal']['type'][$fieldKey] === 'select'
     && $extrafields->attributes['propal']['param'][$fieldKey]['options']['self_consumption'] === 'Custom solar use', 'Card metadata retains the inactive selection without requiring a recent core hook');
+
+$nativeFields->attributes['lmdblead_lead']['type'][$fieldKey] = 'sellist';
+$nativeFields->attributes['lmdblead_lead']['param'][$fieldKey] = array('options' => array(PowerPlant::getConnectionTypeDictionaryFilter() => null));
+$conf->modules['lmdblead'] = 1;
+$conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA = 1;
+$parameters = array('elementtype' => 'lmdblead_lead');
+verify($hook->completeFetchNameOptionalsLabel($parameters, $nativeFields, $action, $hookmanager) === 0, 'Fetch enrichment keeps the native neutral return');
+verify($nativeFields->attributes['lmdblead_lead']['type'][$fieldKey] === (version_compare(DOL_VERSION, '24.0.0', '>=') ? 'select' : 'sellist'), 'Only the supported native fetch hook adapts the lead metadata');
+unset($conf->modules['lmdblead'], $conf->global->LMDBLEAD_EXTRAFIELDS_SCHEMA);
+verify(PowerPlantPVCompatibility::isFeatureAvailable('lead_consumption_dictionary') === false, 'Dynamic lead dictionary remains unavailable without the active lead dependency');
 
 echo $checks.' checks passed; PHP '.PHP_VERSION.', Dolibarr '.DOL_VERSION."; native objects/helpers, SQLite SQL, locking not simulated.\n";

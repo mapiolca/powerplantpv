@@ -2,12 +2,10 @@
 
 ## 1.6.1 — 2026-11-09
 
-- « Type de consommation » : liste native sur devis, commandes et factures, basée sur les clés et traductions des types de raccordement des centrales (`PowerPlant::getConnectionTypeOptions()`).
-- Même extrafield sur les leads de LMDB Lead lorsque le module et son schéma d’extrafields sont actifs ; initialisation dans l’entité courante, définitions existantes conservées.
-- Pas de reprise de textes historiques ni de conversion de données. Actualiser PowerPlantPV après l’activation de LMDB Lead pour installer le champ manquant ; la couverture JPSUN 1.25.1 affiche le libellé traduit.
-- Actualisation native de l’ancienne définition texte appartenant au module, avec conservation des réglages et des valeurs ; réparation ciblée de la condition d’activation lorsque l’éditeur natif retire ses guillemets.
-
-- Types de consommation/raccordement administrables dans Configuration → Dictionnaires : référentiel commun aux entités, codes existants conservés, libellés modifiables et désactivation sans effacement des valeurs enregistrées. Actualiser PowerPlantPV dans chaque entité pour rattacher les champs commerciaux au dictionnaire. Ne pas renommer les codes utilisés ; modifier leurs libellés ou désactiver les lignes.
+- Types de consommation/raccordement administrables dans Configuration → Dictionnaires : référentiel commun aux entités, libellés modifiables, activation/désactivation et conservation des codes et valeurs enregistrées.
+- Centrales, devis, commandes et factures utilisent le même référentiel. Les choix désactivés déjà enregistrés restent conservés sur les fiches ; les définitions personnalisées et les réglages existants sont préservés.
+- LMDB Lead : champ de sélection historique conservé ; raccordement dynamique au dictionnaire à partir de Dolibarr 24, via le hook natif de chargement. Le seuil et les dépendances apparaissent dans Compatibilité. Aucune conversion des textes historiques ; la couverture JPSUN 1.25.1 conserve la résolution des libellés.
+- Après mise à jour, actualiser PowerPlantPV dans chaque entité concernée, après activation de LMDB Lead et de son schéma d’extrafields si nécessaire. Modifier les libellés ou désactiver les lignes plutôt que renommer/supprimer des codes utilisés. Le sélecteur natif v20 évite son chemin de filtre SQL défectueux ; les fiches préparent les choix actifs avant le rendu natif.
 
 ## 1.6.0 — 2026-11-06
 

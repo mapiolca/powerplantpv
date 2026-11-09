@@ -1775,3 +1775,7 @@ PowerPlantPVRequiresLeadExtrafields=Activer LMDB Lead et son schéma d’extrafi
 
 PowerPlantPVConnectionTypeDictionary=Types de consommation / raccordement photovoltaïque
 PowerPlantPVConnectionCodeHelp=Code technique stable : ne pas renommer un code utilisé. Modifier le libellé ou désactiver la ligne.
+
+PowerPlantPVLeadConsumptionDictionary=Dictionnaire dynamique de consommation des leads
+PowerPlantPVLeadConsumptionDictionaryDescription=Actualisation des choix des leads depuis le dictionnaire par le hook natif de chargement, disponible à partir de Dolibarr 24. En versions 20 à 23, le champ de sélection historique reste conservé.
+PowerPlantPVRequiresLeadDictionaryHook=Nécessite Dolibarr 24 ou supérieur, LMDB Lead actif et son schéma d’extrafields installé.

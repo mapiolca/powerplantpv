@@ -8,7 +8,7 @@ The activation seeds the four defaults once; a transverse initialization marker 
 
 `php -d extension=mysqli -d extension=pdo_sqlite test/project_links_signed_totals.php /path/to/25-alpha/htdocs`
 
-182 assertions on PHP 8.4.22 and cached Dolibarr 25.0.0-alpha sources: native objects, HookManager, ExtraFields rendering, isolated SQLite adapter and simulated extrafield installation manager. Covers the original project scenarios, aligned dictionary declarations, commercial and optional lead metadata, preservation of original values, custom/new/disabled labels, disabled saved selection, unmapped saved text and repeated initialization. Native selector markup is parsed with DOMXPath. This is not a MySQL activation or a deployed browser test.
+185 assertions on PHP 8.4.22 and cached Dolibarr 25.0.0-alpha sources: native objects, HookManager, ExtraFields rendering, isolated SQLite adapter and simulated extrafield installation manager. Covers the original project scenarios, aligned dictionary declarations, commercial and optional lead metadata, preservation of original values, custom/new/disabled labels, disabled saved selection, unmapped saved text and repeated initialization. Native selector markup is parsed with DOMXPath. This is not a MySQL activation or a deployed browser test.
 
 Source review of official Dolibarr 20.0.0 confirms that `sellist` has varchar storage and allows a string `code` key. Its output lookup uses that code. Unlike the examined v25 sources, v20 has no `showInputExtraField` hook: `formObjectOptions` prepares native select metadata on cards to retain saved inactive choices. The additional rendering hook covers versions which call it. No core file or hook context is initialized inside a library.
 
@@ -22,3 +22,5 @@ PHP syntax and diff whitespace checked. PHPStan is unavailable in this checkout 
 4. Use native dictionary admin permissions and CSRF checks. Keep codes stable: change labels or disable entries rather than renaming/deleting used codes.
 
 The published 1.6.1 tag remains immutable. A corrected source archive, identified by commit and SHA-256 in the release notes, can be attached without presenting it as an installer-validated Dolibarr package.
+
+Dynamic LMDB Lead dictionary choices require Dolibarr 24+ and its native `completeFetchNameOptionalsLabel` hook. The module adapts only its own dictionary-bound definition to a native plain select in memory, matching LMDB Lead's accepted types. On Dolibarr 20–23 the existing lead select remains intact; the dynamic capability is reported unavailable in Compatibility. In the initial v20 core, filtered sellists produce an invalid `AND` without `WHERE`; the module uses the native unfiltered sellist definition there and prepares active card choices before rendering. Other supported versions keep the native USF filter.

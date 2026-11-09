@@ -322,6 +322,15 @@ class PowerPlant extends CommonObject
 		);
 	}
 
+	/** Native sellist contract differs in the initial v20 release.
+	 * @return string Dictionary table, label, stable key and supported native filter
+	 */
+	public static function getConnectionTypeDictionaryFilter()
+	{
+		return 'c_powerplantpv_connection_type:label:code'
+			.(version_compare(DOL_VERSION, '21.0.0', '>=') ? '::(active:=:1)' : '');
+	}
+
 	/** Read the native global dictionary. Inactive values remain readable in documents.
 	 * @param bool $activeOnly Restrict choices to active rows
 	 * @return array<string,string> Stable stored code => label or translation key

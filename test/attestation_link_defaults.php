@@ -83,6 +83,7 @@ $db->query('INSERT INTO pvdefaults_societe VALUES (1,1),(2,1),(9,2)');
 $db->query("INSERT INTO pvdefaults_projet VALUES (11,'PR11','Project one',1,1,1,1),(12,'PR12','Project two',1,1,1,1),(99,'SECRET','Hidden',2,1,1,1)");
 $db->query("INSERT INTO pvdefaults_powerplantpv_powerplant VALUES (1,'PV1','Plant one',1,1,1)");
 $db->query("INSERT INTO pvdefaults_element_element VALUES (1,1,'powerplant@powerplantpv',11,'project')");
+$db->query('CREATE TABLE pvdefaults_c_powerplantpv_connection_type (code TEXT, label TEXT, active INTEGER, position INTEGER)');
 $source = new PowerPlant($db);
 $source->id = 1;
 $source->entity = 1;

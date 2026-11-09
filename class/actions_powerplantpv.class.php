@@ -656,6 +656,35 @@ class ActionsPowerplantpv
 		return 0;
 	}
 
+	/** Preserve LMDB Lead's plain-select contract using the native v24+ fetch hook.
+	 * Older cores do not call this hook; their original lead select is retained.
+	 * @param array<string,mixed> $parameters Native fetch parameters
+	 * @param ExtraFields $object Native extrafield manager
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int Always neutral; only fetched metadata is enriched
+	 */
+	public function completeFetchNameOptionalsLabel($parameters, &$object, &$action, $hookmanager)
+	{
+		dol_include_once('/powerplantpv/class/powerplantpvcompatibility.class.php');
+		if (!isModEnabled('powerplantpv') || !PowerPlantPVCompatibility::isLeadConsumptionDictionaryAvailable()) {
+			return 0;
+		}
+		$target = 'lmdblead_lead';
+		$key = 'powerplantpv_consumption_type';
+		if (($object->attributes[$target]['type'][$key] ?? '') !== 'sellist') {
+			return 0;
+		}
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		if (!array_key_exists(PowerPlant::getConnectionTypeDictionaryFilter(), $object->attributes[$target]['param'][$key]['options'] ?? array())) {
+			return 0;
+		}
+		$object->attributes[$target]['type'][$key] = 'select';
+		$object->attributes[$target]['param'][$key] = array('options' => PowerPlant::getConnectionTypeOptions(false));
+		$object->attributes[$target]['powerplantpv_dictionary'][$key] = 1;
+		return 0;
+	}
+
 	/** Retain saved inactive choices using the native select renderer.
 	 * @param array<string,mixed> $parameters Native renderer parameters
 	 * @param ExtraFields $object Native extrafield manager
@@ -668,10 +697,14 @@ class ActionsPowerplantpv
 		$this->resprints = '';
 		$target = $parameters['extrafieldsobjectkey'] ?? '';
 		$key = $parameters['key'] ?? '';
+		if ($key === 'powerplantpv_consumption_type') {
+			dol_include_once('/powerplantpv/class/powerplant.class.php');
+		}
 		if (!isModEnabled('powerplantpv') || $key !== 'powerplantpv_consumption_type'
 			|| !in_array($target, array('propal', 'commande', 'facture', 'lmdblead_lead'), true)
-			|| ($object->attributes[$target]['type'][$key] ?? '') !== 'sellist'
-			|| !array_key_exists('c_powerplantpv_connection_type:label:code::(active:=:1)', $object->attributes[$target]['param'][$key]['options'] ?? array())) {
+			|| (empty($object->attributes[$target]['powerplantpv_dictionary'][$key])
+				&& (($object->attributes[$target]['type'][$key] ?? '') !== 'sellist'
+					|| !array_key_exists(PowerPlant::getConnectionTypeDictionaryFilter(), $object->attributes[$target]['param'][$key]['options'] ?? array())))) {
 			return 0;
 		}
 		dol_include_once('/powerplantpv/class/powerplant.class.php');
@@ -717,10 +750,11 @@ class ActionsPowerplantpv
 		global $extrafields;
 		$target = is_object($object) ? ($object->table_element ?? '') : '';
 		$key = 'powerplantpv_consumption_type';
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
 		if (in_array($target, array('propal', 'commande', 'facture', 'lmdblead_lead'), true)
 			&& is_object($extrafields)
 			&& ($extrafields->attributes[$target]['type'][$key] ?? '') === 'sellist'
-			&& array_key_exists('c_powerplantpv_connection_type:label:code::(active:=:1)', $extrafields->attributes[$target]['param'][$key]['options'] ?? array())) {
+			&& array_key_exists(PowerPlant::getConnectionTypeDictionaryFilter(), $extrafields->attributes[$target]['param'][$key]['options'] ?? array())) {
 			dol_include_once('/powerplantpv/class/powerplant.class.php');
 			$options = PowerPlant::getConnectionTypeOptions();
 			$value = (string) ($object->array_options['options_'.$key] ?? '');
