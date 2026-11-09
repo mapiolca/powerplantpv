@@ -252,9 +252,11 @@ GPLv3 or (at your option) any later version. See file COPYING for more informati
 
 All texts and readme's are licensed under [GFDL](https://www.gnu.org/licenses/fdl-1.3.en.html).
 
-### Consumption type and offer covers — 1.6.1
+### Connection and offer covers — 1.6.1
 
-The optional proposal, order and invoice extrafield `powerplantpv_consumption_type` is a native select using `PowerPlant::getConnectionTypeOptions()`, the same four technical keys and translated labels as power plant connection types. JPSUN 1.25.1 displays the translated choice as its offer cover subtitle.
+The connection extrafield is labelled “Raccordement” in French. On leads, proposals, orders and invoices, the module sets native PDF visibility to 2 (display only if non-empty) for its existing peak-power, storage-capacity and connection fields. Refresh the module in each entity to apply this configuration; stored values and other field settings are preserved. PDF models must support native extrafields.
+
+The optional proposal, order and invoice extrafield `powerplantpv_consumption_type` is a native select using `PowerPlant::getConnectionTypeOptions()`, the same dictionary codes and labels as power plant connection types. JPSUN 1.25.1 displays the translated choice as its offer cover subtitle.
 Update the module through the native administration workflow to create it; existing definitions and values are preserved.
 The same field is installed on `lmdblead_lead` when LMDB Lead is active and `LMDBLEAD_EXTRAFIELDS_SCHEMA` is set to 1. If LMDB Lead is installed later, update PowerPlantPV again in the relevant entity. No LMDB Lead dependency is imposed on the commercial fields, and no lead table is installed by PowerPlantPV. The native LMDB Lead rights, revision checks and extrafield rendering remain responsible for lead access.
 No historical free-text choices or value conversions are added. The original module-owned text definition is upgraded to the select through the native ExtraFields API, preserving its metadata and all stored document values. Customized labels or other field types are preserved. The exact malformed condition `isModEnabled(powerplantpv)` produced by the native editor losing its quotes is repaired to `isModEnabled("powerplantpv")` on the module-owned field.

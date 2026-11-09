@@ -1128,6 +1128,10 @@ class modPowerPlantPV extends DolibarrModules
 				return -1;
 			}
 		}
+		$result = $this->configureCommercialPdfExtrafields();
+		if ($result < 0) {
+			return -1;
+		}
 		$result = $this->ensureMaintenanceFoundationExtrafields($extrafields);
 		if ($result < 0) {
 			return -1;
@@ -2671,6 +2675,30 @@ class modPowerPlantPV extends DolibarrModules
 					return -1;
 				}
 			}
+		}
+		return 1;
+	}
+
+	/**
+	 * Apply native PDF visibility without rewriting field definitions or stored values.
+	 *
+	 * @return int 1 if OK, -1 on configuration error
+	 */
+	private function configureCommercialPdfExtrafields()
+	{
+		global $conf;
+		$targets = "'propal', 'commande', 'facture'";
+		if (PowerPlantPVCompatibility::isLeadConsumptionTypeAvailable()) {
+			$targets .= ", 'lmdblead_lead'";
+		}
+		// One atomic metadata update; native printable=2 means display only if non-empty (v20+).
+		$sql = "UPDATE ".MAIN_DB_PREFIX."extrafields SET printable = 2";
+		$sql .= " WHERE elementtype IN (".$targets.")";
+		$sql .= " AND name IN ('powerplantpv_peak_power', 'powerplantpv_storage_capacity', 'powerplantpv_consumption_type')";
+		$sql .= " AND entity IN (0, ".((int) $conf->entity).") AND printable <> 2";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
 		}
 		return 1;
 	}

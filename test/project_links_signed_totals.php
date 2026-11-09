@@ -494,6 +494,55 @@ verify((version_compare(DOL_VERSION, '24.0.0', '>=') ? ($args[2] === 'sellist' &
 $before = $fields->definitions;
 verify($method->invoke($descriptor, $fields) === 1 && $fields->definitions === $before && count($fields->writes) === 4, 'Repeated activation preserves all four definitions');
 
+// PDF configuration updates existing metadata only, including pre-existing lead technical fields.
+$pdfMethod = new ReflectionMethod(modPowerPlantPV::class, 'configureCommercialPdfExtrafields');
+$pdfMethod->setAccessible(true);
+$fixtureId = 1000;
+foreach (array('propal', 'commande', 'facture', 'lmdblead_lead', 'projet') as $target) {
+    foreach (array(0, 2, 3) as $entity) {
+        foreach (array('powerplantpv_peak_power', 'powerplantpv_storage_capacity', 'powerplantpv_consumption_type', 'custom_field') as $key) {
+            $db->query("INSERT INTO pvtest_extrafields (rowid,name,label,elementtype,entity,printable,help) VALUES (".$fixtureId++.", '".$key."', 'Custom label', '".$target."', ".$entity.", 1, 'Preserved help')");
+        }
+    }
+}
+$metadataBefore = $db->pdo->query("SELECT rowid,label,help FROM pvtest_extrafields WHERE rowid >= 1000 ORDER BY rowid")->fetchAll(PDO::FETCH_ASSOC);
+verify($pdfMethod->invoke($descriptor) === 1, 'Native PDF visibility configuration succeeds');
+verify(scalar("SELECT COUNT(*) FROM pvtest_extrafields WHERE rowid >= 1000 AND printable = 2") == 24, 'PDF visibility covers three fields on four objects in shared and current entity definitions');
+verify(scalar("SELECT COUNT(*) FROM pvtest_extrafields WHERE rowid >= 1000 AND (entity = 3 OR elementtype = 'projet' OR name = 'custom_field') AND printable <> 1") == 0, 'Other entities, project totals and unrelated fields keep their PDF configuration');
+verify($db->pdo->query("SELECT rowid,label,help FROM pvtest_extrafields WHERE rowid >= 1000 ORDER BY rowid")->fetchAll(PDO::FETCH_ASSOC) === $metadataBefore, 'Labels and other metadata survive PDF configuration');
+verify($pdfMethod->invoke($descriptor) === 1 && scalar("SELECT COUNT(*) FROM pvtest_extrafields WHERE rowid >= 1000 AND printable = 2") == 24, 'PDF visibility configuration is idempotent');
+$db->failure = 'UPDATE pvtest_extrafields';
+verify($pdfMethod->invoke($descriptor) < 0, 'PDF configuration SQL errors are reported');
+$db->failure = '';
+$db->query('DELETE FROM pvtest_extrafields WHERE rowid >= 1000');
+
+// Native document helper decides visibility after formatting the field content.
+require_once DOL_DOCUMENT_ROOT.'/core/class/commondocgenerator.class.php';
+$pdfGenerator = new class($db) extends CommonDocGenerator {};
+$pdfGenerator->extrafieldsCache = new ExtraFields($db);
+$pdfObject = new stdClass();
+$pdfObject->table_element = 'propal';
+$pdfObject->array_options = array();
+foreach (array('powerplantpv_peak_power', 'powerplantpv_storage_capacity', 'powerplantpv_consumption_type') as $key) {
+    foreach (array('label' => $key, 'type' => 'varchar', 'size' => '255', 'printable' => 2,
+        'enabled' => '1', 'pos' => 200, 'langfile' => 'powerplantpv@powerplantpv', 'param' => array(), 'computed' => '',
+        'default' => '', 'unique' => 0, 'required' => 0, 'perms' => '', 'list' => '5', 'help' => '',
+        'css' => '', 'cssview' => '', 'csslist' => '', 'alwayseditable' => 1) as $attribute => $value) {
+        $pdfGenerator->extrafieldsCache->attributes['propal'][$attribute][$key] = $value;
+    }
+}
+verify($pdfGenerator->getExtrafieldsInHtml($pdfObject, $langs) === '', 'Native PDF helper hides absent values');
+foreach (array('', null) as $value) {
+    foreach (array('powerplantpv_peak_power', 'powerplantpv_storage_capacity', 'powerplantpv_consumption_type') as $key) {
+        $pdfObject->array_options['options_'.$key] = $value;
+    }
+    verify($pdfGenerator->getExtrafieldsInHtml($pdfObject, $langs) === '', 'Native PDF helper hides empty or null values');
+}
+$pdfObject->array_options = array('options_powerplantpv_peak_power' => '119.85',
+    'options_powerplantpv_storage_capacity' => '12', 'options_powerplantpv_consumption_type' => 'Connection test');
+$pdfHtml = $pdfGenerator->getExtrafieldsInHtml($pdfObject, $langs);
+verify(strpos($pdfHtml, '119.85') !== false && strpos($pdfHtml, '12') !== false && strpos($pdfHtml, 'Connection test') !== false, 'Native PDF helper includes populated values');
+
 // Exercise native select rendering: values remain technical keys; labels follow the output language.
 $nativeFields = new ExtraFields($db);
 $fieldKey = 'powerplantpv_consumption_type';
