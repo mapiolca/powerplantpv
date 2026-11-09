@@ -2544,8 +2544,8 @@ class modPowerPlantPV extends DolibarrModules
 	private function ensureCommercialConsumptionTypeExtrafields($extrafields)
 	{
 		global $conf;
-		require_once __DIR__.'/../../class/powerplant.class.php';
-		require_once __DIR__.'/../../class/powerplantpvcompatibility.class.php';
+		dol_include_once('/powerplantpv/class/powerplant.class.php');
+		dol_include_once('/powerplantpv/class/powerplantpvcompatibility.class.php');
 		$targets = array('propal', 'commande', 'facture');
 		if (PowerPlantPVCompatibility::isLeadConsumptionTypeAvailable()) {
 			$targets[] = 'lmdblead_lead';
