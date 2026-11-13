@@ -44,5 +44,13 @@ versions Dolibarr 21–25 ; la lecture v20 ne constitue pas une recette d’inst
   module disponible dans ce checkout. Syntaxe PHP et diff vérifiés.
 - L’onglet À propos lit déjà la version du descripteur : il affiche donc 1.7.0
   sans seconde constante de version.
-- Aucun paquet ni déploiement préparé ; les essais d’installation, l’acceptation
+- ZIP `module_powerplantpv-1.7.0.zip` : validateur natif Dolibarr 24.0.0
+  (`769c7db907099643558e77d7002c109cfda919e5`), fonctions `validateZipFile()` et
+  `analyzeDirContents()` exécutées sur le paquet livré, sans erreur. Le nom et la
+  racine `powerplantpv/` correspondent au descripteur. Les fichiers de travail,
+  le dépôt Git, les tests et les outils de build sont exclus du paquet.
+- Les 43 points d’entrée PHP présents dans le ZIP atteignent `main.inc.php` dans
+  les dispositions `htdocs/powerplantpv` et `htdocs/custom/powerplantpv`, avec un
+  environnement de bootstrap isolé. Cela ne prouve pas une installation ERP réelle.
+- Aucun déploiement réalisé ; l’installation via l’interface native, l’acceptation
   Dolistore et la recette visuelle restent hors de ces preuves locales.
