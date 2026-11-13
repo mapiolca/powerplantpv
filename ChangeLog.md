@@ -1,5 +1,11 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.7.0 — En préparation
+
+- Accueil : deux tuiles natives pour les centrales (brouillons, validées, en service et hors service) et les maintenances (total des périodes requises, à prévoir et en retard), avec accès aux listes filtrées.
+- Les compteurs respectent les droits de lecture et les entités partagées ; les échéances reprennent le planificateur de maintenance existant, sans écriture métier à l’affichage.
+- Après mise à jour : actualiser le module dans chaque entité pour enregistrer le contexte d’accueil et les pictogrammes, en conservant les réglages existants.
+
 ## 1.6.1 — 2026-11-09
 
 - Leads, devis, commandes et factures : libellé « Raccordement » ; puissance-crête, capacité et raccordement affichés sur les PDF compatibles uniquement si non vides (réglage natif 2). Les valeurs et les autres paramètres des champs sont conservés. Actualiser le module pour appliquer ce réglage aux champs existants.

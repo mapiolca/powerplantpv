@@ -27,6 +27,99 @@
 class ActionsPowerplantpv
 {
 	/**
+	 * Extend the native home dashboard (Dolibarr 20+).
+	 * @param array<string,mixed> $parameters Hook parameters
+	 * @param object $object Hook object
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int
+	 */
+	public function addOpenElementsDashboardLine($parameters, &$object, &$action, $hookmanager)
+	{
+		global $db, $user, $langs;
+
+		$this->results = array();
+		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')
+			|| !in_array('index', explode(':', $parameters['context'] ?? ''), true)) {
+			return 0;
+		}
+		require_once DOL_DOCUMENT_ROOT.'/core/class/workboardresponse.class.php';
+		$langs->load('powerplantpv@powerplantpv');
+		$sql = 'SELECT t.status, COUNT(*) as nb FROM '.MAIN_DB_PREFIX.'powerplantpv_powerplant AS t';
+		$sql .= ' WHERE t.entity IN ('.$db->sanitize(getEntity('powerplant')).')';
+		if ((int) $user->socid > 0) {
+			$sql .= ' AND t.fk_soc = '.((int) $user->socid);
+		}
+		$sql .= ' GROUP BY t.status';
+		$resql = $db->query($sql);
+		if (!$resql) {
+			$this->error = $db->lasterror();
+			return -1;
+		}
+		$counts = array();
+		while (is_object($row = $db->fetch_object($resql))) {
+			$counts[(int) $row->status] = (int) $row->nb;
+		}
+		$db->free($resql);
+		foreach (array(0 => 'Draft', 1 => 'Validated', 2 => 'PowerPlantInService', 3 => 'PowerPlantOutOfService') as $status => $label) {
+			$board = new WorkboardResponse();
+			$board->label = $langs->trans($label);
+			$board->url = dol_buildpath('/powerplantpv/powerplant_list.php', 1).'?search_status='.$status;
+			$board->nbtodo = $counts[$status] ?? 0;
+			$this->results['powerplantpv_status_'.$status] = $board;
+		}
+		if ($user->hasRight('powerplantpv', 'maintenance', 'read')
+			&& getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
+			dol_include_once('/powerplantpv/class/powerplantpvmaintenancescheduler.class.php');
+			$scheduler = new PowerPlantPVMaintenanceScheduler($db);
+			$statuses = array('planned', 'due', 'scheduled', 'overdue', 'covered', 'incomplete');
+			$rows = $scheduler->getMaintenanceRows($user, array('statuses' => $statuses));
+			$maintenanceCounts = array('total' => count($rows), 'planned' => 0, 'overdue' => 0);
+			foreach ($rows as $row) {
+				if (in_array($row['status'], array('planned', 'due'), true)) {
+					$maintenanceCounts['planned']++;
+				} elseif ($row['status'] === 'overdue') {
+					$maintenanceCounts['overdue']++;
+				}
+			}
+			$filters = array('total' => implode(',', $statuses), 'planned' => 'planned,due', 'overdue' => 'overdue');
+			foreach (array('total' => 'PowerPlantPVHomeMaintenanceTotal', 'planned' => 'PowerPlantPVHomeMaintenancePlanned', 'overdue' => 'PowerPlantPVHomeMaintenanceOverdue') as $key => $label) {
+				$board = new WorkboardResponse();
+				$board->label = $langs->trans($label);
+				$board->url = dol_buildpath('/powerplantpv/maintenance_list.php', 1).'?search_status='.urlencode($filters[$key]);
+				$board->nbtodo = $maintenanceCounts[$key];
+				$this->results['powerplantpv_maintenance_'.$key] = $board;
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * Group home counters using the native tile renderer.
+	 * @param array<string,mixed> $parameters Hook parameters
+	 * @param object $object Hook object
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int
+	 */
+	public function addOpenElementsDashboardGroup($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user;
+		$this->results = array();
+		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')
+			|| !in_array('index', explode(':', $parameters['context'] ?? ''), true)) {
+			return 0;
+		}
+		$this->results['powerplantpv'] = array('groupName' => 'PowerPlants', 'lang' => 'powerplantpv@powerplantpv',
+			'stats' => array('powerplantpv_status_0', 'powerplantpv_status_1', 'powerplantpv_status_2', 'powerplantpv_status_3'));
+		if ($user->hasRight('powerplantpv', 'maintenance', 'read') && getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
+			$this->results['powerplantpvmaintenance'] = array('groupName' => 'PowerPlantPVHomeMaintenances', 'lang' => 'powerplantpv@powerplantpv',
+				'stats' => array('powerplantpv_maintenance_total', 'powerplantpv_maintenance_planned', 'powerplantpv_maintenance_overdue'));
+		}
+		return 0;
+	}
+
+	/**
 	 * @var string Identifier used by Multicompany external sharing payload
 	 */
 	public const MULTICOMPANY_SHARING_ROOT_KEY = 'powerplantpv';

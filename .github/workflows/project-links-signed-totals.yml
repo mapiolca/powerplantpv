@@ -62,3 +62,6 @@ jobs:
 
       - name: Proposal module count without commercial writes
         run: php powerplantpv/test/proposal_modules.php
+
+      - name: Native home dashboard responses with simulated SQL and scheduler
+        run: php powerplantpv/test/home_dashboard.php dolibarr/htdocs
