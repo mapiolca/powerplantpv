@@ -1779,3 +1779,9 @@ PowerPlantPVConnectionCodeHelp=Stable technical code: do not rename a code in us
 PowerPlantPVLeadConsumptionDictionary=Dynamic lead consumption dictionary
 PowerPlantPVLeadConsumptionDictionaryDescription=Refresh lead choices from the dictionary through the native fetch hook available from Dolibarr 24. Versions 20 to 23 retain the existing select field.
 PowerPlantPVRequiresLeadDictionaryHook=Requires Dolibarr 24 or later, active LMDB Lead and its installed extrafields schema.
+
+# Native home dashboard
+PowerPlantPVHomeMaintenances=Maintenance
+PowerPlantPVHomeMaintenanceTotal=Total maintenance
+PowerPlantPVHomeMaintenancePlanned=To schedule
+PowerPlantPVHomeMaintenanceOverdue=Overdue

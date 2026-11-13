@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.6.1';
+		$this->version = '1.7.0';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -112,6 +112,7 @@ class modPowerPlantPV extends DolibarrModules
 			'theme' => 0,
 			// Set this to relative path of css file if module has its own css file
 			'css' => array(
+				'/powerplantpv/css/powerplantpv_home.css',
 				'/powerplantpv/css/powerplantpv_maintenance_dashboard.css',
 				'/powerplantpv/css/powerplantpv_units.css',
 			),
@@ -123,6 +124,7 @@ class modPowerPlantPV extends DolibarrModules
 			/* BEGIN MODULEBUILDER HOOKSCONTEXTS */
 			'hooks' => array(
 				'data' => array(
+					'index',
 					'commonobject',
 					'lmdblead_leadcard',
 					'propallist',

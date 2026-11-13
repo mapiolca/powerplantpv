@@ -275,3 +275,15 @@ The four existing codes and all saved document/plant values remain unchanged. Mo
 Native card rendering retains the current inactive or unmapped value. Unrelated fields and permissions are preserved. See [targeted validation](test/README-consumption-dictionary.md). No deployment is implied by this source revision.
 
 Dynamic LMDB Lead dictionary choices require Dolibarr 24+ and its native `completeFetchNameOptionalsLabel` hook. The module adapts only its own dictionary-bound definition to a native plain select in memory, matching LMDB Lead's accepted types. On Dolibarr 20–23 the existing lead select remains intact; the dynamic capability is reported unavailable in Compatibility. In the initial v20 core, filtered sellists produce an invalid `AND` without `WHERE`; the module uses the native unfiltered sellist definition there and prepares active card choices before rendering. Other supported versions keep the native USF filter.
+
+### Home dashboard — 1.7.0
+
+The native home dashboard now groups power plants by draft, validated, in-service
+and out-of-service status. A second tile shows required maintenance periods in
+total, to schedule (planned or due), and overdue. Every counter links to its
+filtered list. Maintenance counts use the existing scheduler and exclude periods
+where maintenance is not required. Both tiles respect read permissions and entity
+sharing. Refresh the module in each entity after upgrading to register the home
+hook and icon aliases while preserving existing settings.
+
+See [dashboard semantics and validation](docs/home-dashboard.md).

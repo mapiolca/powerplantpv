@@ -144,6 +144,9 @@ $num = count($pagedRows);
 
 $powerplantOptions = powerplantpvGetSelectablePowerPlantOptions(null, $searchPowerplant > 0 ? array($searchPowerplant) : array());
 $statusOptions = powerplantpvMaintenanceStatusOptions();
+// Keep combined dashboard filters selected when the native list form is submitted.
+$statusOptions['planned,due'] = $langs->trans('PowerPlantPVHomeMaintenancePlanned');
+$statusOptions['planned,due,scheduled,overdue,covered,incomplete'] = $langs->trans('PowerPlantPVHomeMaintenanceTotal');
 $natureOptions = powerplantpvMaintenanceInterventionNatureOptions(1);
 $serviceOptions = powerplantpvMaintenanceServiceOptions();
 $createAllowed = powerplantpvMaintenanceCanCreateIntervention($user);

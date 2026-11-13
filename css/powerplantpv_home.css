@@ -1,0 +1,8 @@
+/* Icon aliases required by the native home dashboard group renderer. */
+.fa-dol-powerplantpv::before {
+	content: "\f5ba"; /* Font Awesome solar-panel */
+}
+
+.fa-dol-powerplantpvmaintenance::before {
+	content: "\f0ad"; /* Font Awesome wrench */
+}
