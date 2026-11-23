@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.9.1';
+		$this->version = '1.9.2';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -454,8 +454,8 @@ class modPowerPlantPV extends DolibarrModules
 				'method' => 'runWeeklyReminder',
 				'parameters' => '',
 				'comment' => 'PowerPlantPVMaintenanceWeeklyReminderCronComment',
-				'frequency' => 5,
-				'unitfrequency' => 60,
+				'frequency' => 1,
+				'unitfrequency' => 604800,
 				'status' => 1,
 				'test' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
 				'priority' => 50,
@@ -468,8 +468,8 @@ class modPowerPlantPV extends DolibarrModules
 				'method' => 'runMonthlyReminder',
 				'parameters' => '',
 				'comment' => 'PowerPlantPVMaintenanceMonthlyReminderCronComment',
-				'frequency' => 5,
-				'unitfrequency' => 60,
+				'frequency' => 1,
+				'unitfrequency' => 2678400,
 				'status' => 1,
 				'test' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
 				'priority' => 50,

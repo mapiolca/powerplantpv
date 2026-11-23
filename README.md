@@ -35,6 +35,10 @@ See [the implementation and validation notes](docs/release/v1.8-maintenance-deve
 for activation, historic reports, naming existing equipment and validation limits.
 Version 1.9.1 removes per-inverter injection readings from maintenance reports, translates report answers and displays inverter checks in full-width PDF panels. See [ChangeLog.md](ChangeLog.md#191--2026-11-23).
 
+### Maintenance reminders — 1.9.2
+
+After updating from 1.9.1 or earlier, save the reminder settings once in each affected entity to apply the weekly and monthly frequencies to existing scheduled jobs. The settings show the next execution for each enabled reminder. Dolibarr controls recurrence. A monthly date on the 29th, 30th or 31st may roll into the following month when the day is missing. After an SMTP failure, Dolibarr schedules the next regular occurrence. Review the last run result before manually replaying a failed or interrupted reminder. See [ChangeLog.md](ChangeLog.md#192--2026-11-23).
+
 Version 1.9.0 adds permission-based finalization when evidence photos are missing, internal signatures with order-independent signature status, and PDF templates by intervention type. See [ChangeLog.md](ChangeLog.md#190--2026-11-20).
 
 Version 1.8.1 includes report-level checks in the PDF cover summary. See [ChangeLog.md](ChangeLog.md#181--2026-11-20).
