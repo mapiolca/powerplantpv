@@ -22,6 +22,7 @@
  */
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/CMailFile.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 dol_include_once('/powerplantpv/lib/powerplantpv_maintenance.lib.php');
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancescheduler.class.php');
 dol_include_once('/user/class/user.class.php');
@@ -31,6 +32,10 @@ dol_include_once('/user/class/user.class.php');
  */
 class PowerPlantPVMaintenanceReminder
 {
+	private const CRON_WEEK = 604800;
+	// Dolibarr interprets this unit as a calendar month.
+	private const CRON_MONTH = 2678400;
+
 	private const FREQUENCY_WEEKLY = 'weekly';
 	private const FREQUENCY_MONTHLY = 'monthly';
 	private const CRON_CLASS = '/powerplantpv/class/powerplantpvmaintenancereminder.class.php';
@@ -89,7 +94,7 @@ class PowerPlantPVMaintenanceReminder
 	}
 
 	/**
-	 * Update the native cron start date for one reminder frequency.
+	 * Synchronize the native task from the reminder settings.
 	 *
 	 * @param	DoliDB		$db					Database handler
 	 * @param	string		$frequency			Reminder frequency
@@ -99,20 +104,15 @@ class PowerPlantPVMaintenanceReminder
 	 */
 	public static function updateCronStartTime($db, $frequency, $startTimestamp, $currentUser = null)
 	{
-		global $conf, $user;
+		global $user;
 
-		$method = self::getMethodForFrequency($frequency);
-		if ($method === '') {
-			return 0;
+		$where = self::getCronTaskWhere($frequency);
+		if ($where === '' || $startTimestamp <= 0) {
+			return -1;
 		}
 
 		$sql = 'SELECT COUNT(rowid) as nb';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'cronjob';
-		$sql .= " WHERE jobtype = 'method'";
-		$sql .= " AND classesname = '".self::CRON_CLASS."'";
-		$sql .= " AND objectname = '".self::CRON_OBJECT."'";
-		$sql .= " AND methodename = '".$db->escape($method)."'";
-		$sql .= ' AND entity = '.((int) $conf->entity);
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'cronjob'.$where;
 		$resql = $db->query($sql);
 		if (!$resql) {
 			return -1;
@@ -128,37 +128,88 @@ class PowerPlantPVMaintenanceReminder
 			$userForUpdate = $user;
 		}
 
+		$startDate = "'".$db->idate((int) $startTimestamp)."'";
+		$unit = "'".($frequency === self::FREQUENCY_MONTHLY ? self::CRON_MONTH : self::CRON_WEEK)."'";
 		$sql = 'UPDATE '.MAIN_DB_PREFIX.'cronjob SET';
-		$sql .= " datestart = '".$db->idate((int) $startTimestamp)."'";
-		$sql .= ", datenextrun = '".$db->idate((int) $startTimestamp)."'";
+		// Preserve the next run when saving unrelated settings.
+		$sql .= ' datenextrun = CASE WHEN datestart = '.$startDate.' AND frequency = 1 AND unitfrequency = '.$unit;
+		$sql .= ' AND datenextrun IS NOT NULL THEN datenextrun ELSE '.$startDate.' END';
+		$sql .= ', datestart = '.$startDate.', frequency = 1, unitfrequency = '.$unit;
 		if (!empty($userForUpdate) && $userForUpdate instanceof User) {
 			$sql .= ', fk_user_mod = '.((int) $userForUpdate->id);
 		}
-		$sql .= " WHERE jobtype = 'method'";
-		$sql .= " AND classesname = '".self::CRON_CLASS."'";
-		$sql .= " AND objectname = '".self::CRON_OBJECT."'";
-		$sql .= " AND methodename = '".$db->escape($method)."'";
-		$sql .= ' AND entity = '.((int) $conf->entity);
-
-		return $db->query($sql) ? 1 : -1;
+		return $db->query($sql.$where) ? 1 : -1;
 	}
 
 	/**
-	 * Return cron method name for a frequency.
+	 * Find this module's reminder task in the current entity.
 	 *
 	 * @param	string	$frequency	Frequency code
-	 * @return	string				Method name
+	 * @return	string				SQL conditions, or empty for an unknown frequency
 	 */
-	private static function getMethodForFrequency($frequency)
+	private static function getCronTaskWhere($frequency)
 	{
+		global $conf;
+
 		if ($frequency === self::FREQUENCY_WEEKLY) {
-			return 'runWeeklyReminder';
-		}
-		if ($frequency === self::FREQUENCY_MONTHLY) {
-			return 'runMonthlyReminder';
+			$method = 'runWeeklyReminder';
+		} elseif ($frequency === self::FREQUENCY_MONTHLY) {
+			$method = 'runMonthlyReminder';
+		} else {
+			return '';
 		}
 
-		return '';
+		return " WHERE jobtype = 'method' AND classesname = '".self::CRON_CLASS."'"
+			." AND objectname = '".self::CRON_OBJECT."' AND methodename = '".$method."'"
+			.' AND entity = '.((int) $conf->entity);
+	}
+
+	/**
+	 * Read the scheduled occurrence. Legacy five-minute tasks still use the
+	 * module's stored occurrence until their settings are saved.
+	 *
+	 * @param	string	$frequency	Frequency code
+	 * @param	bool	$activeOnly	Read only enabled tasks for display
+	 * @return	int|null|false		Native date (0 if not set), null for a legacy or missing task, false on error
+	 */
+	private function fetchNativeOccurrence($frequency, $activeOnly = false)
+	{
+		$where = self::getCronTaskWhere($frequency);
+		if ($where === '') {
+			return false;
+		}
+
+		$sql = 'SELECT datenextrun, frequency, unitfrequency FROM '.MAIN_DB_PREFIX.'cronjob'.$where;
+		if ($activeOnly) {
+			$sql .= ' AND status = 1';
+		}
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			return false;
+		}
+		$task = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		$unit = $frequency === self::FREQUENCY_MONTHLY ? self::CRON_MONTH : self::CRON_WEEK;
+		if (!is_object($task) || (int) $task->frequency !== 1 || (int) $task->unitfrequency !== $unit) {
+			return null;
+		}
+
+		return empty($task->datenextrun) ? 0 : (int) $this->db->jdate($task->datenextrun);
+	}
+
+	/**
+	 * @param	string	$frequency	Frequency code
+	 * @return	int					Next scheduled send date to display, or 0 when unavailable
+	 */
+	public function getNextSendTimestamp($frequency)
+	{
+		$configuredStart = $this->getReminderStartTimestamp($frequency);
+		if ($configuredStart <= 0 || !$this->isReminderEnabled($frequency)) {
+			return 0;
+		}
+
+		$occurrence = $this->fetchNativeOccurrence($frequency, true);
+		return is_int($occurrence) && $occurrence > 0 ? max($configuredStart, $occurrence) : 0;
 	}
 
 	/**
@@ -170,7 +221,7 @@ class PowerPlantPVMaintenanceReminder
 	 */
 	private function runReminder($frequency, $parameters)
 	{
-		global $conf, $langs, $user;
+		global $langs;
 
 		$this->error = '';
 		$this->errors = array();
@@ -196,6 +247,17 @@ class PowerPlantPVMaintenanceReminder
 			$this->output = $this->error;
 			dol_syslog(__METHOD__.' frequency='.$frequency.' '.$this->error, LOG_ERR);
 			return 0;
+		}
+
+		$nativeOccurrence = null;
+		if (!$forceExecution) {
+			$nativeOccurrence = $this->fetchNativeOccurrence($frequency);
+			if ($nativeOccurrence === false) {
+				$this->output = $langs->trans('PowerPlantPVMaintenanceReminderPersistenceFailed');
+				$this->registerError($this->output);
+				return -1;
+			}
+			$startTimestamp = max($startTimestamp, $nativeOccurrence ?? 0);
 		}
 
 		if (!$forceExecution && dol_now() < $startTimestamp) {
@@ -276,7 +338,7 @@ class PowerPlantPVMaintenanceReminder
 		}
 
 		$scheduleResult = 1;
-		if (!$forceExecution) {
+		if (!$forceExecution && $nativeOccurrence === null) {
 			$scheduleResult = $this->scheduleNextStart($frequency, $startTimestamp, $executionTimestamp);
 		}
 		if ($lockAcquired) {
@@ -774,24 +836,21 @@ class PowerPlantPVMaintenanceReminder
 	}
 
 	/**
-	 * Schedule next start for one frequency.
+	 * Advance the send date while a legacy task still polls every five minutes.
 	 *
 	 * @param	string	$frequency			Frequency code
 	 * @param	int		$currentStart		Current start timestamp
-	 * @return	int							Next timestamp
+	 * @param	int		$executionTimestamp	Execution timestamp
+	 * @return	int							Next timestamp, or -1 on error
 	 */
 	private function scheduleNextStart($frequency, $currentStart, $executionTimestamp)
 	{
-		global $conf, $user;
+		global $conf;
 
 		$nextStart = self::calculateNextFutureStart($frequency, $currentStart, $executionTimestamp);
 		if ($nextStart <= (int) $executionTimestamp || dolibarr_set_const($this->db, $this->getStartConstName($frequency), (string) $nextStart, 'chaine', 0, '', (int) $conf->entity) <= 0) {
 			return -1;
 		}
-		if (self::updateCronStartTime($this->db, $frequency, $nextStart, $user) <= 0) {
-			return -1;
-		}
-
 		return $nextStart;
 	}
 

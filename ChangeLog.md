@@ -1,5 +1,10 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.9.2 — 2026-11-23
+
+- Rappels de maintenance : le cron en ligne de commande enregistre les envois par destinataire. Les tâches hebdomadaire et mensuelle utilisent leurs fréquences natives Dolibarr et leur prochaine exécution est visible dans les réglages.
+- Après la mise à jour, enregistrer une fois les réglages des rappels dans chaque entité concernée pour appliquer les fréquences aux tâches existantes. Vérifier les dates de départ avant d’enregistrer si un précédent envoi s’est interrompu après l’expédition du courriel.
+
 ## 1.9.1 — 2026-11-23
 
 - Rapports de maintenance et PDF : retrait des index d’injection par onduleur et des photos associées. Les index de production par onduleur et le compteur d’injection général restent disponibles.
