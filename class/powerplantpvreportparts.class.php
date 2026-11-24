@@ -18,6 +18,7 @@
  */
 
 dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
+require_once __DIR__.'/powerplantpvreporttemplate.class.php';
 
 /**
  * Parts definitions and per-part signatures.
@@ -25,7 +26,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
 class PowerPlantPVReportParts
 {
 	/** Report template code using parts. */
-	public const TEMPLATE_CODE = 'autocontrol';
+	public const TEMPLATE_CODE = PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
 
 	/** Intervention nature code of the self-inspection report. */
 	public const NATURE_CODE = 'AUTOCONTROL';
@@ -77,9 +78,10 @@ class PowerPlantPVReportParts
 	/**
 	 * Parts in display order. Labels are translation keys; references follow the quality forms.
 	 *
+	 * @param	array<int,array<string,mixed>>	$rows	Report section rows, including identification
 	 * @return	array<string,array{number:int,ref:string,label:string,short:string,version:string,application_date:string,decision:bool}>
 	 */
-	public static function definitions(): array
+	public static function definitions(array $rows = array()): array
 	{
 		$parts = array();
 		$refs = array(1 => 'FM-ESS-001', 2 => 'FM-ESS-002', 3 => 'FM-ESS-003', 4 => 'FM-ESS-004', 5 => 'FM-ESS-005', 6 => 'FM-ESS-006');
@@ -93,6 +95,18 @@ class PowerPlantPVReportParts
 				'application_date' => '06/03/2026',
 				'decision' => $number <= 2,
 			);
+		}
+		foreach ($rows as $row) {
+			$section = $row['section'] ?? null;
+			if (!is_object($section)) {
+				continue;
+			}
+			$code = (string) $section->section_code;
+			$part = self::partCodeForSection($code);
+			$reference = trim((string) ($section->part_ref ?? ''));
+			if ($reference !== '' && isset($parts[$part]) && $code === $part.'_IDENT') {
+				$parts[$part]['ref'] = $reference;
+			}
 		}
 
 		return $parts;
@@ -274,7 +288,7 @@ class PowerPlantPVReportParts
 			return $this->isWorksManager($report, $user);
 		}
 		if ($role === 'business_manager') {
-			return (bool) $user->hasRight('powerplantpv', 'maintenance', 'sign_technical');
+			return (bool) $user->hasRight('powerplantpv', 'report', 'sign_technical');
 		}
 		if ($partCode !== self::FINAL_CODE && $this->isWorksManager($report, $user)) {
 			return true;

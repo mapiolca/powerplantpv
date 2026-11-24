@@ -544,7 +544,7 @@ class ActionsPowerplantpv
 		}
 		if ($action === '' && $object instanceof Fichinter && (int) $object->id > 0
 			&& in_array('interventioncard', $contexts, true)
-			&& $user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'maintenance', 'read')) {
+			&& $user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'report', 'read')) {
 			require_once __DIR__.'/powerplantpvreport.class.php';
 			$statuses = PowerPlantPVReport::interventionSignatureStatuses();
 			if ((int) $object->signed_status === $statuses['STATUS_SIGNED_ALL']) {

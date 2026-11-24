@@ -651,7 +651,11 @@ class PowerPlantPVReportBuilder
 		}
 
 		$powerplants = $this->fetchLinkedPowerPlantContext($intervention);
-		$services = $this->fetchSourceServices($intervention, $powerplants, $manualServiceIds);
+		$isAutocontrol = $template['code'] === PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
+		if ($isAutocontrol && empty($powerplants)) {
+			return array('can_generate' => 0, 'messages' => array('NoPowerPlantLinked'), 'nature' => $nature, 'template' => $template);
+		}
+		$services = $isAutocontrol ? array() : $this->fetchSourceServices($intervention, $powerplants, $manualServiceIds);
 		$sourceMode = !empty($services['contract_services_found']) ? 'contract' : 'manual';
 		$serviceRows = isset($services['rows']) && is_array($services['rows']) ? $services['rows'] : array();
 		$serviceIds = array();
@@ -666,7 +670,7 @@ class PowerPlantPVReportBuilder
 				$serviceIdsByPowerplant[$powerplantKey][(int) $serviceRow['fk_maintenance_service']] = (int) $serviceRow['fk_maintenance_service'];
 			}
 		}
-		if (empty($services['contract_services_found']) && empty($manualServiceIds)) {
+		if (!$isAutocontrol && empty($services['contract_services_found']) && empty($manualServiceIds)) {
 			$messages[] = 'PowerPlantPVReportNoContractPrestations';
 		}
 
@@ -971,6 +975,7 @@ class PowerPlantPVReportBuilder
 			$section->section_label_en = (string) $templateSection->label_en;
 			$section->section_description = (string) $templateSection->description;
 			$section->section_description_en = (string) $templateSection->description_en;
+			$section->part_ref = $templateSection->part_ref;
 			$section->scope_type = (string) $templateSection->scope_type;
 			$section->equipment_type = (string) $templateSection->equipment_type;
 			$section->repeat_mode = (string) $templateSection->repeat_mode;
@@ -1044,6 +1049,7 @@ class PowerPlantPVReportBuilder
 			$section->section_label_en = (string) $templateSection->label_en;
 			$section->section_description = (string) $templateSection->description;
 			$section->section_description_en = (string) $templateSection->description_en;
+			$section->part_ref = $templateSection->part_ref;
 			$section->scope_type = (string) $templateSection->scope_type;
 			$section->equipment_type = (string) $templateSection->equipment_type;
 			$section->repeat_mode = (string) $templateSection->repeat_mode;
@@ -1495,6 +1501,9 @@ class PowerPlantPVReportBuilder
 					'fk_powerplant' => (int) $equipment['fk_powerplant'],
 					'equipment_key' => (string) $equipment['technical_key'],
 				);
+			}
+			if (($context['template']['code'] ?? '') === PowerPlantPVReportTemplate::CODE_AUTOCONTROL) {
+				return $occurrences;
 			}
 			return !empty($occurrences) ? $occurrences : array(array('occurrence_key' => 'section:'.$code.':manual:1', 'fk_powerplant' => 0, 'equipment_key' => ''));
 		}
@@ -2135,7 +2144,7 @@ class PowerPlantPVReportBuilder
 	{
 		global $conf;
 
-		$sql = "SELECT t.rowid, t.entity, t.fk_report_template, t.code, t.label, t.label_en, t.description, t.description_en,";
+		$sql = "SELECT t.rowid, t.entity, t.fk_report_template, t.code, t.label, t.label_en, t.description, t.description_en, t.part_ref,";
 		$sql .= " t.scope_type, t.equipment_type, t.repeat_mode, t.is_required, t.visible_form, t.visible_pdf, t.active, t.position,";
 		$sql .= " t.date_creation, t.tms, t.fk_user_creat, t.fk_user_modif, t.import_key";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_template_section as t";
@@ -2224,6 +2233,7 @@ class PowerPlantPVReportBuilder
 		$section->label_en = isset($obj->label_en) ? (string) $obj->label_en : '';
 		$section->description = isset($obj->description) ? (string) $obj->description : '';
 		$section->description_en = isset($obj->description_en) ? (string) $obj->description_en : '';
+		$section->part_ref = isset($obj->part_ref) ? (string) $obj->part_ref : null;
 
 		$scope = powerplantpvReportTemplateNormalizeScopeType(isset($obj->scope_type) ? (string) $obj->scope_type : '');
 		if (!array_key_exists($scope, powerplantpvReportTemplateScopeTypes())) {

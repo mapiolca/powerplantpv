@@ -129,6 +129,9 @@ foreach ($labels as $part => $label) {
 		acField($p.'TECHNICIANS', 'Technicien(s)', 'text', $filled ? 'A. Martin, B. Durand' : ''),
 		acField($p.'TRRT', 'TR / RT', 'text', ''),
 	));
+	if ($part === 2) {
+		$general[count($general) - 1]['section']->part_ref = 'CI-DC-0042';
+	}
 	$position += 10;
 	if ($part === 1) {
 		$general[] = acSection('AC1_CHECKLIST', 'Partie 1 · Check-list', $position, array(
@@ -208,9 +211,10 @@ foreach ($matches as $match) {
 	$text .= stripcslashes(implode('', $pieces[1]))."\n";
 }
 $text = str_replace("\n", '', mb_convert_encoding($text, 'UTF-8', 'Windows-1252'));
-foreach (array('Partie 1 / 6', 'Partie 6 / 6', 'FM-ESS-002', 'A. Martin', 'B. Durand', 'Non signé', 'Validation du dossier complet', 'Conforme avec réserves') as $needle) {
+foreach (array('Partie 1 / 6', 'Partie 6 / 6', 'FM-ESS-001', 'CI-DC-0042', 'A. Martin', 'B. Durand', 'Non signé', 'Validation du dossier complet', 'Conforme avec réserves') as $needle) {
 	visualPdfCheck(strpos($text, $needle) !== false, 'PDF text contains '.$needle);
 }
+visualPdfCheck(substr_count($text, 'CI-DC-0042') === 2 && strpos($text, 'FM-ESS-002') === false, 'The saved reference replaces the default on the cover and the part page');
 // A part prints one signature only, even if a legacy row carries another role.
 visualPdfCheck(strpos($text, 'C. Lasserre') === false, 'A part prints a single signature');
 echo 'Autocontrol PDF: '.$pages.' pages, '.$checks.' checks OK'.($outputDir !== '' ? ' -> '.$file : '')."\n";

@@ -249,7 +249,7 @@ class modPowerPlantPV extends DolibarrModules
 		// Menu/tab descriptors are parsed by dol_eval(), so their conditions must keep descriptor-safe syntax.
 		$this->tabs = array(
 			'product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight(\'produit\', \'lire\'):/powerplantpv/product_detailedcaracteristics.php?id=__ID__',
-			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:$user->admin || $user->rights->powerplantpv->maintenance->read:/powerplantpv/maintenance_intervention_report.php?id=__ID__'
+			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:$user->hasRight(\'ficheinter\', \'lire\') && $user->hasRight(\'powerplantpv\', \'report\', \'read\'):/powerplantpv/maintenance_intervention_report.php?id=__ID__'
 		);
 		/* END MODULEBUILDER TABS */
 		// Example:
@@ -591,9 +591,9 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][5] = 'delete';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
-		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionReport';
-		$this->rights[$r][4] = 'maintenance';
-		$this->rights[$r][5] = 'report';
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionWrite';
+		$this->rights[$r][4] = 'report';
+		$this->rights[$r][5] = 'write';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionConfig';
@@ -601,14 +601,24 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][5] = 'config';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
-		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionTechnicalSign';
-		$this->rights[$r][4] = 'maintenance';
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionTechnicalSign';
+		$this->rights[$r][4] = 'report';
 		$this->rights[$r][5] = 'sign_technical';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
-		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionMissingEvidence';
-		$this->rights[$r][4] = 'maintenance';
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionMissingEvidence';
+		$this->rights[$r][4] = 'report';
 		$this->rights[$r][5] = 'finalize_missing_evidence';
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionRead';
+		$this->rights[$r][4] = 'report';
+		$this->rights[$r][5] = 'read';
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionConfig';
+		$this->rights[$r][4] = 'report';
+		$this->rights[$r][5] = 'config';
 
 		/* END MODULEBUILDER PERMISSIONS */
 
@@ -1328,6 +1338,9 @@ class modPowerPlantPV extends DolibarrModules
 		if ($result <= 0) {
 			return $result;
 		}
+		if ($this->migrateReportPermissions((int) $conf->entity) < 0) {
+			return -1;
+		}
 		if ($migrateProjectLinks && dolibarr_set_const($this->db, 'POWERPLANTPV_PROJECT_LINKS_V150_MIGRATED',
 			'1', 'chaine', 0, '', (int) $conf->entity) <= 0) {
 			$this->errors[] = $this->db->lasterror();
@@ -1351,6 +1364,54 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Copy the existing report access granted by shared maintenance permissions once per entity.
+	 * The three report-only permissions keep their original IDs and need no assignment update.
+	 *
+	 * @param int $entity Entity being activated
+	 * @return int Positive on success, negative on failure
+	 */
+	private function migrateReportPermissions(int $entity): int
+	{
+		$marker = 'POWERPLANTPV_REPORT_PERMISSIONS_MIGRATED';
+		if (getDolGlobalInt($marker)) {
+			return 1;
+		}
+
+		// The offsets are stable in the descriptor. Existing maintenance grants are retained.
+		$offsets = array(21 => 28, 22 => 24, 25 => 29);
+		if ($this->db->begin() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		foreach (array('user_rights' => 'fk_user', 'usergroup_rights' => 'fk_usergroup') as $tableName => $ownerColumn) {
+			$table = $this->db->prefix().$tableName;
+			foreach ($offsets as $oldOffset => $newOffset) {
+				$oldId = (int) $this->rights[$oldOffset][0];
+				$newId = (int) $this->rights[$newOffset][0];
+				$sql = "INSERT INTO ".$table." (entity, ".$ownerColumn.", fk_id)";
+				$sql .= " SELECT DISTINCT source.entity, source.".$ownerColumn.", ".$newId;
+				$sql .= " FROM ".$table." AS source";
+				$sql .= " WHERE source.entity = ".$entity." AND source.fk_id = ".$oldId;
+				$sql .= " AND NOT EXISTS (SELECT 1 FROM ".$table." AS existing";
+				$sql .= " WHERE existing.entity = source.entity AND existing.".$ownerColumn." = source.".$ownerColumn;
+				$sql .= " AND existing.fk_id = ".$newId.")";
+				if (!$this->db->query($sql)) {
+					$this->errors[] = $this->db->lasterror();
+					$this->db->rollback();
+					return -1;
+				}
+			}
+		}
+		if (dolibarr_set_const($this->db, $marker, '1', 'chaine', 0, '', $entity) <= 0 || $this->db->commit() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**
@@ -1764,6 +1825,9 @@ class modPowerPlantPV extends DolibarrModules
 	private function ensureReportTemplateEngineSchema()
 	{
 		$tables = array(
+			$this->db->prefix().'powerplantpv_report_template_section' => array(
+				'part_ref' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+			),
 			$this->db->prefix().'c_powerplantpv_intervention_nature' => array(
 				'model_pdf' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'fk_report_template' => array('type' => 'integer', 'value' => '', 'null' => ''),
@@ -1981,6 +2045,7 @@ class modPowerPlantPV extends DolibarrModules
 			$this->db->prefix().'powerplantpv_report_section' => array(
 				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'section_code' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
+				'part_ref' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
 				'occurrence_key' => array('type' => 'varchar', 'value' => '255', 'null' => 'NOT NULL'),
 			),
 			$this->db->prefix().'powerplantpv_report_field' => array(
@@ -2995,7 +3060,20 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
-		return $this->seedAutocontrolReportTemplate($entity);
+		if ($this->db->begin() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		if ($this->seedAutocontrolReportTemplate($entity) < 0) {
+			$this->db->rollback();
+			return -1;
+		}
+		if ($this->db->commit() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		return 1;
 	}
 
 	/**
@@ -3005,16 +3083,17 @@ class modPowerPlantPV extends DolibarrModules
 	 * @param	int	$entity	Current entity
 	 * @return	int			1 if OK, <0 if KO
 	 */
-	private function seedAutocontrolReportTemplate($entity)
+	private function seedAutocontrolReportTemplate(int $entity): int
 	{
-		$code = 'autocontrol';
+		require_once __DIR__.'/../../class/powerplantpvreporttemplate.class.php';
+		$code = PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
 		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
 			'entity' => $entity,
 			'code' => $code,
-			'label' => 'Dossier d’autocontrôle photovoltaïque',
-			'label_en' => 'Photovoltaic self-inspection report',
-			'description' => 'Autocontrôles avant mise en service, en six parties signées le jour des essais.',
-			'description_en' => 'Pre-commissioning self-inspections, in six parts signed on the day of the tests.',
+			'label' => 'Rapport d’autocontrôles C&I',
+			'label_en' => 'C&I self-inspection report',
+			'description' => 'Autocontrôles avant mise en service d’une centrale photovoltaïque C&I, en six parties.',
+			'description_en' => 'Six-part pre-commissioning self-inspection for C&I photovoltaic plants.',
 			'target_element' => 'fichinter',
 			'is_default' => 0,
 			'active' => 1,
@@ -3033,12 +3112,13 @@ class modPowerPlantPV extends DolibarrModules
 		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'c_powerplantpv_intervention_nature', array(
 			'entity' => $entity,
 			'code' => 'AUTOCONTROL',
-			'label' => 'Autocontrôle avant mise en service',
-			'label_en' => 'Pre-commissioning self-inspection',
+			'label' => 'Autocontrôles C&I',
+			'label_en' => 'C&I self-inspections',
 			'description' => 'Essais et autocontrôles d’une centrale photovoltaïque avant sa mise en service',
 			'description_en' => 'Tests and self-inspections of a photovoltaic power plant before commissioning',
 			'fk_report_template' => $templateId,
 			'report_template_code' => $code,
+			'model_pdf' => 'powerplantpvreport',
 			'is_maintenance' => 0,
 			'is_preventive' => 0,
 			'requires_report' => 1,
@@ -3057,7 +3137,7 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC1_CONCLUSION', 'Partie 1 · Conclusion', 'Part 1 · Conclusion', 'intervention', '', 'once', ''),
 			array('AC2_IDENT', 'Partie 2 · Identification', 'Part 2 · Identification', 'intervention', '', 'once', 'FM-ESS-002 · Essais DC (strings et coffrets DC)'),
 			array('DC_ELECTRICAL_MEASURE', 'Partie 2 · Relevés par string', 'Part 2 · String readings', 'pv_input', 'INVERTER', 'once_per_powerplant', ''),
-			array('AC2_BOX', 'Partie 2 · Contrôle coffret DC', 'Part 2 · DC box check', 'electrical_box', '', 'once_per_equipment', ''),
+			array('AC2_BOX', 'Partie 2 · Contrôle coffret DC', 'Part 2 · DC box check', 'electrical_box', 'DC_BOX', 'once_per_equipment', ''),
 			array('AC2_CONCLUSION', 'Partie 2 · Conclusion', 'Part 2 · Conclusion', 'intervention', '', 'once', ''),
 			array('AC3_IDENT', 'Partie 3 · Identification', 'Part 3 · Identification', 'intervention', '', 'once', 'FM-ESS-003 · Essais AC et protections (BT)'),
 			array('AC3_GRID', 'Partie 3 · Mesures réseau', 'Part 3 · Grid measurements', 'inverter', '', 'once_per_equipment', ''),
@@ -3089,6 +3169,7 @@ class modPowerPlantPV extends DolibarrModules
 				'label_en' => $section[2],
 				'description' => $section[6],
 				'description_en' => '',
+				'part_ref' => $section[6] !== '' ? explode(' · ', $section[6], 2)[0] : null,
 				'scope_type' => $section[3],
 				'equipment_type' => $section[4],
 				'repeat_mode' => $section[5],
@@ -3117,9 +3198,9 @@ class modPowerPlantPV extends DolibarrModules
 		foreach (array(1, 2, 3, 4, 5, 6) as $part) {
 			$prefix = 'AC'.$part.'_';
 			$fields[] = array($prefix.'IDENT', $prefix.'DATE', 'Date des essais', 'Test date', 'date', '', 1);
-			$fields[] = array($prefix.'IDENT', $prefix.'HOURS', 'Heure de début / fin', 'Start / end time', 'text', '', 0);
-			$fields[] = array($prefix.'IDENT', $prefix.'TECHNICIANS', 'Technicien(s)', 'Technician(s)', 'text', '', 1);
-			$fields[] = array($prefix.'IDENT', $prefix.'TRRT', 'TR / RT', 'TR / RT', 'text', '', 0);
+			$fields[] = array($prefix.'IDENT', $prefix.'HOURS', 'Heure de début / fin', 'Start / end time', 'varchar', '', 0);
+			$fields[] = array($prefix.'IDENT', $prefix.'TECHNICIANS', 'Technicien(s)', 'Technician(s)', 'varchar', '', 1);
+			$fields[] = array($prefix.'IDENT', $prefix.'TRRT', 'TR / RT', 'TR / RT', 'varchar', '', 0);
 			$fields[] = array($prefix.'CONCLUSION', $prefix.'RESULT', 'Résultat', 'Result', 'select', '', 1, '', $results);
 			if ($part <= 2) {
 				$fields[] = array($prefix.'CONCLUSION', $prefix.'DECISION', 'Décision', 'Decision', 'select', '', 1, '', $decisions);
@@ -3129,7 +3210,7 @@ class modPowerPlantPV extends DolibarrModules
 		$checks = array(
 			array('DOCS', 'Documents à jour', 'Up-to-date documents', 'Plans, schémas, fiches, paramètres réseau, consignes'),
 			array('GED', 'GED / ECM prête', 'Document management ready', 'Arborescence, droits, nommage, trames PV'),
-			array('MAPPING', 'Cartographie disponible', 'Mapping available', 'Strings → coffrets → MPPT ou méthode prévue'),
+			array('MAPPING', 'Cartographie disponible', 'Mapping available', 'Des strings aux MPPT via les coffrets, ou méthode prévue'),
 			array('LABELING', 'Repérage', 'Labeling', 'Strings, coffrets, onduleurs, protections, terre'),
 			array('ROUTING', 'Cheminements', 'Cable routing', 'Fixations, UV, rayons de courbure, abrasion / écrasement'),
 			array('DC_CONNECTORS', 'Connectique DC', 'DC connectors', 'Compatibilité, verrouillage, inversion'),
@@ -3143,51 +3224,51 @@ class modPowerPlantPV extends DolibarrModules
 		$fields[] = array('AC1_CHECKLIST', 'AC1_CHECKLIST_NOTES', 'Observations / actions', 'Observations / actions', 'textarea', '', 0);
 		$fields[] = array('AC1_CHECKLIST', 'AC1_EVIDENCE', 'Preuves (photos / fichiers)', 'Evidence (photos / files)', 'file', '', 0);
 		$fields = array_merge($fields, array(
-			array('AC2_IDENT', 'AC2_WEATHER', 'Météo / température', 'Weather / temperature', 'text', '', 0),
+			array('AC2_IDENT', 'AC2_WEATHER', 'Météo / température', 'Weather / temperature', 'varchar', '', 0),
 			array('AC2_IDENT', 'AC2_IRRADIANCE', 'Irradiance', 'Irradiance', 'number', 'W/m²', 0),
-			array('AC2_IDENT', 'AC2_INSTRUMENT', 'Matériel de mesure (réf. / n° de série / étalonnage)', 'Measuring instrument (ref. / serial number / calibration)', 'text', '', 1),
+			array('AC2_IDENT', 'AC2_INSTRUMENT', 'Matériel de mesure (réf. / n° de série / étalonnage)', 'Measuring instrument (ref. / serial number / calibration)', 'varchar', '', 1),
 			array('AC2_IDENT', 'AC2_TEST_VOLTAGE', 'Tension d’essai d’isolement', 'Insulation test voltage', 'number', 'V', 0, 'Typiquement 1000 V DC'),
 			array('AC2_BOX', 'AC2_BOX_LABELING', 'Repérage', 'Labeling', 'conformity_so_valid_obs', '', 1),
 			array('AC2_BOX', 'AC2_BOX_SWITCH', 'Sectionneur', 'Switch disconnector', 'conformity_so_valid_obs', '', 1),
 			array('AC2_BOX', 'AC2_BOX_EARTH', 'Terre', 'Earthing', 'conformity_so_valid_obs', '', 1),
 			array('AC2_BOX', 'AC2_BOX_INTERNAL', 'Organes internes (si applicables)', 'Internal devices (if applicable)', 'conformity_so_valid_obs', '', 0),
 			array('AC2_BOX', 'AC2_BOX_NOTES', 'Observations', 'Observations', 'textarea', '', 0),
-			array('AC3_IDENT', 'AC3_CONNECTION_POINT', 'Point de raccordement', 'Connection point', 'text', '', 0),
-			array('AC3_IDENT', 'AC3_AC_DIAGRAM', 'Référence du schéma AC', 'AC diagram reference', 'text', '', 0),
+			array('AC3_IDENT', 'AC3_CONNECTION_POINT', 'Point de raccordement', 'Connection point', 'varchar', '', 0),
+			array('AC3_IDENT', 'AC3_AC_DIAGRAM', 'Référence du schéma AC', 'AC diagram reference', 'varchar', '', 0),
 			array('AC3_GRID', 'AC3_U_LL', 'Tension entre phases (U L-L)', 'Line-to-line voltage (U L-L)', 'number', 'V', 1),
 			array('AC3_GRID', 'AC3_U_LN', 'Tension phase-neutre (U L-N)', 'Line-to-neutral voltage (U L-N)', 'number', 'V', 1),
 			array('AC3_GRID', 'AC3_FREQUENCY', 'Fréquence', 'Frequency', 'number', 'Hz', 1),
 			array('AC3_GRID', 'AC3_PHASE_ORDER', 'Ordre des phases', 'Phase order', 'conformity_so_valid_obs', '', 1),
 			array('AC3_GRID', 'AC3_PE_CONTINUITY', 'Continuité PE', 'PE continuity', 'conformity_so_valid_obs', '', 1),
-			array('AC3_GRID', 'AC3_CABLE_INSULATION', 'Isolement du câble', 'Cable insulation', 'number', 'MΩ', 0),
-			array('AC3_GRID', 'AC3_GRID_ALARMS', 'Alarmes réseau', 'Grid alarms', 'text', '', 0),
+			array('AC3_GRID', 'AC3_CABLE_INSULATION', 'Isolement du câble', 'Cable insulation', 'number', 'MOhm', 0),
+			array('AC3_GRID', 'AC3_GRID_ALARMS', 'Alarmes réseau', 'Grid alarms', 'varchar', '', 0),
 			array('AC3_PROTECTIONS', 'AC3_PROT_BREAKER', 'Disjoncteur de départ', 'Outgoing circuit breaker', 'conformity_so_valid_obs', '', 1, 'Type / calibre, réglage attendu et constaté'),
 			array('AC3_PROTECTIONS', 'AC3_PROT_SWITCH', 'Sectionneur(s)', 'Switch disconnector(s)', 'conformity_so_valid_obs', '', 1),
 			array('AC3_PROTECTIONS', 'AC3_PROT_RCD', 'DDR / RCD (si présent)', 'RCD (if present)', 'conformity_so_valid_obs', '', 0),
 			array('AC3_PROTECTIONS', 'AC3_PROT_SPD', 'Parafoudre AC', 'AC surge protection', 'conformity_so_valid_obs', '', 1),
 			array('AC3_PROTECTIONS', 'AC3_PROT_RELAY', 'Relais / réglages paramétrables', 'Relays / adjustable settings', 'conformity_so_valid_obs', '', 0),
 			array('AC3_PROTECTIONS', 'AC3_PROT_SETTINGS', 'Réglages constatés / observations', 'Observed settings / observations', 'textarea', '', 0),
-			array('AC4_IDENT', 'AC4_TOOL', 'Outil de paramétrage', 'Configuration tool', 'text', '', 0),
-			array('AC4_INVERTER', 'AC4_FIRMWARE', 'Firmware', 'Firmware', 'text', '', 1),
-			array('AC4_INVERTER', 'AC4_GRID_CODE', 'Code réseau', 'Grid code', 'text', '', 1),
+			array('AC4_IDENT', 'AC4_TOOL', 'Outil de paramétrage', 'Configuration tool', 'varchar', '', 0),
+			array('AC4_INVERTER', 'AC4_FIRMWARE', 'Firmware', 'Firmware', 'varchar', '', 1),
+			array('AC4_INVERTER', 'AC4_GRID_CODE', 'Code réseau', 'Grid code', 'varchar', '', 1),
 			array('AC4_INVERTER', 'AC4_CLOCK', 'Date / heure', 'Date / time', 'conformity_so_valid_obs', '', 1),
-			array('AC4_INVERTER', 'AC4_POWER_LIMIT', 'Limitation de puissance', 'Power limitation', 'text', '', 0),
-			array('AC4_INVERTER', 'AC4_REACTIVE', 'Réactif (mode)', 'Reactive power (mode)', 'text', '', 0),
+			array('AC4_INVERTER', 'AC4_POWER_LIMIT', 'Limitation de puissance', 'Power limitation', 'varchar', '', 0),
+			array('AC4_INVERTER', 'AC4_REACTIVE', 'Réactif (mode)', 'Reactive power (mode)', 'varchar', '', 0),
 			array('AC4_INVERTER', 'AC4_AC_ON', 'Mise sous tension AC', 'AC power-on', 'conformity_so_valid_obs', '', 1),
 			array('AC4_INVERTER', 'AC4_DC_ON', 'Mise sous tension DC', 'DC power-on', 'conformity_so_valid_obs', '', 1),
 			array('AC4_INVERTER', 'AC4_MPPT', 'MPPT cohérents', 'Consistent MPPTs', 'conformity_so_valid_obs', '', 1),
-			array('AC4_INVERTER', 'AC4_ALARMS', 'Alarmes', 'Alarms', 'text', '', 0),
+			array('AC4_INVERTER', 'AC4_ALARMS', 'Alarmes', 'Alarms', 'varchar', '', 0),
 			array('AC4_INVERTER', 'AC4_EVIDENCE', 'Preuves', 'Evidence', 'file', '', 0),
-			array('AC5_IDENT', 'AC5_PLATFORM', 'Plateforme de supervision', 'Monitoring platform', 'text', '', 0),
+			array('AC5_IDENT', 'AC5_PLATFORM', 'Plateforme de supervision', 'Monitoring platform', 'varchar', '', 0),
 			array('AC5_ACCOUNT', 'AC5_CONNECTION', 'Type de connexion internet', 'Internet connection type', 'select', '', 1, '', array('4G' => array('4G', '4G'), 'WIFI' => array('Wi-Fi', 'Wi-Fi'), 'ETHERNET' => array('Ethernet', 'Ethernet'), 'OTHER' => array('Autre', 'Other'))),
-			array('AC5_ACCOUNT', 'AC5_WIFI_JUSTIFICATION', 'Si Wi-Fi : justification', 'If Wi-Fi: justification', 'text', '', 0),
-			array('AC5_ACCOUNT', 'AC5_ICCID', 'ICCID', 'ICCID', 'text', '', 0),
-			array('AC5_ACCOUNT', 'AC5_APN', 'APN', 'APN', 'text', '', 0),
-			array('AC5_ACCOUNT', 'AC5_IMEI', 'IMEI', 'IMEI', 'text', '', 0),
-			array('AC5_ACCOUNT', 'AC5_PLANT_NAME', 'Nom de la centrale (portail)', 'Plant name (portal)', 'text', '', 0),
-			array('AC5_ACCOUNT', 'AC5_CUSTOMER_LOGIN', 'Identifiant client', 'Customer login', 'text', '', 0, 'Le mot de passe est transmis séparément et n’est jamais imprimé.'),
+			array('AC5_ACCOUNT', 'AC5_WIFI_JUSTIFICATION', 'Si Wi-Fi : justification', 'If Wi-Fi: justification', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_ICCID', 'ICCID', 'ICCID', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_APN', 'APN', 'APN', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_IMEI', 'IMEI', 'IMEI', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_PLANT_NAME', 'Nom de la centrale (portail)', 'Plant name (portal)', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_CUSTOMER_LOGIN', 'Identifiant client', 'Customer login', 'varchar', '', 0, 'Le mot de passe est transmis séparément et n’est jamais imprimé.'),
 			array('AC5_INVERTER', 'AC5_EXPORT_DONE', 'Export des paramètres réalisé', 'Settings export done', 'conformity_so_valid_obs', '', 1),
-			array('AC5_INVERTER', 'AC5_EXPORT_FILE', 'Nom de fichier / réf. GED', 'File name / document reference', 'text', '', 0),
+			array('AC5_INVERTER', 'AC5_EXPORT_FILE', 'Nom de fichier / réf. GED', 'File name / document reference', 'varchar', '', 0),
 			array('AC5_INVERTER', 'AC5_EXPORT_MEDIA', 'Support', 'Media', 'select', '', 0, '', array('PAPER' => array('Papier', 'Paper'), 'USB' => array('Clé USB', 'USB key'))),
 			array('AC5_INVERTER', 'AC5_VISIBLE', 'Visible en supervision', 'Visible in monitoring', 'conformity_so_valid_obs', '', 1),
 			array('AC5_INVERTER', 'AC5_DATA', 'Données cohérentes', 'Consistent data', 'conformity_so_valid_obs', '', 1),
@@ -3195,16 +3276,16 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC5_INVERTER', 'AC5_ALARM_TEST', 'Test d’alarme', 'Alarm test', 'conformity_so_valid_obs', '', 1),
 			array('AC5_INVERTER', 'AC5_EVIDENCE', 'Preuves (captures)', 'Evidence (screenshots)', 'file', '', 0),
 			array('AC6_IDENT', 'AC6_LIMITATION', 'Limitation active', 'Active limitation', 'yesno', '', 0),
-			array('AC6_IDENT', 'AC6_LIMITATION_DETAIL', 'Détail de la limitation', 'Limitation details', 'text', '', 0),
+			array('AC6_IDENT', 'AC6_LIMITATION_DETAIL', 'Détail de la limitation', 'Limitation details', 'varchar', '', 0),
 			array('AC6_INVERTER', 'AC6_STOP', 'Arrêt', 'Stop', 'conformity_so_valid_obs', '', 1),
 			array('AC6_INVERTER', 'AC6_RESTART', 'Reprise', 'Restart', 'conformity_so_valid_obs', '', 1),
-			array('AC6_INVERTER', 'AC6_RESTART_TIME', 'Temps de reprise', 'Restart time', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_RESTART_TIME', 'Temps de reprise', 'Restart time', 'varchar', '', 0),
 			array('AC6_INVERTER', 'AC6_STABILITY', 'Stabilité', 'Stability', 'conformity_so_valid_obs', '', 1),
-			array('AC6_INVERTER', 'AC6_ALARMS', 'Alarmes', 'Alarms', 'text', '', 0),
-			array('AC6_INVERTER', 'AC6_READING_TIME', 'Heure du relevé', 'Reading time', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_ALARMS', 'Alarmes', 'Alarms', 'varchar', '', 0),
+			array('AC6_INVERTER', 'AC6_READING_TIME', 'Heure du relevé', 'Reading time', 'varchar', '', 0),
 			array('AC6_INVERTER', 'AC6_AC_POWER', 'Puissance AC', 'AC power', 'number', 'kW', 0),
 			array('AC6_INVERTER', 'AC6_DAY_ENERGY', 'Énergie du jour', 'Daily energy', 'number', 'kWh', 0),
-			array('AC6_INVERTER', 'AC6_CONDITIONS', 'Conditions (météo / température)', 'Conditions (weather / temperature)', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_CONDITIONS', 'Conditions (météo / température)', 'Conditions (weather / temperature)', 'varchar', '', 0),
 			array('AC6_INVERTER', 'AC6_EVIDENCE', 'Preuves', 'Evidence', 'file', '', 0),
 			array('AC6_THERMOGRAPHY', 'AC6_THERMO_DC_BOXES', 'Coffrets DC', 'DC boxes', 'conformity_so_valid_obs', '', 0),
 			array('AC6_THERMOGRAPHY', 'AC6_THERMO_AC_TERMINALS', 'Borniers AC', 'AC terminals', 'conformity_so_valid_obs', '', 0),
@@ -3214,10 +3295,6 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC_RESERVES', 'AC_RESERVES_LIST', 'Réserves à lever', 'Reservations to clear', 'textarea', '', 0, 'Une réserve par ligne : partie, écart, action corrective, échéance.'),
 		));
 
-		$sectionOrder = array_flip(array_keys($sectionIds));
-		usort($fields, static function ($a, $b) use ($sectionOrder) {
-			return ($sectionOrder[$a[0]] ?? 0) <=> ($sectionOrder[$b[0]] ?? 0);
-		});
 		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
 		$optionTable = $this->db->prefix().'powerplantpv_report_template_field_option';
 		$position = 10;
@@ -3286,7 +3363,7 @@ class modPowerPlantPV extends DolibarrModules
 	 * @param	string	$where	SQL predicate
 	 * @return	int				Row id, <0 on error
 	 */
-	private function fetchSeedRowId($table, $where)
+	private function fetchSeedRowId(string $table, string $where): int
 	{
 		$resql = $this->db->query("SELECT rowid FROM ".$this->db->sanitize($table)." WHERE ".$where);
 		if (!$resql) {

@@ -116,8 +116,8 @@ if (method_exists($intervention, 'fetch_thirdparty')) {
 	$intervention->fetch_thirdparty();
 }
 
-$permissiontoread = $user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'maintenance', 'read');
-$permissiontowrite = $user->hasRight('powerplantpv', 'maintenance', 'report') || $user->hasRight('powerplantpv', 'maintenance', 'write');
+$permissiontoread = $user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'report', 'read');
+$permissiontowrite = $user->hasRight('powerplantpv', 'report', 'write');
 $usercancreateintervention = $user->hasRight('ficheinter', 'creer');
 if (!$permissiontoread) {
 	accessforbidden();
@@ -157,7 +157,7 @@ $canSign = $reportFetch > 0 && (int) $signatureState->fk_statut === Fichinter::S
 	&& $report->isSaved() && $signatureScript !== '';
 $signingAllowed = array(
 	'technician' => $canSign && !$technicianSigned && $report->isAssignedTechnician($intervention, $user),
-	'technical' => $canSign && !$technicalSigned && $user->hasRight('powerplantpv', 'maintenance', 'sign_technical')
+	'technical' => $canSign && !$technicalSigned && $user->hasRight('powerplantpv', 'report', 'sign_technical')
 		&& $report->technicalSignatureEnabled() && $report->isTechnicalSupervisor($intervention, $user),
 );
 // Self-inspection reports: each part is signed on the day of its tests and only that part is frozen.
@@ -353,7 +353,7 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 			$photoErrors = powerplantpvReportSaveIndexPhotos(
 				$report,
 				(string) $status === PowerPlantPVReport::STATUS_SAVED,
-				$user->hasRight('powerplantpv', 'maintenance', 'finalize_missing_evidence'),
+				$user->hasRight('powerplantpv', 'report', 'finalize_missing_evidence'),
 				$photoWarnings
 			);
 			if ($photoErrors) {
@@ -1230,10 +1230,12 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 
 	$groups = array();
 	$byPart = is_array($partSignatures);
+	$partDefinitions = array();
 	if ($byPart) {
 		// Self-inspection reports are grouped by part, each part being filled and signed on its own test day.
 		$powerplants = array();
-		foreach (array_merge(array(''), array_keys(PowerPlantPVReportParts::definitions())) as $partCode) {
+		$partDefinitions = PowerPlantPVReportParts::definitions($sections);
+		foreach (array_merge(array(''), array_keys($partDefinitions)) as $partCode) {
 			$groups['part:'.$partCode] = array('part' => $partCode, 'powerplant' => null, 'sections' => array());
 		}
 	}
@@ -1278,6 +1280,9 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			}
 			$partCode = (string) $group['part'];
 			$plantLabel = $partCode !== '' ? powerplantpvReportPartLabel($partCode) : $langs->trans('PowerPlantPVAutocontrolCommonSections');
+			if (isset($partDefinitions[$partCode])) {
+				$plantLabel .= ' · '.$partDefinitions[$partCode]['ref'];
+			}
 			$signedBy = array();
 			foreach (($partSignatures[$partCode] ?? array()) as $signature) {
 				$signedBy[] = (string) $signature->signer_name;

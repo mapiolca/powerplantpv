@@ -31,7 +31,7 @@ function powerplantpvReportTemplateAdminAccess()
 {
 	global $user;
 
-	if (!isModEnabled('powerplantpv') || !powerplantpvMaintenanceUserHasRight($user, 'config')) {
+	if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'report', 'config')) {
 		accessforbidden();
 	}
 }

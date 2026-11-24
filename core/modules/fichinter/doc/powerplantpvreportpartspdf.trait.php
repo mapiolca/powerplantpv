@@ -25,9 +25,6 @@ trait PowerPlantPVReportPartsPdf
 	{
 		$langs->load('powerplantpv@powerplantpv');
 		$signatures = $this->partsSignatures($dataset);
-		$definitions = PowerPlantPVReportParts::definitions();
-		$rowsByPart = array_fill_keys(array_keys($definitions), array());
-		$rowsByPart[''] = array();
 		$all = $dataset['general_sections'];
 		foreach ($dataset['sections_by_powerplant'] as $rows) {
 			$all = array_merge($all, $rows);
@@ -35,13 +32,16 @@ trait PowerPlantPVReportPartsPdf
 		usort($all, static function ($a, $b) {
 			return ((int) $a['section']->position <=> (int) $b['section']->position) ?: ((int) $a['section']->id <=> (int) $b['section']->id);
 		});
+		$definitions = PowerPlantPVReportParts::definitions($all);
+		$rowsByPart = array_fill_keys(array_keys($definitions), array());
+		$rowsByPart[''] = array();
 		foreach ($all as $row) {
 			if (!empty($row['section']->visible_pdf)) {
 				$rowsByPart[PowerPlantPVReportParts::partCodeForSection((string) $row['section']->section_code)][] = $row;
 			}
 		}
 
-		$this->partsCover($pdf, $dataset, $rowsByPart, $signatures, $langs);
+		$this->partsCover($pdf, $dataset, $rowsByPart, $signatures, $definitions, $langs);
 		foreach ($definitions as $partCode => $definition) {
 			$this->visualHeaderSubtitle = $langs->transnoentities('PowerPlantPVAutocontrolHeaderPart', (string) ($dataset['intervention']->ref ?? ''), $definition['number'], count($definitions), $langs->transnoentities($definition['short']));
 			$this->completePageFooter($pdf, 1);
@@ -70,10 +70,12 @@ trait PowerPlantPVReportPartsPdf
 	/**
 	 * Cover: key figures, site and installation, then the follow-up of the parts.
 	 * @param TCPDF|TCPDI $pdf @param array<string,mixed> $dataset @param array<string,array<int,array<string,mixed>>> $rowsByPart
-	 * @param array<string,array<string,stdClass>> $signatures @param Translate $langs
+	 * @param array<string,array<string,stdClass>> $signatures
+	 * @param array<string,array{number:int,ref:string,label:string,short:string,version:string,application_date:string,decision:bool}> $definitions
+	 * @param Translate $langs
 	 * @return void
 	 */
-	protected function partsCover(&$pdf, $dataset, $rowsByPart, $signatures, $langs)
+	protected function partsCover(&$pdf, $dataset, $rowsByPart, $signatures, $definitions, $langs)
 	{
 		$missing = $langs->transnoentities('PowerPlantPVDataNotFilled');
 		$facts = array();
@@ -103,7 +105,6 @@ trait PowerPlantPVReportPartsPdf
 				}
 			}
 		}
-		$definitions = PowerPlantPVReportParts::definitions();
 		$signedParts = count(array_diff(array_keys($definitions), PowerPlantPVReportParts::unsignedParts($signatures)));
 		$this->visualKpis($pdf, array(
 			array($facts['PowerPlantPDFInstalledPower'] ?? $missing, $langs->transnoentities('PowerPlantInstalledPower')),

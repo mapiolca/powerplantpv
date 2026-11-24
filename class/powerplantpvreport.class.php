@@ -222,7 +222,7 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 		if ($role === 'technician' && !$this->isAssignedTechnician($intervention, $signer)) {
 			return -1;
 		}
-		if ($role === 'technical' && (!$signer->hasRight('powerplantpv', 'maintenance', 'sign_technical')
+		if ($role === 'technical' && (!$signer->hasRight('powerplantpv', 'report', 'sign_technical')
 			|| !$this->technicalSignatureEnabled() || !$this->isTechnicalSupervisor($intervention, $signer))) {
 			return -1;
 		}
@@ -318,7 +318,7 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 	/** Record the signer's identity and date once for this finalized snapshot. */
 	public function signAsTechnicalSupervisor($intervention, User $signer, string $signerName): int
 	{
-		if (!$signer->hasRight('powerplantpv', 'maintenance', 'sign_technical')
+		if (!$signer->hasRight('powerplantpv', 'report', 'sign_technical')
 			|| !$this->isSaved() || !$this->technicalSignatureEnabled() || !$this->isTechnicalSupervisor($intervention, $signer)) {
 			return -1;
 		}

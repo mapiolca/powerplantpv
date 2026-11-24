@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_template_section(
 	entity integer DEFAULT 1 NOT NULL,
 	fk_report_template integer NOT NULL,
 	code varchar(64) NOT NULL,
+	part_ref varchar(64),
 	label varchar(255) NOT NULL,
 	label_en varchar(255),
 	description text,

@@ -129,7 +129,7 @@ function powerplantpvMaintenanceActiveListFilters(array $filters)
  */
 function powerplantpvAdminPrepareHead()
 {
-	global $langs, $conf;
+	global $langs, $conf, $user;
 
 	// global $db;
 	// $extrafields = new ExtraFields($db);
@@ -155,10 +155,12 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][2] = 'attestation';
 	$h++;
 
-	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_report_templates.php", 1));
-	$head[$h][1] = $langs->trans("PowerPlantPVReportTemplates");
-	$head[$h][2] = 'maintenance_report_templates';
-	$h++;
+	if ($user->hasRight('powerplantpv', 'report', 'config')) {
+		$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_report_templates.php", 1));
+		$head[$h][1] = $langs->trans("PowerPlantPVReportTemplates");
+		$head[$h][2] = 'maintenance_report_templates';
+		$h++;
+	}
 
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_service_sections.php", 1));
 	$head[$h][1] = $langs->trans("PowerPlantPVMaintenanceServiceSections");
