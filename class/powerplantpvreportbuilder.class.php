@@ -2630,7 +2630,7 @@ class PowerPlantPVReportBuilder
 	{
 		$field->value_text = isset($value['value_text']) ? (string) $value['value_text'] : null;
 		$field->value_number = isset($value['value_number']) && $value['value_number'] !== null ? (float) $value['value_number'] : null;
-		$field->value_date = !empty($value['value_date']) ? (string) $value['value_date'] : null;
+		$field->value_date = !empty($value['value_date']) ? $this->db->jdate($value['value_date']) : null;
 	}
 
 	/**
@@ -2773,7 +2773,7 @@ class PowerPlantPVReportBuilder
 			return true;
 		}
 		if ((string) $field->field_type === 'date' || (string) $field->field_type === 'datetime') {
-			$field->value_date = (string) $value;
+			$field->value_date = is_int($value) ? $value : null;
 			$field->value_text = null;
 			$field->value_number = null;
 			return true;

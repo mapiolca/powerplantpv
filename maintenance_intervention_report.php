@@ -751,7 +751,12 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	}
 	print '</div>';
 
-	if ($cangenerateserialannex && $reportFetch > 0) {
+	$showSerialAnnex = $cangenerateserialannex && $reportFetch > 0;
+	$showRecalculate = $caneditreport && $reportFetch > 0 && !$snapshotNeedsRebuild && empty($lockedPartSectionIds);
+	if ($showSerialAnnex || $showRecalculate) {
+		print '<div class="powerplantpv-report-document-actions">';
+	}
+	if ($showSerialAnnex) {
 		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="powerplantpv-inline-form">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="id" value="'.(int) $id.'">';
@@ -760,14 +765,15 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '</form>';
 	}
 
-	if ($caneditreport && $reportFetch > 0 && !$snapshotNeedsRebuild && empty($lockedPartSectionIds)) {
-		print '<div class="tabsAction">';
+	if ($showRecalculate) {
 		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="powerplantpv-inline-form">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="id" value="'.((int) $id).'">';
 		print '<input type="hidden" name="action" value="recalculate">';
-		print '<input type="submit" class="butAction" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
+		print '<input type="submit" class="button" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
 		print '</form>';
+	}
+	if ($showSerialAnnex || $showRecalculate) {
 		print '</div>';
 	}
 }
@@ -1013,12 +1019,10 @@ function powerplantpvReportGetSubmittedValues()
 /**
  * Return submitted date values.
  *
- * @return	array<string,string>	Date values by stable key
+ * @return	array<string,int|string>	Timestamps or an empty string for a cleared field
  */
 function powerplantpvReportGetSubmittedDateValues()
 {
-	global $db;
-
 	$keys = GETPOST('report_date_keys', 'array');
 	if (!is_array($keys)) {
 		return array();
@@ -1041,7 +1045,9 @@ function powerplantpvReportGetSubmittedDateValues()
 			continue;
 		}
 		$timestamp = dol_mktime($hour, $min, 0, $month, $day, $year);
-		$values[$stableKey] = $db->idate($timestamp);
+		if (is_int($timestamp)) {
+			$values[$stableKey] = $timestamp;
+		}
 	}
 
 	return $values;
@@ -2070,10 +2076,10 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		print '<input type="text" class="flat powerplantpv-report-control right" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'">';
 	} elseif ($type === 'date' || $type === 'datetime') {
 		$hash = md5((string) $field->stable_key);
-		$timestamp = strtotime((string) $field->value_date);
+		$timestamp = is_int($field->value_date) ? $field->value_date : '';
 		print '<input type="hidden" name="report_date_keys['.$hash.']" value="'.dol_escape_htmltag((string) $field->stable_key).'">';
 		print '<div class="powerplantpv-report-date">';
-		print $form->selectDate($timestamp === false ? '' : $timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
+		print $form->selectDate($timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
 		print '</div>';
 	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean', 'select', 'conformity_so_valid_obs', 'status', 'multiselect'), true)) {
 		// Select2 and Dolibarr both use the HTML id to target the open list.
@@ -2336,7 +2342,7 @@ function powerplantpvReportFieldDisplayValue($field)
 		return $field->value_number !== null ? price($field->value_number) : '';
 	}
 	if ((string) $field->field_type === 'date' || (string) $field->field_type === 'datetime') {
-		return !empty($field->value_date) ? dol_print_date(strtotime((string) $field->value_date), ((string) $field->field_type === 'datetime' ? 'dayhour' : 'day')) : '';
+		return is_int($field->value_date) ? dol_print_date($field->value_date, ((string) $field->field_type === 'datetime' ? 'dayhour' : 'day')) : '';
 	}
 	if (PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, (string) $field->field_type)) {
 		return (string) $field->value_text;
