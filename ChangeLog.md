@@ -1,6 +1,12 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
-## 1.9.2 — Non publiée
+## 1.10.0 — Non publiée
+
+- Centrales : attestation de mise en service avec date, résultats des sept contrôles préalables, références CONSUEL et observations.
+- Attestations : deux modèles PDF, standard et rapport, avec choix du modèle par défaut dans les réglages de chaque entité.
+- Après mise à jour, actualiser le module dans Dolibarr pour ajouter les champs et enregistrer les deux modèles PDF.
+
+## 1.9.2 — 2026-11-24
 
 - Rapports de maintenance : le sommaire affiche un titre par centrale, avec ses sections en retrait et les onduleurs numérotés. Il se place sous le menu gauche sur ordinateur et en tête du rapport sur mobile.
 

@@ -34,7 +34,7 @@ Panel serials are available in a separate CSV attachment generated from the repo
 See [the implementation and validation notes](docs/release/v1.8-maintenance-development.md)
 for activation, historic reports, naming existing equipment and validation limits.
 
-Version 1.9.2 groups report contents by power plant, numbers inverter sections and places the contents below the left menu on desktop. See [ChangeLog.md](ChangeLog.md).
+Version 1.10.0 adds the commissioning attestation for PV power plants, including pre-commissioning checks, CONSUEL details and two PDF layouts. See [ChangeLog.md](ChangeLog.md).
 
 Version 1.9.1 removes per-inverter injection readings from maintenance reports, translates report answers and displays inverter checks in full-width PDF panels. See [ChangeLog.md](ChangeLog.md#191--2026-11-23).
 
