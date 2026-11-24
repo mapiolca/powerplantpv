@@ -129,11 +129,20 @@ nativeMaintenanceCheck($measure->inverter_label === 'Manual' && $measure->mppt_n
 class NativeMaintenanceSchemaDb
 {
  public $columns = array(); public $index = false; public $ddl = array();
+ public $evidenceExpiryNullable = false;
  public function prefix() { return 'long_test_prefix_'; }
  public function sanitize($value) { return $value; }
  public function escape($value) { return $value; }
  public function idate($value) { return '2000-01-01 00:00:00'; }
  public function query($sql) {
+  if (strpos($sql, "WHERE Field = 'expires_at' AND `Null` = 'NO'") !== false) {
+   return (object) array('count' => $this->evidenceExpiryNullable ? 0 : 1);
+  }
+  if (strpos($sql, 'MODIFY COLUMN expires_at datetime DEFAULT NULL') !== false) {
+   $this->evidenceExpiryNullable = true;
+   $this->ddl[] = $sql;
+   return true;
+  }
   if (strpos($sql, 'CREATE TABLE') === 0) { return true; }
   if (preg_match("/SHOW COLUMNS FROM ([a-z_]+) LIKE '((?:equipment|inverter)_(?:marker|identification)|fk_product|fk_report_illustration)'/", $sql, $m)) {
    return (object) array('count' => isset($this->columns[$m[1].'.'.$m[2]]) ? 1 : 0);
@@ -152,6 +161,7 @@ $schema = new NativeMaintenanceSchemaDb();
 $dbProperty = new ReflectionProperty($descriptor, 'db'); $dbProperty->setAccessible(true); $dbProperty->setValue($descriptor, $schema);
 $migration = new ReflectionMethod($descriptor, 'ensureGeneratedReportSchema'); $migration->setAccessible(true);
 nativeMaintenanceCheck($migration->invoke($descriptor) === 1 && count($schema->columns) === 8 && $schema->index, 'Existing schema receives six nullable identity columns and the module product relationship and a unique marker index');
+nativeMaintenanceCheck($schema->evidenceExpiryNullable, 'Existing evidence links support permanent expiry settings');
 $count = count($schema->ddl);
 nativeMaintenanceCheck($migration->invoke($descriptor) === 1 && count($schema->ddl) === $count, 'Repeated activation does not recreate columns or indexes');
 

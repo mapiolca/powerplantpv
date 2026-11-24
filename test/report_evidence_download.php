@@ -23,6 +23,7 @@ require_once $core.'/core/db/Database.interface.php';
 require_once $core.'/core/db/DoliDB.class.php';
 require_once $core.'/core/db/mysqli.class.php';
 require_once $core.'/user/class/user.class.php';
+require_once $core.'/ecm/class/ecmfiles.class.php';
 require_once $module.'/class/powerplantpvreportevidence.class.php';
 
 /** Execute the actual link SQL in an isolated database. */
@@ -72,6 +73,8 @@ function evidenceCheck(bool $passed, string $message): void
 }
 
 $db = new ReportEvidenceTestDatabase();
+$ecm = new EcmFiles($db);
+$ecmCreationField = isset($ecm->fields['date_creation']) ? 'date_creation' : 'date_c';
 $db->pdo->exec('CREATE TABLE evidence_powerplantpv_report_evidence_link (
 	entity INTEGER, fk_report_file INTEGER, token_hash TEXT UNIQUE, file_hash TEXT,
 	date_creation TEXT, expires_at TEXT, fk_user_creat INTEGER
@@ -83,7 +86,8 @@ $db->pdo->exec('CREATE TABLE evidence_const (name TEXT, entity INTEGER, value TE
 $db->pdo->exec('CREATE TABLE evidence_ecm_files (
 	rowid INTEGER PRIMARY KEY, ref TEXT, label TEXT, share TEXT, entity INTEGER,
 	filename TEXT, filepath TEXT, fullpath_orig TEXT, description TEXT, keywords TEXT,
-	cover TEXT, position INTEGER, gen_or_uploaded TEXT, extraparams TEXT, date_c TEXT,
+	cover TEXT, position INTEGER, gen_or_uploaded TEXT, extraparams TEXT,
+	'.$ecmCreationField.' TEXT,
 	tms TEXT, fk_user_c INTEGER, fk_user_m INTEGER, note_private TEXT, note_public TEXT, acl TEXT, src_object_type TEXT,
 	src_object_id INTEGER, agenda_id INTEGER
 )');
