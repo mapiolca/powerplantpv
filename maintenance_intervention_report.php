@@ -774,7 +774,7 @@ print '</div>';
 
 print dol_get_fiche_end();
 
-// Stable report field names contain colons. Use a CSS class to target their Select2 controls.
+// Apply the native Select2 presentation consistently to report choices.
 print ajax_combobox('.powerplantpv-report-choice', array(), 0, 0, '100%');
 print ajax_combobox('.powerplantpv-report-date select');
 
@@ -974,6 +974,22 @@ function powerplantpvReportGetSubmittedValues()
 				$values[$key] = array_map('dol_string_nohtmltag', array_map('strval', $value));
 			} else {
 				$values[$key] = dol_string_nohtmltag((string) $value);
+			}
+		}
+	}
+
+	$choiceKeys = GETPOST('report_choice_keys', 'array');
+	if (is_array($choiceKeys)) {
+		foreach ($choiceKeys as $hash => $stableKey) {
+			if (!is_string($stableKey) || (string) $hash !== hash('sha256', $stableKey)) {
+				continue;
+			}
+			$input = 'report_choice_'.$hash;
+			if (GETPOSTISSET($input.'_multiselect')) {
+				$selected = GETPOST($input, 'array', 2);
+				$values[$stableKey] = is_array($selected) ? array_map('dol_string_nohtmltag', array_map('strval', $selected)) : array();
+			} elseif (GETPOSTISSET($input)) {
+				$values[$stableKey] = GETPOST($input, 'alphanohtml', 2);
 			}
 		}
 	}
@@ -2058,17 +2074,22 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		print '<div class="powerplantpv-report-date">';
 		print $form->selectDate($timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
 		print '</div>';
-	} elseif ($allowsNotApplicable) {
-		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), (string) $value, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control powerplantpv-report-choice', 0);
-	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean'), true)) {
-		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), $type === 'boolean' ? $value : (int) $value, $type === 'boolean' ? 1 : 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control powerplantpv-report-choice', 0);
-	} elseif (in_array($type, array('select', 'conformity_so_valid_obs', 'status'), true)) {
+	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean', 'select', 'conformity_so_valid_obs', 'status', 'multiselect'), true)) {
+		// Select2 and Dolibarr both use the HTML id to target the open list.
+		$hash = hash('sha256', (string) $field->stable_key);
+		$selectName = 'report_choice_'.$hash;
+		print '<input type="hidden" name="report_choice_keys['.$hash.']" value="'.dol_escape_htmltag((string) $field->stable_key).'">';
 		$options = PowerPlantPVReportPresentation::choiceOptions($field, $langs);
-		print $form->selectarray($name, $options, (string) $value, 1, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control powerplantpv-report-choice', 0);
-	} elseif ($type === 'multiselect') {
-		$options = PowerPlantPVReportPresentation::choiceOptions($field, $langs);
-		$selected = array_filter(explode("\n", (string) $value));
-		print $form->multiselectarray($name, $options, $selected, 0, 0, 'powerplantpv-report-control powerplantpv-report-choice', 0, 0, '', '', '', 0);
+		$controlClass = 'powerplantpv-report-control powerplantpv-report-choice';
+		if ($type === 'multiselect') {
+			$selected = array_filter(explode("\n", (string) $value));
+			print $form->multiselectarray($selectName, $options, $selected, 0, 0, $controlClass, 0, 0, '', '', '', 0);
+		} else {
+			$isBinary = in_array($type, array('checkbox', 'yesno'), true);
+			$selected = $isBinary && !$allowsNotApplicable ? (int) $value : (string) $value;
+			$showEmpty = $allowsNotApplicable || $isBinary ? 0 : 1;
+			print $form->selectarray($selectName, $options, $selected, $showEmpty, 0, 0, '', 0, 0, 0, '', $controlClass, 0);
+		}
 	} elseif ($type === 'file') {
 		powerplantpvReportRenderFiles($field, true);
 		if (!empty($field->id)) {
