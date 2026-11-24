@@ -155,6 +155,15 @@ foreach ($labels as $part => $label) {
 		$position += 10;
 	}
 	if ($part === 3) {
+		$general[] = acSection('AC3_INSTALLATION', 'Partie 3 · Mesures réseau · Installation', $position, array(
+			acField('AC3_EARTH_RESISTANCE', 'Résistance de terre (barrette de coupure ou bornier TGBT)', 'number', 12.75, 'ohm'),
+			acField('AC3_INSTALLATION_U_LL', 'Tension entre phases (U L-L)', 'number', 400, 'V'),
+			acField('AC3_INSTALLATION_U_LN', 'Tension phase-neutre (U L-N)', 'number', 230, 'V'),
+			acField('AC3_INSTALLATION_PE_CONTINUITY', 'Continuité PE', 'conformity_so_valid_obs', 'valid'),
+			acField('AC3_INSTALLATION_PHASE_ORDER', 'Ordre des phases', 'conformity_so_valid_obs', 'valid'),
+			acField('AC3_INSTALLATION_FREQUENCY', 'Fréquence', 'number', 50, 'Hz'),
+		));
+		$position += 10;
 		$proofField = acField('AC3_GRID_PROOF', 'Justificatif', 'file', '');
 		$proofField->files = array($proof);
 		$general[] = acSection('AC3_GRID', 'Partie 3 · Mesures réseau', $position, array(
@@ -279,6 +288,17 @@ foreach ($signaturePages as $pageText) {
 }
 visualPdfCheck(strpos($text, 'Dernier écart consigné.') !== false, 'Long notes are kept in full');
 visualPdfCheck(strpos($text, '0 Hz') !== false, 'A zero measurement remains visible');
+$installationTitle = 'Mesures réseau · Installation';
+$installationParts = explode($installationTitle, $text, 2);
+$installation = explode('Mesures réseau', $installationParts[1] ?? '', 2)[0];
+foreach (array(
+	'Résistance de terre (barrette de coupure ou bornier TGBT)', price(12.75).' ohm',
+	'Tension entre phases (U L-L)', price(400).' V',
+	'Tension phase-neutre (U L-N)', price(230).' V',
+	'Continuité PE', 'Ordre des phases', 'Fréquence', price(50).' Hz',
+) as $needle) {
+	visualPdfCheck(strpos($installation, $needle) !== false, 'The installation panel contains '.$needle);
+}
 visualPdfCheck(strpos($text, 'Aucun enregistrement trouvé') !== false, 'The empty attachments message is kept');
 visualPdfCheck(strpos($text, 'preuve-essai.pdf') !== false && strpos(file_get_contents($file), '/URI ('.$proofUrl.')') !== false,
 	'The evidence name links to the public download in the PDF');

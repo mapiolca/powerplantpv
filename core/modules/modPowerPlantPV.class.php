@@ -3155,6 +3155,7 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC2_BOX', 'Partie 2 · Contrôle coffret DC', 'Part 2 · DC box check', 'electrical_box', 'DC_BOX', 'once_per_equipment', ''),
 			array('AC2_CONCLUSION', 'Partie 2 · Conclusion', 'Part 2 · Conclusion', 'intervention', '', 'once', ''),
 			array('AC3_IDENT', 'Partie 3 · Identification', 'Part 3 · Identification', 'intervention', '', 'once', 'FM-ESS-003 · Essais AC et protections (BT)'),
+			array('AC3_INSTALLATION', 'Partie 3 · Mesures réseau · Installation', 'Part 3 · Grid measurements · Installation', 'intervention', '', 'once', ''),
 			array('AC3_GRID', 'Partie 3 · Mesures réseau', 'Part 3 · Grid measurements', 'inverter', '', 'once_per_equipment', ''),
 			array('AC3_PROTECTIONS', 'Partie 3 · Essais des protections', 'Part 3 · Protection tests', 'intervention', '', 'once', ''),
 			array('AC3_CONCLUSION', 'Partie 3 · Conclusion', 'Part 3 · Conclusion', 'intervention', '', 'once', ''),
@@ -3174,6 +3175,8 @@ class modPowerPlantPV extends DolibarrModules
 		$sectionIds = array();
 		$position = 10;
 		foreach ($sections as $section) {
+			// Insert the installation before the inverter sections without shifting existing default positions.
+			$isInstallation = $section[0] === 'AC3_INSTALLATION';
 			$where = "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape($section[0])."'";
 			$result = $this->insertMaintenanceDefaultRow($sectionTable, array(
 				'entity' => $entity,
@@ -3191,13 +3194,15 @@ class modPowerPlantPV extends DolibarrModules
 				'visible_form' => 1,
 				'visible_pdf' => 1,
 				'active' => 1,
-				'position' => $position,
+				'position' => $isInstallation ? $position - 5 : $position,
 				'date_creation' => $this->db->idate(dol_now()),
 			), $where);
 			if ($result < 0) {
 				return -1;
 			}
-			$position += 10;
+			if (!$isInstallation) {
+				$position += 10;
+			}
 			$rowid = $this->fetchSeedRowId($sectionTable, $where);
 			if ($rowid <= 0) {
 				return -1;
@@ -3247,6 +3252,17 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC2_BOX', 'AC2_BOX_NOTES', 'Observations', 'Observations', 'textarea', '', 0),
 			array('AC3_IDENT', 'AC3_CONNECTION_POINT', 'Point de raccordement', 'Connection point', 'varchar', '', 0),
 			array('AC3_IDENT', 'AC3_AC_DIAGRAM', 'Référence du schéma AC', 'AC diagram reference', 'varchar', '', 0),
+			array(
+				'AC3_INSTALLATION', 'AC3_EARTH_RESISTANCE',
+				'Résistance de terre (barrette de coupure ou bornier TGBT)',
+				'Earth resistance (disconnecting link or main LV switchboard terminal)',
+				'number', 'ohm', 0,
+			),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_U_LL', 'Tension entre phases (U L-L)', 'Line-to-line voltage (U L-L)', 'number', 'V', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_U_LN', 'Tension phase-neutre (U L-N)', 'Line-to-neutral voltage (U L-N)', 'number', 'V', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_PE_CONTINUITY', 'Continuité PE', 'PE continuity', 'conformity_so_valid_obs', '', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_PHASE_ORDER', 'Ordre des phases', 'Phase order', 'conformity_so_valid_obs', '', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_FREQUENCY', 'Fréquence', 'Frequency', 'number', 'Hz', 1),
 			array('AC3_GRID', 'AC3_U_LL', 'Tension entre phases (U L-L)', 'Line-to-line voltage (U L-L)', 'number', 'V', 1),
 			array('AC3_GRID', 'AC3_U_LN', 'Tension phase-neutre (U L-N)', 'Line-to-neutral voltage (U L-N)', 'number', 'V', 1),
 			array('AC3_GRID', 'AC3_FREQUENCY', 'Fréquence', 'Frequency', 'number', 'Hz', 1),
