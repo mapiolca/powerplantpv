@@ -2,6 +2,14 @@
 
 ## 1.10.0 — Non publiée
 
+- Ajout de la nature d’intervention « Autocontrôles C&I » et de son rapport en six étapes. Le formulaire s’adapte à la centrale et les références des étapes sont personnalisables.
+- Chaque partie peut être validée et signée depuis le formulaire. Le signataire ou son responsable direct peut rouvrir une partie avec la permission de gestion des attestations et rapports signés. La réouverture archive la signature concernée et les visas finaux.
+- La finalisation exige les six signatures. Le responsable technique peut signer le dossier finalisé si son option est activée. Les créations, validations, signatures, réouvertures et finalisations sont consignées par les événements natifs de l’Agenda.
+- Le PDF affiche le projet disponible, un tableau de suivi avec badges et les heures de début et de fin séparées. Chaque conclusion reste sur la même page que sa signature.
+- Les preuves sont jointes à l’intervention et se retirent du rapport avec l’icône de suppression Dolibarr. Les nouveaux liens HTTPS expirent après 30 jours par défaut. La durée est réglable par entité et indiquée dans le PDF. Recharger le module pour activer l’option sans expiration sur une installation existante.
+- L’onglet Rapport utilise Select2 et affiche son sommaire uniquement dans le menu gauche. Recharger le module dans Dolibarr pour installer la nature, le modèle et les tables nécessaires.
+- Les flèches Précédent et Suivant ouvrent les rapports par référence d’intervention.
+- Les administrateurs disposent des permissions de PowerPlantPV sans attribution individuelle. Actualiser le module dans Dolibarr pour mettre à jour les menus et l’onglet Rapport.
 - Centrales : attestation de mise en service avec date, résultats des sept contrôles préalables, références CONSUEL et observations.
 - Attestations : deux modèles PDF, standard et rapport, avec choix du modèle par défaut dans les réglages de chaque entité.
 - Après mise à jour, actualiser le module dans Dolibarr pour ajouter les champs et enregistrer les deux modèles PDF.

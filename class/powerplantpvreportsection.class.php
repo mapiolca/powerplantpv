@@ -38,6 +38,7 @@ class PowerPlantPVReportSection extends PowerPlantPVReportGeneratedBase
 		'section_label_en' => array('type' => 'varchar(255)', 'label' => 'PowerPlantPVEnglishLabel', 'enabled' => 1, 'position' => 61, 'notnull' => 0, 'visible' => 1),
 		'section_description' => array('type' => 'text', 'label' => 'Description', 'enabled' => 1, 'position' => 70, 'notnull' => 0, 'visible' => 1),
 		'section_description_en' => array('type' => 'text', 'label' => 'PowerPlantPVEnglishDescription', 'enabled' => 1, 'position' => 71, 'notnull' => 0, 'visible' => 1),
+		'part_ref' => array('type' => 'varchar(64)', 'label' => 'PowerPlantPVAutocontrolPartReference', 'enabled' => 1, 'position' => 72, 'notnull' => 0, 'visible' => 1),
 		'scope_type' => array('type' => 'varchar(32)', 'label' => 'PowerPlantPVReportScope', 'enabled' => 1, 'position' => 80, 'notnull' => 1, 'visible' => 1),
 		'equipment_type' => array('type' => 'varchar(32)', 'label' => 'PowerPlantPVEquipmentType', 'enabled' => 1, 'position' => 90, 'notnull' => 0, 'visible' => 1),
 		'repeat_mode' => array('type' => 'varchar(32)', 'label' => 'PowerPlantPVRepeatMode', 'enabled' => 1, 'position' => 100, 'notnull' => 1, 'visible' => 1),
@@ -62,6 +63,7 @@ class PowerPlantPVReportSection extends PowerPlantPVReportGeneratedBase
 	public $section_label_en;
 	public $section_description;
 	public $section_description_en;
+	public $part_ref;
 	public $scope_type;
 	public $equipment_type;
 	public $repeat_mode;

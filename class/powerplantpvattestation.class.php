@@ -170,7 +170,7 @@ class PowerPlantPVAttestation extends CommonObject
 	{
 		if ((int) $powerplant->id <= 0
 			|| (int) $powerplant->id !== (int) $this->fk_powerplant
-			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			|| !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) {
 			return 0;
 		}
 		$entities = array_map('intval', explode(',', getEntity('powerplant')));

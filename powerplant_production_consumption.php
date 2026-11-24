@@ -84,10 +84,10 @@ $extrafields->fetch_name_optionals_label($object->table_element);
 
 include DOL_DOCUMENT_ROOT.'/core/actions_fetchobject.inc.php';
 
-$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read')
-	|| $user->hasRight('powerplantpv', 'maintenance', 'read');
-$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write')
-	|| $user->hasRight('powerplantpv', 'maintenance', 'write');
+$permissiontoread = ($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))
+	|| ($user->hasRight('powerplantpv', 'maintenance', 'read') || !empty($user->admin));
+$permissiontoadd = ($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin))
+	|| ($user->hasRight('powerplantpv', 'maintenance', 'write') || !empty($user->admin));
 
 if ($user->socid > 0) {
 	$socid = $user->socid;

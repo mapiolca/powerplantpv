@@ -29,6 +29,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreportconfigbase.class.php');
 class PowerPlantPVReportTemplate extends PowerPlantPVReportConfigBase
 {
 	public const TARGET_INTERVENTION = 'fichinter';
+	public const CODE_AUTOCONTROL = 'autocontrol';
 
 	public $element = 'powerplantpv_report_template';
 	public $table_element = 'powerplantpv_report_template';
@@ -209,6 +210,7 @@ class PowerPlantPVReportTemplate extends PowerPlantPVReportConfigBase
 			$newSection->label_en = $section->label_en;
 			$newSection->description = $section->description;
 			$newSection->description_en = $section->description_en;
+			$newSection->part_ref = $section->part_ref;
 			$newSection->scope_type = $section->scope_type;
 			$newSection->equipment_type = $section->equipment_type;
 			$newSection->repeat_mode = $section->repeat_mode;

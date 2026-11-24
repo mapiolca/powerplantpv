@@ -317,12 +317,12 @@ $object = new PowerPlant($db);
 $form = new Form($db);
 $hookmanager->initHooks(array($object->element.'composition', 'globalcard'));
 
-$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
-$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write');
-$permissiontoserialread = $user->hasRight('powerplantpv', 'serialnumber', 'read');
-$permissiontoserialimport = $user->hasRight('powerplantpv', 'serialnumber', 'import');
-$permissiontoserialdelete = $user->hasRight('powerplantpv', 'serialnumber', 'delete');
-$permissiontoserialexport = $user->hasRight('powerplantpv', 'serialnumber', 'export');
+$permissiontoread = ($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin));
+$permissiontoadd = ($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin));
+$permissiontoserialread = ($user->hasRight('powerplantpv', 'serialnumber', 'read') || !empty($user->admin));
+$permissiontoserialimport = ($user->hasRight('powerplantpv', 'serialnumber', 'import') || !empty($user->admin));
+$permissiontoserialdelete = ($user->hasRight('powerplantpv', 'serialnumber', 'delete') || !empty($user->admin));
+$permissiontoserialexport = ($user->hasRight('powerplantpv', 'serialnumber', 'export') || !empty($user->admin));
 
 if (!isModEnabled($object->module) || !$permissiontoread) {
 	accessforbidden();
