@@ -671,10 +671,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 
 	$renderEditableFields = $caneditreport;
 	if (!empty($conf->use_javascript_ajax)) {
-		print '<div class="powerplantpv-report-navigation">';
-		print '<nav class="blockvmenu" aria-labelledby="powerplantpv-report-contents-label" data-report-contents hidden>';
-		print '<div id="powerplantpv-report-contents-label" class="menu_titre">'.$langs->trans('PowerPlantPVReportContents').'</div>';
-		print '</nav>';
+		print '<div class="powerplantpv-report-navigation" data-report-contents-label="'.dol_escape_htmltag($langs->transnoentities('PowerPlantPVReportContents')).'">';
 		print '<div class="marginbottomonly" data-report-disclosure-controls hidden>';
 		print dolGetButtonAction($langs->transnoentities('PowerPlantPVReportExpandAll'), '', 'default', '#', '', 1, array(
 			'attr' => array('role' => 'button', 'data-report-disclosure' => 'open'),
