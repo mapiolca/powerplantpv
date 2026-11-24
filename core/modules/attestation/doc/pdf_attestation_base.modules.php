@@ -909,14 +909,15 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$widths = array($widths);
 		}
 
-		$height = $minHeight;
+		$height = $this->centerTableCells ? max(7.5, $minHeight) : $minHeight;
+		$verticalPadding = $this->centerTableCells ? max(4, $cellPadding) : $cellPadding;
 		$fallbackWidth = count($widths) ? $widths[count($widths) - 1] : 0;
 		foreach ($values as $i => $value) {
 			$width = isset($widths[$i]) ? $widths[$i] : $fallbackWidth;
 			$text = $outputlangs->convToOutputCharset((string) $value);
 			$pdf->SetFont('', isset($styles[$i]) ? $styles[$i] : '', $fontSize);
 			if (method_exists($pdf, 'getStringHeight')) {
-				$height = max($height, $pdf->getStringHeight(max($width - $cellPadding, 1), $text) + $cellPadding);
+				$height = max($height, $pdf->getStringHeight(max($width - $cellPadding, 1), $text) + $verticalPadding);
 			} else {
 				$height = max($height, $lineHeight * (substr_count((string) $value, "\n") + 1) + $cellPadding);
 			}

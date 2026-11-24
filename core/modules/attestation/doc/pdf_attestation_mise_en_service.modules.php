@@ -529,7 +529,7 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 			$rowHeight = $pdf->getStringHeight($labelWidth, $label);
 			$pdf->SetFont('', 'B', 9.5);
 			$valueHeight = $result === null ? $pdf->getStringHeight($valueWidth, $value) : 5.2;
-			$rowHeight = max(5.6, $rowHeight + 1.4, $valueHeight + 1.4);
+			$rowHeight = max(7.5, max($rowHeight, $valueHeight) + 2.8);
 			$layout['rows'][] = array('label' => $label, 'value' => $value, 'result' => $result, 'missing' => $missing, 'height' => $rowHeight);
 			$height += $rowHeight;
 		}
@@ -563,8 +563,10 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 			$cy += $layout['titleHeight'] + 2;
 		}
 		$count = count($layout['rows']);
+		// The shorter side-by-side panel uses its extra height across its rows.
+		$extraRowHeight = $count > 0 ? ($height - $layout['height']) / $count : 0;
 		foreach ($layout['rows'] as $j => $row) {
-			$rh = $row['height'];
+			$rh = $row['height'] + $extraRowHeight;
 			$vx = $x + 4 + $layout['labelWidth'];
 			$this->setColor($pdf, 'text', self::LABEL);
 			$pdf->SetFont('', '', 9.5);

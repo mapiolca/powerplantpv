@@ -209,12 +209,13 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$text = $outputlangs->convToOutputCharset((string) $value);
 		$lineHeight = 4;
 		$cellPadding = 2;
-		$height = 6;
+		$verticalPadding = $this->centerTableCells ? 4 : $cellPadding;
+		$height = $this->centerTableCells ? 7.5 : 6;
 		if (method_exists($pdf, 'getStringHeight')) {
 			$pdf->SetFont('', 'B', $fontSize);
-			$height = max($height, $pdf->getStringHeight(max($widths[0] - $cellPadding, 1), $label) + $cellPadding);
+			$height = max($height, $pdf->getStringHeight(max($widths[0] - $cellPadding, 1), $label) + $verticalPadding);
 			$pdf->SetFont('', '', $fontSize);
-			$height = max($height, $pdf->getStringHeight(max($widths[1] - $cellPadding, 1), $text) + $cellPadding);
+			$height = max($height, $pdf->getStringHeight(max($widths[1] - $cellPadding, 1), $text) + $verticalPadding);
 		} else {
 			$height = max($height, $lineHeight * (max(substr_count((string) $label, "\n"), substr_count((string) $value, "\n")) + 1) + $cellPadding);
 		}
