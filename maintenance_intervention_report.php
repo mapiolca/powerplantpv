@@ -1513,7 +1513,18 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 				$contentsLabel .= ' · '.powerplantpvReportEquipmentLabel($row['equipment']);
 			}
 			print '<details id="'.$anchor.'" class="powerplantpv-report-section" data-state-key="section:'.$sectionKey.'" data-contents-label="'.dol_escape_htmltag($contentsLabel).'" open>';
+			$sectionSuffix = '';
+			if ((string) $section->section_code === 'AC3_INSTALLATION') {
+				$labelParts = explode(' · ', $label, 3);
+				if (count($labelParts) === 3) {
+					$label = $labelParts[0].' · '.$labelParts[1];
+					$sectionSuffix = $labelParts[2];
+				}
+			}
 			print '<summary class="liste_titre"><span>'.dol_escape_htmltag($label).'</span><span class="powerplantpv-report-progress opacitymedium" data-progress-label="'.dol_escape_htmltag($langs->transnoentities('PowerPlantPVReportProgress')).'"></span>';
+			if ($sectionSuffix !== '') {
+				print ' <span>'.dol_escape_htmltag($sectionSuffix).'</span>';
+			}
 			if ($identity) {
 				print ' <span class="powerplantpv-identity-mobile">'.dol_escape_htmltag(PowerPlantPVReportPresentation::identity($identity, false)).'</span>';
 				print ' <span class="powerplantpv-identity-desktop">'.dol_escape_htmltag(PowerPlantPVReportPresentation::identity($identity)).'</span>';
