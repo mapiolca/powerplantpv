@@ -51,7 +51,7 @@ $user = new class {
 };
 $mysoc = (object) array('name' => 'Installateur test', 'logo' => '', 'logo_small' => '');
 require_once $core.'/core/lib/pdf.lib.php';
-require_once $module.'/core/modules/fichinter/doc/pdf_powerplantpvreport.modules.php';
+require_once $module.'/core/modules/fichinter/doc/pdf_powerplantpvautocontrol.modules.php';
 
 $checks = 0;
 function visualPdfCheck($condition, $message)
@@ -61,7 +61,7 @@ function visualPdfCheck($condition, $message)
 }
 
 /** Fixture model: frozen snapshot and signatures instead of the database. */
-class AutocontrolPdfFixture extends pdf_powerplantpvreport
+class AutocontrolPdfFixture extends pdf_powerplantpvautocontrol
 {
 	public $snapshot = array();
 	public $signatures = array();

@@ -24,7 +24,6 @@ require_once __DIR__.'/../../../../class/powerplantpvreportevidence.class.php';
 require_once __DIR__.'/../../../../class/powerplantpvreportillustration.class.php';
 require_once __DIR__.'/../../../../class/powerplant.class.php';
 require_once __DIR__.'/powerplantpvreportvisualpdf.trait.php';
-require_once __DIR__.'/powerplantpvreportpartspdf.trait.php';
 dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 
 /**
@@ -33,9 +32,15 @@ dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 class pdf_powerplantpvreport extends ModelePDFFicheinter
 {
 	use PowerPlantPVReportVisualPdf;
-	use PowerPlantPVReportPartsPdf;
 
-	protected const PARTS_SIGNATURE_CARD_HEIGHT = 58;
+	protected const PARTS_REPORT_MODEL = false;
+	protected const MODEL_LABEL = 'PowerPlantPVInterventionReportPdfName';
+	protected const MODEL_DESCRIPTION = 'PowerPlantPVInterventionReportPdfModel';
+	protected const PDF_SUBJECT = 'PowerPlantPVReportPdfTitle';
+
+	/** @var string Subtitle for the current page header */
+	protected $visualHeaderSubtitle = '';
+
 	/**
 	 * @var DoliDB Database handler
 	 */
@@ -129,8 +134,8 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 
 		$this->db = $db;
 		$langs->loadLangs(array('main', 'companies', 'interventions', 'powerplantpv@powerplantpv'));
-		$this->name = $langs->trans('PowerPlantPVInterventionReportPdfName');
-		$this->description = $langs->trans('PowerPlantPVInterventionReportPdfModel');
+		$this->name = $langs->trans(static::MODEL_LABEL);
+		$this->description = $langs->trans(static::MODEL_DESCRIPTION);
 
 		$formatarray = pdf_getFormat();
 		$this->page_largeur = $formatarray['width'];
@@ -151,7 +156,8 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	 */
 	public function info($langs)
 	{
-		return $langs->trans('PowerPlantPVInterventionReportPdfModel');
+		$langs->load('powerplantpv@powerplantpv');
+		return $langs->trans(static::MODEL_DESCRIPTION);
 	}
 
 	// phpcs:disable PEAR.NamingConventions.ValidFunctionName.ScopeNotCamelCaps
@@ -243,6 +249,14 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		if (!is_array($dataset)) {
 			$this->error = $datasetLoader->error;
 			$this->errors = $datasetLoader->errors;
+			return -1;
+		}
+		if (static::PARTS_REPORT_MODEL && empty($dataset['report_found'])) {
+			$this->error = $outputlangs->transnoentities('PowerPlantPVAutocontrolPdfRequiresSavedReport');
+			return -1;
+		}
+		if (!empty($dataset['report_found']) && static::PARTS_REPORT_MODEL !== PowerPlantPVReportParts::isPartsReport($dataset['report'])) {
+			$this->error = $outputlangs->transnoentities('PowerPlantPVInterventionPdfModelMismatch');
 			return -1;
 		}
 
@@ -366,11 +380,11 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$pdf->SetFont(pdf_getPDFFont($outputlangs), '', $this->defaultFontSize);
 		$pdf->SetMargins($this->marge_gauche, 34, $this->marge_droite);
 		$pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
-		$subject = $outputlangs->transnoentities($annex ? 'PowerPlantPVReportPdfAnnexTitle' : 'PowerPlantPVReportPdfTitle');
+		$subject = $outputlangs->transnoentities($annex ? 'PowerPlantPVReportPdfAnnexTitle' : static::PDF_SUBJECT);
 		$pdf->SetSubject($outputlangs->convToOutputCharset($subject));
 		$pdf->SetCreator('Dolibarr '.DOL_VERSION);
 		$pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
-		$pdf->SetKeyWords($outputlangs->convToOutputCharset($object->ref.' '.$outputlangs->transnoentities('PowerPlantPVReportPdfTitle')));
+		$pdf->SetKeyWords($outputlangs->convToOutputCharset($object->ref.' '.$subject));
 		if (getDolGlobalString('MAIN_DISABLE_PDF_COMPRESSION')) {
 			$pdf->SetCompression(false);
 		}
@@ -390,8 +404,6 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		if (!isset($this->visualHeaders[(int) $pdf->getPage()])) { $this->renderHeader($pdf, $object, $dataset, $outputlangs); }
 		if ($annex) {
 			$this->renderAnnex($pdf, $dataset, $outputlangs);
-		} elseif (!empty($dataset['report_found']) && PowerPlantPVReportParts::isPartsReport($dataset['report'])) {
-			$this->renderPartsReport($pdf, $object, $dataset, $outputlangs);
 		} else {
 			$this->renderReport($pdf, $object, $dataset, $outputlangs);
 		}

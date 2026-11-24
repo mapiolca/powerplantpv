@@ -1301,20 +1301,20 @@ class modPowerPlantPV extends DolibarrModules
 			$sql[] = $sqlmodel;
 		}
 
-		$sqlreportmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";
-		$sqlreportmodel .= " SELECT 'powerplantpvreport', 'ficheinter', ".((int) $conf->entity);
-		$sqlreportmodel .= " WHERE NOT EXISTS (";
-		$sqlreportmodel .= " SELECT 1 FROM ".$this->db->prefix()."document_model";
-		$sqlreportmodel .= " WHERE nom = 'powerplantpvreport'";
-		$sqlreportmodel .= " AND type = 'ficheinter'";
-		$sqlreportmodel .= " AND entity = ".((int) $conf->entity);
-		$sqlreportmodel .= ")";
-		$sql[] = $sqlreportmodel;
+		require_once __DIR__.'/../../lib/powerplantpv_pdfmodels.lib.php';
+		$reportModels = powerplantpvPdfModelLabels();
+		foreach (array_keys($reportModels['ficheinter']) as $reportModelId) {
+			$reportModelSql = $this->db->escape($reportModelId);
+			$sqlreportmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";
+			$sqlreportmodel .= " SELECT '".$reportModelSql."', 'ficheinter', ".((int) $conf->entity);
+			$sqlreportmodel .= " WHERE NOT EXISTS (SELECT 1 FROM ".$this->db->prefix()."document_model";
+			$sqlreportmodel .= " WHERE nom = '".$reportModelSql."' AND type = 'ficheinter' AND entity = ".((int) $conf->entity).")";
+			$sql[] = $sqlreportmodel;
+		}
 
 		// Dolibarr 20–22 displays the stored label without a model-list hook.
-		require_once __DIR__.'/../../lib/powerplantpv_pdfmodels.lib.php';
 		$langs->load('powerplantpv@powerplantpv');
-		foreach (powerplantpvPdfModelLabels() as $type => $models) {
+		foreach ($reportModels as $type => $models) {
 			foreach ($models as $id => $label) {
 				$labelSql = $this->db->escape($langs->transnoentities($label));
 				$idSql = $this->db->escape($id);
@@ -3101,6 +3101,7 @@ class modPowerPlantPV extends DolibarrModules
 	private function seedAutocontrolReportTemplate(int $entity): int
 	{
 		require_once __DIR__.'/../../class/powerplantpvreporttemplate.class.php';
+		require_once __DIR__.'/../../class/powerplantpvreportparts.class.php';
 		$code = PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
 		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
 			'entity' => $entity,
@@ -3133,7 +3134,7 @@ class modPowerPlantPV extends DolibarrModules
 			'description_en' => 'Tests and self-inspections of a photovoltaic power plant before commissioning',
 			'fk_report_template' => $templateId,
 			'report_template_code' => $code,
-			'model_pdf' => 'powerplantpvreport',
+			'model_pdf' => PowerPlantPVReportParts::PDF_MODEL,
 			'is_maintenance' => 0,
 			'is_preventive' => 0,
 			'requires_report' => 1,
@@ -3142,6 +3143,23 @@ class modPowerPlantPV extends DolibarrModules
 			'position' => 20,
 		), "entity = ".$entity." AND code = 'AUTOCONTROL'");
 		if ($result < 0) {
+			return -1;
+		}
+
+		// Move legacy default selections to the dedicated model without changing custom selections or PDFs.
+		$prefix = $this->db->prefix();
+		$model = $this->db->escape(PowerPlantPVReportParts::PDF_MODEL);
+		$sqlNature = "UPDATE ".$prefix."c_powerplantpv_intervention_nature SET model_pdf = '".$model."'";
+		$sqlNature .= " WHERE entity = ".$entity." AND code = 'AUTOCONTROL' AND model_pdf = 'powerplantpvreport'";
+		$sqlInterventions = "UPDATE ".$prefix."fichinter AS fi";
+		$sqlInterventions .= " INNER JOIN ".$prefix."fichinter_extrafields AS ef ON ef.fk_object = fi.rowid";
+		$sqlInterventions .= " INNER JOIN ".$prefix."c_powerplantpv_intervention_nature AS n";
+		$sqlInterventions .= " ON n.rowid = ef.powerplantpv_intervention_nature AND n.entity = fi.entity";
+		$sqlInterventions .= " SET fi.model_pdf = '".$model."' WHERE fi.entity = ".$entity;
+		$sqlInterventions .= " AND n.code = 'AUTOCONTROL' AND n.model_pdf = '".$model."'";
+		$sqlInterventions .= " AND (fi.model_pdf = 'powerplantpvreport' OR fi.model_pdf = '' OR fi.model_pdf IS NULL)";
+		if (!$this->db->query($sqlNature) || !$this->db->query($sqlInterventions)) {
+			$this->errors[] = $this->db->lasterror();
 			return -1;
 		}
 

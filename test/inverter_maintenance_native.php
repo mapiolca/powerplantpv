@@ -278,9 +278,14 @@ nativeMaintenanceCheck(method_exists('CommonObject', 'setValueFrom'), 'Native si
 
 require_once $module.'/class/actions_powerplantpv.class.php';
 $langs->tab_translate['PowerPlantPVInterventionReportPdfName'] = 'Rapport de maintenance photovoltaïque';
-$models = array('powerplantpvreport' => 'powerplantpvreport', 'soleil' => 'soleil');
+$langs->tab_translate['PowerPlantPVAutocontrolPdfName'] = 'Rapport d’autocontrôle C&I';
+$models = array('powerplantpvreport' => 'powerplantpvreport', PowerPlantPVReportParts::PDF_MODEL => PowerPlantPVReportParts::PDF_MODEL, 'soleil' => 'soleil');
 (new ActionsPowerplantpv())->getListOfModels(array('type' => 'ficheinter', 'list' => &$models));
-nativeMaintenanceCheck($models === array('powerplantpvreport' => 'Rapport de maintenance photovoltaïque', 'soleil' => 'soleil'), 'The selector translates the module title without changing model keys or other vendors’ choices');
+nativeMaintenanceCheck($models === array(
+	'powerplantpvreport' => 'Rapport de maintenance photovoltaïque',
+	PowerPlantPVReportParts::PDF_MODEL => 'Rapport d’autocontrôle C&I',
+	'soleil' => 'soleil',
+), 'The selector lists the two separate translated models alongside other native choices');
 
 require_once $module.'/core/modules/fichinter/doc/pdf_powerplantpvreport.modules.php';
 class NativeMaintenancePdfLifecycle extends pdf_powerplantpvreport
@@ -353,6 +358,9 @@ foreach (array(0 => '1', 1 => '2', 2 => '1,2') as $mode => $entities) {
 		'PDF model lookup follows dictionary sharing mode '.$mode.' without changing intervention ownership');
 }
 $mc = null;
+$natureDb->model = PowerPlantPVReportParts::PDF_MODEL;
+nativeMaintenanceCheck($nature->configuredPdfModel($newIntervention) === PowerPlantPVReportParts::PDF_MODEL,
+	'The nature resolves the dedicated C&I model for document generation');
 $statuses = PowerPlantPVReport::interventionSignatureStatuses();
 foreach (array(false, true) as $technicalRequired) {
 	$orders = $technicalRequired

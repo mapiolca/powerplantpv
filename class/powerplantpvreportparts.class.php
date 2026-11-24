@@ -30,6 +30,7 @@ class PowerPlantPVReportParts
 
 	/** Intervention nature code of the self-inspection report. */
 	public const NATURE_CODE = 'AUTOCONTROL';
+	public const PDF_MODEL = 'powerplantpvautocontrol';
 
 	/** Final validation of the complete report, signed once every part is signed. */
 	public const FINAL_CODE = 'FINAL';
