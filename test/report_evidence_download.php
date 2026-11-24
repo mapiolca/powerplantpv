@@ -14,7 +14,11 @@ define('DOL_DOCUMENT_ROOT', $core);
 define('DOL_DATA_ROOT', $root);
 define('DOL_URL_ROOT', '');
 define('MAIN_DB_PREFIX', 'evidence_');
+if (is_file($core.'/version.inc.php')) {
+	require_once $core.'/version.inc.php';
+}
 require_once $core.'/core/lib/functions.lib.php';
+require_once $core.'/core/class/conf.class.php';
 require_once $core.'/core/db/Database.interface.php';
 require_once $core.'/core/db/DoliDB.class.php';
 require_once $core.'/core/db/mysqli.class.php';
@@ -34,6 +38,11 @@ final class ReportEvidenceTestDatabase extends DoliDBMysqli
 	public function escape($value)
 	{
 		return str_replace("'", "''", (string) $value);
+	}
+
+	public function last_insert_id($tab, $fieldid = 'rowid')
+	{
+		return (int) $this->pdo->lastInsertId();
 	}
 
 	public function query($sql, $usesavepoint = 0, $type = 'auto', $result_mode = 0)
@@ -70,19 +79,26 @@ $db->pdo->exec('CREATE TABLE evidence_powerplantpv_report_evidence_link (
 $db->pdo->exec('CREATE TABLE evidence_powerplantpv_report_file (rowid INTEGER, entity INTEGER, fk_report INTEGER, filename TEXT)');
 $db->pdo->exec('CREATE TABLE evidence_powerplantpv_report (rowid INTEGER, entity INTEGER, fk_fichinter INTEGER)');
 $db->pdo->exec('CREATE TABLE evidence_fichinter (rowid INTEGER, entity INTEGER, ref TEXT)');
+$db->pdo->exec('CREATE TABLE evidence_ecm_files (
+	rowid INTEGER PRIMARY KEY, ref TEXT, label TEXT, share TEXT, entity INTEGER,
+	filename TEXT, filepath TEXT, fullpath_orig TEXT, description TEXT, keywords TEXT,
+	cover TEXT, position INTEGER, gen_or_uploaded TEXT, extraparams TEXT, date_c TEXT,
+	tms TEXT, fk_user_c INTEGER, fk_user_m INTEGER, note_private TEXT, note_public TEXT, acl TEXT, src_object_type TEXT,
+	src_object_id INTEGER, agenda_id INTEGER
+)');
 $db->pdo->exec("INSERT INTO evidence_fichinter VALUES (9, 2, 'FI0009')");
 $db->pdo->exec('INSERT INTO evidence_powerplantpv_report VALUES (19, 2, 9)');
 $db->pdo->exec("INSERT INTO evidence_powerplantpv_report_file VALUES (42, 2, 19, 'synthetic.pdf')");
-$conf = (object) array(
-	'entity' => 2,
-	'global' => new stdClass(),
-	'file' => (object) array(
-		'dol_main_url_root' => 'https://example.test',
-		'dol_document_root' => array('main' => $core, 'test' => dirname($module)),
-		'dol_url_root' => array('main' => '', 'test' => '/custom'),
-	),
-	'ficheinter' => (object) array('multidir_output' => array(2 => $root.'/2/ficheinter')),
+$conf = new Conf();
+$conf->entity = 2;
+$conf->file = (object) array(
+	'dol_main_url_root' => 'https://example.test',
+	'dol_document_root' => array('main' => $core, 'test' => dirname($module)),
+	'dol_url_root' => array('main' => '', 'test' => '/custom'),
+	'character_set_client' => 'UTF-8',
 );
+$conf->ficheinter = (object) array('multidir_output' => array(2 => $root.'/2/ficheinter'));
+$conf->powerplantpv = (object) array('multidir_output' => array(2 => $root.'/2/powerplantpv'));
 $user = new User($db);
 $user->id = 23;
 $intervention = new Fichinter($db);
@@ -92,11 +108,20 @@ $intervention->entity = 2;
 $dir = $root.'/2/ficheinter/FI0009';
 mkdir($dir, 0777, true);
 $path = $dir.'/PPV-42-synthetic.pdf';
-file_put_contents($path, 'synthetic PDF evidence');
+$source = $root.'/2/powerplantpv/report/PROV9/field_8/synthetic.pdf';
+mkdir(dirname($source), 0777, true);
+file_put_contents($source, 'synthetic PDF evidence');
 
 try {
 	$service = new PowerPlantPVReportEvidence($db);
-	$fileHash = hash_file('sha256', $path);
+	$report = (object) array('id' => 19, 'entity' => 2, 'fk_fichinter' => 9);
+	$file = (object) array('id' => 42, 'entity' => 2, 'fk_report' => 19, 'fk_report_field' => 8,
+		'filename' => 'synthetic.pdf', 'filepath' => 'report/PROV9/field_8/synthetic.pdf');
+	$fileHash = $service->attach($intervention, $report, $file);
+	evidenceCheck($fileHash !== '' && file_get_contents($path) === 'synthetic PDF evidence', 'Legacy evidence is attached to the intervention');
+	evidenceCheck($service->attach($intervention, $report, $file) === $fileHash
+		&& (int) $db->pdo->query("SELECT COUNT(*) FROM evidence_ecm_files WHERE src_object_type = 'fichinter' AND src_object_id = 9 AND entity = 2")->fetchColumn() === 1,
+		'The attachment is indexed by the native API without duplicates');
 	$url = $service->issueDownload($intervention, $user, 42, $fileHash);
 	$token = (string) parse_url($url, PHP_URL_FRAGMENT);
 	evidenceCheck(strlen($token) === 64 && !str_contains((string) parse_url($url, PHP_URL_QUERY), $token), 'Token stays in the URL fragment');
@@ -118,13 +143,33 @@ try {
 	$download = $service->resolveDownload($newToken, 2);
 	evidenceCheck($token !== $newToken && $download !== null, 'Regeneration issues a new link');
 	fclose($download['stream']);
-	$db->pdo->exec('DELETE FROM evidence_powerplantpv_report_file WHERE rowid = 42');
-	evidenceCheck($service->resolveDownload($newToken, 2) === null, 'Deleting the report evidence invalidates its link');
-	echo "Evidence download: 9 checks OK\n";
-} finally {
 	unlink($path);
+	evidenceCheck($service->resolveDownload($newToken, 2) === null, 'Deleting the native attachment invalidates the link');
+	// The native deletion workflow removes its ECM index entry.
+	$db->pdo->exec('DELETE FROM evidence_ecm_files');
+	evidenceCheck($service->attach($intervention, $report, $file) === $fileHash
+		&& $service->resolveDownload($newToken, 2) === null, 'Restoring an attachment does not revive an old link');
+	$restoredUrl = $service->issueDownload($intervention, $user, 42, $fileHash);
+	$restoredToken = (string) parse_url($restoredUrl, PHP_URL_FRAGMENT);
+	$download = $service->resolveDownload($restoredToken, 2);
+	evidenceCheck($download !== null, 'A restored attachment can receive a new link');
+	fclose($download['stream']);
+	$db->pdo->exec('DELETE FROM evidence_powerplantpv_report_file WHERE rowid = 42');
+	evidenceCheck($service->resolveDownload($restoredToken, 2) === null, 'Deleting the report evidence invalidates its link');
+	echo "Evidence download: 14 checks OK\n";
+} finally {
+	if (is_file($path)) {
+		unlink($path);
+	}
 	rmdir($dir);
+	unlink(dirname($dir).'/.powerplantpv-evidence.lock');
 	rmdir(dirname($dir));
+	unlink($source);
+	$sourceDir = dirname($source);
+	for ($level = 0; $level < 4; $level++) {
+		rmdir($sourceDir);
+		$sourceDir = dirname($sourceDir);
+	}
 	rmdir($root.'/2');
 	rmdir($root);
 }
