@@ -2,7 +2,8 @@
 
 ## 1.10.0 — Non publiée
 
-- Ajout de la nature d’intervention « Autocontrôles C&I » et de son rapport en six étapes. Le formulaire s’adapte à la centrale et les références des étapes sont personnalisables.
+- La nature d’intervention « Installation Autocontrôles C&I » reprend le rapport C&I en six étapes. L’actualisation du module renomme le libellé par défaut, en conservant la nature existante et ses liaisons.
+- Ajout de la nature « Installation et Autocontrôles Résidentiels » et de son modèle PDF dédié. Inspiré du FR37-V01, le rapport regroupe la préparation du chantier, la sécurité, les travaux, les essais et la conclusion, avec les signatures du rapport complet.
 - Chaque partie peut être validée et signée depuis le formulaire. Le signataire ou son responsable direct peut rouvrir une partie avec la permission de gestion des attestations et rapports signés. La réouverture archive la signature concernée et les visas finaux.
 - La finalisation exige les six signatures. Le responsable technique peut signer le dossier finalisé si son option est activée. Les créations, validations, signatures, réouvertures et finalisations sont consignées par les événements natifs de l’Agenda.
 - Le PDF affiche le projet disponible, un tableau de suivi avec badges et les heures de début et de fin séparées. Chaque conclusion reste sur la même page que sa signature.

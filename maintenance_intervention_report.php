@@ -282,9 +282,11 @@ if ($action === 'prepare_signature' || $action === 'save_signature') {
 		if ($report->signDrawn($intervention, $user, $signatureRole, $user->getFullName($langs), $drawing) > 0) {
 			setEventMessages($langs->trans('PowerPlantPVSignatureRecorded'), null, 'mesgs');
 			$model = (new PowerPlantPVInterventionNature($db))->configuredPdfModel($intervention);
+			$defaultModel = $report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL
+				? PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL : 'powerplantpvreport';
 			$canRegenerate = !PowerPlantPVReport::interventionSignedByThirdParty((int) $intervention->signed_status)
-				|| $model === '' || $model === 'powerplantpvreport';
-			if ($model === null || ($canRegenerate && $intervention->generateDocument($model !== '' ? $model : 'powerplantpvreport', $langs) <= 0)) {
+				|| $model === '' || $model === $defaultModel;
+			if ($model === null || ($canRegenerate && $intervention->generateDocument($model !== '' ? $model : $defaultModel, $langs) <= 0)) {
 				setEventMessages($langs->trans('PowerPlantPVInterventionPdfGenerationFailed'), null, 'warnings');
 			}
 			header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-report-signatures');
@@ -502,8 +504,12 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 					if ($result >= 0) {
 						$nature = new PowerPlantPVInterventionNature($db);
 						$finalPdfModel = $nature->configuredPdfModel($intervention);
-						if ($finalPdfModel === '' && PowerPlantPVReportParts::isPartsReport($report)) {
-							$finalPdfModel = PowerPlantPVReportParts::PDF_MODEL;
+						if ($finalPdfModel === '') {
+							$finalPdfModel = match ($report->report_template_code) {
+								PowerPlantPVReportTemplate::CODE_AUTOCONTROL => PowerPlantPVReportParts::PDF_MODEL,
+								PowerPlantPVReportTemplate::CODE_RESIDENTIAL => PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL,
+								default => '',
+							};
 						}
 						if ($finalPdfModel === null || $nature->applyPdfModel($intervention, $user, $finalPdfModel) < 0) {
 							$result = -1;

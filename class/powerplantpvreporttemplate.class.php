@@ -30,6 +30,13 @@ class PowerPlantPVReportTemplate extends PowerPlantPVReportConfigBase
 {
 	public const TARGET_INTERVENTION = 'fichinter';
 	public const CODE_AUTOCONTROL = 'autocontrol';
+	public const CODE_RESIDENTIAL = 'autocontrol_residential';
+	public const PDF_MODEL_RESIDENTIAL = 'powerplantpvresidential';
+
+	public static function isInstallationTemplate(string $code): bool
+	{
+		return in_array($code, array(self::CODE_AUTOCONTROL, self::CODE_RESIDENTIAL), true);
+	}
 
 	public $element = 'powerplantpv_report_template';
 	public $table_element = 'powerplantpv_report_template';

@@ -33,7 +33,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 {
 	use PowerPlantPVReportVisualPdf;
 
-	protected const PARTS_REPORT_MODEL = false;
+	protected const REPORT_TEMPLATE_CODE = '';
 	protected const MODEL_LABEL = 'PowerPlantPVInterventionReportPdfName';
 	protected const MODEL_DESCRIPTION = 'PowerPlantPVInterventionReportPdfModel';
 	protected const PDF_SUBJECT = 'PowerPlantPVReportPdfTitle';
@@ -251,11 +251,13 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			$this->errors = $datasetLoader->errors;
 			return -1;
 		}
-		if (static::PARTS_REPORT_MODEL && empty($dataset['report_found'])) {
-			$this->error = $outputlangs->transnoentities('PowerPlantPVAutocontrolPdfRequiresSavedReport');
+		if (static::REPORT_TEMPLATE_CODE !== '' && empty($dataset['report_found'])) {
+			$this->error = $outputlangs->transnoentities('PowerPlantPVInstallationPdfRequiresSavedReport');
 			return -1;
 		}
-		if (!empty($dataset['report_found']) && static::PARTS_REPORT_MODEL !== PowerPlantPVReportParts::isPartsReport($dataset['report'])) {
+		$templateCode = (string) ($dataset['report']->report_template_code ?? '');
+		if ((static::REPORT_TEMPLATE_CODE !== '' && $templateCode !== static::REPORT_TEMPLATE_CODE)
+			|| (static::REPORT_TEMPLATE_CODE === '' && PowerPlantPVReportTemplate::isInstallationTemplate($templateCode))) {
 			$this->error = $outputlangs->transnoentities('PowerPlantPVInterventionPdfModelMismatch');
 			return -1;
 		}
@@ -321,7 +323,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$report = $dataset['report'] ?? null;
 		if (!($object instanceof Fichinter) || !($report instanceof PowerPlantPVReport) || !($user instanceof User)
 			|| (int) $user->socid > 0 || !($user->hasRight('powerplantpv', 'report', 'write') || !empty($user->admin)) || !$user->hasRight('ficheinter', 'creer')
-			|| !PowerPlantPVReportParts::isPartsReport($report)) {
+			|| !PowerPlantPVReportTemplate::isInstallationTemplate((string) $report->report_template_code)) {
 			return array('days' => 0, 'links' => array());
 		}
 		$evidence = new PowerPlantPVReportEvidence($this->db);

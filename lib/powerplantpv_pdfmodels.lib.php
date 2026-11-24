@@ -10,6 +10,7 @@ function powerplantpvPdfModelLabels(): array
 		'ficheinter' => array(
 			'powerplantpvreport' => 'PowerPlantPVInterventionReportPdfName',
 			'powerplantpvautocontrol' => 'PowerPlantPVAutocontrolPdfName',
+			'powerplantpvresidential' => 'PowerPlantPVResidentialPdfName',
 		),
 		'powerplant' => array(
 			'standard_powerplant' => 'PowerPlantPVStandardPdfName',
