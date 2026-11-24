@@ -249,6 +249,7 @@ class PowerPlantPVReportParts
 		$sql = "SELECT rowid, part_code, signer_role, fk_user, signer_name, date_sign";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_part_signature";
 		$sql .= " WHERE entity = ".((int) $report->entity)." AND fk_report = ".((int) $report->id);
+		$sql .= " AND signer_role NOT LIKE 'archived-%'";
 		$sql .= " ORDER BY date_sign ASC, rowid ASC";
 		$resql = $this->db->query($sql);
 		if (!$resql) {
@@ -467,6 +468,91 @@ class PowerPlantPVReportParts
 	public static function isFinalSigned($signatures): bool
 	{
 		return !empty($signatures[self::FINAL_CODE]);
+	}
+
+	/** Check the recorded signer or their direct supervisor independently of functional permissions. */
+	public function isSignerOrSupervisor(User $user, int $signerId): bool
+	{
+		if ((int) $user->socid > 0 || (int) $user->id <= 0 || $signerId <= 0) {
+			return false;
+		}
+		if ($signerId === (int) $user->id) {
+			return true;
+		}
+		$signer = new User($this->db);
+
+		return $signer->fetch($signerId) > 0 && (int) $signer->socid === 0 && (int) $signer->fk_user === (int) $user->id;
+	}
+
+	/** Reopen a signed stage and archive any final approvals based on it. */
+	public function reopenPart(PowerPlantPVReport $report, Fichinter $intervention, User $user, string $partCode): int
+	{
+		require_once __DIR__.'/../lib/powerplantpv_reportsignature.lib.php';
+		if (!$user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !self::isPartsReport($report)
+			|| !isset(self::definitions()[$partCode]) || (int) $report->fk_fichinter !== (int) $intervention->id
+			|| (int) $report->entity !== (int) $intervention->entity) {
+			$this->setError('ErrorForbidden');
+			return -1;
+		}
+		if ($this->db->begin() <= 0) {
+			$this->setError($this->db->lasterror());
+			return -1;
+		}
+		$state = $report->readInterventionSignatureState($intervention, true);
+		$closedStatus = defined('Fichinter::STATUS_CLOSED') ? (int) constant('Fichinter::STATUS_CLOSED') : 3;
+		$locked = $state !== null && (int) $state->fk_statut !== $closedStatus
+			&& !PowerPlantPVReport::interventionSignedByThirdParty((int) $state->signed_status) && $report->lockUnsignedForEdit();
+		$signatures = $locked ? $this->fetchSignatures($report) : -1;
+		$stageSigner = is_array($signatures) ? ($signatures[$partCode]['technician'] ?? null) : null;
+		if (!is_object($stageSigner) || !$this->isSignerOrSupervisor($user, (int) $stageSigner->fk_user)) {
+			$this->db->rollback();
+			$this->setError('ErrorForbidden');
+			return -1;
+		}
+
+		$moved = array();
+		$committed = false;
+		try {
+			foreach (array($partCode, self::FINAL_CODE) as $code) {
+				foreach ($signatures[$code] ?? array() as $role => $signature) {
+					$path = powerplantpvReportSignaturePath((int) $report->entity, (int) $report->id, 'part-'.$code.'-'.$role);
+					$rowId = (int) $signature->rowid;
+					$archivedRole = 'archived-'.$rowId;
+					$archive = dirname($path).'/'.$archivedRole.'.png';
+					if ($path === '' || $rowId <= 0 || is_link($archive) || file_exists($archive)
+						|| (is_file($path) && !rename($path, $archive))) {
+						$this->setError('PowerPlantPVPartReopenFailed');
+						return -1;
+					}
+					if (is_file($archive)) {
+						$moved[$archive] = $path;
+					}
+					$sql = "UPDATE ".$this->db->prefix()."powerplantpv_report_part_signature SET signer_role = '".$archivedRole."'";
+					$sql .= " WHERE rowid = ".$rowId." AND entity = ".((int) $report->entity)." AND fk_report = ".((int) $report->id);
+					if (!$this->db->query($sql)) {
+						$this->setError($this->db->lasterror());
+						return -1;
+					}
+				}
+			}
+			$report->status = PowerPlantPVReport::STATUS_DRAFT;
+			if ($report->update($user, 1) < 0 || $report->recordLifecycleEvent($intervention, $user, 'stage_reopened', $partCode) < 0
+				|| $this->db->commit() <= 0) {
+				$this->setError($report->error ?: 'PowerPlantPVPartReopenFailed');
+				return -1;
+			}
+			$committed = true;
+			return 1;
+		} finally {
+			if (!$committed) {
+				foreach ($moved as $archive => $path) {
+					if (!rename($archive, $path)) {
+						dol_syslog(__METHOD__.' failed to restore an archived report signature', LOG_ERR);
+					}
+				}
+				$this->db->rollback();
+			}
+		}
 	}
 
 	/**

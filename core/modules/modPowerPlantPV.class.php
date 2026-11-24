@@ -206,7 +206,7 @@ class modPowerPlantPV extends DolibarrModules
 		//                             2 => array('POWERPLANTPV_MYNEWCONST2', 'chaine', 'myvalue', 'This is another constant to add', 0, 'current', 1)
 		// );
 		$this->const = array();
-		foreach (array_merge($this->getPowerPlantActionTriggers(), $this->getAttestationActionTriggers()) as $trigger) {
+		foreach (array_merge($this->getPowerPlantActionTriggers(), $this->getAttestationActionTriggers(), $this->getReportActionTriggers()) as $trigger) {
 			$this->const[] = array('MAIN_AGENDA_ACTIONAUTO_'.$trigger['code'], 'chaine', '1', $trigger['description'], 0, 'current');
 		}
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_ENABLE', 'chaine', '1', 'Enable attestations', 0, 'current');
@@ -1331,7 +1331,8 @@ class modPowerPlantPV extends DolibarrModules
 		$sql[] = $sqlmigrateagenda;
 
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
-		$sql = array_merge($sql, $this->getAttestationActionTriggerSql());
+		$sql = array_merge($sql, $this->getLifecycleActionTriggerSql($this->getAttestationActionTriggers(), 'attestation@powerplantpv'));
+		$sql = array_merge($sql, $this->getLifecycleActionTriggerSql($this->getReportActionTriggers(), 'powerplantpv_report@powerplantpv'));
 		$sql = array_merge($sql, $this->getAttestationAgendaDuplicateCleanupSql());
 
 		$result = $this->_init($sql, $options);
@@ -4266,11 +4267,24 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
-	 * Return SQL statements that register attestation business triggers.
+	 * @return array<int,array<string,int|string>> Native Agenda report trigger definitions
+	 */
+	private function getReportActionTriggers(): array
+	{
+		return array(
+			array('code' => 'POWERPLANTPV_REPORT_CREATE', 'label' => 'Notify_POWERPLANTPV_REPORT_CREATE', 'description' => 'PowerPlantPVReportAgendaCreateHelp', 'rang' => 45000437),
+			array('code' => 'POWERPLANTPV_REPORT_UPDATE', 'label' => 'Notify_POWERPLANTPV_REPORT_UPDATE', 'description' => 'PowerPlantPVReportAgendaUpdateHelp', 'rang' => 45000438),
+		);
+	}
+
+	/**
+	 * Return SQL statements that register lifecycle triggers in the native dictionary.
 	 *
+	 * @param	array<int,array<string,int|string>> $triggers Trigger definitions
+	 * @param	string $elementType Native element name
 	 * @return	string[]	SQL statements
 	 */
-	private function getAttestationActionTriggerSql()
+	private function getLifecycleActionTriggerSql(array $triggers, string $elementType): array
 	{
 		global $langs;
 
@@ -4278,9 +4292,9 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array();
 		$table = $this->db->prefix().'c_action_trigger';
-		$elementtype = $this->db->escape('attestation@powerplantpv');
+		$elementtype = $this->db->escape($elementType);
 
-		foreach ($this->getAttestationActionTriggers() as $trigger) {
+		foreach ($triggers as $trigger) {
 			$code = $this->db->escape($trigger['code']);
 			$label = $this->db->escape($langs->transnoentitiesnoconv($trigger['label']));
 			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));

@@ -23,7 +23,7 @@ function powerplantpvReportSignatureRoles(): array
 function powerplantpvReportSignatureRoleIsValid(string $role): bool
 {
 	return in_array($role, powerplantpvReportSignatureRoles(), true)
-		|| (bool) preg_match('/^part-(AC[1-6]-technician|FINAL-(technician|works_manager|business_manager))$/D', $role);
+		|| (bool) preg_match('/^part-(AC[1-6]-technician|FINAL-(technician|technical|works_manager|business_manager))$/D', $role);
 }
 
 /** Whether the server can validate and re-encode drawn signatures. */

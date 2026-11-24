@@ -1387,6 +1387,20 @@ class ActionsPowerplantpv
 	{
 		global $conf;
 
+		if (($parameters['elementType'] ?? '') === 'powerplantpv_report@powerplantpv') {
+			$this->results = array(
+				'module' => 'powerplantpv',
+				'element' => 'powerplantpv_report',
+				'table_element' => 'powerplantpv_report',
+				'subelement' => 'powerplantpv_report',
+				'classpath' => 'powerplantpv/class',
+				'classfile' => 'powerplantpvreport',
+				'classname' => 'PowerPlantPVReport',
+			);
+			$hookmanager->resArray = $this->results;
+			return 1;
+		}
+
 		if (empty($parameters['elementType']) || !in_array($parameters['elementType'], array('powerplantpv_powerplant', 'powerplant@powerplantpv', 'powerplant', 'powerplantpv_attestation', 'attestation@powerplantpv', 'attestation'))) {
 			return 0;
 		}

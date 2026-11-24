@@ -228,7 +228,7 @@ class PowerPlantPVReportBuilder
 
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
 		$report = $this->newReportFromContext($context, $status);
-		$reportId = $report->create($user, 0);
+		$reportId = $report->create($user, 1);
 		if ($reportId <= 0) {
 			$this->copyErrorsFrom($report);
 			$this->db->rollback();
@@ -250,6 +250,11 @@ class PowerPlantPVReportBuilder
 			}
 		}
 
+		if ($report->recordLifecycleEvent($intervention, $user, 'created') < 0) {
+			$this->copyErrorsFrom($report);
+			$this->db->rollback();
+			return -1;
+		}
 		if ($this->db->commit() <= 0) { $this->setError($this->db->lasterror()); $this->db->rollback(); return -1; }
 
 		return $report;
@@ -312,7 +317,7 @@ class PowerPlantPVReportBuilder
 		$report->report_template_label = $context['template']['label'];
 		$report->report_template_label_en = $context['template']['label_en'];
 		$report->source_mode = $context['source_mode'];
-		if ($report->update($user, 0) < 0) {
+		if ($report->update($user, 1) < 0) {
 			$this->copyErrorsFrom($report);
 			$this->db->rollback();
 			return -1;
@@ -415,9 +420,10 @@ class PowerPlantPVReportBuilder
 	 * @param	array<string,mixed>		$dateValues	Date values by stable key
 	 * @param	User					$user		User
 	 * @param	string					$status		Report status
+	 * @param	array<int,bool>|null	$onlySectionIds	Limit the write to stages without changing report status
 	 * @return	int									>0 if OK, <0 on error
 	 */
-	public function saveValues($reportId, $values, $dateValues, User $user, $status)
+	public function saveValues($reportId, $values, $dateValues, User $user, $status, ?array $onlySectionIds = null)
 	{
 		$report = new PowerPlantPVReport($this->db);
 		$result = $report->fetch((int) $reportId);
@@ -428,10 +434,15 @@ class PowerPlantPVReportBuilder
 
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
 		if (!$report->lockUnsignedForEdit()) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
-		if ($this->persistInverterProductionSections((int) $report->id, $user) < 0) { $this->db->rollback(); return -1; }
+		if ($onlySectionIds === null && $this->persistInverterProductionSections((int) $report->id, $user) < 0) { $this->db->rollback(); return -1; }
 		// A signed part of a self-inspection report keeps the values it was signed on.
 		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
 		if (!is_array($lockedSectionIds)) { $this->db->rollback(); return -1; }
+		if ($onlySectionIds !== null && array_intersect_key($onlySectionIds, $lockedSectionIds)) {
+			$this->setError('PowerPlantPVPartSignedLocked');
+			$this->db->rollback();
+			return -1;
+		}
 
 		$fieldObject = new PowerPlantPVReportField($this->db);
 		$fields = $fieldObject->fetchAllByReport((int) $report->id, 'position', 'ASC');
@@ -443,7 +454,8 @@ class PowerPlantPVReportBuilder
 
 		$isPartsReport = PowerPlantPVReportParts::isPartsReport($report);
 		foreach ($fields as $field) {
-			if (!empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
+			if (($onlySectionIds !== null && empty($onlySectionIds[(int) $field->fk_report_section]))
+				|| !empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
 				|| ($isPartsReport && ((string) $field->field_code === PowerPlantPVReportParts::LEGACY_RESERVES_FIELD
 					|| PowerPlantPVReportParts::isManualSignerField((string) $field->field_code)))
 				|| !empty($lockedSectionIds[(int) $field->fk_report_section])) {
@@ -467,8 +479,13 @@ class PowerPlantPVReportBuilder
 			}
 		}
 
+		if ($onlySectionIds !== null) {
+			if ($this->db->commit() <= 0) { $this->setError($this->db->lasterror()); $this->db->rollback(); return -1; }
+			return 1;
+		}
+
 		$report->status = $status;
-		if ($report->update($user, 0) < 0) {
+		if ($report->update($user, 1) < 0) {
 			$this->copyErrorsFrom($report);
 			$this->db->rollback();
 			return -1;
@@ -495,9 +512,10 @@ class PowerPlantPVReportBuilder
 	 * @param	array<string,mixed>		$values		Submitted rows
 	 * @param	User					$user		User
 	 * @param	string	$legacyVoltageCard	Form key of the input whose legacy values were measured in volts
+	 * @param	array<int,bool>|null	$onlySectionIds	Limit the write to the selected sections
 	 * @return	int									>0 if OK, <0 on error
 	 */
-	public function saveDcMeasureValues($reportId, $values, User $user, string $legacyVoltageCard = '')
+	public function saveDcMeasureValues($reportId, $values, User $user, string $legacyVoltageCard = '', ?array $onlySectionIds = null)
 	{
 		if (empty($values) || !is_array($values)) {
 			return 1;
@@ -523,7 +541,8 @@ class PowerPlantPVReportBuilder
 		$byId = array();
 		$byStableKey = array();
 		foreach ($measures as $measure) {
-			if (!empty($lockedSectionIds[(int) $measure->fk_report_section])) {
+			if (!empty($lockedSectionIds[(int) $measure->fk_report_section])
+				|| ($onlySectionIds !== null && empty($onlySectionIds[(int) $measure->fk_report_section]))) {
 				continue;
 			}
 			$byId[(int) $measure->id] = $measure;

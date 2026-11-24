@@ -25,6 +25,56 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 
 	public $element = 'powerplantpv_report';
 	public $table_element = 'powerplantpv_report';
+	public $TRIGGER_PREFIX = 'POWERPLANTPV_REPORT';
+
+	/** Publish a report lifecycle change through the native Agenda CRUD triggers. */
+	public function recordLifecycleEvent(Fichinter $intervention, User $actor, string $operation, string $partCode = ''): int
+	{
+		global $langs;
+
+		$labels = array(
+			'created' => 'PowerPlantPVReportAgendaCreated',
+			'stage_validated' => 'PowerPlantPVReportAgendaStageValidated',
+			'signed' => 'PowerPlantPVReportAgendaSigned',
+			'stage_reopened' => 'PowerPlantPVReportAgendaStageReopened',
+			'finalized' => 'PowerPlantPVReportAgendaFinalized',
+		);
+		if (!isset($labels[$operation]) || (int) $this->fk_fichinter !== (int) $intervention->id
+			|| (int) $this->entity !== (int) $intervention->entity) {
+			return -1;
+		}
+		$langs->load('powerplantpv@powerplantpv');
+		$stage = $partCode;
+		if (preg_match('/^AC([1-6])$/D', $partCode, $matches)) {
+			$stage = $langs->transnoentities('PowerPlantPVAutocontrolPartNumber', (int) $matches[1]);
+		} elseif ($stage === '') {
+			$stage = $langs->transnoentities('PowerPlantPVReportTab');
+		} elseif ($stage === 'FINAL') {
+			$stage = $langs->transnoentities('PowerPlantPVAutocontrolFinalValidation');
+		}
+		$this->context['trigger_reason'] = $operation;
+		$this->context['part_code'] = $partCode;
+		$this->context['actionmsg2'] = $langs->transnoentities($labels[$operation], (string) $intervention->ref, $stage);
+		$result = $this->call_trigger($this->TRIGGER_PREFIX.($operation === 'created' ? '_CREATE' : '_UPDATE'), $actor);
+		unset($this->context['trigger_reason'], $this->context['part_code'], $this->context['actionmsg2']);
+
+		return $result;
+	}
+
+	/** Link from the native Agenda to the report of the parent intervention. */
+	public function getNomUrl($withpicto = 0)
+	{
+		global $langs, $user;
+
+		$langs->load('powerplantpv@powerplantpv');
+		$label = $langs->trans('PowerPlantPVReportTab');
+		if (!$user->hasRight('powerplantpv', 'report', 'read') || !$user->hasRight('ficheinter', 'lire')) {
+			return $label;
+		}
+		$url = dol_buildpath('/powerplantpv/maintenance_intervention_report.php', 1).'?id='.(int) $this->fk_fichinter;
+
+		return '<a href="'.dol_escape_htmltag($url).'">'.($withpicto ? img_picto('', 'fa-file-alt') : '').$label.'</a>';
+	}
 
 	/**
 	 * @var array<string,array<string,mixed>> Fields
@@ -257,6 +307,7 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 			return -1;
 		}
 		if ($this->synchronizeInterventionSignature($intervention, $signer, (int) $state->signed_status) <= 0
+			|| $this->recordLifecycleEvent($intervention, $signer, 'signed') < 0
 			|| $this->db->commit() <= 0) {
 			$this->db->rollback();
 			dol_delete_file($path, 1, 1, 1, null, false, 0);

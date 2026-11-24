@@ -82,6 +82,8 @@ $token = GETPOST('token', 'alphanohtml');
 $fieldId = GETPOSTINT('field_id');
 $fileId = GETPOSTINT('file_id');
 $dcSectionId = GETPOSTINT('add_dc_section_id');
+$partToValidate = (string) GETPOST('validate_part_submit', 'aZ09', 2);
+$partToReopen = (string) GETPOST('reopen_part_code', 'aZ09');
 $reportRestoreScrollY = GETPOSTINT('report_scroll_y');
 $legacyVoltageCards = GETPOST('adopt_legacy_voltage_submit', 'array', 2);
 $legacyVoltageCard = is_array($legacyVoltageCards) && count($legacyVoltageCards) === 1 ? (string) key($legacyVoltageCards) : '';
@@ -91,7 +93,9 @@ if (!preg_match('/^[a-f0-9]{32}$/D', $legacyVoltageCard)) {
 $manualServiceIds = powerplantpvSanitizeIdArray(GETPOST('manual_services', 'array:int'));
 
 if ($action === '') {
-	if (GETPOSTISSET('save_draft_submit') || $legacyVoltageCard !== '') {
+	if ($partToValidate !== '') {
+		$action = 'validate_part';
+	} elseif (GETPOSTISSET('save_draft_submit') || $legacyVoltageCard !== '') {
 		$action = 'save_draft';
 	} elseif (GETPOSTISSET('save_report_submit')) {
 		$action = 'save';
@@ -190,10 +194,34 @@ if (($action === 'prepare_part_signature' || $action === 'sign_part') && $isPart
 		|| powerplantpvReportSnapshotNeedsRebuild($builder, (int) $report->id)) {
 		accessforbidden();
 	}
+	if ($action === 'prepare_part_signature' && $partCode !== PowerPlantPVReportParts::FINAL_CODE) {
+		$partTree = $builder->loadReportTree((int) $report->id);
+		$sectionIds = is_array($partTree) ? powerplantpvReportPartSectionIds($partTree, $partCode) : array();
+		$missing = $sectionIds ? powerplantpvReportFindMissingRequiredFields((int) $report->id, $sectionIds, true) : -1;
+		if (!is_array($missing) || $missing) {
+			$message = is_array($missing)
+				? $langs->transnoentities('PowerPlantPVPartMissingRequiredFields', implode(', ', $missing))
+				: $langs->trans('ErrorRecordNotFound');
+			setEventMessages($message, null, 'errors');
+			header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partCode);
+			exit;
+		}
+	}
 	$partSigning = array('part' => $partCode, 'role' => $partRole);
 	if ($action === 'sign_part') {
 		if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !powerplantpvReportSubmittedTokenValid($token)
 			|| GETPOSTINT('signature_consent', 2) !== 1) {
+			accessforbidden();
+		}
+		if ($db->begin() <= 0) {
+			accessforbidden();
+		}
+		// Use the same row lock as report writes before reading the values being signed.
+		$lockedForSignature = $report->lockUnsignedForEdit() && $report->fetch((int) $report->id) > 0;
+		$currentSignatures = $lockedForSignature ? $partsHelper->fetchSignatures($report) : -1;
+		if (!is_array($currentSignatures)
+			|| !$partsHelper->canSign($report, $intervention, $user, $partCode, $partRole, $currentSignatures)) {
+			$db->rollback();
 			accessforbidden();
 		}
 		$signatureError = '';
@@ -213,7 +241,9 @@ if (($action === 'prepare_part_signature' || $action === 'sign_part') && $isPart
 			}
 		}
 		if ($signatureError === '') {
-			if ($partsHelper->sign($report, $user, $partCode, $partRole, $user->getFullName($langs)) > 0) {
+			if ($partsHelper->sign($report, $user, $partCode, $partRole, $user->getFullName($langs)) > 0
+				&& $report->recordLifecycleEvent($intervention, $user, 'signed', $partCode) >= 0
+				&& $db->commit() > 0) {
 				setEventMessages($langs->trans('PowerPlantPVSignatureRecorded'), null, 'mesgs');
 				if ($partCode === PowerPlantPVReportParts::FINAL_CODE) {
 					$model = (new PowerPlantPVInterventionNature($db))->configuredPdfModel($intervention);
@@ -227,6 +257,7 @@ if (($action === 'prepare_part_signature' || $action === 'sign_part') && $isPart
 			dol_delete_file($signaturePath, 1, 1, 1, null, false, 0);
 			$signatureError = $langs->trans('PowerPlantPVSignatureDrawingFailed');
 		}
+		$db->rollback();
 		setEventMessages($signatureError, null, 'errors');
 	}
 }
@@ -267,7 +298,7 @@ if ($action === 'view_index_photo') {
 	powerplantpvIndexPhotoDownload(powerplantpvReportIndexPhotoPath($field));
 }
 
-$sensitiveActions = array('save_draft', 'save', 'recalculate', 'upload_file', 'delete_file', 'add_dc_measure_line');
+$sensitiveActions = array('save_draft', 'save', 'validate_part', 'recalculate', 'upload_file', 'delete_file', 'add_dc_measure_line');
 if ($action === 'generate_serial_annex' && (!$cangenerateserialannex || !powerplantpvReportSubmittedTokenValid($token))) { accessforbidden(); }
 if (in_array($action, $sensitiveActions, true)) {
 	if (!$caneditreport) {
@@ -310,6 +341,67 @@ if ($action === 'classin' && $usercancreateintervention) {
 		setEventMessages($intervention->error, $intervention->errors, 'errors');
 	} else {
 		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
+		exit;
+	}
+}
+
+if ($action === 'validate_part') {
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !$isPartsReport || $signatureScript === ''
+		|| !isset(PowerPlantPVReportParts::definitions()[$partToValidate])
+		|| !$partsHelper->canSign($report, $intervention, $user, $partToValidate, 'technician', $partSignatures)
+		|| powerplantpvReportSnapshotNeedsRebuild($builder, (int) $report->id)) {
+		accessforbidden();
+	}
+	$treeForSignature = $builder->loadReportTree((int) $report->id);
+	$partSectionIds = is_array($treeForSignature) ? powerplantpvReportPartSectionIds($treeForSignature, $partToValidate) : array();
+	$redirectUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partToValidate;
+	if (!$partSectionIds) {
+		setEventMessages($langs->trans('ErrorRecordNotFound'), null, 'errors');
+	} elseif ($db->begin() <= 0) {
+		setEventMessages($db->lasterror(), null, 'errors');
+	} else {
+		$result = $builder->saveValues((int) $report->id, powerplantpvReportGetSubmittedValues(), powerplantpvReportGetSubmittedDateValues(), $user, (string) $report->status, $partSectionIds);
+		if ($result > 0) {
+			$result = $builder->saveDcMeasureValues((int) $report->id, powerplantpvReportGetSubmittedDcMeasures(), $user, '', $partSectionIds);
+		}
+		$missing = $result > 0 ? powerplantpvReportFindMissingRequiredFields((int) $report->id, $partSectionIds, true) : -1;
+		if (is_array($missing) && !$missing && $report->recordLifecycleEvent($intervention, $user, 'stage_validated', $partToValidate) < 0) {
+			$result = -1;
+		}
+		if ($result <= 0 || !is_array($missing)) {
+			$db->rollback();
+			setEventMessages($result <= 0 ? $langs->trans($builder->error ?: $report->error) : $langs->trans('ErrorRecordNotFound'), $builder->errors, 'errors');
+		} elseif ($db->commit() <= 0) {
+			$error = $db->lasterror();
+			$db->rollback();
+			setEventMessages($error, null, 'errors');
+		} elseif ($missing) {
+			setEventMessages($langs->transnoentities('PowerPlantPVPartMissingRequiredFields', implode(', ', $missing)), null, 'errors');
+		} else {
+			$redirectUrl = powerplantpvReportPartSignatureUrl($partToValidate, 'technician');
+		}
+	}
+	header('Location: '.$redirectUrl);
+	exit;
+}
+
+if (in_array($action, array('reopen_part', 'confirm_reopen_part'), true)) {
+	$stageSigner = $partSignatures[$partToReopen]['technician'] ?? null;
+	if (!$isPartsReport || $locked || !isset(PowerPlantPVReportParts::definitions()[$partToReopen])
+		|| !$user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !is_object($stageSigner)
+		|| !$partsHelper->isSignerOrSupervisor($user, (int) $stageSigner->fk_user) || !powerplantpvReportSubmittedTokenValid($token)) {
+		accessforbidden();
+	}
+	if ($action === 'confirm_reopen_part') {
+		if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || GETPOST('confirm', 'aZ09', 2) !== 'yes') {
+			accessforbidden();
+		}
+		if ($partsHelper->reopenPart($report, $intervention, $user, $partToReopen) > 0) {
+			setEventMessages($langs->trans('PowerPlantPVPartReopened'), null, 'mesgs');
+		} else {
+			setEventMessages($langs->trans($partsHelper->error), null, 'errors');
+		}
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partToReopen);
 		exit;
 	}
 }
@@ -408,6 +500,10 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 							$result = -1;
 							$builder->error = $langs->trans('PowerPlantPVInterventionPdfModelFailed');
 						}
+					}
+					if ($result >= 0 && !$report->isSaved() && $report->recordLifecycleEvent($intervention, $user, 'finalized') < 0) {
+						$result = -1;
+						$builder->error = $report->error;
 					}
 					if ($result >= 0 && $db->commit() <= 0) {
 						$result = -1;
@@ -522,6 +618,10 @@ if (function_exists('fichinter_prepare_head')) {
 	$head = fichinter_prepare_head($intervention);
 }
 print dol_get_fiche_head($head, 'powerplantpv_report', $langs->trans('Intervention'), -1, 'intervention');
+if ($action === 'reopen_part') {
+	$confirmationUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&reopen_part_code='.urlencode($partToReopen);
+	print $form->formconfirm($confirmationUrl, $langs->trans('PowerPlantPVPartReopen'), $langs->trans('PowerPlantPVPartReopenConfirm'), 'confirm_reopen_part');
+}
 
 $linkback = '<a href="'.DOL_URL_ROOT.'/fichinter/list.php?restore_lastsearch_values=1'
 	.(!empty($intervention->socid) ? '&socid='.(int) $intervention->socid : '').'">'
@@ -693,7 +793,24 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		));
 		print '</div></div>';
 	}
-	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form, isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array(), $treeIsParts ? $lockedPartSectionIds : array(), $treeIsParts ? $partSignatures : null);
+	$signableParts = array();
+	$reopenableParts = array();
+	if ($reportFetch > 0 && $isPartsReport && !$locked && !$snapshotNeedsRebuild && $signatureScript !== '') {
+		foreach (array_keys(PowerPlantPVReportParts::definitions()) as $partCode) {
+			if ($partsHelper->canSign($report, $intervention, $user, $partCode, 'technician', $partSignatures)) {
+				$signableParts[$partCode] = true;
+			}
+		}
+	}
+	if ($isPartsReport && !$locked && $user->hasRight('powerplantpv', 'attestation', 'manage_signed')) {
+		foreach (array_keys(PowerPlantPVReportParts::definitions()) as $partCode) {
+			$signature = $partSignatures[$partCode]['technician'] ?? null;
+			if (is_object($signature) && $partsHelper->isSignerOrSupervisor($user, (int) $signature->fk_user)) {
+				$reopenableParts[$partCode] = true;
+			}
+		}
+	}
+	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form, isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array(), $treeIsParts ? $lockedPartSectionIds : array(), $treeIsParts ? $partSignatures : null, $signableParts, $reopenableParts);
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
@@ -1252,11 +1369,15 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
  * @param	bool							$editable	Editable flag
  * @param	Form							$form		Form helper
  * @param	array<int,mixed>					$powerplants	Power plants
+ * @param	array<int,bool>						$lockedSectionIds	Sections locked by a signature
+ * @param	array<string,array<string,stdClass>>|null	$partSignatures	Signatures of a C&I report
+ * @param	array<string,bool>					$signableParts	Parts the current user can sign
+ * @param	array<string,bool>					$reopenableParts	Parts the current user can reopen
  * @return	void
  */
-function powerplantpvReportRenderSections($sections, $editable, $form, $powerplants = array(), $lockedSectionIds = array(), $partSignatures = null)
+function powerplantpvReportRenderSections($sections, $editable, $form, $powerplants = array(), $lockedSectionIds = array(), $partSignatures = null, array $signableParts = array(), array $reopenableParts = array())
 {
-	global $intervention, $langs;
+	global $id, $intervention, $langs;
 
 	if (empty($sections) && empty($powerplants)) {
 		print '<table class="noborder centpercent">';
@@ -1407,6 +1528,22 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			}
 			print '</div>';
 			print '</details>';
+		}
+		if (!empty($signableParts[$partCode])) {
+			$label = $langs->trans('PowerPlantPVPartValidateAndSign', $partDefinitions[$partCode]['number']);
+			print '<div class="powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
+			if ($editable) {
+				print '<button type="submit" class="button" name="validate_part_submit" value="'.dol_escape_htmltag($partCode).'">'.dol_escape_htmltag($label).'</button>';
+			} else {
+				print powerplantpvReportPartSignButton($partCode, 'technician', $label);
+			}
+			print '</div>';
+		}
+		if (!empty($reopenableParts[$partCode])) {
+			$reopenUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=reopen_part&reopen_part_code='.urlencode($partCode).'&token='.newToken();
+			print '<div class="powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
+			print dolGetButtonAction($langs->trans('PowerPlantPVPartReopen'), '', 'default', $reopenUrl);
+			print '</div>';
 		}
 		if ($hasPlant) {
 			print '</div>';
@@ -2682,11 +2819,7 @@ function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSign
 		print '<tr class="oddeven" id="powerplantpv-part-signature-'.$partCode.'"><td class="titlefieldmiddle">'.dol_escape_htmltag(powerplantpvReportPartLabel($partCode)).'</td><td>';
 		print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolPartSignature').' :</span> ';
 		print $signers ? implode(', ', $signers) : '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolNotSigned').'</span>';
-		print '</td><td class="right">';
-		if ($signable) {
-			print powerplantpvReportPartSignButton($partCode, $signable[0], $langs->trans('PowerPlantPVPartSignButton'));
-		}
-		print '</td></tr>';
+		print '</td><td></td></tr>';
 		powerplantpvReportRenderPartSignatureForm($partCode, $signable ? $signable[0] : '', $partSigning);
 	}
 	print '</table>';
@@ -2703,11 +2836,17 @@ function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSign
  */
 function powerplantpvReportPartSignButton($partCode, $role, $label)
 {
+	return dolGetButtonAction($label, '', 'default', powerplantpvReportPartSignatureUrl($partCode, $role));
+}
+
+/**
+ * Address of the native signature pad for a specific role and part.
+ */
+function powerplantpvReportPartSignatureUrl(string $partCode, string $role): string
+{
 	global $id;
 
-	$url = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=prepare_part_signature&part_code='.urlencode($partCode).'&part_role='.urlencode($role).'&token='.newToken().'#powerplantpv-part-signature-'.$partCode;
-
-	return dolGetButtonAction($label, '', 'default', $url);
+	return $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=prepare_part_signature&part_code='.urlencode($partCode).'&part_role='.urlencode($role).'&token='.newToken().'#powerplantpv-part-signature-'.$partCode;
 }
 
 /**
