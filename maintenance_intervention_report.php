@@ -51,6 +51,7 @@ if (!$res) {
  * @var User $user
  */
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/ajax.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_maintenance.lib.php');
@@ -504,6 +505,9 @@ if ($signatureRole !== '' || !empty($partSigning)) {
 	array_unshift($morejs, $signatureScript);
 }
 $morecss = array('/powerplantpv/css/powerplantpv_report.css?v='.(int) filemtime(__DIR__.'/css/powerplantpv_report.css'));
+if (!defined('REQUIRE_JQUERY_MULTISELECT')) {
+	define('REQUIRE_JQUERY_MULTISELECT', 'select2');
+}
 llxHeader('', $title, '', '', 0, 0, $morejs, $morecss, '', 'mod-powerplantpv page-maintenance-intervention-report');
 
 $head = array();
@@ -664,7 +668,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	if ($showManualSelection) {
 		print '<div class="powerplantpv-report-manual">';
 		print '<label>'.$langs->trans('PowerPlantPVReportManualServices').'</label>';
-		print $form->multiselectarray('manual_services', $manualOptions, $manualServiceIds, 0, 0, 'powerplantpv-report-control', 0, 0);
+		print $form->multiselectarray('manual_services', $manualOptions, $manualServiceIds, 0, 0, 'powerplantpv-report-control powerplantpv-report-choice', 0, 0, '', '', '', 0);
 		print '<div class="opacitymedium">'.$langs->trans('PowerPlantPVReportManualServicesHelp').'</div>';
 		print '</div>';
 	}
@@ -763,6 +767,10 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 print '</div>';
 
 print dol_get_fiche_end();
+
+// Stable report field names contain colons. Use a CSS class to target their Select2 controls.
+print ajax_combobox('.powerplantpv-report-choice', array(), 0, 0, '100%');
+print ajax_combobox('.powerplantpv-report-date select');
 
 llxFooter();
 $db->close();
@@ -1270,7 +1278,6 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 	$singlePlant = count($powerplants) === 1 ? powerplantpvReportPowerplantSourceId(reset($powerplants)) : 0;
 	foreach ($groups as $group) {
 		$hasPlant = !empty($group['powerplant']);
-		$inverterNumber = 0;
 		if ($byPart) {
 			if (empty($group['sections'])) {
 				continue;
@@ -1316,8 +1323,11 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 				}
 			}
 			$contentsLabel = $label;
-			if ((string) $section->section_code === 'INVERTER' && $identity) {
-				$contentsLabel = $langs->transnoentities('PowerPlantPVVisualInverterNumber', ++$inverterNumber);
+			if ($identity) {
+				$marker = trim((string) $identity->equipment_marker);
+				if ($marker !== '') {
+					$contentsLabel .= ' · '.$marker;
+				}
 			} elseif (!empty($row['equipment'])) {
 				$contentsLabel .= ' · '.powerplantpvReportEquipmentLabel($row['equipment']);
 			}
@@ -2012,16 +2022,16 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		print $form->selectDate($timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
 		print '</div>';
 	} elseif ($allowsNotApplicable) {
-		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), (string) $value, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control');
+		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), (string) $value, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control powerplantpv-report-choice', 0);
 	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean'), true)) {
-		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), $type === 'boolean' ? $value : (int) $value, $type === 'boolean' ? 1 : 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control');
+		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), $type === 'boolean' ? $value : (int) $value, $type === 'boolean' ? 1 : 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control powerplantpv-report-choice', 0);
 	} elseif (in_array($type, array('select', 'conformity_so_valid_obs', 'status'), true)) {
 		$options = PowerPlantPVReportPresentation::choiceOptions($field, $langs);
-		print $form->selectarray($name, $options, (string) $value, 1, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control');
+		print $form->selectarray($name, $options, (string) $value, 1, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control powerplantpv-report-choice', 0);
 	} elseif ($type === 'multiselect') {
 		$options = PowerPlantPVReportPresentation::choiceOptions($field, $langs);
 		$selected = array_filter(explode("\n", (string) $value));
-		print $form->multiselectarray($name, $options, $selected, 0, 0, 'powerplantpv-report-control', 0, 0);
+		print $form->multiselectarray($name, $options, $selected, 0, 0, 'powerplantpv-report-control powerplantpv-report-choice', 0, 0, '', '', '', 0);
 	} elseif ($type === 'file') {
 		powerplantpvReportRenderFiles($field, true);
 		if (!empty($field->id)) {
