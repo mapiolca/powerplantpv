@@ -2070,10 +2070,10 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		print '<input type="text" class="flat powerplantpv-report-control right" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'">';
 	} elseif ($type === 'date' || $type === 'datetime') {
 		$hash = md5((string) $field->stable_key);
-		$timestamp = !empty($field->value_date) ? strtotime((string) $field->value_date) : 0;
+		$timestamp = strtotime((string) $field->value_date);
 		print '<input type="hidden" name="report_date_keys['.$hash.']" value="'.dol_escape_htmltag((string) $field->stable_key).'">';
 		print '<div class="powerplantpv-report-date">';
-		print $form->selectDate($timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
+		print $form->selectDate($timestamp === false ? '' : $timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
 		print '</div>';
 	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean', 'select', 'conformity_so_valid_obs', 'status', 'multiselect'), true)) {
 		// Select2 and Dolibarr both use the HTML id to target the open list.
@@ -2638,7 +2638,7 @@ function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSign
 			print ' <span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolFinalValidationHelp').'</span></td></tr>';
 			foreach ($roles as $role => $labelKey) {
 				$signature = $partSignatures[$partCode][$role] ?? null;
-				print '<tr class="oddeven"><td class="titlefield">'.$langs->trans($labelKey).'</td><td>';
+				print '<tr class="oddeven"><td class="titlefieldmiddle">'.$langs->trans($labelKey).'</td><td>';
 				if (is_object($signature)) {
 					print dol_escape_htmltag((string) $signature->signer_name).' <span class="opacitymedium">'.dol_print_date($signature->date_sign, 'dayhour').'</span>';
 				} elseif (PowerPlantPVReportParts::unsignedParts($partSignatures)) {
@@ -2663,7 +2663,7 @@ function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSign
 				$signers[] = dol_escape_htmltag((string) $signature->signer_name).' <span class="opacitymedium">'.dol_print_date($signature->date_sign, 'dayhour').'</span>';
 			}
 		}
-		print '<tr class="oddeven" id="powerplantpv-part-signature-'.$partCode.'"><td class="titlefield">'.dol_escape_htmltag(powerplantpvReportPartLabel($partCode)).'</td><td>';
+		print '<tr class="oddeven" id="powerplantpv-part-signature-'.$partCode.'"><td class="titlefieldmiddle">'.dol_escape_htmltag(powerplantpvReportPartLabel($partCode)).'</td><td>';
 		print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolPartSignature').' :</span> ';
 		print $signers ? implode(', ', $signers) : '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolNotSigned').'</span>';
 		print '</td><td class="right">';
