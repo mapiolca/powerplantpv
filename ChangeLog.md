@@ -1,12 +1,19 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
-## 1.9.2 — Non publiée
+## 1.10.0 — Non publiée
+
+- Ajout de la nature d’intervention « Autocontrôles C&I » et de son rapport en six étapes. Le formulaire s’adapte à la centrale et les références des étapes sont personnalisables.
+- La signature du technicien verrouille son étape et renseigne son identité. La finalisation exige les six signatures. Le responsable technique peut signer le dossier finalisé si son option est activée.
+- Le PDF affiche le projet disponible, un tableau de suivi avec badges et les heures de début et de fin séparées. Chaque conclusion reste sur la même page que sa signature.
+- Les preuves sont jointes à l’intervention. Le PDF contient des liens HTTPS valables 30 jours pour télécharger les fichiers publiés.
+- L’onglet Rapport utilise Select2 et affiche son sommaire uniquement dans le menu gauche. Recharger le module dans Dolibarr pour installer la nature, le modèle et les tables nécessaires.
+
+## 1.9.2 — 2026-11-24
 
 - Rapports de maintenance : le sommaire affiche un titre par centrale, avec ses sections en retrait et les onduleurs numérotés. Il se place sous le menu gauche sur ordinateur et en tête du rapport sur mobile.
 
 ## 1.9.1 — 2026-11-23
 
-- Dossier d’autocontrôle : nouvelle nature d’intervention « Autocontrôle avant mise en service » et modèle de rapport en six parties (FM-ESS-001 à 006 : pré-contrôles, essais DC, essais AC et protections, mise en service onduleurs, supervision, essais fonctionnels). Chaque partie est signée dans l’ERP le jour de ses essais (technicien, binôme, conducteur de travaux) et sa première signature ne fige que cette partie. Le dossier complet est validé par le chef d’équipe, le conducteur de travaux et le responsable / chargé d’affaires, puis il est entièrement figé. Le PDF garde la charte du rapport de maintenance : en-tête « Partie N / 6 », conclusion colorée et signatures sans cadre en fin de partie, cadres de signature pour la validation finale. Actualiser le module par l’action native de Dolibarr pour créer la table des signatures et le modèle.
 - Rapports de maintenance et PDF : retrait des index d’injection par onduleur et des photos associées. Les index de production par onduleur et le compteur d’injection général restent disponibles.
 - Rapports et PDF : libellés français et anglais pour les réponses de contrôle, les listes d’options et les actions de configuration.
 - PDF : blocs de contrôle des onduleurs sur toute la largeur, y compris lorsqu’un bloc se poursuit sur la page suivante.
