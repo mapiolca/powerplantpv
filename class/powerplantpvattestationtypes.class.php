@@ -31,6 +31,31 @@ class PowerPlantPVAttestationTypes
 	public const TYPE_REGLAGE_MAX_FREQ_51_5HZ = 'REGLAGE_MAX_FREQ_51_5HZ';
 	public const TYPE_INSTALLATEUR_INF_100KWC = 'INSTALLATEUR_INF_100KWC';
 
+	public const TYPE_MISE_EN_SERVICE = 'MISE_EN_SERVICE';
+	public const COMMISSIONING_DEFAULT_MODEL = 'attestation_mise_en_service_standard';
+	public const COMMISSIONING_MODELS = array(self::COMMISSIONING_DEFAULT_MODEL, 'attestation_mise_en_service');
+	public const COMMISSIONING_MODEL_SETTING = 'POWERPLANTPV_ATTESTATION_MISE_EN_SERVICE_MODEL';
+
+	/** @var array<string,string> Commissioning check fields and labels */
+	public const COMMISSIONING_CHECKS = array(
+		'check_visual' => 'AttestationCommissioningCheckVisual',
+		'check_strings' => 'AttestationCommissioningCheckStrings',
+		'check_protections' => 'AttestationCommissioningCheckProtections',
+		'check_inverters' => 'AttestationCommissioningCheckInverters',
+		'check_production' => 'AttestationCommissioningCheckProduction',
+		'check_injection_limit' => 'AttestationCommissioningCheckInjectionLimit',
+		'check_supervision' => 'AttestationCommissioningCheckSupervision',
+	);
+
+	/** @var array<int,string> Unset is allowed in a draft */
+	public const COMMISSIONING_RESULTS = array(
+		0 => 'AttestationCommissioningCheckUnset',
+		1 => 'AttestationCommissioningCheckPassed',
+		2 => 'AttestationCommissioningCheckFailed',
+		3 => 'AttestationCommissioningCheckNotApplicable',
+		4 => 'AttestationCommissioningCheckNotPerformed',
+	);
+
 	/**
 	 * Return type definitions.
 	 *
@@ -64,6 +89,12 @@ class PowerPlantPVAttestationTypes
 				'model_pdf' => 'attestation_installateur_inf100kwc',
 				'equipment_types' => array('MODULE', 'INVERTER', 'CONNECTOR', 'BOX'),
 				'required_fields' => array('fk_powerplant', 'bta_contract_number', 'date_completion', 'date_attestation'),
+			),
+			self::TYPE_MISE_EN_SERVICE => array(
+				'label' => 'AttestationTypeMiseEnService',
+				'model_pdf' => self::COMMISSIONING_DEFAULT_MODEL,
+				'equipment_types' => array('MODULE', 'INVERTER'),
+				'required_fields' => array('fk_powerplant', 'date_completion', 'date_attestation'),
 			),
 		);
 	}
@@ -127,6 +158,10 @@ class PowerPlantPVAttestationTypes
 			$const = 'POWERPLANTPV_ATTESTATION_REGLAGE_FREQ_MODEL';
 		} elseif ($typecode == self::TYPE_INSTALLATEUR_INF_100KWC) {
 			$const = 'POWERPLANTPV_ATTESTATION_INSTALLATEUR_INF100KWC_MODEL';
+		}
+		if ($typecode === self::TYPE_MISE_EN_SERVICE) {
+			$model = getDolGlobalString(self::COMMISSIONING_MODEL_SETTING, $default);
+			return in_array($model, self::COMMISSIONING_MODELS, true) ? $model : $default;
 		}
 		if ($const !== '' && function_exists('getDolGlobalString')) {
 			return getDolGlobalString($const, $default);

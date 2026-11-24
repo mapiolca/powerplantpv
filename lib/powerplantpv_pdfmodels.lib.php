@@ -21,6 +21,8 @@ function powerplantpvPdfModelLabels(): array
 			'attestation_bridage_statique' => 'AttestationPdfModelBridageStatiqueName',
 			'attestation_reglage_max_freq' => 'AttestationPdfModelReglageMaxFreqName',
 			'attestation_installateur_inf100kwc' => 'AttestationPdfModelInstallateurInf100kwcName',
+			'attestation_mise_en_service_standard' => 'AttestationPdfModelMiseEnServiceStandardName',
+			'attestation_mise_en_service' => 'AttestationPdfModelMiseEnServiceName',
 		),
 	);
 }

@@ -60,6 +60,15 @@ class PowerPlantPVAttestation extends CommonObject
 		'date_setting' => array('type' => 'date', 'label' => 'AttestationSettingDate', 'enabled' => 1, 'position' => 240, 'notnull' => 0, 'visible' => 3),
 		'date_completion' => array('type' => 'date', 'label' => 'AttestationCompletionDate', 'enabled' => 1, 'position' => 250, 'notnull' => 0, 'visible' => 3),
 		'bta_contract_number' => array('type' => 'varchar(128)', 'label' => 'AttestationBtaContractNumber', 'enabled' => 1, 'position' => 260, 'notnull' => 0, 'visible' => 1, 'searchall' => 1),
+		'consuel_number' => array('type' => 'varchar(128)', 'label' => 'AttestationConsuelNumber', 'enabled' => 1, 'position' => 262, 'notnull' => 0, 'visible' => 3, 'searchall' => 1),
+		'date_consuel' => array('type' => 'date', 'label' => 'AttestationConsuelDate', 'enabled' => 1, 'position' => 264, 'notnull' => 0, 'visible' => 3),
+		'check_visual' => array('type' => 'smallint', 'label' => 'AttestationCommissioningCheckVisual', 'enabled' => 1, 'position' => 300, 'notnull' => 0, 'visible' => 3),
+		'check_strings' => array('type' => 'smallint', 'label' => 'AttestationCommissioningCheckStrings', 'enabled' => 1, 'position' => 301, 'notnull' => 0, 'visible' => 3),
+		'check_protections' => array('type' => 'smallint', 'label' => 'AttestationCommissioningCheckProtections', 'enabled' => 1, 'position' => 302, 'notnull' => 0, 'visible' => 3),
+		'check_inverters' => array('type' => 'smallint', 'label' => 'AttestationCommissioningCheckInverters', 'enabled' => 1, 'position' => 303, 'notnull' => 0, 'visible' => 3),
+		'check_production' => array('type' => 'smallint', 'label' => 'AttestationCommissioningCheckProduction', 'enabled' => 1, 'position' => 304, 'notnull' => 0, 'visible' => 3),
+		'check_injection_limit' => array('type' => 'smallint', 'label' => 'AttestationCommissioningCheckInjectionLimit', 'enabled' => 1, 'position' => 305, 'notnull' => 0, 'visible' => 3),
+		'check_supervision' => array('type' => 'smallint', 'label' => 'AttestationCommissioningCheckSupervision', 'enabled' => 1, 'position' => 306, 'notnull' => 0, 'visible' => 3),
 		'max_export_power_kw' => array('type' => 'double(24,8)', 'label' => 'AttestationMaxExportPowerKw', 'enabled' => 1, 'position' => 270, 'notnull' => 0, 'visible' => 3, 'css' => 'right', 'cssview' => 'right', 'csslist' => 'right'),
 		'max_frequency_hz' => array('type' => 'double(24,8)', 'label' => 'AttestationMaxFrequencyHz', 'enabled' => 1, 'position' => 280, 'notnull' => 0, 'visible' => 3, 'css' => 'right', 'cssview' => 'right', 'csslist' => 'right'),
 		'landscape_integration_prime' => array('type' => 'boolean', 'label' => 'AttestationLandscapeIntegrationPrime', 'enabled' => 1, 'position' => 290, 'notnull' => 0, 'visible' => 3),
@@ -97,6 +106,15 @@ class PowerPlantPVAttestation extends CommonObject
 	public $date_setting;
 	public $date_completion;
 	public $bta_contract_number;
+	public $consuel_number;
+	public $date_consuel;
+	public $check_visual;
+	public $check_strings;
+	public $check_protections;
+	public $check_inverters;
+	public $check_production;
+	public $check_injection_limit;
+	public $check_supervision;
 	public $max_export_power_kw;
 	public $max_frequency_hz;
 	public $landscape_integration_prime;
@@ -581,9 +599,18 @@ class PowerPlantPVAttestation extends CommonObject
 			return -1;
 		}
 		if (!dol_strlen($modele)) {
-			$modele = !empty($this->model_pdf) ? $this->model_pdf : getDolGlobalString('POWERPLANTPV_ATTESTATION_ADDON_PDF', 'attestation_bridage_dynamique');
+			$modele = (string) $this->model_pdf;
+			if ($modele === '') {
+				$modele = $this->type_code === PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE
+					? PowerPlantPVAttestationTypes::getModelForType($this->type_code)
+					: getDolGlobalString('POWERPLANTPV_ATTESTATION_ADDON_PDF', 'attestation_bridage_dynamique');
+			}
 		}
 
+		if (!$this->isDocumentModelCompatible($modele)) {
+			$this->error = 'AttestationIncompatiblePdfModel';
+			return -1;
+		}
 		$result = $this->commonGenerateDocument('core/modules/attestation/doc/', $modele, $outputlangs, $hidedetails, $hidedesc, $hideref, $moreparams);
 		if ($result > 0) {
 			global $user;
@@ -1226,7 +1253,10 @@ class PowerPlantPVAttestation extends CommonObject
 		if (!empty($this->type_code)) {
 			$model = PowerPlantPVAttestationTypes::getModelForType($this->type_code);
 			if ($model !== '') {
-				$this->model_pdf = $model;
+				if ($this->type_code !== PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE
+					|| !in_array($this->model_pdf, PowerPlantPVAttestationTypes::COMMISSIONING_MODELS, true)) {
+					$this->model_pdf = $model;
+				}
 			}
 		}
 	}
@@ -1344,6 +1374,18 @@ class PowerPlantPVAttestation extends CommonObject
 	}
 
 	/**
+	 * Keep commissioning layouts exclusive to commissioning attestations.
+	 *
+	 * @param string $model PDF model name
+	 * @return bool True if the model can be used with this type
+	 */
+	public function isDocumentModelCompatible($model)
+	{
+		return ($this->type_code === PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE)
+			=== in_array($model, PowerPlantPVAttestationTypes::COMMISSIONING_MODELS, true);
+	}
+
+	/**
 	 * Check business requirements before validation or document generation.
 	 *
 	 * @return	int<-1,1>	>0 if OK
@@ -1364,7 +1406,8 @@ class PowerPlantPVAttestation extends CommonObject
 		$requiredFieldErrors = array(
 			'date_attestation' => 'AttestationDateRequired',
 			'date_setting' => 'AttestationSettingDateRequired',
-			'date_completion' => 'AttestationCompletionDateRequired',
+			'date_completion' => $this->type_code === PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE
+				? 'AttestationCommissioningDateRequired' : 'AttestationCompletionDateRequired',
 			'bta_contract_number' => 'AttestationBtaContractNumberRequired',
 			'max_export_power_kw' => 'AttestationMaxExportPowerRequired',
 			'max_frequency_hz' => 'AttestationMaxFrequencyRequired',
@@ -1415,6 +1458,21 @@ class PowerPlantPVAttestation extends CommonObject
 		if (empty($derived['site_address']) || empty($derived['site_zip']) || empty($derived['site_town'])) {
 			$this->error = 'AttestationSiteAddressRequired';
 			return -1;
+		}
+
+		if ($this->type_code === PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE) {
+			foreach (PowerPlantPVAttestationTypes::COMMISSIONING_CHECKS as $field => $label) {
+				$value = (string) $this->{$field};
+				if ($value === '' || $value === '0' || !isset(PowerPlantPVAttestationTypes::COMMISSIONING_RESULTS[$value])) {
+					$this->error = 'AttestationCommissioningChecksRequired';
+					return -1;
+				}
+			}
+			$hasConsuelNumber = trim((string) $this->consuel_number) !== '';
+			if ($hasConsuelNumber !== !empty($this->date_consuel)) {
+				$this->error = 'AttestationCommissioningConsuelPairRequired';
+				return -1;
+			}
 		}
 
 		if ($this->type_code === PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC && empty($derived['installer_address'])) {
