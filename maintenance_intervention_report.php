@@ -1541,9 +1541,9 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 		}
 		if (!empty($signableParts[$partCode])) {
 			$label = $langs->trans('PowerPlantPVPartValidateAndSign', $partDefinitions[$partCode]['number']);
-			print '<div class="powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
+			print '<div class="center powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
 			if ($editable) {
-				print '<button type="submit" class="button" name="validate_part_submit" value="'.dol_escape_htmltag($partCode).'">'.dol_escape_htmltag($label).'</button>';
+				print '<button type="submit" class="butAction" name="validate_part_submit" value="'.dol_escape_htmltag($partCode).'">'.dol_escape_htmltag($label).'</button>';
 			} else {
 				print powerplantpvReportPartSignButton($partCode, 'technician', $label);
 			}
@@ -1551,7 +1551,7 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 		}
 		if (!empty($reopenableParts[$partCode])) {
 			$reopenUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=reopen_part&reopen_part_code='.urlencode($partCode).'&token='.newToken();
-			print '<div class="powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
+			print '<div class="center powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
 			print dolGetButtonAction($langs->trans('PowerPlantPVPartReopen'), '', 'default', $reopenUrl);
 			print '</div>';
 		}
