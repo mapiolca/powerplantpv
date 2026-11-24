@@ -459,7 +459,25 @@ jQuery(function ($) {
 		return;
 	}
 	const pad = $('#powerplantpv-signature-pad');
-	pad.jSignature({ color: '#000', 'decor-color': '#fff', height: 180 });
+	const dialog = form.parent('[data-part-signature-dialog]');
+	if (dialog.length && typeof $.fn.dialog === 'function') {
+		dialog.dialog({
+			title: dialog.attr('data-title'),
+			closeText: dialog.attr('data-close-label'),
+			modal: true,
+			width: Math.min(760, Math.floor(window.innerWidth * 0.95)),
+			maxHeight: Math.floor(window.innerHeight * 0.95),
+			resizable: false,
+			close: function () {
+				window.location.replace(dialog.attr('data-cancel-url'));
+			}
+		});
+	}
+	const padOptions = { color: '#000', height: 180 };
+	if (!dialog.length) {
+		padOptions['decor-color'] = '#fff';
+	}
+	pad.jSignature(padOptions);
 	$('#powerplantpv-signature-clear').on('click', function () {
 		pad.jSignature('clear');
 	});

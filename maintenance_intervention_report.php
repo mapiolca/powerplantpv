@@ -188,6 +188,7 @@ if ($isPartsReport) {
 	$signingAllowed = array('technician' => false, 'technical' => false);
 }
 $partSigning = array();
+$partSignatureError = '';
 if (($action === 'prepare_part_signature' || $action === 'sign_part') && $isPartsReport) {
 	$partCode = GETPOST('part_code', 'aZ09');
 	$partRole = GETPOST('part_role', 'aZ09');
@@ -259,7 +260,11 @@ if (($action === 'prepare_part_signature' || $action === 'sign_part') && $isPart
 			$signatureError = $langs->trans('PowerPlantPVSignatureDrawingFailed');
 		}
 		$db->rollback();
-		setEventMessages($signatureError, null, 'errors');
+		if ($partCode === PowerPlantPVReportParts::FINAL_CODE) {
+			setEventMessages($signatureError, null, 'errors');
+		} else {
+			$partSignatureError = $signatureError;
+		}
 	}
 }
 $signatureRole = '';
@@ -868,6 +873,13 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	}
 	if ($reportFetch > 0 && $isPartsReport) {
 		powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSignatures, $partSigning);
+		if (!empty($partSigning) && $partSigning['part'] !== PowerPlantPVReportParts::FINAL_CODE) {
+			$cancelUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partSigning['part'];
+			print '<div class="center" data-part-signature-dialog data-title="'.dol_escape_htmltag(powerplantpvReportPartLabel($partSigning['part'])).'"';
+			print ' data-close-label="'.dol_escape_htmltag($langs->transnoentities('Close')).'" data-cancel-url="'.dol_escape_htmltag($cancelUrl).'">';
+			powerplantpvReportRenderPartSignatureForm($partSigning['part'], $partSigning['role'], $partSignatureError);
+			print '</div>';
+		}
 	}
 	print '</div>';
 
@@ -2816,7 +2828,11 @@ function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSign
 					print powerplantpvReportPartSignButton($partCode, $role, $langs->trans('PowerPlantPVPartSignButton'));
 				}
 				print '</td></tr>';
-				powerplantpvReportRenderPartSignatureForm($partCode, $role, $partSigning);
+				if (($partSigning['part'] ?? '') === $partCode && ($partSigning['role'] ?? '') === $role) {
+					print '<tr class="oddeven"><td colspan="3">';
+					powerplantpvReportRenderPartSignatureForm($partCode, $role);
+					print '</td></tr>';
+				}
 			}
 			continue;
 		}
@@ -2832,7 +2848,6 @@ function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSign
 		print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolPartSignature').' :</span> ';
 		print $signers ? implode(', ', $signers) : '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolNotSigned').'</span>';
 		print '</td><td></td></tr>';
-		powerplantpvReportRenderPartSignatureForm($partCode, $signable ? $signable[0] : '', $partSigning);
 	}
 	print '</table>';
 	print '</div>';
@@ -2864,24 +2879,23 @@ function powerplantpvReportPartSignatureUrl(string $partCode, string $role): str
 /**
  * Signature pad of the part being signed, drawn with the native Dolibarr jSignature plugin.
  *
- * @param	string					$partCode		Part code of the row
- * @param	string					$role			Signer role of the row
- * @param	array<string,string>	$partSigning	Part and role being signed
+ * @param	string	$partCode	Part code of the row
+ * @param	string	$role		Signer role of the row
+ * @param	string	$error		Translated error from a previous signature attempt
  * @return	void
  */
-function powerplantpvReportRenderPartSignatureForm($partCode, $role, $partSigning)
+function powerplantpvReportRenderPartSignatureForm($partCode, $role, $error = '')
 {
 	global $id, $langs;
 
-	if ($role === '' || ($partSigning['part'] ?? '') !== $partCode || ($partSigning['role'] ?? '') !== $role) {
-		return;
-	}
 	$consent = $partCode === PowerPlantPVReportParts::FINAL_CODE ? 'PowerPlantPVFinalSignConsent' : 'PowerPlantPVPartSignConsent';
 	if ($role === 'technical') {
 		$consent = 'PowerPlantPVTechnicalSignConsent';
 	}
-	print '<tr class="oddeven"><td colspan="3">';
 	print '<form method="POST" id="powerplantpv-signature-form" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+	if ($error !== '') {
+		print '<p class="error" role="alert">'.dol_escape_htmltag(html_entity_decode($error, ENT_QUOTES, 'UTF-8')).'</p>';
+	}
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="id" value="'.(int) $id.'">';
 	print '<input type="hidden" name="action" value="sign_part">';
@@ -2893,5 +2907,4 @@ function powerplantpvReportRenderPartSignatureForm($partCode, $role, $partSignin
 	print '<p><label><input type="checkbox" name="signature_consent" value="1" required> '.$langs->trans($consent).'</label></p>';
 	print '<input type="submit" class="button" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVPartSignButton')).'">';
 	print '</form>';
-	print '</td></tr>';
 }
