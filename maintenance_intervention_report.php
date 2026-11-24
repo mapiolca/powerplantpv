@@ -784,14 +784,16 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	$renderEditableFields = $caneditreport;
 	if (!empty($conf->use_javascript_ajax)) {
 		print '<div class="powerplantpv-report-navigation" data-report-contents-label="'.dol_escape_htmltag($langs->transnoentities('PowerPlantPVReportContents')).'">';
-		print '<div class="marginbottomonly" data-report-disclosure-controls hidden>';
-		print dolGetButtonAction($langs->transnoentities('PowerPlantPVReportExpandAll'), '', 'default', '#', '', 1, array(
-			'attr' => array('role' => 'button', 'data-report-disclosure' => 'open'),
-		));
-		print ' ';
-		print dolGetButtonAction($langs->transnoentities('PowerPlantPVReportCollapseAll'), '', 'default', '#', '', 1, array(
-			'attr' => array('role' => 'button', 'data-report-disclosure' => 'close'),
-		));
+		print '<div class="right marginbottomonly" data-report-disclosure-controls hidden>';
+		$disclosureActions = array('open' => array('ExpandAll', 'folder-open'), 'close' => array('UndoExpandAll', 'folder'));
+		foreach ($disclosureActions as $disclosure => list($translation, $icon)) {
+			$label = dol_escape_htmltag($langs->transnoentities($translation));
+			print '<a href="#" role="button" title="'.$label.'" aria-label="'.$label.'" data-report-disclosure="'.$disclosure.'">';
+			print img_picto('', $icon, 'class="paddingright"').'<span class="hideonsmartphone">'.$label.'</span></a>';
+			if ($disclosure === 'open') {
+				print ' | ';
+			}
+		}
 		print '</div></div>';
 	}
 	$signableParts = array();
