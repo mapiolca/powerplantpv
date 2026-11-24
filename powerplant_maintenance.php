@@ -147,7 +147,7 @@ $schedule = $scheduler->getScheduleForPowerPlant($object, $user);
 $items = (isset($schedule['items']) && is_array($schedule['items'])) ? $schedule['items'] : array();
 $interventions = (isset($schedule['interventions']) && is_array($schedule['interventions'])) ? $schedule['interventions'] : array();
 $dcHistory = array();
-if ($user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'maintenance', 'read')) {
+if ($user->hasRight('ficheinter', 'lire') && ($user->hasRight('powerplantpv', 'maintenance', 'read') || !empty($user->admin))) {
 	$historyIds = array();
 	foreach ($interventions as $linkedIntervention) {
 		if ((int) $linkedIntervention['fk_soc'] === (int) $object->fk_soc && (int) $linkedIntervention['id'] > 0) {

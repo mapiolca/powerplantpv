@@ -249,7 +249,7 @@ class modPowerPlantPV extends DolibarrModules
 		// Menu/tab descriptors are parsed by dol_eval(), so their conditions must keep descriptor-safe syntax.
 		$this->tabs = array(
 			'product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight(\'produit\', \'lire\'):/powerplantpv/product_detailedcaracteristics.php?id=__ID__',
-			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:$user->hasRight(\'ficheinter\', \'lire\') && $user->hasRight(\'powerplantpv\', \'report\', \'read\'):/powerplantpv/maintenance_intervention_report.php?id=__ID__'
+			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:$user->hasRight(\'ficheinter\', \'lire\') && ($user->admin || $user->hasRight(\'powerplantpv\', \'report\', \'read\')):/powerplantpv/maintenance_intervention_report.php?id=__ID__'
 		);
 		/* END MODULEBUILDER TABS */
 		// Example:
@@ -482,6 +482,7 @@ class modPowerPlantPV extends DolibarrModules
 		// );
 
 		// Permissions provided by this module
+		$this->rights_admin_allowed = 1;
 		$this->rights = array();
 		$r = 0;
 		// Add here entries to declare new permissions
@@ -657,7 +658,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
@@ -672,7 +673,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "write")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "write"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
@@ -687,7 +688,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
@@ -703,7 +704,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
-			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "attestation", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'
@@ -718,7 +719,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
-			'perms' => '$user->hasRight("powerplantpv", "attestation", "write")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "attestation", "write"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'
@@ -733,7 +734,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
-			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "attestation", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'
@@ -749,7 +750,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -764,7 +765,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && isModEnabled("ficheinter") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || ($user->rights->powerplantpv->maintenance->write && $user->rights->ficheinter->creer)',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "maintenance", "write")) && $user->hasRight("ficheinter", "creer")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -779,7 +780,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -794,7 +795,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -809,7 +810,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -828,7 +829,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => "isModEnabled('powerplantpv')", // Define condition to show or hide menu entry. Use isModEnabled("powerplantpv") if entry must be visible if module is enabled.
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))',
 			'target' => '',
 			'user' => 2,				                // 0=Menu for internal users, 1=external users, 2=both
 			'object' => 'PowerPlant'
@@ -843,7 +844,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => "isModEnabled('powerplantpv')", // Define condition to show or hide menu entry. Use isModEnabled("powerplantpv") if entry must be visible if module is enabled. Use '$leftmenu==\'system\'' to show if leftmenu system is selected.
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "write")'
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "write"))'
 			'target' => '',
 			'user' => 2,				                // 0=Menu for internal users, 1=external users, 2=both
 			'object' => 'PowerPlant'
@@ -858,7 +859,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => "isModEnabled('powerplantpv')", // Define condition to show or hide menu entry. Use isModEnabled("powerplantpv") if entry must be visible if module is enabled.
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")'
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))'
 			'target' => '',
 			'user' => 2,				                // 0=Menu for internal users, 1=external users, 2=both
 			'object' => 'PowerPlant'

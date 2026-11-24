@@ -429,7 +429,7 @@ class PowerPlantPVReportPdfDataset
 	{
 		global $user;
 		if (!isModEnabled('project') || !($user instanceof User) || count($powerplants) !== 1
-			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')
+			|| !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))
 			|| (!$user->hasRight('projet', 'lire') && !$user->hasRight('projet', 'all', 'lire'))) {
 			return null;
 		}

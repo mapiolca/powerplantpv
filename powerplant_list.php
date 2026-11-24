@@ -209,9 +209,9 @@ include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_array_fields.tpl.php';
 $object->fields = dol_sort_array($object->fields, 'position');
 $arrayfields = dol_sort_array($arrayfields, 'position');
 
-$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
-$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write');
-$permissiontodelete = $user->hasRight('powerplantpv', 'powerplant', 'delete');
+$permissiontoread = ($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin));
+$permissiontoadd = ($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin));
+$permissiontodelete = ($user->hasRight('powerplantpv', 'powerplant', 'delete') || !empty($user->admin));
 
 // Security check (enable the most restrictive one)
 if ($user->socid > 0) {

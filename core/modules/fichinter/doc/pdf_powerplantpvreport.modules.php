@@ -306,7 +306,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 
 		$report = $dataset['report'] ?? null;
 		if (!($object instanceof Fichinter) || !($report instanceof PowerPlantPVReport) || !($user instanceof User)
-			|| (int) $user->socid > 0 || !$user->hasRight('powerplantpv', 'report', 'write') || !$user->hasRight('ficheinter', 'creer')
+			|| (int) $user->socid > 0 || !($user->hasRight('powerplantpv', 'report', 'write') || !empty($user->admin)) || !$user->hasRight('ficheinter', 'creer')
 			|| !PowerPlantPVReportParts::isPartsReport($report)) {
 			return array('days' => 0, 'links' => array());
 		}

@@ -155,7 +155,7 @@ function powerplantpvAdminPrepareHead()
 	$head[$h][2] = 'attestation';
 	$h++;
 
-	if ($user->hasRight('powerplantpv', 'report', 'config')) {
+	if (($user->hasRight('powerplantpv', 'report', 'config') || !empty($user->admin))) {
 		$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/maintenance_report_templates.php", 1));
 		$head[$h][1] = $langs->trans("PowerPlantPVReportTemplates");
 		$head[$h][2] = 'maintenance_report_templates';

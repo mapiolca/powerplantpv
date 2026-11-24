@@ -148,8 +148,10 @@ try {
 		'Rollback keeps original signatures and drawings');
 	$report->failEvent = false;
 	$report->status = PowerPlantPVReport::STATUS_SAVED;
+	$actor->canManageSigned = false;
+	$actor->admin = 1;
 	$check($parts->reopenPart($report, $intervention, $actor, 'AC1') > 0 && $report->status === PowerPlantPVReport::STATUS_DRAFT,
-		'Reopening returns the report to draft');
+		'An administrator who signed the stage can reopen it without an explicit permission');
 	$active = $parts->fetchSignatures($report);
 	$check(!isset($active['AC1'], $active['FINAL']) && count($active) === 1 && isset($active['AC2']['technician']),
 		'Other stages remain signed and final approval is invalidated');

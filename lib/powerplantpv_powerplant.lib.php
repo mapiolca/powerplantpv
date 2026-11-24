@@ -732,7 +732,7 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 function powerplantRenderProjectSelection($object, User $user)
 {
 	global $db, $langs;
-	if (!isModEnabled('project') || $user->socid > 0 || !$user->hasRight('powerplantpv', 'powerplant', 'write')
+	if (!isModEnabled('project') || $user->socid > 0 || !($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin))
 		|| (!$user->hasRight('projet', 'lire') && !$user->hasRight('projet', 'all', 'lire'))) {
 		return '';
 	}

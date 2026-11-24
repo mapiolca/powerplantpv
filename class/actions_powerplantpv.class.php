@@ -65,7 +65,7 @@ class ActionsPowerplantpv
 		global $db, $user, $langs;
 
 		$this->results = array();
-		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')
+		if (!isModEnabled('powerplantpv') || !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))
 			|| !in_array('index', explode(':', $parameters['context'] ?? ''), true)) {
 			return 0;
 		}
@@ -95,7 +95,7 @@ class ActionsPowerplantpv
 			$board->nbtodo = $counts[$status] ?? 0;
 			$this->results['powerplantpv_status_'.$status] = $board;
 		}
-		if ($user->hasRight('powerplantpv', 'maintenance', 'read')
+		if (($user->hasRight('powerplantpv', 'maintenance', 'read') || !empty($user->admin))
 			&& getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
 			dol_include_once('/powerplantpv/class/powerplantpvmaintenancescheduler.class.php');
 			$scheduler = new PowerPlantPVMaintenanceScheduler($db);
@@ -134,13 +134,13 @@ class ActionsPowerplantpv
 	{
 		global $user;
 		$this->results = array();
-		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')
+		if (!isModEnabled('powerplantpv') || !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))
 			|| !in_array('index', explode(':', $parameters['context'] ?? ''), true)) {
 			return 0;
 		}
 		$this->results['powerplantpv'] = array('groupName' => 'PowerPlants', 'lang' => 'powerplantpv@powerplantpv',
 			'stats' => array('powerplantpv_status_1', 'powerplantpv_status_2', 'powerplantpv_status_3'));
-		if ($user->hasRight('powerplantpv', 'maintenance', 'read') && getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
+		if (($user->hasRight('powerplantpv', 'maintenance', 'read') || !empty($user->admin)) && getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
 			$this->results['powerplantpvmaintenance'] = array('groupName' => 'PowerPlantPVHomeMaintenances', 'lang' => 'powerplantpv@powerplantpv',
 				'stats' => array('powerplantpv_maintenance_total', 'powerplantpv_maintenance_planned', 'powerplantpv_maintenance_overdue'));
 		}
@@ -544,7 +544,7 @@ class ActionsPowerplantpv
 		}
 		if ($action === '' && $object instanceof Fichinter && (int) $object->id > 0
 			&& in_array('interventioncard', $contexts, true)
-			&& $user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'report', 'read')) {
+			&& $user->hasRight('ficheinter', 'lire') && ($user->hasRight('powerplantpv', 'report', 'read') || !empty($user->admin))) {
 			require_once __DIR__.'/powerplantpvreport.class.php';
 			$statuses = PowerPlantPVReport::interventionSignatureStatuses();
 			if ((int) $object->signed_status === $statuses['STATUS_SIGNED_ALL']) {
@@ -719,7 +719,7 @@ class ActionsPowerplantpv
 		$this->results = array();
 		if (!isModEnabled('powerplantpv') || !isModEnabled('project') || !($object instanceof Project)
 			|| !in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)
-			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			|| !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) {
 			return 0;
 		}
 		$this->results = array('powerplantpv_powerplant' => array(
@@ -754,7 +754,7 @@ class ActionsPowerplantpv
 			$this->error = $links->error;
 			return -1;
 		}
-		if ($user->hasRight('powerplantpv', 'powerplant', 'read')) {
+		if (($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) {
 			$langs->load('powerplantpv@powerplantpv');
 			$this->resprints = '<tr class="oddeven"><td><a href="#table_powerplantpv_powerplant">'
 				.$langs->trans('PowerPlantPVCentrals').'</a></td><td class="right">'.count($plants).'</td><td></td><td></td></tr>';
@@ -779,7 +779,7 @@ class ActionsPowerplantpv
 			|| !in_array('projectOverview', $this->getContexts($parameters, $hookmanager), true)) {
 			return 0;
 		}
-		if (!$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+		if (!($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) {
 			return 1;
 		}
 		require_once __DIR__.'/powerplantpvprojectlink.class.php';
@@ -896,7 +896,7 @@ class ActionsPowerplantpv
 		}
 		if (!isModEnabled('powerplantpv') || !isModEnabled('project') || empty($object->id)
 			|| !in_array($object->element ?? '', array('project', 'powerplant'), true)
-			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+			|| !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) {
 			return 0;
 		}
 		require_once __DIR__.'/powerplantpvprojectlink.class.php';
@@ -917,7 +917,7 @@ class ActionsPowerplantpv
 		$langs->loadLangs(array('powerplantpv@powerplantpv', 'projects'));
 		$canedit = $user->socid <= 0 && ($isproject
 			? (($user->hasRight('projet', 'creer') || $user->hasRight('projet', 'all', 'creer')) && $object->restrictedProjectArea($user, 'write') > 0)
-			: $user->hasRight('powerplantpv', 'powerplant', 'write'));
+			: ($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin)));
 		$editaction = $isproject ? 'powerplantpv_edit_plants' : 'powerplantpv_edit_projects';
 		$cardurl = $isproject ? DOL_URL_ROOT.'/projet/card.php' : dol_buildpath('/powerplantpv/powerplant_card.php', 1);
 		$html = '<div class="refidno">'.($isproject ? img_picto('', 'fa-sun', 'class="pictofixedwidth"') : '')
@@ -1219,7 +1219,7 @@ class ActionsPowerplantpv
 		if (!isModEnabled('powerplantpv') || empty($object->id)) {
 			return 0;
 		}
-		if (!$user->hasRight('powerplantpv', 'powerplant', 'write')) {
+		if (!($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin))) {
 			return 0;
 		}
 
@@ -1294,7 +1294,7 @@ class ActionsPowerplantpv
 
 		$this->results = array();
 
-		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+		if (!isModEnabled('powerplantpv') || !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) {
 			return 0;
 		}
 
@@ -1315,7 +1315,7 @@ class ActionsPowerplantpv
 
 		$this->results['powerplantpv_powerplant'] = array(
 			'enabled' => isModEnabled('powerplantpv'),
-			'perms' => $user->hasRight('powerplantpv', 'powerplant', 'read'),
+			'perms' => ($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin)),
 			'label' => 'LinkToPowerPlant',
 			'sql' => $sql,
 		);
@@ -2282,7 +2282,7 @@ class ActionsPowerplantpv
 		if (!$add && !$modify && !$rowAction) {
 			return 0;
 		}
-		if (!$user->hasRight('powerplantpv', 'maintenance', 'config')) {
+		if (!($user->hasRight('powerplantpv', 'maintenance', 'config') || !empty($user->admin))) {
 			accessforbidden();
 		}
 		if (($add || $modify) && ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {

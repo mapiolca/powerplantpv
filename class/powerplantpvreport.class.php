@@ -68,7 +68,7 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 
 		$langs->load('powerplantpv@powerplantpv');
 		$label = $langs->trans('PowerPlantPVReportTab');
-		if (!$user->hasRight('powerplantpv', 'report', 'read') || !$user->hasRight('ficheinter', 'lire')) {
+		if (!($user->hasRight('powerplantpv', 'report', 'read') || !empty($user->admin)) || !$user->hasRight('ficheinter', 'lire')) {
 			return $label;
 		}
 		$url = dol_buildpath('/powerplantpv/maintenance_intervention_report.php', 1).'?id='.(int) $this->fk_fichinter;
@@ -272,7 +272,7 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 		if ($role === 'technician' && !$this->isAssignedTechnician($intervention, $signer)) {
 			return -1;
 		}
-		if ($role === 'technical' && (!$signer->hasRight('powerplantpv', 'report', 'sign_technical')
+		if ($role === 'technical' && (!($signer->hasRight('powerplantpv', 'report', 'sign_technical') || !empty($signer->admin))
 			|| !$this->technicalSignatureEnabled() || !$this->isTechnicalSupervisor($intervention, $signer))) {
 			return -1;
 		}
@@ -369,7 +369,7 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 	/** Record the signer's identity and date once for this finalized snapshot. */
 	public function signAsTechnicalSupervisor($intervention, User $signer, string $signerName): int
 	{
-		if (!$signer->hasRight('powerplantpv', 'report', 'sign_technical')
+		if (!($signer->hasRight('powerplantpv', 'report', 'sign_technical') || !empty($signer->admin))
 			|| !$this->isSaved() || !$this->technicalSignatureEnabled() || !$this->isTechnicalSupervisor($intervention, $signer)) {
 			return -1;
 		}

@@ -405,10 +405,19 @@ trait PowerPlantPVReportVisualPdf
 	protected function visualIllustration(&$pdf, $snapshot, $langs)
 	{
 		global $user;
-		if (!$user->hasRight('powerplantpv', 'powerplant', 'read')) { return; }
+		if (!($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) { return; }
 		$plant = new PowerPlant($this->db);
 		if ($plant->fetch((int) $snapshot->fk_powerplant) <= 0 || (int) $plant->fk_report_illustration <= 0) { return; }
-		if (!restrictedArea($user, 'powerplantpv', $plant, $plant->table_element.'&'.$plant->element, $plant->element, 'fk_soc', 'rowid', (int) ((int) $plant->status === PowerPlant::STATUS_DRAFT), 1)) { return; }
+		$sharedEntities = array_map('intval', explode(',', (string) getEntity($plant->element)));
+		if (!in_array((int) $plant->entity, $sharedEntities, true)) {
+			return;
+		}
+		if ((empty($user->admin) || !empty($user->socid)) && !restrictedArea(
+			$user, 'powerplantpv', $plant, $plant->table_element.'&'.$plant->element, $plant->element, 'fk_soc', 'rowid',
+			(int) ((int) $plant->status === PowerPlant::STATUS_DRAFT), 1
+		)) {
+			return;
+		}
 		$source = new PowerPlantPVReportIllustration($this->db); $files = $source->files($plant);
 		if (!is_array($files) || !isset($files[(int) $plant->fk_report_illustration])) { $this->renderEmptyBlock($pdf, $langs->transnoentities('PowerPlantPVReportIllustrationInvalid')); return; }
 		$caption = $this->powerplantLabel($snapshot);

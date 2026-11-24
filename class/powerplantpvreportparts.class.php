@@ -358,11 +358,11 @@ class PowerPlantPVReportParts
 			return $this->isWorksManager($report, $user);
 		}
 		if ($role === 'technical') {
-			return $user->hasRight('powerplantpv', 'report', 'sign_technical')
+			return ($user->hasRight('powerplantpv', 'report', 'sign_technical') || !empty($user->admin))
 				&& $report->technicalSignatureEnabled() && $report->isTechnicalSupervisor($intervention, $user);
 		}
 		if ($role === 'business_manager') {
-			return $user->hasRight('powerplantpv', 'report', 'sign_technical')
+			return ($user->hasRight('powerplantpv', 'report', 'sign_technical') || !empty($user->admin))
 				&& (!$report->technicalSignatureEnabled() || !empty($signatures[self::FINAL_CODE]['technical']));
 		}
 		if ($partCode !== self::FINAL_CODE && $this->isWorksManager($report, $user)) {
@@ -488,7 +488,7 @@ class PowerPlantPVReportParts
 	public function reopenPart(PowerPlantPVReport $report, Fichinter $intervention, User $user, string $partCode): int
 	{
 		require_once __DIR__.'/../lib/powerplantpv_reportsignature.lib.php';
-		if (!$user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !self::isPartsReport($report)
+		if (!($user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !empty($user->admin)) || !self::isPartsReport($report)
 			|| !isset(self::definitions()[$partCode]) || (int) $report->fk_fichinter !== (int) $intervention->id
 			|| (int) $report->entity !== (int) $intervention->entity) {
 			$this->setError('ErrorForbidden');

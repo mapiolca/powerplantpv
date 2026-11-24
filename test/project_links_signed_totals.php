@@ -152,8 +152,10 @@ verify(scalar('SELECT COUNT(*) FROM pvtest_element_element WHERE fk_source=99') 
 verify(count($links->linked($projects[11], $user)) === 1, 'Reverse edit immediately visible');
 verify($links->sync($plants[1], array(999), $user, 1) === -1, 'Forged id refused');
 $user->rights->powerplantpv->powerplant->write = 0;
+verify($links->sync($plants[1], array(12), $user, 1) === -1, 'A standard user without the module write permission is refused');
 $user->admin = 1;
-verify($links->sync($plants[1], array(), $user, 1) === -1, 'Administrator without hasRight must be refused');
+verify($links->sync($plants[1], array(12), $user, 1) === 1, 'An administrator has the module write permission without an assignment');
+verify($links->sync($plants[1], array(999), $user, 1) === -1, 'The administrator must select an accessible project');
 $user->admin = 0;
 $user->rights->powerplantpv->powerplant->write = 1;
 $revision = hash('sha256', json_encode($links->rows($plants[1])));

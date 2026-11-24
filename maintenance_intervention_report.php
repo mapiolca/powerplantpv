@@ -108,7 +108,7 @@ if ($action === '') {
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
 	accessforbidden();
 }
-if (!$user->hasRight('ficheinter', 'lire') || !$user->hasRight('powerplantpv', 'report', 'read')) {
+if (!$user->hasRight('ficheinter', 'lire') || !($user->hasRight('powerplantpv', 'report', 'read') || !empty($user->admin))) {
 	accessforbidden();
 }
 if ($id <= 0 && $ref === '') {
@@ -129,7 +129,7 @@ if (method_exists($intervention, 'fetch_thirdparty')) {
 	$intervention->fetch_thirdparty();
 }
 
-$permissiontowrite = $user->hasRight('powerplantpv', 'report', 'write');
+$permissiontowrite = ($user->hasRight('powerplantpv', 'report', 'write') || !empty($user->admin));
 $usercancreateintervention = $user->hasRight('ficheinter', 'creer');
 
 $builder = new PowerPlantPVReportBuilder($db);
@@ -164,7 +164,7 @@ $canSign = $reportFetch > 0 && (int) $signatureState->fk_statut === Fichinter::S
 	&& $report->isSaved() && $signatureScript !== '';
 $signingAllowed = array(
 	'technician' => $canSign && !$technicianSigned && $report->isAssignedTechnician($intervention, $user),
-	'technical' => $canSign && !$technicalSigned && $user->hasRight('powerplantpv', 'report', 'sign_technical')
+	'technical' => $canSign && !$technicalSigned && ($user->hasRight('powerplantpv', 'report', 'sign_technical') || !empty($user->admin))
 		&& $report->technicalSignatureEnabled() && $report->isTechnicalSupervisor($intervention, $user),
 );
 // Self-inspection reports: each part is signed on the day of its tests and only that part is frozen.
@@ -389,7 +389,7 @@ if ($action === 'validate_part') {
 if (in_array($action, array('reopen_part', 'confirm_reopen_part'), true)) {
 	$stageSigner = $partSignatures[$partToReopen]['technician'] ?? null;
 	if (!$isPartsReport || $locked || !isset(PowerPlantPVReportParts::definitions()[$partToReopen])
-		|| !$user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !is_object($stageSigner)
+		|| !($user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !empty($user->admin)) || !is_object($stageSigner)
 		|| !$partsHelper->isSignerOrSupervisor($user, (int) $stageSigner->fk_user) || !powerplantpvReportSubmittedTokenValid($token)) {
 		accessforbidden();
 	}
@@ -454,7 +454,7 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 			$photoErrors = powerplantpvReportSaveIndexPhotos(
 				$report,
 				(string) $status === PowerPlantPVReport::STATUS_SAVED,
-				$user->hasRight('powerplantpv', 'report', 'finalize_missing_evidence'),
+				($user->hasRight('powerplantpv', 'report', 'finalize_missing_evidence') || !empty($user->admin)),
 				$photoWarnings
 			);
 			if ($photoErrors) {
@@ -803,7 +803,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 			}
 		}
 	}
-	if ($isPartsReport && !$locked && $user->hasRight('powerplantpv', 'attestation', 'manage_signed')) {
+	if ($isPartsReport && !$locked && ($user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !empty($user->admin))) {
 		foreach (array_keys(PowerPlantPVReportParts::definitions()) as $partCode) {
 			$signature = $partSignatures[$partCode]['technician'] ?? null;
 			if (is_object($signature) && $partsHelper->isSignerOrSupervisor($user, (int) $signature->fk_user)) {
