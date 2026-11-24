@@ -80,7 +80,12 @@ if ((int) $object->status === PowerPlantPVAttestation::STATUS_SIGNED && $permiss
 $upload_dir = powerplantpvAttestationGetDocumentUploadDir($object);
 include DOL_DOCUMENT_ROOT.'/core/actions_linkedfiles.inc.php';
 $upload_dir = powerplantpvAttestationGetDocumentRootDir(!empty($object->entity) ? $object->entity : $conf->entity);
-include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
+$requestedModel = GETPOST('model', 'alpha');
+if ($action === 'builddoc' && $requestedModel !== '' && !$object->isDocumentModelCompatible($requestedModel)) {
+	setEventMessages($langs->trans('AttestationIncompatiblePdfModel'), null, 'errors');
+} else {
+	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
+}
 if (isset($object->context) && is_array($object->context)) {
 	unset($object->context['allow_signed_generation']);
 }

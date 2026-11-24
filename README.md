@@ -186,6 +186,13 @@ historical installed-power graphs remain enabled on Home by default.
 
 The attestation feature is enabled from the module settings tab `Attestations`. Settings are stored per entity and include frequency and curtailment defaults, per-type PDF model selection, and the company PNG stamp. Every attestation must be linked to a PV power plant. Place and installer data are read from the Dolibarr MyCompany information of the attestation entity, site data is read from the linked PV power plant, and writer data is read from the native author user (`fk_user_creat`).
 
+The commissioning attestation records the commissioning date, seven pre-commissioning check results, optional CONSUEL
+number and date, and public observations or outstanding issues. A draft can be saved before all results are entered.
+Validation and PDF generation require the commissioning date and a result for each check. Enter both CONSUEL fields
+together when available. The standard layout follows the existing attestations. The report layout follows the
+commissioning proposal from PR #57. Select the default in the Attestations settings for each entity.
+After updating the module files, refresh the module in Dolibarr to add the fields and register the two PDF models.
+
 Attestations use native Dolibarr rights, menus, document generation, file storage, Agenda triggers, Notifications support, and Multicompany sharing. The signature link uses Dolibarr's native online signature URL pattern when the installed core supports the `powerplantpv_attestation` source in `/public/onlinesign/newonlinesign.php` and `/core/ajax/onlineSign.php`. When the core does not support this source, PowerPlantPV exposes its own public fallback page with the same visual and functional flow, secured by `ref`, `entity` and `securekey`. It is not a qualified external e-signature provider workflow.
 
 Signed attestations remain locked for standard write/delete users. Grant the specific `powerplantpv / attestation / manage_signed` right, together with read access, to allow modification, deletion and PDF regeneration of signed attestations.

@@ -69,6 +69,7 @@ $attestationTypeModelConstants = array(
 	'POWERPLANTPV_ATTESTATION_BRIDAGE_STATIQUE_MODEL' => array('label' => 'AttestationTypeBridageStatiqueOnduleur', 'default' => 'attestation_bridage_statique'),
 	'POWERPLANTPV_ATTESTATION_REGLAGE_FREQ_MODEL' => array('label' => 'AttestationTypeReglageMaxFreq515Hz', 'default' => 'attestation_reglage_max_freq'),
 	'POWERPLANTPV_ATTESTATION_INSTALLATEUR_INF100KWC_MODEL' => array('label' => 'AttestationTypeInstallateurInf100kwc', 'default' => 'attestation_installateur_inf100kwc'),
+	PowerPlantPVAttestationTypes::COMMISSIONING_MODEL_SETTING => array('label' => 'AttestationTypeMiseEnService', 'default' => PowerPlantPVAttestationTypes::COMMISSIONING_DEFAULT_MODEL),
 );
 
 /**
@@ -222,6 +223,10 @@ function powerplantpvAttestationAdminGetTypeForModel($model)
 		return PowerPlantPVAttestationTypes::TYPE_INSTALLATEUR_INF_100KWC;
 	}
 
+	if (in_array($model, PowerPlantPVAttestationTypes::COMMISSIONING_MODELS, true)) {
+		return PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE;
+	}
+
 	return PowerPlantPVAttestationTypes::TYPE_BRIDAGE_DYNAMIQUE_ONDULEUR;
 }
 
@@ -243,6 +248,16 @@ if ($action == 'save') {
 		'POWERPLANTPV_ATTESTATION_REGLAGE_FREQ_MODEL' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_REGLAGE_FREQ_MODEL', 'aZ09')),
 		'POWERPLANTPV_ATTESTATION_INSTALLATEUR_INF100KWC_MODEL' => array('type' => 'chaine', 'value' => GETPOST('POWERPLANTPV_ATTESTATION_INSTALLATEUR_INF100KWC_MODEL', 'aZ09')),
 	);
+	$commissioningSetting = PowerPlantPVAttestationTypes::COMMISSIONING_MODEL_SETTING;
+	if (GETPOSTISSET($commissioningSetting)) {
+		$model = GETPOST($commissioningSetting, 'aZ09');
+		if (!in_array($model, PowerPlantPVAttestationTypes::COMMISSIONING_MODELS, true)) {
+			setEventMessages($langs->trans('AttestationIncompatiblePdfModel'), null, 'errors');
+			header('Location: '.$_SERVER['PHP_SELF']);
+			exit;
+		}
+		$settings[$commissioningSetting] = array('type' => 'chaine', 'value' => $model);
+	}
 	foreach ($settings as $key => $setting) {
 		$result = dolibarr_set_const($db, $key, (string) $setting['value'], $setting['type'], 0, '', (int) $conf->entity);
 		if ($result <= 0) {
@@ -360,6 +375,14 @@ if ($action == 'save') {
 		$tmpobject->entity = (int) $conf->entity;
 		$tmpobject->type_code = powerplantpvAttestationAdminGetTypeForModel($modele);
 		$tmpobject->model_pdf = $modele;
+		if ($tmpobject->type_code === PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE) {
+			$tmpobject->date_completion = $tmpobject->date_attestation;
+			$tmpobject->date_consuel = $tmpobject->date_attestation;
+			$tmpobject->consuel_number = 'SPECIMEN';
+			foreach (PowerPlantPVAttestationTypes::COMMISSIONING_CHECKS as $field => $label) {
+				$tmpobject->{$field} = 1;
+			}
+		}
 		if ($module->write_file($tmpobject, $langs) > 0) {
 			$documentfile = powerplantpvAttestationGetDocumentRelativePath($tmpobject).'/'.dol_sanitizeFileName($tmpobject->ref).'.pdf';
 			if (!empty($module->result['fullpath'])) {
@@ -594,7 +617,10 @@ foreach ($fields as $key => $label) {
 }
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('AttestationPdfModelsByType').'</td></tr>';
 foreach ($attestationTypeModelConstants as $constname => $typeModel) {
-	print '<tr class="oddeven"><td>'.$langs->trans($typeModel['label']).'</td><td>'.$form->selectarray($constname, $modelOptions, getDolGlobalString($constname, $typeModel['default']), 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
+	$commissioningKeys = array_flip(PowerPlantPVAttestationTypes::COMMISSIONING_MODELS);
+	$typeOptions = $constname === PowerPlantPVAttestationTypes::COMMISSIONING_MODEL_SETTING
+		? array_intersect_key($modelOptions, $commissioningKeys) : array_diff_key($modelOptions, $commissioningKeys);
+	print '<tr class="oddeven"><td>'.$langs->trans($typeModel['label']).'</td><td>'.$form->selectarray($constname, $typeOptions, getDolGlobalString($constname, $typeModel['default']), 0, 0, 0, '', 0, 0, 0, '', 'flat minwidth300').'</td></tr>';
 	if ($conf->use_javascript_ajax) {
 		print ajax_combobox($constname);
 	}
