@@ -16,6 +16,7 @@
 require_once __DIR__.'/powerplantpvinverterproduction.class.php';
 require_once __DIR__.'/powerplantpvreportpresentation.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvreportparts.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportpowerplant.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportsourceservice.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportequipment.class.php');
@@ -227,7 +228,7 @@ class PowerPlantPVReportBuilder
 
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
 		$report = $this->newReportFromContext($context, $status);
-		$reportId = $report->create($user, 0);
+		$reportId = $report->create($user, 1);
 		if ($reportId <= 0) {
 			$this->copyErrorsFrom($report);
 			$this->db->rollback();
@@ -249,6 +250,11 @@ class PowerPlantPVReportBuilder
 			}
 		}
 
+		if ($report->recordLifecycleEvent($intervention, $user, 'created') < 0) {
+			$this->copyErrorsFrom($report);
+			$this->db->rollback();
+			return -1;
+		}
 		if ($this->db->commit() <= 0) { $this->setError($this->db->lasterror()); $this->db->rollback(); return -1; }
 
 		return $report;
@@ -266,6 +272,16 @@ class PowerPlantPVReportBuilder
 	 */
 	public function recalculateSnapshot(PowerPlantPVReport $report, $intervention, User $user, $manualServiceIds = array(), $status = PowerPlantPVReport::STATUS_DRAFT)
 	{
+		// Signed parts of a self-inspection report must keep the structure they were signed on.
+		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
+		if (!is_array($lockedSectionIds)) {
+			return -1;
+		}
+		if (!empty($lockedSectionIds)) {
+			$this->setError('PowerPlantPVPartSignedRecalculateLocked');
+			return -1;
+		}
+
 		// A recalculation without a new selection must retain the manually selected services.
 		if (!$manualServiceIds && (string) $report->source_mode === 'manual') {
 			$source = new PowerPlantPVReportSourceService($this->db);
@@ -301,7 +317,7 @@ class PowerPlantPVReportBuilder
 		$report->report_template_label = $context['template']['label'];
 		$report->report_template_label_en = $context['template']['label_en'];
 		$report->source_mode = $context['source_mode'];
-		if ($report->update($user, 0) < 0) {
+		if ($report->update($user, 1) < 0) {
 			$this->copyErrorsFrom($report);
 			$this->db->rollback();
 			return -1;
@@ -404,9 +420,10 @@ class PowerPlantPVReportBuilder
 	 * @param	array<string,mixed>		$dateValues	Date values by stable key
 	 * @param	User					$user		User
 	 * @param	string					$status		Report status
+	 * @param	array<int,bool>|null	$onlySectionIds	Limit the write to stages without changing report status
 	 * @return	int									>0 if OK, <0 on error
 	 */
-	public function saveValues($reportId, $values, $dateValues, User $user, $status)
+	public function saveValues($reportId, $values, $dateValues, User $user, $status, ?array $onlySectionIds = null)
 	{
 		$report = new PowerPlantPVReport($this->db);
 		$result = $report->fetch((int) $reportId);
@@ -417,7 +434,15 @@ class PowerPlantPVReportBuilder
 
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
 		if (!$report->lockUnsignedForEdit()) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
-		if ($this->persistInverterProductionSections((int) $report->id, $user) < 0) { $this->db->rollback(); return -1; }
+		if ($onlySectionIds === null && $this->persistInverterProductionSections((int) $report->id, $user) < 0) { $this->db->rollback(); return -1; }
+		// A signed part of a self-inspection report keeps the values it was signed on.
+		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
+		if (!is_array($lockedSectionIds)) { $this->db->rollback(); return -1; }
+		if ($onlySectionIds !== null && array_intersect_key($onlySectionIds, $lockedSectionIds)) {
+			$this->setError('PowerPlantPVPartSignedLocked');
+			$this->db->rollback();
+			return -1;
+		}
 
 		$fieldObject = new PowerPlantPVReportField($this->db);
 		$fields = $fieldObject->fetchAllByReport((int) $report->id, 'position', 'ASC');
@@ -427,14 +452,22 @@ class PowerPlantPVReportBuilder
 			return -1;
 		}
 
+		$isPartsReport = PowerPlantPVReportParts::isPartsReport($report);
 		foreach ($fields as $field) {
-			if (!empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)) {
+			if (($onlySectionIds !== null && empty($onlySectionIds[(int) $field->fk_report_section]))
+				|| !empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
+				|| ($isPartsReport && ((string) $field->field_code === PowerPlantPVReportParts::LEGACY_RESERVES_FIELD
+					|| PowerPlantPVReportParts::isManualSignerField((string) $field->field_code)))
+				|| !empty($lockedSectionIds[(int) $field->fk_report_section])) {
 				continue;
 			}
 			$stableKey = (string) $field->stable_key;
 			$value = array_key_exists($stableKey, $values) ? $values[$stableKey] : null;
 			if (array_key_exists($stableKey, $dateValues)) {
 				$value = $dateValues[$stableKey];
+			}
+			if ($isPartsReport && is_array($value) && PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
+				$value = PowerPlantPVReportParts::encodeHours($value, (string) $field->value_text);
 			}
 			if (!$this->assignSubmittedValueToField($field, $value)) {
 				continue;
@@ -446,8 +479,13 @@ class PowerPlantPVReportBuilder
 			}
 		}
 
+		if ($onlySectionIds !== null) {
+			if ($this->db->commit() <= 0) { $this->setError($this->db->lasterror()); $this->db->rollback(); return -1; }
+			return 1;
+		}
+
 		$report->status = $status;
-		if ($report->update($user, 0) < 0) {
+		if ($report->update($user, 1) < 0) {
 			$this->copyErrorsFrom($report);
 			$this->db->rollback();
 			return -1;
@@ -474,9 +512,10 @@ class PowerPlantPVReportBuilder
 	 * @param	array<string,mixed>		$values		Submitted rows
 	 * @param	User					$user		User
 	 * @param	string	$legacyVoltageCard	Form key of the input whose legacy values were measured in volts
+	 * @param	array<int,bool>|null	$onlySectionIds	Limit the write to the selected sections
 	 * @return	int									>0 if OK, <0 on error
 	 */
-	public function saveDcMeasureValues($reportId, $values, User $user, string $legacyVoltageCard = '')
+	public function saveDcMeasureValues($reportId, $values, User $user, string $legacyVoltageCard = '', ?array $onlySectionIds = null)
 	{
 		if (empty($values) || !is_array($values)) {
 			return 1;
@@ -495,9 +534,17 @@ class PowerPlantPVReportBuilder
 			$this->copyErrorsFrom($measureObject);
 			return -1;
 		}
+		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
+		if (!is_array($lockedSectionIds)) {
+			return -1;
+		}
 		$byId = array();
 		$byStableKey = array();
 		foreach ($measures as $measure) {
+			if (!empty($lockedSectionIds[(int) $measure->fk_report_section])
+				|| ($onlySectionIds !== null && empty($onlySectionIds[(int) $measure->fk_report_section]))) {
+				continue;
+			}
 			$byId[(int) $measure->id] = $measure;
 			$byStableKey[(string) $measure->stable_key] = $measure;
 		}
@@ -538,6 +585,24 @@ class PowerPlantPVReportBuilder
 		if ($this->db->commit() <= 0) { $this->setError($this->db->lasterror()); $this->db->rollback(); return -1; }
 
 		return 1;
+	}
+
+	/**
+	 * Snapshot sections frozen by a part signature of a self-inspection report.
+	 *
+	 * @param	PowerPlantPVReport	$report	Report
+	 * @return	array<int,bool>|int			Section id => true, <0 on error
+	 */
+	public function fetchLockedPartSectionIds(PowerPlantPVReport $report)
+	{
+		$parts = new PowerPlantPVReportParts($this->db);
+		$locked = $parts->lockedSectionIds($report);
+		if (!is_array($locked)) {
+			$this->copyErrorsFrom($parts);
+			return -1;
+		}
+
+		return $locked;
 	}
 
 	/**
@@ -611,7 +676,11 @@ class PowerPlantPVReportBuilder
 		}
 
 		$powerplants = $this->fetchLinkedPowerPlantContext($intervention);
-		$services = $this->fetchSourceServices($intervention, $powerplants, $manualServiceIds);
+		$isAutocontrol = $template['code'] === PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
+		if ($isAutocontrol && empty($powerplants)) {
+			return array('can_generate' => 0, 'messages' => array('NoPowerPlantLinked'), 'nature' => $nature, 'template' => $template);
+		}
+		$services = $isAutocontrol ? array() : $this->fetchSourceServices($intervention, $powerplants, $manualServiceIds);
 		$sourceMode = !empty($services['contract_services_found']) ? 'contract' : 'manual';
 		$serviceRows = isset($services['rows']) && is_array($services['rows']) ? $services['rows'] : array();
 		$serviceIds = array();
@@ -626,7 +695,7 @@ class PowerPlantPVReportBuilder
 				$serviceIdsByPowerplant[$powerplantKey][(int) $serviceRow['fk_maintenance_service']] = (int) $serviceRow['fk_maintenance_service'];
 			}
 		}
-		if (empty($services['contract_services_found']) && empty($manualServiceIds)) {
+		if (!$isAutocontrol && empty($services['contract_services_found']) && empty($manualServiceIds)) {
 			$messages[] = 'PowerPlantPVReportNoContractPrestations';
 		}
 
@@ -931,6 +1000,7 @@ class PowerPlantPVReportBuilder
 			$section->section_label_en = (string) $templateSection->label_en;
 			$section->section_description = (string) $templateSection->description;
 			$section->section_description_en = (string) $templateSection->description_en;
+			$section->part_ref = $templateSection->part_ref;
 			$section->scope_type = (string) $templateSection->scope_type;
 			$section->equipment_type = (string) $templateSection->equipment_type;
 			$section->repeat_mode = (string) $templateSection->repeat_mode;
@@ -1004,6 +1074,7 @@ class PowerPlantPVReportBuilder
 			$section->section_label_en = (string) $templateSection->label_en;
 			$section->section_description = (string) $templateSection->description;
 			$section->section_description_en = (string) $templateSection->description_en;
+			$section->part_ref = $templateSection->part_ref;
 			$section->scope_type = (string) $templateSection->scope_type;
 			$section->equipment_type = (string) $templateSection->equipment_type;
 			$section->repeat_mode = (string) $templateSection->repeat_mode;
@@ -1337,6 +1408,8 @@ class PowerPlantPVReportBuilder
 		);
 		foreach ($context['template_fields'] as $field) {
 			if (PowerPlantPVReportPresentation::isInverterInjectionField((string) $field->field_code)
+				|| (($context['template']['code'] ?? '') === PowerPlantPVReportParts::TEMPLATE_CODE
+					&& PowerPlantPVReportParts::isManualSignerField((string) $field->field_code))
 				|| !$this->isTemplateFlagEnabled($field, 'active', 1) || !$this->isTemplateFlagEnabled($field, 'visible_form', 1)) {
 				$stats['fields_skipped_hidden']++;
 				continue;
@@ -1455,6 +1528,9 @@ class PowerPlantPVReportBuilder
 					'fk_powerplant' => (int) $equipment['fk_powerplant'],
 					'equipment_key' => (string) $equipment['technical_key'],
 				);
+			}
+			if (($context['template']['code'] ?? '') === PowerPlantPVReportTemplate::CODE_AUTOCONTROL) {
+				return $occurrences;
 			}
 			return !empty($occurrences) ? $occurrences : array(array('occurrence_key' => 'section:'.$code.':manual:1', 'fk_powerplant' => 0, 'equipment_key' => ''));
 		}
@@ -2095,7 +2171,7 @@ class PowerPlantPVReportBuilder
 	{
 		global $conf;
 
-		$sql = "SELECT t.rowid, t.entity, t.fk_report_template, t.code, t.label, t.label_en, t.description, t.description_en,";
+		$sql = "SELECT t.rowid, t.entity, t.fk_report_template, t.code, t.label, t.label_en, t.description, t.description_en, t.part_ref,";
 		$sql .= " t.scope_type, t.equipment_type, t.repeat_mode, t.is_required, t.visible_form, t.visible_pdf, t.active, t.position,";
 		$sql .= " t.date_creation, t.tms, t.fk_user_creat, t.fk_user_modif, t.import_key";
 		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_template_section as t";
@@ -2184,6 +2260,7 @@ class PowerPlantPVReportBuilder
 		$section->label_en = isset($obj->label_en) ? (string) $obj->label_en : '';
 		$section->description = isset($obj->description) ? (string) $obj->description : '';
 		$section->description_en = isset($obj->description_en) ? (string) $obj->description_en : '';
+		$section->part_ref = isset($obj->part_ref) ? (string) $obj->part_ref : null;
 
 		$scope = powerplantpvReportTemplateNormalizeScopeType(isset($obj->scope_type) ? (string) $obj->scope_type : '');
 		if (!array_key_exists($scope, powerplantpvReportTemplateScopeTypes())) {
@@ -2573,7 +2650,7 @@ class PowerPlantPVReportBuilder
 	{
 		$field->value_text = isset($value['value_text']) ? (string) $value['value_text'] : null;
 		$field->value_number = isset($value['value_number']) && $value['value_number'] !== null ? (float) $value['value_number'] : null;
-		$field->value_date = !empty($value['value_date']) ? (string) $value['value_date'] : null;
+		$field->value_date = !empty($value['value_date']) ? $this->db->jdate($value['value_date']) : null;
 	}
 
 	/**
@@ -2716,7 +2793,7 @@ class PowerPlantPVReportBuilder
 			return true;
 		}
 		if ((string) $field->field_type === 'date' || (string) $field->field_type === 'datetime') {
-			$field->value_date = (string) $value;
+			$field->value_date = is_int($value) ? $value : null;
 			$field->value_text = null;
 			$field->value_number = null;
 			return true;

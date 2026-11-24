@@ -162,6 +162,23 @@
 	max-width: 100% !important;
 }
 
+.page-maintenance-intervention-report .powerplantpv-report-date .divfordateinput {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-date .divfordateinput > input {
+	width: 12ch !important;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-date .divfordateinput > .ui-datepicker-trigger,
+.page-maintenance-intervention-report .powerplantpv-report-date .datenowlink {
+	flex-shrink: 0;
+}
+
 .page-maintenance-intervention-report .powerplantpv-report-input .tox-tinymce,
 .page-maintenance-intervention-report .powerplantpv-report-input .mce-tinymce,
 .page-maintenance-intervention-report .powerplantpv-report-input .cke,
@@ -233,6 +250,20 @@
 	padding: 0;
 }
 
+.page-maintenance-intervention-report .powerplantpv-report-file-delete {
+	background: transparent;
+	border: 0;
+	padding: 4px;
+	cursor: pointer;
+	filter: brightness(0);
+	opacity: 0.55;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-file-delete:hover,
+.page-maintenance-intervention-report .powerplantpv-report-file-delete:focus-visible {
+	opacity: 1;
+}
+
 .page-maintenance-intervention-report .powerplantpv-file-upload {
 	display: flex;
 	flex-wrap: wrap;
@@ -252,6 +283,13 @@
 
 .page-maintenance-intervention-report .powerplantpv-inline-form {
 	display: inline;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-document-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
 }
 
 .page-maintenance-intervention-report .powerplantpv-dc-measures {
@@ -438,6 +476,18 @@
 	overflow-wrap: anywhere;
 }
 .page-maintenance-intervention-report .powerplantpv-report-contents-sections { padding-inline-start: 12px; }
+.page-maintenance-intervention-report .powerplantpv-part-signature-modal {
+	position: fixed;
+	top: 50% !important;
+	left: 50% !important;
+	transform: translate(-50%, -50%);
+	box-sizing: border-box;
+	max-width: calc(100% - 16px);
+}
+.page-maintenance-intervention-report .powerplantpv-part-signature-modal .ui-dialog-title {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
 .page-maintenance-intervention-report [data-report-contents] .menu_contenu { max-width: 100%; }
 @media (max-width: 767px) {
 	.page-maintenance-intervention-report .powerplantpv-identity-mobile { display: inline; overflow-wrap: anywhere; }

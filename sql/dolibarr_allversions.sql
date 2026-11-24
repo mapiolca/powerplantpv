@@ -909,6 +909,19 @@ ALTER TABLE llx_powerplantpv_report_file ADD INDEX IF NOT EXISTS idx_powerplantp
 ALTER TABLE llx_powerplantpv_report_file ADD INDEX IF NOT EXISTS idx_powerplantpv_report_file_report (fk_report);
 ALTER TABLE llx_powerplantpv_report_file ADD INDEX IF NOT EXISTS idx_powerplantpv_report_file_field (fk_report_field);
 
+CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_evidence_link (
+	rowid integer AUTO_INCREMENT PRIMARY KEY,
+	entity integer DEFAULT 1 NOT NULL,
+	fk_report_file integer NOT NULL,
+	token_hash varchar(64) NOT NULL,
+	file_hash varchar(64) NOT NULL,
+	date_creation datetime NOT NULL,
+	expires_at datetime DEFAULT NULL,
+	fk_user_creat integer NOT NULL
+) ENGINE=innodb;
+ALTER TABLE llx_powerplantpv_report_evidence_link ADD UNIQUE INDEX IF NOT EXISTS uk_ppv_ev_link_hash (token_hash);
+ALTER TABLE llx_powerplantpv_report_evidence_link ADD INDEX IF NOT EXISTS idx_ppv_ev_link_file (entity, fk_report_file, expires_at);
+
 CREATE TABLE IF NOT EXISTS llx_powerplantpv_serialnumber(
 	rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
 	entity integer DEFAULT 1 NOT NULL,

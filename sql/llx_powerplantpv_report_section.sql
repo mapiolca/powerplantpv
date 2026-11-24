@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_section(
 	fk_report_equipment integer,
 	fk_report_template_section integer,
 	section_code varchar(64) NOT NULL,
+	part_ref varchar(64),
 	section_label varchar(255) NOT NULL,
 	section_label_en varchar(255),
 	section_description text,

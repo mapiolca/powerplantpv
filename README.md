@@ -342,3 +342,11 @@ L’option **Masquer les MPPT et entrées PV non exploités dans la saisie** est
 par entité dans les réglages. Elle ne modifie pas le PDF : les entrées non raccordées y
 restent identifiées comme « Non exploité par la centrale ». Aucun relevé stocké n’est supprimé.
 Les indicateurs PDF comptent les réponses explicites du modèle ; ils ne remplacent pas une conclusion technique.
+
+### Télécharger les preuves d’un rapport Autocontrôles C&I
+
+Les preuves ajoutées dans l’onglet **Rapport** sont également jointes à l’intervention.
+La génération du PDF rattache les preuves existantes et ajoute leurs liens de téléchargement pour un utilisateur interne disposant des droits de modification du rapport et de l’intervention.
+Le nom du fichier dans le PDF ouvre une page de téléchargement HTTPS accessible sans compte. Le lien expire après 30 jours. La suppression ou le remplacement du fichier joint invalide l’accès.
+
+Après mise à jour du code, recharger PowerPlantPV depuis la liste native des modules pour installer la table des liens, puis régénérer le PDF.

@@ -166,7 +166,7 @@ $permissionnote = $permissiontoadd;
 $permissiondellink = $permissiontoadd;
 
 if (in_array($action, array('add', 'update'), true) && GETPOSTISSET('powerplantpv_projects_present')) {
-	if (!$user->hasRight('powerplantpv', 'powerplant', 'write')) {
+	if (!($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin))) {
 		accessforbidden();
 	}
 	$object->project_ids = array_map('intval', GETPOST('powerplantpv_projects', 'array:int'));
