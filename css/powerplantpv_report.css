@@ -432,7 +432,13 @@
 .page-maintenance-intervention-report .powerplantpv-report-save-state { padding: 8px; }
 .page-maintenance-intervention-report summary { scroll-margin-top: 80px; }
 .page-maintenance-intervention-report [data-contents-label] { scroll-margin-top: 80px; }
-.page-maintenance-intervention-report [data-report-contents] a { overflow-wrap: anywhere; }
+.page-maintenance-intervention-report [data-report-contents] .menu_titre,
+.page-maintenance-intervention-report [data-report-contents] a {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+.page-maintenance-intervention-report .powerplantpv-report-contents-sections { padding-inline-start: 12px; }
+.page-maintenance-intervention-report [data-report-contents] .menu_contenu { max-width: 100%; }
 @media (max-width: 767px) {
 	.page-maintenance-intervention-report .powerplantpv-identity-mobile { display: inline; overflow-wrap: anywhere; }
 	.page-maintenance-intervention-report .powerplantpv-identity-desktop { display: none; }
