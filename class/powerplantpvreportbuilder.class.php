@@ -444,7 +444,8 @@ class PowerPlantPVReportBuilder
 		$isPartsReport = PowerPlantPVReportParts::isPartsReport($report);
 		foreach ($fields as $field) {
 			if (!empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
-				|| ($isPartsReport && PowerPlantPVReportParts::isManualSignerField((string) $field->field_code))
+				|| ($isPartsReport && ((string) $field->field_code === PowerPlantPVReportParts::LEGACY_RESERVES_FIELD
+					|| PowerPlantPVReportParts::isManualSignerField((string) $field->field_code)))
 				|| !empty($lockedSectionIds[(int) $field->fk_report_section])) {
 				continue;
 			}

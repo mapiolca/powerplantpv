@@ -1116,7 +1116,8 @@ function powerplantpvReportFindMissingRequiredFields($reportId, $onlySectionIds 
 			continue;
 		}
 		if (!empty($field->readonly) || (int) $field->visible_form <= 0 || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
-			|| ($isPartsReport && PowerPlantPVReportParts::isManualSignerField((string) $field->field_code))) {
+			|| ($isPartsReport && ((string) $field->field_code === PowerPlantPVReportParts::LEGACY_RESERVES_FIELD
+				|| PowerPlantPVReportParts::isManualSignerField((string) $field->field_code)))) {
 			continue;
 		}
 		if (in_array((string) $field->field_type, array('computed', 'signature'), true)) {
@@ -1295,6 +1296,9 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 		}
 		$key = 'general';
 		if ($byPart) {
+			if ((string) $row['section']->section_code === PowerPlantPVReportParts::LEGACY_RESERVES_SECTION) {
+				continue;
+			}
 			$key = 'part:'.PowerPlantPVReportParts::partCodeForSection((string) $row['section']->section_code);
 		} elseif (!empty($row['powerplant'])) {
 			$key = 'powerplant:'.powerplantpvReportPowerplantSourceId($row['powerplant']);
@@ -2078,7 +2082,7 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		$hash = md5((string) $field->stable_key);
 		$timestamp = is_int($field->value_date) ? $field->value_date : '';
 		print '<input type="hidden" name="report_date_keys['.$hash.']" value="'.dol_escape_htmltag((string) $field->stable_key).'">';
-		print '<div class="powerplantpv-report-date">';
+		print '<div class="powerplantpv-report-date" data-date-format="'.dol_escape_htmltag($langs->transnoentitiesnoconv('FormatDateShortJavaInput')).'">';
 		print $form->selectDate($timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
 		print '</div>';
 	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean', 'select', 'conformity_so_valid_obs', 'status', 'multiselect'), true)) {

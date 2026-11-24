@@ -1973,6 +1973,7 @@ PowerPlantPVAutocontrolCommonSections=Synthèse du dossier
 PowerPlantPVAutocontrolFinalValidation=Validation du dossier complet
 PowerPlantPVAutocontrolFinalValidationHelp=Après signature des six parties et levée des réserves.
 PowerPlantPVAutocontrolNoReservation=Aucune réserve.
+PowerPlantPVAutocontrolReservationSummary=Synthèse des réserves
 PowerPlantPVAutocontrolStrings=Strings relevés
 PowerPlantPVAutocontrolSignedParts=Parties signées
 PowerPlantPVAutocontrolSiteInstallation=Chantier et installation

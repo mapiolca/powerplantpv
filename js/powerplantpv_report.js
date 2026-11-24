@@ -311,8 +311,9 @@
 					return control.value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
 				});
 				if (type === 'date' || type === 'datetime') {
+					var visibleDate = field.querySelector('.divfordateinput input');
 					var parts = controls.filter(function (control) { return /(?:day|month|year)$/.test(control.name); });
-					filled = parts.length >= 3 && parts.every(function (control) { return Number(control.value) > 0; });
+					filled = visibleDate ? visibleDate.value.trim() !== '' : parts.length >= 3 && parts.every(function (control) { return Number(control.value) > 0; });
 				}
 				field.dataset.progressFilled = filled ? '1' : '0';
 			}
@@ -382,6 +383,13 @@
 		form.addEventListener('submit', function (event) {
 			if (event.defaultPrevented) { return; }
 			if (submitted) { event.preventDefault(); return; }
+			// Synchronize the native hidden fields even when the inline onchange did not run.
+			if (typeof window.dpChangeDay === 'function') {
+				form.querySelectorAll('.powerplantpv-report-date .divfordateinput input').forEach(function (input) {
+					var format = input.type === 'date' ? 'yyyy-mm-dd' : input.closest('.powerplantpv-report-date').dataset.dateFormat;
+					window.dpChangeDay(input.id, format);
+				});
+			}
 			submitted = true;
 			if (state) { state.textContent = form.dataset.saving; }
 			rememberView();

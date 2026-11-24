@@ -33,6 +33,8 @@ class PowerPlantPVReportParts
 
 	/** Final validation of the complete report, signed once every part is signed. */
 	public const FINAL_CODE = 'FINAL';
+	public const LEGACY_RESERVES_SECTION = 'AC_RESERVES';
+	public const LEGACY_RESERVES_FIELD = 'AC_RESERVES_LIST';
 
 	/** @var DoliDB */
 	public $db;

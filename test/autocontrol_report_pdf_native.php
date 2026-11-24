@@ -175,6 +175,10 @@ foreach ($labels as $part => $label) {
 			$measure->mppt_number = intdiv($i, 2) + 1; $measure->pv_input_number = $i + 1; $measure->position = $i; $measure->string_ref = 'PV'.($i + 1); $measure->is_connected = 1;
 			$measure->open_circuit_voltage = 520 + $i; $measure->polarity_checked = 1; $measure->insulation_status = 'valid';
 			$measure->insulation_positive_to_ground = null; $measure->insulation_negative_to_ground = null; $measure->observation = '';
+			if ($i === 0) {
+				$measure->insulation_status = 'observation';
+				$measure->observation = 'Mesure DC à contrôler.';
+			}
 			$measure->positive_to_ground_voltage = 2; $measure->negative_to_ground_voltage = -3;
 			$measures[] = $measure;
 		}
@@ -244,6 +248,15 @@ function autocontrolPdfText(string $file): string
 }
 $layoutText = autocontrolPdfText($file);
 $text = str_replace("\n", '', $layoutText);
+$reservations = strstr($text, 'Synthèse des réserves');
+visualPdfCheck($reservations !== false && strpos($reservations, 'Repérage : Non conforme / observation') !== false
+	&& strpos($reservations, 'Repérage du coffret CC2 à compléter.') !== false
+	&& strpos($reservations, 'Repérage CC2 repris le jour même.') !== false
+	&& strpos($reservations, 'Mesure DC à contrôler.') !== false,
+	'The PDF summary collects status findings, notes, conclusion deviations and DC observations');
+visualPdfCheck($reservations !== false && strpos($reservations, 'Documents à jour') === false
+	&& strpos($reservations, 'Partie 1 : repérage CC2, levée le 18/11/2026.') === false,
+	'Compliant controls and the former manual summary are omitted');
 foreach (array('Partie 1 / 6', 'Partie 6 / 6', 'FM-ESS-001', 'CI-DC-0042', 'A. Martin', 'B. Durand', 'Non signé', 'Validation du dossier complet', 'Conforme avec réserves') as $needle) {
 	visualPdfCheck(strpos($text, $needle) !== false, 'PDF text contains '.$needle);
 }

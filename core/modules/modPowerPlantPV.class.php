@@ -3167,7 +3167,6 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC6_INVERTER', 'Partie 6 · Arrêt, reprise et production', 'Part 6 · Stop, restart and production', 'inverter', '', 'once_per_equipment', ''),
 			array('AC6_THERMOGRAPHY', 'Partie 6 · Thermographie (option)', 'Part 6 · Thermography (optional)', 'intervention', '', 'once', ''),
 			array('AC6_CONCLUSION', 'Partie 6 · Conclusion', 'Part 6 · Conclusion', 'intervention', '', 'once', ''),
-			array('AC_RESERVES', 'Synthèse des réserves', 'Reservations summary', 'intervention', '', 'once', ''),
 		);
 		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
 		$sectionIds = array();
@@ -3303,7 +3302,6 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC6_THERMOGRAPHY', 'AC6_THERMO_MAIN_CONNECTIONS', 'Connexions principales', 'Main connections', 'conformity_so_valid_obs', '', 0),
 			array('AC6_THERMOGRAPHY', 'AC6_THERMO_MAX', 'Température maximale', 'Maximum temperature', 'number', '°C', 0),
 			array('AC6_THERMOGRAPHY', 'AC6_THERMO_NOTES', 'Localisation / actions', 'Location / actions', 'textarea', '', 0),
-			array('AC_RESERVES', 'AC_RESERVES_LIST', 'Réserves à lever', 'Reservations to clear', 'textarea', '', 0, 'Une réserve par ligne : partie, écart, action corrective, échéance.'),
 		));
 
 		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';

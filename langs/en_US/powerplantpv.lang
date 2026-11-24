@@ -1972,6 +1972,7 @@ PowerPlantPVAutocontrolCommonSections=Report summary
 PowerPlantPVAutocontrolFinalValidation=Complete report validation
 PowerPlantPVAutocontrolFinalValidationHelp=Once the six parts are signed and the reservations cleared.
 PowerPlantPVAutocontrolNoReservation=No reservation.
+PowerPlantPVAutocontrolReservationSummary=Summary of reservations
 PowerPlantPVAutocontrolStrings=Measured strings
 PowerPlantPVAutocontrolSignedParts=Signed parts
 PowerPlantPVAutocontrolSiteInstallation=Site and installation

@@ -64,11 +64,65 @@ trait PowerPlantPVReportPartsPdf
 		$pdf->AddPage();
 		$this->reserveFooterSpace($pdf);
 		foreach ($rowsByPart[''] as $row) {
+			if ((string) $row['section']->section_code === PowerPlantPVReportParts::LEGACY_RESERVES_SECTION) {
+				continue;
+			}
 			foreach ($this->filterVisibleFields($row['fields']) as $field) {
 				$this->visualNote($pdf, PowerPlantPVReportPdfDataset::localizedProperty($field, 'field_label', $langs), PowerPlantPVReportPdfDataset::formatFieldValue($field, $langs), $langs->transnoentities('PowerPlantPVAutocontrolNoReservation'));
 			}
 		}
+		$this->partsReservations($pdf, $rowsByPart, $definitions, $langs);
 		$this->partsFinalValidation($pdf, $dataset, $signatures[PowerPlantPVReportParts::FINAL_CODE] ?? array(), $langs);
+	}
+
+	/**
+	 * Summarize recorded findings from the visible stages of the report.
+	 *
+	 * @param TCPDF|TCPDI $pdf PDF handler
+	 * @param array<string,array<int,array<string,mixed>>> $rowsByPart Sections by stage
+	 * @param array<string,array{number:int,ref:string,label:string,short:string,version:string,application_date:string,decision:bool}> $definitions Stage definitions
+	 * @param Translate $langs Output language
+	 * @return void
+	 */
+	protected function partsReservations(&$pdf, array $rowsByPart, array $definitions, $langs)
+	{
+		$summary = array();
+		foreach ($definitions as $partCode => $definition) {
+			$findings = array();
+			foreach ($rowsByPart[$partCode] as $row) {
+				$equipment = $row['equipment'] ?? null;
+				$equipmentLabel = is_object($equipment) ? $this->visualIdentity($equipment, false).' · ' : '';
+				foreach ($this->filterVisibleFields($row['fields']) as $field) {
+					$type = (string) $field->field_type;
+					$value = (string) $field->value_text;
+					$isFinding = in_array($type, array('conformity_so_valid_obs', 'status', 'select'), true)
+						&& in_array($value, array('observation', 'NON_CONFORM', 'RESERVES', 'BLOCK'), true);
+					if (!$isFinding && !in_array($type, array('textarea', 'html'), true)) {
+						continue;
+					}
+					$text = trim(dol_string_nohtmltag(PowerPlantPVReportPdfDataset::formatFieldValue($field, $langs), 0));
+					if ($text !== '') {
+						$label = PowerPlantPVReportPdfDataset::localizedProperty($field, 'field_label', $langs);
+						$findings[] = $equipmentLabel.$label.' : '.$text;
+					}
+				}
+				foreach (PowerPlantPVReportPresentation::visibleMeasures($row['dc_measures'] ?? array(), false) as $measure) {
+					$text = trim((string) $measure->observation);
+					if ((string) $measure->insulation_status === 'observation') {
+						$status = $langs->transnoentities('PowerPlantPVReportConformityObservation');
+						$text = $text === '' ? $status : $status.' · '.$text;
+					}
+					if ($text !== '') {
+						$findings[] = implode(' · ', array_filter(array($measure->inverter_marker ?? '', $measure->string_ref ?? ''))).' : '.$text;
+					}
+				}
+			}
+			if ($findings) {
+				$title = $langs->transnoentities('PowerPlantPVAutocontrolPartNumber', $definition['number']).' · '.$langs->transnoentities($definition['short']);
+				$summary[] = $title."\n".implode("\n", $findings);
+			}
+		}
+		$this->visualNote($pdf, $langs->transnoentities('PowerPlantPVAutocontrolReservationSummary'), implode("\n\n", $summary), $langs->transnoentities('PowerPlantPVAutocontrolNoReservation'));
 	}
 
 	/**
