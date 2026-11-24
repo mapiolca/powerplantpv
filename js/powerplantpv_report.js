@@ -229,18 +229,18 @@
 		title.textContent = navigation.dataset.reportContentsLabel;
 		contents.setAttribute('aria-labelledby', title.id);
 		contents.appendChild(title);
-		var currentPlant = null;
+		var currentGroup = null;
 		var items = contents;
 		targets.forEach(function (target) {
-			var plant = target.closest('[data-contents-plant]');
-			if (plant !== currentPlant) {
-				currentPlant = plant;
+			var group = target.closest('[data-contents-group]');
+			if (group !== currentGroup) {
+				currentGroup = group;
 				items = contents;
-				if (plant) {
-					var plantHeading = document.createElement('div');
-					plantHeading.className = 'menu_titre';
-					plantHeading.textContent = plant.dataset.contentsPlant;
-					contents.appendChild(plantHeading);
+				if (group) {
+					var groupHeading = document.createElement('div');
+					groupHeading.className = 'menu_titre';
+					groupHeading.textContent = group.dataset.contentsGroup;
+					contents.appendChild(groupHeading);
 					items = document.createElement('div');
 					items.className = 'powerplantpv-report-contents-sections';
 					contents.appendChild(items);

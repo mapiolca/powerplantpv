@@ -1436,6 +1436,7 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 	foreach ($groups as $group) {
 		$hasPlant = !empty($group['powerplant']);
 		$partCode = '';
+		$partContentsTitle = '';
 		if ($byPart) {
 			if (empty($group['sections'])) {
 				continue;
@@ -1443,6 +1444,8 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			$partCode = (string) $group['part'];
 			$plantLabel = $partCode !== '' ? powerplantpvReportPartLabel($partCode) : $langs->trans('PowerPlantPVAutocontrolCommonSections');
 			if (isset($partDefinitions[$partCode])) {
+				$partContentsTitle = $langs->transnoentities('PowerPlantPVAutocontrolPartNumber', $partDefinitions[$partCode]['number']);
+				print '<div data-contents-group="'.dol_escape_htmltag($partContentsTitle).'">';
 				$plantLabel .= ' · '.$partDefinitions[$partCode]['ref'];
 			}
 			$signedBy = array();
@@ -1453,7 +1456,7 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			print load_fiche_titre(dol_escape_htmltag($plantLabel).$morehtml, '', 'fa-clipboard-check');
 		} elseif ($hasPlant) {
 			$plantLabel = powerplantpvReportPowerplantLabel($group['powerplant']);
-			print '<div data-contents-plant="'.dol_escape_htmltag($plantLabel).'">';
+			print '<div data-contents-group="'.dol_escape_htmltag($plantLabel).'">';
 			print load_fiche_titre(dol_escape_htmltag($plantLabel), '', 'fa-industry');
 			powerplantpvReportRenderPowerplantTechnicalSummary($group['powerplant']);
 		}
@@ -1481,6 +1484,12 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 				}
 			}
 			$contentsLabel = $label;
+			if ($partContentsTitle !== '') {
+				$sectionPrefix = $partContentsTitle.' · ';
+				if (strpos($contentsLabel, $sectionPrefix) === 0) {
+					$contentsLabel = substr($contentsLabel, strlen($sectionPrefix));
+				}
+			}
 			if ($identity) {
 				$marker = trim((string) $identity->equipment_marker);
 				if ($marker !== '') {
@@ -1546,7 +1555,7 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			print dolGetButtonAction($langs->trans('PowerPlantPVPartReopen'), '', 'default', $reopenUrl);
 			print '</div>';
 		}
-		if ($hasPlant) {
+		if ($partContentsTitle !== '' || (!$byPart && $hasPlant)) {
 			print '</div>';
 		}
 	}
