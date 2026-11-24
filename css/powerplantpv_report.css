@@ -476,6 +476,14 @@
 	overflow-wrap: anywhere;
 }
 .page-maintenance-intervention-report .powerplantpv-report-contents-sections { padding-inline-start: 12px; }
+.page-maintenance-intervention-report .powerplantpv-part-signature-modal {
+	position: fixed;
+	top: 50% !important;
+	left: 50% !important;
+	transform: translate(-50%, -50%);
+	box-sizing: border-box;
+	max-width: calc(100% - 16px);
+}
 .page-maintenance-intervention-report [data-report-contents] .menu_contenu { max-width: 100%; }
 @media (max-width: 767px) {
 	.page-maintenance-intervention-report .powerplantpv-identity-mobile { display: inline; overflow-wrap: anywhere; }
