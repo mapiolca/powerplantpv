@@ -23,6 +23,7 @@ require_once __DIR__.'/../../../../class/powerplantpvreportpresentation.class.ph
 require_once __DIR__.'/../../../../class/powerplantpvreportillustration.class.php';
 require_once __DIR__.'/../../../../class/powerplant.class.php';
 require_once __DIR__.'/powerplantpvreportvisualpdf.trait.php';
+require_once __DIR__.'/powerplantpvreportpartspdf.trait.php';
 dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 
 /**
@@ -31,6 +32,7 @@ dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 class pdf_powerplantpvreport extends ModelePDFFicheinter
 {
 	use PowerPlantPVReportVisualPdf;
+	use PowerPlantPVReportPartsPdf;
 	/**
 	 * @var DoliDB Database handler
 	 */
@@ -331,6 +333,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$this->completedPageFooters = array();
 		$this->visualHeaders = array();
 		$this->visualInverterNumbers = array();
+		$this->visualHeaderSubtitle = '';
 		$this->visualReportTitle = $annex ? $subject : PowerPlantPVReportPdfDataset::localizedProperty($dataset['report'] ?? null, 'report_template_label', $outputlangs);
 
 		$pdf->Open();
@@ -339,6 +342,8 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		if (!isset($this->visualHeaders[(int) $pdf->getPage()])) { $this->renderHeader($pdf, $object, $dataset, $outputlangs); }
 		if ($annex) {
 			$this->renderAnnex($pdf, $dataset, $outputlangs);
+		} elseif (!empty($dataset['report_found']) && PowerPlantPVReportParts::isPartsReport($dataset['report'])) {
+			$this->renderPartsReport($pdf, $object, $dataset, $outputlangs);
 		} else {
 			$this->renderReport($pdf, $object, $dataset, $outputlangs);
 		}
@@ -532,6 +537,9 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$ref = $outputlangs->transnoentities('Intervention').' '.$object->ref;
 		if (!empty($dateIntervention)) {
 			$ref = $outputlangs->transnoentities('PowerPlantPVReportInterventionHeader', dol_print_date($dateIntervention, 'day', 'tzuser', $outputlangs), $object->ref);
+		}
+		if ($this->visualHeaderSubtitle !== '') {
+			$ref = $this->visualHeaderSubtitle;
 		}
 		$pdf->SetFont('', 'B', 10);
 		$pdf->SetX($this->marge_gauche + 55);

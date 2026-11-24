@@ -14,6 +14,18 @@ function powerplantpvReportSignatureRoles(): array
 	return array('technician', 'technical');
 }
 
+/**
+ * Whether a signature image key is known: a report role, or one role of a self-inspection part.
+ *
+ * @param	string	$role	Report role, or part key such as part-AC2-technician
+ * @return	bool
+ */
+function powerplantpvReportSignatureRoleIsValid(string $role): bool
+{
+	return in_array($role, powerplantpvReportSignatureRoles(), true)
+		|| (bool) preg_match('/^part-(AC[1-6]-technician|FINAL-(technician|works_manager|business_manager))$/D', $role);
+}
+
 /** Whether the server can validate and re-encode drawn signatures. */
 function powerplantpvReportSignatureAvailable(): bool
 {
@@ -35,7 +47,7 @@ function powerplantpvReportSignaturePath(int $entity, int $reportId, string $rol
 
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 	$root = $conf->powerplantpv->multidir_output[$entity] ?? '';
-	if ($entity <= 0 || $reportId <= 0 || !is_string($root) || trim($root) === '' || !in_array($role, powerplantpvReportSignatureRoles(), true)) {
+	if ($entity <= 0 || $reportId <= 0 || !is_string($root) || trim($root) === '' || !powerplantpvReportSignatureRoleIsValid($role)) {
 		return '';
 	}
 	$root = realpath($root);
