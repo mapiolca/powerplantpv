@@ -77,6 +77,7 @@ if (isModEnabled('project')) {
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'interventions', 'companies', 'contracts', 'other'));
 
 $id = GETPOSTINT('id');
+$ref = $id > 0 ? '' : (string) GETPOST('ref', 'alphanohtml');
 $action = GETPOST('action', 'aZ09');
 $token = GETPOST('token', 'alphanohtml');
 $fieldId = GETPOSTINT('field_id');
@@ -107,14 +108,20 @@ if ($action === '') {
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
 	accessforbidden();
 }
-if ($id <= 0) {
+if (!$user->hasRight('ficheinter', 'lire') || !$user->hasRight('powerplantpv', 'report', 'read')) {
+	accessforbidden();
+}
+if ($id <= 0 && $ref === '') {
 	accessforbidden($langs->trans('ErrorRecordNotFound'));
 }
 
 $intervention = new Fichinter($db);
-if ($intervention->fetch($id) <= 0) {
+if ($intervention->fetch($id, $ref) <= 0) {
 	accessforbidden($langs->trans('ErrorRecordNotFound'));
 }
+$id = (int) $intervention->id;
+restrictedArea($user, 'ficheinter', $id, 'fichinter');
+
 if (method_exists($intervention, 'fetch_optionals')) {
 	$intervention->fetch_optionals();
 }
@@ -122,14 +129,8 @@ if (method_exists($intervention, 'fetch_thirdparty')) {
 	$intervention->fetch_thirdparty();
 }
 
-$permissiontoread = $user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'report', 'read');
 $permissiontowrite = $user->hasRight('powerplantpv', 'report', 'write');
 $usercancreateintervention = $user->hasRight('ficheinter', 'creer');
-if (!$permissiontoread) {
-	accessforbidden();
-}
-
-restrictedArea($user, 'ficheinter', $id, 'fichinter');
 
 $builder = new PowerPlantPVReportBuilder($db);
 $report = new PowerPlantPVReport($db);
@@ -2142,7 +2143,7 @@ function powerplantpvReportRenderDcMeasureCard($measure, $editable, $form)
  */
 function powerplantpvReportRenderField($field, $editable, $form)
 {
-	global $langs;
+	global $id, $langs;
 
 	$fieldEditable = $editable && empty($field->readonly);
 	$label = powerplantpvReportLocalizedObjectLabel($field, 'field_label');
@@ -2243,7 +2244,7 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		if (!empty($field->id)) {
 			print '<div class="powerplantpv-file-upload">';
 			print '<input type="file" name="report_file_'.$field->id.'" class="flat powerplantpv-report-control">';
-			print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=upload_file&field_id='.((int) $field->id).'" value="'.dol_escape_htmltag($langs->trans('Upload')).'">';
+			print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.(int) $id.'&action=upload_file&field_id='.((int) $field->id).'" value="'.dol_escape_htmltag($langs->trans('Upload')).'">';
 			print '</div>';
 		} else {
 			print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportFileAfterFirstSave').'</span>';
@@ -2304,14 +2305,14 @@ function powerplantpvReportSaveIndexPhotos(PowerPlantPVReport $report, bool $fin
 
 function powerplantpvReportRenderIndexPhoto(PowerPlantPVReportField $field, bool $editable): void
 {
-	global $langs;
+	global $id, $langs;
 
 	if (!powerplantpvReportIndexPhotoField($field)) {
 		return;
 	}
 	$path = powerplantpvReportIndexPhotoPath($field);
 	if ($path !== '' && is_file($path)) {
-		$url = dol_buildpath('/powerplantpv/maintenance_intervention_report.php', 1).'?id='.GETPOSTINT('id').'&action=view_index_photo&field_id='.(int) $field->id;
+		$url = dol_buildpath('/powerplantpv/maintenance_intervention_report.php', 1).'?id='.(int) $id.'&action=view_index_photo&field_id='.(int) $field->id;
 		print '<div><a href="'.dol_escape_htmltag($url).'">'.img_picto('', 'fa-camera').' '.$langs->trans('PowerPlantPVIndexPhoto').'</a></div>';
 	}
 	if ($editable && powerplantpvIndexPhotoAvailable()) {
@@ -2537,7 +2538,7 @@ function powerplantpvReportIsNumericFieldType($fieldType)
  */
 function powerplantpvReportRenderFiles($field, $editable)
 {
-	global $langs;
+	global $id, $langs;
 
 	$files = isset($field->files) && is_array($field->files) ? $field->files : array();
 	if (empty($files)) {
@@ -2550,7 +2551,7 @@ function powerplantpvReportRenderFiles($field, $editable)
 		print '<li>';
 		print '<a href="'.$url.'">'.dol_escape_htmltag((string) $file->filename).'</a>';
 		if ($editable) {
-			$deleteUrl = $_SERVER['PHP_SELF'].'?id='.GETPOSTINT('id').'&action=delete_file&file_id='.(int) $file->id;
+			$deleteUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=delete_file&file_id='.(int) $file->id;
 			$deleteLabel = $langs->transnoentities('Delete');
 			print ' <button type="submit" class="powerplantpv-report-file-delete" formaction="'.dol_escape_htmltag($deleteUrl).'" aria-label="'.dol_escape_htmltag($deleteLabel).'">';
 			print img_delete($deleteLabel).'</button>';
