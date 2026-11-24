@@ -466,7 +466,7 @@ jQuery(function ($) {
 			closeText: dialog.attr('data-close-label'),
 			modal: true,
 			classes: { 'ui-dialog': 'ui-corner-all powerplantpv-part-signature-modal' },
-			width: Math.min(760, Math.floor(window.innerWidth * 0.95)),
+			width: 760,
 			maxHeight: Math.floor(window.innerHeight * 0.95),
 			draggable: false,
 			resizable: false,
@@ -476,7 +476,9 @@ jQuery(function ($) {
 		});
 	}
 	const padOptions = { color: '#000', height: 180 };
-	if (!dialog.length) {
+	if (dialog.length) {
+		padOptions.width = '100%';
+	} else {
 		padOptions['decor-color'] = '#fff';
 	}
 	pad.jSignature(padOptions);

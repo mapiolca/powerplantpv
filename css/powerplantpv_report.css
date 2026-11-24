@@ -484,6 +484,10 @@
 	box-sizing: border-box;
 	max-width: calc(100% - 16px);
 }
+.page-maintenance-intervention-report .powerplantpv-part-signature-modal .ui-dialog-title {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
 .page-maintenance-intervention-report [data-report-contents] .menu_contenu { max-width: 100%; }
 @media (max-width: 767px) {
 	.page-maintenance-intervention-report .powerplantpv-identity-mobile { display: inline; overflow-wrap: anywhere; }
