@@ -1,5 +1,9 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.9.2 — Non publiée
+
+- Rapports de maintenance : le sommaire affiche un titre par centrale, avec ses sections en retrait et les onduleurs numérotés. Il se place sous le menu gauche sur ordinateur et en tête du rapport sur mobile.
+
 ## 1.9.1 — 2026-11-23
 
 - Rapports de maintenance et PDF : retrait des index d’injection par onduleur et des photos associées. Les index de production par onduleur et le compteur d’injection général restent disponibles.

@@ -33,6 +33,9 @@ Desktop section titles include marker, identification and serial; mobile titles 
 Panel serials are available in a separate CSV attachment generated from the report snapshot.
 See [the implementation and validation notes](docs/release/v1.8-maintenance-development.md)
 for activation, historic reports, naming existing equipment and validation limits.
+
+Version 1.9.2 groups report contents by power plant, numbers inverter sections and places the contents below the left menu on desktop. See [ChangeLog.md](ChangeLog.md).
+
 Version 1.9.1 removes per-inverter injection readings from maintenance reports, translates report answers and displays inverter checks in full-width PDF panels. See [ChangeLog.md](ChangeLog.md#191--2026-11-23).
 
 Version 1.9.0 adds permission-based finalization when evidence photos are missing, internal signatures with order-independent signature status, and PDF templates by intervention type. See [ChangeLog.md](ChangeLog.md#190--2026-11-20).
