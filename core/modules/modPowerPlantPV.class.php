@@ -3210,7 +3210,7 @@ class modPowerPlantPV extends DolibarrModules
 		$checks = array(
 			array('DOCS', 'Documents à jour', 'Up-to-date documents', 'Plans, schémas, fiches, paramètres réseau, consignes'),
 			array('GED', 'GED / ECM prête', 'Document management ready', 'Arborescence, droits, nommage, trames PV'),
-			array('MAPPING', 'Cartographie disponible', 'Mapping available', 'Strings → coffrets → MPPT ou méthode prévue'),
+			array('MAPPING', 'Cartographie disponible', 'Mapping available', 'Des strings aux MPPT via les coffrets, ou méthode prévue'),
 			array('LABELING', 'Repérage', 'Labeling', 'Strings, coffrets, onduleurs, protections, terre'),
 			array('ROUTING', 'Cheminements', 'Cable routing', 'Fixations, UV, rayons de courbure, abrasion / écrasement'),
 			array('DC_CONNECTORS', 'Connectique DC', 'DC connectors', 'Compatibilité, verrouillage, inversion'),
@@ -3240,7 +3240,7 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC3_GRID', 'AC3_FREQUENCY', 'Fréquence', 'Frequency', 'number', 'Hz', 1),
 			array('AC3_GRID', 'AC3_PHASE_ORDER', 'Ordre des phases', 'Phase order', 'conformity_so_valid_obs', '', 1),
 			array('AC3_GRID', 'AC3_PE_CONTINUITY', 'Continuité PE', 'PE continuity', 'conformity_so_valid_obs', '', 1),
-			array('AC3_GRID', 'AC3_CABLE_INSULATION', 'Isolement du câble', 'Cable insulation', 'number', 'MΩ', 0),
+			array('AC3_GRID', 'AC3_CABLE_INSULATION', 'Isolement du câble', 'Cable insulation', 'number', 'MOhm', 0),
 			array('AC3_GRID', 'AC3_GRID_ALARMS', 'Alarmes réseau', 'Grid alarms', 'varchar', '', 0),
 			array('AC3_PROTECTIONS', 'AC3_PROT_BREAKER', 'Disjoncteur de départ', 'Outgoing circuit breaker', 'conformity_so_valid_obs', '', 1, 'Type / calibre, réglage attendu et constaté'),
 			array('AC3_PROTECTIONS', 'AC3_PROT_SWITCH', 'Sectionneur(s)', 'Switch disconnector(s)', 'conformity_so_valid_obs', '', 1),
