@@ -178,11 +178,11 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 	 * @param	Translate							$outputlangs		Output lang
 	 * @param	int									$defaultFontSize	Default font size
 	 * @param	array<int,array{0:string,1:string}>	$rows				Rows
+	 * @param	float $labelWidth Label column width in millimetres
 	 * @return	void
 	 */
-	protected function renderInfoTable($pdf, $outputlangs, $defaultFontSize, $rows)
+	protected function renderInfoTable($pdf, $outputlangs, $defaultFontSize, $rows, $labelWidth = 62)
 	{
-		$labelWidth = 62;
 		$valueWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite - $labelWidth;
 		$fontSize = max($defaultFontSize - 1, 7);
 
@@ -227,14 +227,12 @@ class pdf_attestation_bridage_dynamique extends pdf_attestation_base
 		$pdf->Rect($x, $y, $widths[0], $height, 'DF');
 		$pdf->Rect($x + $widths[0], $y, $widths[1], $height, 'D');
 
-		$pdf->SetXY($x + 1, $y + 1);
 		$pdf->SetFont('', 'B', $fontSize);
-		$pdf->MultiCell($widths[0] - 2, $lineHeight, $label, 0, 'L', false, 0);
+		$this->renderTableCellText($pdf, $widths[0] - 2, $height, $label, $x + 1, $y);
 		$x += $widths[0];
 
-		$pdf->SetXY($x + 1, $y + 1);
 		$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize);
-		$pdf->MultiCell($widths[1] - 2, $lineHeight, $text, 0, 'L', false, 0);
+		$this->renderTableCellText($pdf, $widths[1] - 2, $height, $text, $x + 1, $y);
 		$this->resetPdfTextStyle($pdf);
 		$pdf->SetDrawColor(0, 0, 0);
 		$pdf->SetY($y + $height);

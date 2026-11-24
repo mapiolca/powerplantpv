@@ -21,6 +21,16 @@ require_once __DIR__.'/../../../../class/powerplantpvattestationtypes.class.php'
  */
 class pdf_attestation_mise_en_service extends pdf_attestation_base
 {
+	protected $centerTableCells = true;
+
+	/** @var array<int,array{0:array<int,int>,1:array<int,int>}> Background and text colors by check result */
+	protected const CHECK_BADGE_COLORS = array(
+		0 => array(array(237, 240, 244), array(73, 85, 103)),
+		1 => array(array(227, 245, 238), array(18, 128, 92)),
+		2 => array(array(252, 231, 231), array(149, 37, 37)),
+		3 => array(array(237, 240, 244), array(73, 85, 103)),
+		4 => array(array(255, 240, 218), array(132, 76, 14)),
+	);
 	/** @var array<int,int> Report palette: navy text */
 	protected const NAVY = array(23, 40, 74);
 	/** @var array<int,int> Report palette: accent */
@@ -177,8 +187,8 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 		$checks = array();
 		foreach (PowerPlantPVAttestationTypes::COMMISSIONING_CHECKS as $field => $label) {
 			$result = (int) $object->{$field};
-			$resultLabel = PowerPlantPVAttestationTypes::COMMISSIONING_RESULTS[$result] ?? PowerPlantPVAttestationTypes::COMMISSIONING_RESULTS[0];
-			$checks[] = array($outputlangs->transnoentities($label), $outputlangs->transnoentities($resultLabel), $result === 1 ? 'badge' : '');
+			$result = isset(PowerPlantPVAttestationTypes::COMMISSIONING_RESULTS[$result]) ? $result : 0;
+			$checks[] = array($outputlangs->transnoentities($label), $outputlangs->transnoentities(PowerPlantPVAttestationTypes::COMMISSIONING_RESULTS[$result]), $result);
 		}
 		$this->renderPanels($pdf, $outputlangs, array(array('title' => '', 'ratio' => 0.78, 'rows' => $checks)));
 
@@ -188,13 +198,6 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 			array($outputlangs->transnoentities('AttestationConsuelNumber'), $data['consuel_number']),
 			array($outputlangs->transnoentities('AttestationConsuelDate'), $data['consuel_date']),
 		))));
-		if (trim((string) $object->note_public) !== '') {
-			$this->renderTitle($pdf, $outputlangs->transnoentities('AttestationCommissioningRemarks'), 12);
-			$this->renderRichParagraph($pdf, $outputlangs, nl2br(dol_escape_htmltag(dol_string_nohtmltag($object->note_public, 0))));
-		}
-		$pdf->Ln(3);
-
-		// Place, date and signature share the same block.
 		$this->renderSignature($pdf, $object, $outputlangs, $data);
 	}
 
@@ -461,7 +464,7 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 
 	/**
 	 * One or two white rounded panels side by side, each with label/value rows.
-	 * A row whose third item is 'badge' shows its value as a green "done" badge.
+	 * A row with a check result in its third item uses a badge.
 	 *
 	 * @param	TCPDF|TCPDI								$pdf			PDF
 	 * @param	Translate								$outputlangs	Output lang
@@ -501,8 +504,16 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 	{
 		$inner = $width - 8;
 		$labelWidth = $inner * (float) $panel['ratio'];
-		$valueWidth = $inner - $labelWidth;
-		$layout = array('title' => $outputlangs->convToOutputCharset((string) $panel['title']), 'labelWidth' => $labelWidth, 'valueWidth' => $valueWidth, 'rows' => array());
+		$badgeWidth = 0;
+		$pdf->SetFont('', 'B', 8.5);
+		foreach ($panel['rows'] as $row) {
+			if (isset($row[2])) {
+				$badgeWidth = max($badgeWidth, $pdf->GetStringWidth($outputlangs->convToOutputCharset($row[1])) + 10);
+			}
+		}
+		$valueWidth = max($inner - $labelWidth, $badgeWidth + 2);
+		$labelWidth = $inner - $valueWidth;
+		$layout = array('title' => $outputlangs->convToOutputCharset((string) $panel['title']), 'labelWidth' => $labelWidth, 'valueWidth' => $valueWidth, 'badgeWidth' => $badgeWidth, 'rows' => array());
 		$height = 3;
 		if ($layout['title'] !== '') {
 			$pdf->SetFont('', 'B', 11);
@@ -510,15 +521,16 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 			$height += $layout['titleHeight'] + 2;
 		}
 		foreach ($panel['rows'] as $row) {
-			$badge = (($row[2] ?? '') === 'badge');
-			$missing = !$badge && trim((string) $row[1]) === '';
+			$result = $row[2] ?? null;
+			$missing = $result === null && trim((string) $row[1]) === '';
 			$label = $outputlangs->convToOutputCharset((string) $row[0]);
 			$value = $outputlangs->convToOutputCharset($missing ? $outputlangs->transnoentities('AttestationNotProvided') : (string) $row[1]);
 			$pdf->SetFont('', '', 9.5);
 			$rowHeight = $pdf->getStringHeight($labelWidth, $label);
 			$pdf->SetFont('', 'B', 9.5);
-			$rowHeight = max($badge ? 5.9 : 5.6, $rowHeight + 1.4, $badge ? 0 : $pdf->getStringHeight($valueWidth, $value) + 1.4);
-			$layout['rows'][] = array('label' => $label, 'value' => $value, 'badge' => $badge, 'missing' => $missing, 'height' => $rowHeight);
+			$valueHeight = $result === null ? $pdf->getStringHeight($valueWidth, $value) : 5.2;
+			$rowHeight = max(5.6, $rowHeight + 1.4, $valueHeight + 1.4);
+			$layout['rows'][] = array('label' => $label, 'value' => $value, 'result' => $result, 'missing' => $missing, 'height' => $rowHeight);
 			$height += $rowHeight;
 		}
 		$layout['height'] = $height + 3;
@@ -556,22 +568,28 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 			$vx = $x + 4 + $layout['labelWidth'];
 			$this->setColor($pdf, 'text', self::LABEL);
 			$pdf->SetFont('', '', 9.5);
-			$pdf->MultiCell($layout['labelWidth'], $rh, $row['label'], 0, 'L', false, 1, $x + 4, $cy, true, 0, false, true, $rh, 'M');
-			if ($row['badge']) {
+			$this->renderTableCellText($pdf, $layout['labelWidth'], $rh, $row['label'], $x + 4, $cy);
+			if ($row['result'] !== null) {
 				$pdf->SetFont('', 'B', 8.5);
-				$bw = $pdf->GetStringWidth($row['value']) + 9;
-				$bh = 4.6;
+				$bw = $layout['badgeWidth'];
+				$bh = 5.2;
 				$bx = $vx + $layout['valueWidth'] - $bw;
 				$by = $cy + ($rh - $bh) / 2;
-				$pdf->SetFillColor(227, 245, 238);
+				list($fill, $text) = self::CHECK_BADGE_COLORS[$row['result']];
+				$this->setColor($pdf, 'fill', $fill);
 				$pdf->RoundedRect($bx, $by, $bw, $bh, $bh / 2, '1111', 'F');
-				$this->drawCheck($pdf, $bx + 3.3, $by + $bh / 2, 2.5, array(18, 128, 92));
-				$pdf->SetTextColor(18, 128, 92);
-				$pdf->MultiCell($bw - 5.5, $bh, $row['value'], 0, 'L', false, 1, $bx + 5, $by, true, 0, false, true, $bh, 'M');
+				$hasCheck = $row['result'] === 1;
+				if ($hasCheck) {
+					$this->drawCheck($pdf, $bx + 3.3, $by + $bh / 2, 2.5, $text);
+				}
+				$this->setColor($pdf, 'text', $text);
+				$inset = $hasCheck ? 5 : 0;
+				$textHeight = $pdf->getStringHeight($bw - $inset, $row['value']);
+				$pdf->MultiCell($bw - $inset, 0, $row['value'], 0, 'C', false, 0, $bx + $inset, $by + ($bh - $textHeight) / 2);
 			} else {
 				$this->setColor($pdf, 'text', $row['missing'] ? self::MISSING : self::NAVY);
 				$pdf->SetFont('', 'B', 9.5);
-				$pdf->MultiCell($layout['valueWidth'], $rh, $row['value'], 0, 'L', false, 1, $vx, $cy, true, 0, false, true, $rh, 'M');
+				$this->renderTableCellText($pdf, $layout['valueWidth'], $rh, $row['value'], $vx, $cy);
 			}
 			$cy += $rh;
 			if ($j < $count - 1) {
@@ -598,13 +616,23 @@ class pdf_attestation_mise_en_service extends pdf_attestation_base
 		$full = $this->contentWidth();
 		$textWidth = $full * 0.36;
 		$boxWidth = ($full - $textWidth - 2 * $gap) / 2;
-		$this->ensureSpace($pdf, $boxHeight + 8);
-		list($signature, $stamp) = $this->getSignatureImages($object);
-		$y = $pdf->GetY();
-
 		$text = $outputlangs->transnoentities('AttestationCommissioningDoneAt', $this->strong($data['place'], $outputlangs), $this->strong($data['attestation_date'], $outputlangs));
 		$text .= '<br><br>'.$outputlangs->transnoentities('AttestationCommissioningForCompany', $this->strong($data['company'], $outputlangs));
 		$text .= '<br>'.$this->strong($data['writer_name'], $outputlangs).'<br>'.$this->escape($this->plain($data['writer_function'], $outputlangs), $data['writer_function'] === '');
+		$plainText = html_entity_decode(strip_tags(str_replace('<br>', "
+", $text)), ENT_QUOTES, 'UTF-8');
+		$pdf->SetFont('', 'B', 9.5);
+		$textHeight = $pdf->getStringHeight($textWidth, $outputlangs->convToOutputCharset($plainText)) * 1.2;
+		$closingHeight = max($boxHeight + 6, $textHeight + 1) + 6;
+		if (!empty($object->date_signature)) {
+			$closingHeight += 5;
+		}
+		$this->renderRemarksBeforeSignature($pdf, $outputlangs, (string) $object->note_public, 9.5, $closingHeight, function () use ($pdf, $outputlangs) {
+			$this->renderTitle($pdf, $outputlangs->transnoentities('AttestationCommissioningRemarks'), 0);
+		});
+		$pdf->Ln(3);
+		list($signature, $stamp) = $this->getSignatureImages($object);
+		$y = $pdf->GetY();
 		$pdf->SetFont('', '', 9.5);
 		$this->setColor($pdf, 'text', self::TEXT);
 		$pdf->writeHTMLCell($textWidth, 0, $this->marge_gauche, $y + 1, $outputlangs->convToOutputCharset('<span style="line-height:1.4;">'.$text.'</span>'), 0, 1, false, true, 'L', true);

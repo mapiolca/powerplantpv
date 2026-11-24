@@ -24,6 +24,8 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
  */
 abstract class pdf_attestation_base extends ModelePDFAttestation
 {
+	/** @var bool Center values vertically in bordered table rows */
+	protected $centerTableCells = false;
 	public $db;
 	public $entity;
 	public $name;
@@ -802,6 +804,92 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 	}
 
 	/**
+	 * Print remarks before the signature block. Keep the entire closing section on one
+	 * page when possible, and reserve the signatures beside the last part of a long note.
+	 *
+	 * @param TCPDF|TCPDI $pdf PDF
+	 * @param Translate $outputlangs Output language
+	 * @param string $note Public note
+	 * @param float $fontSize Remark font size
+	 * @param float $closingHeight Height of the signature block and its gap
+	 * @param callable():void $renderHeading Render the section title
+	 * @return void
+	 */
+	protected function renderRemarksBeforeSignature($pdf, $outputlangs, $note, $fontSize, $closingHeight, callable $renderHeading)
+	{
+		$remarks = trim(dol_string_nohtmltag($note, 0));
+		if ($remarks === '') {
+			$this->ensureSpace($pdf, $closingHeight);
+			return;
+		}
+
+		$width = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+		$headingHeight = 10;
+		$pdf->SetFont('', '', $fontSize);
+		$required = $headingHeight + $pdf->getStringHeight($width, $outputlangs->convToOutputCharset($remarks)) + $closingHeight;
+		$this->ensureSpace($pdf, $required);
+		while ($remarks !== '') {
+			$pdf->SetFont('', '', $fontSize);
+			$available = $this->getContentBottomY() - $pdf->GetY() - $headingHeight - $closingHeight;
+			$part = $remarks;
+			$display = $outputlangs->convToOutputCharset($part);
+			if ($pdf->getStringHeight($width, $display) > $available) {
+				// Find a fitting prefix using the same font and width as the actual cell.
+				$low = 1;
+				$high = dol_strlen($remarks);
+				while ($low < $high) {
+					$middle = intdiv($low + $high + 1, 2);
+					$prefix = $outputlangs->convToOutputCharset(dol_substr($remarks, 0, $middle));
+					if ($pdf->getStringHeight($width, $prefix) <= $available) {
+						$low = $middle;
+					} else {
+						$high = $middle - 1;
+					}
+				}
+				$part = dol_substr($remarks, 0, $low);
+				if (!preg_match('/^\s/u', dol_substr($remarks, $low, 1))) {
+					$wholeWords = preg_replace('/\s+\S*$/u', '', $part);
+					if (is_string($wholeWords) && trim($wholeWords) !== '') {
+						$part = $wholeWords;
+					}
+				}
+				$display = $outputlangs->convToOutputCharset($part);
+			}
+
+			$renderHeading();
+			$pdf->SetFont('', '', $fontSize);
+			$pdf->MultiCell($width, 0, $display, 0, 'L', false, 1, $this->marge_gauche, $pdf->GetY());
+			$remarks = ltrim(dol_substr($remarks, dol_strlen($part)));
+			if ($remarks !== '') {
+				$this->ensureSpace($pdf, $this->getContentBottomY());
+			}
+		}
+	}
+
+	/**
+	 * Print a table cell with the current style. The font used to measure the
+	 * text is the same as the font used to print it.
+	 *
+	 * @param TCPDF|TCPDI $pdf PDF
+	 * @param float $width Cell width after horizontal padding
+	 * @param float $height Full row height
+	 * @param string $text Converted cell value
+	 * @param float $x Cell text origin X
+	 * @param float $y Row origin Y
+	 * @return void
+	 */
+	protected function renderTableCellText($pdf, $width, $height, $text, $x, $y)
+	{
+		if ($this->centerTableCells && method_exists($pdf, 'getStringHeight')) {
+			$textHeight = $pdf->getStringHeight($width, $text);
+			$pdf->MultiCell($width, 0, $text, 0, 'L', false, 0, $x, $y + max(0, ($height - $textHeight) / 2));
+			return;
+		}
+		$pdf->SetXY($x, $y + 1);
+		$pdf->MultiCell($width, 4, $text, 0, 'L', false, 0);
+	}
+
+	/**
 	 * Return the height of a table row with multiline cells.
 	 *
 	 * @param	TCPDF|TCPDI					$pdf			PDF
@@ -888,8 +976,7 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 			$widths = array($widths);
 		}
 
-		$lineHeight = 4;
-		$height = $this->getTableRowHeight($pdf, $outputlangs, $widths, $values, $fontSize, $styles, $lineHeight, 2, 6);
+		$height = $this->getTableRowHeight($pdf, $outputlangs, $widths, $values, $fontSize, $styles, 4, 2, 6);
 		if ($checkSpace) {
 			$this->ensureSpace($pdf, $height + 2);
 		}
@@ -904,9 +991,8 @@ abstract class pdf_attestation_base extends ModelePDFAttestation
 		foreach ($values as $i => $value) {
 			$width = isset($widths[$i]) ? $widths[$i] : $fallbackWidth;
 			$pdf->Rect($x, $y, $width, $height, $fill ? 'DF' : 'D');
-			$pdf->SetXY($x + 1, $y + 1);
 			$this->setPdfTextStyleForValue($pdf, $value, $outputlangs, $fontSize, isset($styles[$i]) ? $styles[$i] : '');
-			$pdf->MultiCell($width - 2, $lineHeight, $outputlangs->convToOutputCharset((string) $value), 0, 'L', false, 0);
+			$this->renderTableCellText($pdf, $width - 2, $height, $outputlangs->convToOutputCharset((string) $value), $x + 1, $y);
 			$this->resetPdfTextStyle($pdf);
 			$x += $width;
 		}
