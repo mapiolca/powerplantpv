@@ -408,7 +408,22 @@ foreach ($definition['fields'] as [$sectionCode, $code, $label, $labelEn, $type,
 }
 $residentialSections = array();
 foreach ($definition['sections'] as $index => [$code, $label]) {
-	$residentialSections[] = acSection($code, $label, ($index + 1) * 10, $residentialFields[$code]);
+	$position = ($index + 1) * 10;
+	if ($code === 'RES_INVERTER') {
+		foreach (array(1, 2) as $number) {
+			$equipment = (object) array(
+				'fk_powerplant_line' => 300 + $number,
+				'equipment_marker' => 'O'.$number,
+				'equipment_identification' => 'Onduleur de test '.$number,
+				'equipment_label' => 'Onduleur de test '.$number,
+				'product_ref' => 'PV-INV',
+				'serial_number' => 'RECETTE-'.$number,
+			);
+			$residentialSections[] = acSection($code, $label, $position + $number, $residentialFields[$code], 7, $equipment);
+		}
+		continue;
+	}
+	$residentialSections[] = acSection($code, $label, $position, $residentialFields[$code]);
 }
 $residential = $dataset;
 $residential['report'] = (object) array(
@@ -424,6 +439,12 @@ $residentialText = str_replace("\n", '', autocontrolPdfText($residentialFile));
 foreach (array('Chantier et préparation', 'Risques et sécurité', 'Contrôles électriques', 'Relevés des strings', price(315).' V', price(12.75).' ohm', 'Observations et conclusion', 'Signatures', 'Avenue du Président René Coty') as $expected) {
 	visualPdfCheck(strpos($residentialText, $expected) !== false, 'Residential PDF contains '.$expected);
 }
+foreach (array('RAPPORT D’AUTOCONTRÔLES RÉSIDENTIEL', '44,64 kWc', 'STRINGS RELEVÉS', '1 / 8',
+	'1 · Chantier et installation', '2 · Chantier et préparation', 'P26074', 'O1', 'O2', '8 · Observations et conclusion') as $expected) {
+	visualPdfCheck(strpos($residentialText, $expected) !== false, 'Residential overview contains '.$expected);
+}
+visualPdfCheck(substr_count($residentialText, '7 · Essais et connexion de l’onduleur') === 1,
+	'Equipment panels share one numbered heading');
 visualPdfCheck($residentialPages < $pages && strpos($residentialText, 'Validation du dossier complet') === false,
 	'The compact residential PDF uses report signatures and no C&I part validation');
 visualPdfCheck(PowerPlantPVReportTemplate::isInstallationTemplate(PowerPlantPVReportTemplate::CODE_RESIDENTIAL)

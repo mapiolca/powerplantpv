@@ -544,6 +544,41 @@ trait PowerPlantPVReportVisualPdf
 		return array('title'=>$title, 'rows'=>$rows, 'metadata'=>$metadata, 'power'=>$power);
 	}
 
+	/**
+	 * @param array<string,mixed> $dataset Report dataset
+	 * @param Translate $langs Output language
+	 * @return array{title:string,rows:list<array{label:string,value:string}>,info:bool,compact:float}
+	 */
+	protected function visualInspectionSitePanel(array $dataset, $langs): array
+	{
+		$client = $dataset['thirdparty'];
+		$left = array(array('label' => $langs->transnoentities('Customer'), 'value' => is_object($client) ? (string) $client->name : $langs->transnoentities('PowerPlantPVDataNotFilled')));
+		$left[] = array('label' => $langs->transnoentities('Intervention'), 'value' => (string) ($dataset['intervention']->ref ?? ''));
+		$project = $dataset['project'] ?? null;
+		if (is_object($project)) {
+			$left[] = array('label' => $langs->transnoentities('Project'), 'value' => implode(' - ', array_filter(array((string) $project->ref, (string) $project->title))));
+		}
+		return array('title' => $langs->transnoentities('PowerPlantPVAutocontrolSite'), 'rows' => $left, 'info' => true, 'compact' => 0.26);
+	}
+
+	/**
+	 * @param object|null $plant Report power plant
+	 * @param array<string,string> $facts Technical summary indexed by translation key
+	 * @param Translate $langs Output language
+	 * @return array{title:string,rows:list<array{label:string,value:string}>,info:bool,compact:float}
+	 */
+	protected function visualInspectionPlantPanel($plant, array $facts, $langs): array
+	{
+		$right = array();
+		foreach (array('PowerPlantPDFReference' => 'Reference', 'PowerPlantPDFAddress' => 'Address', 'PowerPlantPDFInstalledPower' => 'PowerPlantPDFPower', 'PowerPlantPDFConnectionType' => 'Type') as $key => $label) {
+			if (!empty($facts[$key])) {
+				$right[] = array('label' => $langs->transnoentities($label), 'value' => $facts[$key]);
+			}
+		}
+		$plantTitle = is_object($plant) ? trim($langs->transnoentities('PowerPlant').' '.(string) $plant->powerplant_label) : $langs->transnoentities('PowerPlant');
+		return array('title' => $plantTitle, 'rows' => $right, 'info' => true, 'compact' => 0.22);
+	}
+
 	/** @param TCPDF|TCPDI $pdf @param array<int,array<string,mixed>> $panels @param bool $paired @param bool $sharedFrame @return void */
 	protected function visualPanels(&$pdf, $panels, $paired, $sharedFrame = false)
 	{
@@ -564,7 +599,7 @@ trait PowerPlantPVReportVisualPdf
 				$panel['labelWidth'] = ($width - 8) * ($compact ? $panel['compact'] : (!empty($panel['info']) ? 0.38 : 0.61));
 				$panel['valueWidth'] = $width - 8 - $panel['labelWidth'];
 				$pdf->SetFont('', 'B', 11);
-				$panel['titleHeight'] = $pdf->getStringHeight($width - 8, $panel['title'] === '' ? 'A' : $panel['title']);
+				$panel['titleHeight'] = $panel['title'] === '' ? 0 : $pdf->getStringHeight($width - 8, $panel['title']);
 				$pdf->SetFont('', '', 8.5);
 				$panel['metaHeight'] = $panel['metadata'] === '' ? 0 : $pdf->getStringHeight($width - 8, $panel['metadata']) + 1;
 				$panel['powerHeight'] = $panel['power'] === '' ? 0 : $pdf->getStringHeight($width - 8, $panel['power']) + 1;
@@ -627,7 +662,9 @@ trait PowerPlantPVReportVisualPdf
 					}
 					$pdf->SetTextColor(23, 40, 74);
 					$pdf->SetFont('', 'B', 11);
-					$pdf->MultiCell($width - 8, $panel['titleHeight'], $panel['title'], 0, 'L', false, 1, $x + 4, $y + 3);
+					if ($panel['title'] !== '') {
+						$pdf->MultiCell($width - 8, $panel['titleHeight'], $panel['title'], 0, 'L', false, 1, $x + 4, $y + 3);
+					}
 					$cy = $y + 3 + $panel['titleHeight'];
 					foreach (array('power' => 'powerHeight', 'metadata' => 'metaHeight') as $key => $heightKey) {
 						if ($panel[$key] === '') { continue; }

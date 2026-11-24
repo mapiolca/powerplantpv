@@ -169,23 +169,9 @@ trait PowerPlantPVReportPartsPdf
 		), 4, 18.5);
 
 		$this->renderSectionTitle($pdf, $langs->transnoentities('PowerPlantPVAutocontrolSiteInstallation'), 2);
-		$client = $dataset['thirdparty'];
-		$left = array(array('label' => $langs->transnoentities('Customer'), 'value' => is_object($client) ? (string) $client->name : $missing));
-		$left[] = array('label' => $langs->transnoentities('Intervention'), 'value' => (string) ($dataset['intervention']->ref ?? ''));
-		$project = $dataset['project'] ?? null;
-		if (is_object($project)) {
-			$left[] = array('label' => $langs->transnoentities('Project'), 'value' => implode(' - ', array_filter(array((string) $project->ref, (string) $project->title))));
-		}
-		$right = array();
-		foreach (array('PowerPlantPDFReference' => 'Reference', 'PowerPlantPDFAddress' => 'Address', 'PowerPlantPDFInstalledPower' => 'PowerPlantPDFPower', 'PowerPlantPDFConnectionType' => 'Type') as $key => $label) {
-			if (!empty($facts[$key])) {
-				$right[] = array('label' => $langs->transnoentities($label), 'value' => $facts[$key]);
-			}
-		}
-		$plantTitle = is_object($plant) ? trim($langs->transnoentities('PowerPlant').' '.(string) $plant->powerplant_label) : $langs->transnoentities('PowerPlant');
 		$this->visualPanels($pdf, array(
-			array('title' => $langs->transnoentities('PowerPlantPVAutocontrolSite'), 'rows' => $left, 'info' => true, 'compact' => 0.26),
-			array('title' => $plantTitle, 'rows' => $right, 'info' => true, 'compact' => 0.22),
+			$this->visualInspectionSitePanel($dataset, $langs),
+			$this->visualInspectionPlantPanel($plant, $facts, $langs),
 		), true);
 
 		$rows = array();

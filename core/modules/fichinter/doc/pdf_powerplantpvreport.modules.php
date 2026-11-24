@@ -33,6 +33,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 {
 	use PowerPlantPVReportVisualPdf;
 
+	protected const SECTION_ACCENT = array(22, 136, 224);
 	protected const REPORT_TEMPLATE_CODE = '';
 	protected const MODEL_LABEL = 'PowerPlantPVInterventionReportPdfName';
 	protected const MODEL_DESCRIPTION = 'PowerPlantPVInterventionReportPdfModel';
@@ -1514,7 +1515,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$pdf->SetTextColor(23, 40, 74);
 		$y = $pdf->GetY();
 		if ($level <= 2) {
-			$pdf->SetFillColor(22, 136, 224);
+			$pdf->SetFillColorArray(static::SECTION_ACCENT);
 			$pdf->RoundedRect($this->marge_gauche, $y + 0.6, 1.6, 4.8, 0.8, '1111', 'F');
 		}
 		$pdf->MultiCell($width, $height, $title, 0, 'L', false, 1, $this->marge_gauche + $indent, $y);
