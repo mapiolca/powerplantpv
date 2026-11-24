@@ -1168,9 +1168,11 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 	$dcMeasuresAnchors = array();
 	$singlePlant = count($powerplants) === 1 ? powerplantpvReportPowerplantSourceId(reset($powerplants)) : 0;
 	foreach ($groups as $group) {
-		$plantLabel = '';
-		if (!empty($group['powerplant'])) {
+		$hasPlant = !empty($group['powerplant']);
+		$inverterNumber = 0;
+		if ($hasPlant) {
 			$plantLabel = powerplantpvReportPowerplantLabel($group['powerplant']);
+			print '<div data-contents-plant="'.dol_escape_htmltag($plantLabel).'">';
 			print load_fiche_titre(dol_escape_htmltag($plantLabel), '', 'fa-industry');
 			powerplantpvReportRenderPowerplantTechnicalSummary($group['powerplant']);
 		}
@@ -1195,8 +1197,10 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 					$dcMeasuresAnchors[$plantId] = true;
 				}
 			}
-			$contentsLabel = $plantLabel !== '' ? $plantLabel.' · '.$label : $label;
-			if (!empty($row['equipment'])) {
+			$contentsLabel = $label;
+			if ((string) $section->section_code === 'INVERTER' && $identity) {
+				$contentsLabel = $langs->transnoentities('PowerPlantPVVisualInverterNumber', ++$inverterNumber);
+			} elseif (!empty($row['equipment'])) {
 				$contentsLabel .= ' · '.powerplantpvReportEquipmentLabel($row['equipment']);
 			}
 			print '<details id="'.$anchor.'" class="powerplantpv-report-section" data-state-key="section:'.$sectionKey.'" data-contents-label="'.dol_escape_htmltag($contentsLabel).'" open>';
@@ -1232,6 +1236,9 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			}
 			print '</div>';
 			print '</details>';
+		}
+		if ($hasPlant) {
+			print '</div>';
 		}
 	}
 
@@ -1276,8 +1283,7 @@ function powerplantpvReportRenderPowerplantTechnicalSummary($powerplant)
 	$snapshot = $resolved['snapshot'];
 	$plantId = powerplantpvReportPowerplantSourceId($powerplant);
 	$title = $langs->transnoentities('PowerPlantPVReportPowerPlantSummary');
-	$contentsLabel = powerplantpvReportPowerplantLabel($powerplant).' · '.$title;
-	print '<details id="powerplantpv-plant-summary-'.$plantId.'" class="powerplantpv-report-section powerplantpv-report-summary" data-state-key="plant-summary:'.$plantId.'" data-contents-label="'.dol_escape_htmltag($contentsLabel).'" open>';
+	print '<details id="powerplantpv-plant-summary-'.$plantId.'" class="powerplantpv-report-section powerplantpv-report-summary" data-state-key="plant-summary:'.$plantId.'" data-contents-label="'.dol_escape_htmltag($title).'" open>';
 	print '<summary class="liste_titre"><span>'.dol_escape_htmltag($title).'</span></summary>';
 	if (empty($snapshot['sections']) || !is_array($snapshot['sections'])) {
 		print '<div class="powerplantpv-report-summary-content">';

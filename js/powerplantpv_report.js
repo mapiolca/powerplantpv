@@ -219,7 +219,23 @@
 		if (!contents) { return; }
 		var targets = form.querySelectorAll('[data-contents-label][id]');
 		if (!targets.length) { return; }
+		var currentPlant = null;
+		var items = contents;
 		targets.forEach(function (target) {
+			var plant = target.closest('[data-contents-plant]');
+			if (plant !== currentPlant) {
+				currentPlant = plant;
+				items = contents;
+				if (plant) {
+					var plantHeading = document.createElement('div');
+					plantHeading.className = 'menu_titre';
+					plantHeading.textContent = plant.dataset.contentsPlant;
+					contents.appendChild(plantHeading);
+					items = document.createElement('div');
+					items.className = 'powerplantpv-report-contents-sections';
+					contents.appendChild(items);
+				}
+			}
 			var item = document.createElement('div');
 			item.className = 'menu_contenu';
 			var link = document.createElement('a');
@@ -238,15 +254,18 @@
 				target.scrollIntoView({block: 'start'});
 			});
 			item.appendChild(link);
-			contents.appendChild(item);
+			items.appendChild(item);
 		});
 		contents.hidden = false;
 		var inline = contents.parentElement;
 		var menu = document.querySelector('#id-left > .vmenu');
 		if (menu) {
 			var placeContents = function () {
-				var destination = !isMobileReportViewport() && menu.getClientRects().length ? menu : inline;
-				if (contents.parentElement !== destination) { destination.prepend(contents); }
+				if (!isMobileReportViewport() && menu.getClientRects().length) {
+					if (contents.parentElement !== menu) { menu.appendChild(contents); }
+				} else if (contents.parentElement !== inline) {
+					inline.prepend(contents);
+				}
 			};
 			placeContents();
 			window.addEventListener('resize', placeContents);
