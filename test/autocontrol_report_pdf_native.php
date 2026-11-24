@@ -445,6 +445,11 @@ foreach (array('RAPPORT D’AUTOCONTRÔLES RÉSIDENTIEL', '44,64 kWc', 'STRINGS 
 }
 visualPdfCheck(substr_count($residentialText, '7 · Essais et connexion de l’onduleur') === 1,
 	'Equipment panels share one numbered heading');
+$residentialLastPage = substr($residentialText, (int) strrpos($residentialText, 'Intervention du '));
+visualPdfCheck(strpos($residentialLastPage, '8 · Observations et conclusion') !== false
+	&& strpos($residentialLastPage, 'Résultat') !== false
+	&& strpos($residentialLastPage, 'Signatures') !== false,
+	'The last residential page keeps the conclusion and result with the signatures');
 visualPdfCheck($residentialPages < $pages && strpos($residentialText, 'Validation du dossier complet') === false,
 	'The compact residential PDF uses report signatures and no C&I part validation');
 visualPdfCheck(PowerPlantPVReportTemplate::isInstallationTemplate(PowerPlantPVReportTemplate::CODE_RESIDENTIAL)

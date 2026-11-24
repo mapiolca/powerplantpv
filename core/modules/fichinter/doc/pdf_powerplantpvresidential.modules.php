@@ -37,6 +37,11 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 		$previousCode = '';
 		foreach ($sections as $row) {
 			$code = (string) $row['section']->section_code;
+			if ($code === 'RES_CONCLUSION') {
+				$label = PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $outputlangs);
+				$this->renderResidentialConclusion($pdf, ++$sectionNumber.' · '.$label, $row, $dataset, $outputlangs);
+				continue;
+			}
 			if ($code !== $previousCode) {
 				$label = PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $outputlangs);
 				$this->renderSectionTitle($pdf, ++$sectionNumber.' · '.$label, 2);
@@ -52,6 +57,32 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 			$this->visualSectionExtras($pdf, $row, $dataset, $outputlangs);
 		}
 		$this->visualSignatures($pdf, $object, $dataset, $outputlangs);
+	}
+
+	/**
+	 * @param TCPDF|TCPDI $pdf PDF handler
+	 * @param string $title Numbered section title
+	 * @param array<string,mixed> $row Conclusion section
+	 * @param array<string,mixed> $dataset Report snapshot
+	 * @param Translate $langs Output language
+	 * @return void
+	 */
+	protected function renderResidentialConclusion(&$pdf, string $title, array $row, array $dataset, $langs)
+	{
+		$spaceForResultAndSignatures = self::VISUAL_SIGNATURE_HEIGHT + 42;
+		$this->ensureSpace($pdf, $spaceForResultAndSignatures + 22);
+		$this->renderSectionTitle($pdf, $title, 2);
+		$titlePage = $pdf->getPage();
+
+		// Long observations may span pages. Render the result just before the signature cards.
+		$this->visualSectionExtras($pdf, $row, $dataset, $langs);
+		$this->ensureSpace($pdf, $spaceForResultAndSignatures);
+		if ($pdf->getPage() !== $titlePage) {
+			$this->renderSectionTitle($pdf, $title, 2);
+		}
+		$panel = $this->visualSectionPanel($row, $langs, true);
+		$panel['title'] = '';
+		$this->visualPanels($pdf, array($panel), false);
 	}
 
 	/**

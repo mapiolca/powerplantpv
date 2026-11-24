@@ -6,6 +6,8 @@
 /** Visual, data-driven maintenance layout. TCPDF remains responsible for text and pagination. */
 trait PowerPlantPVReportVisualPdf
 {
+	protected const VISUAL_SIGNATURE_HEIGHT = 58;
+
 	/** @var string */
 	protected $visualReportTitle = '';
 	/** @var array<int,bool> */
@@ -1104,7 +1106,7 @@ trait PowerPlantPVReportVisualPdf
 		$cards[] = array($langs->transnoentities('PowerPlantPVVisualCustomerSignature'), $customerName, $customerImage !== '' ? $date : '', $customerImage);
 
 		$gap = 4;
-		$height = 58;
+		$height = self::VISUAL_SIGNATURE_HEIGHT;
 		$columns = count($cards);
 		$top = $this->getContentBottomY() - $height - 2;
 		$this->ensureSpace($pdf, $height + 16);
