@@ -64,3 +64,5 @@ jobs:
         run: php powerplantpv/test/attestation_power_units.php dolibarr/htdocs
       - name: Check attestation third-party and project defaults with native access checks
         run: php powerplantpv/test/attestation_link_defaults.php dolibarr/htdocs
+      - name: Check commissioning attestation PDF layouts with native TCPDF
+        run: php powerplantpv/test/attestation_mise_en_service_pdf_native.php dolibarr/htdocs powerplantpv

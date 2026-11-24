@@ -237,7 +237,7 @@ function powerplantpvAttestationGetInstallationIssues()
 
 	$attestationTable = $db->prefix().'powerplantpv_attestation';
 	if (empty($issues['tables']) && powerplantpvDatabaseTableExists($attestationTable)) {
-		$expectedColumns = array('online_sign_name');
+		$expectedColumns = array('online_sign_name', 'consuel_number', 'date_consuel', 'check_visual', 'check_strings', 'check_protections', 'check_inverters', 'check_production', 'check_injection_limit', 'check_supervision');
 		foreach ($expectedColumns as $column) {
 			if (!powerplantpvDatabaseTableColumnExists($attestationTable, $column)) {
 				$issues['columns'][] = $attestationTable.'.'.$column;

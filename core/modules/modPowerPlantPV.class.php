@@ -1287,6 +1287,8 @@ class modPowerPlantPV extends DolibarrModules
 			'attestation_bridage_statique',
 			'attestation_reglage_max_freq',
 			'attestation_installateur_inf100kwc',
+			'attestation_mise_en_service_standard',
+			'attestation_mise_en_service',
 		);
 		foreach ($attestationModels as $attestationModel) {
 			$attestationModelSql = $this->db->escape($attestationModel);
@@ -1712,6 +1714,15 @@ class modPowerPlantPV extends DolibarrModules
 				'date_setting' => array('type' => 'date', 'value' => '', 'null' => ''),
 				'date_completion' => array('type' => 'date', 'value' => '', 'null' => ''),
 				'bta_contract_number' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'consuel_number' => array('type' => 'varchar', 'value' => '128', 'null' => ''),
+				'date_consuel' => array('type' => 'date', 'value' => '', 'null' => ''),
+				'check_visual' => array('type' => 'smallint', 'value' => '', 'null' => ''),
+				'check_strings' => array('type' => 'smallint', 'value' => '', 'null' => ''),
+				'check_protections' => array('type' => 'smallint', 'value' => '', 'null' => ''),
+				'check_inverters' => array('type' => 'smallint', 'value' => '', 'null' => ''),
+				'check_production' => array('type' => 'smallint', 'value' => '', 'null' => ''),
+				'check_injection_limit' => array('type' => 'smallint', 'value' => '', 'null' => ''),
+				'check_supervision' => array('type' => 'smallint', 'value' => '', 'null' => ''),
 				'max_export_power_kw' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
 				'max_frequency_hz' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
 				'landscape_integration_prime' => array('type' => 'smallint', 'value' => '', 'null' => 'DEFAULT 0'),
