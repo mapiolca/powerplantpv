@@ -453,6 +453,9 @@ class PowerPlantPVReportBuilder
 			if (array_key_exists($stableKey, $dateValues)) {
 				$value = $dateValues[$stableKey];
 			}
+			if ($isPartsReport && is_array($value) && PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
+				$value = PowerPlantPVReportParts::encodeHours($value, (string) $field->value_text);
+			}
 			if (!$this->assignSubmittedValueToField($field, $value)) {
 				continue;
 			}

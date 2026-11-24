@@ -1985,6 +1985,25 @@ function powerplantpvReportRenderField($field, $editable, $form)
 	$name = 'report_values['.dol_escape_htmltag((string) $field->stable_key).']';
 	$type = (string) $field->field_type;
 	$value = powerplantpvReportFieldDisplayValue($field);
+	if (PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
+		$hours = PowerPlantPVReportParts::decodeHours((string) $value);
+		foreach (array('start' => 'PowerPlantPVAutocontrolStartTime', 'end' => 'PowerPlantPVAutocontrolEndTime') as $key => $labelKey) {
+			$inputId = 'powerplantpv-hours-'.md5((string) $field->stable_key).'-'.$key;
+			print '<div class="powerplantpv-report-field powerplantpv-report-field-inline">';
+			print '<label for="'.$inputId.'">'.$langs->trans($labelKey).'</label>';
+			print '<div class="powerplantpv-report-input">';
+			if ($fieldEditable) {
+				print '<input type="time" id="'.$inputId.'" class="flat powerplantpv-report-control" name="'.$name.'['.$key.']" value="'.dol_escape_htmltag($hours[$key]).'">';
+			} else {
+				print '<div class="powerplantpv-report-readonly">'.dol_escape_htmltag($hours[$key]).'</div>';
+			}
+			if ($key === 'start' && $hours['legacy'] !== '') {
+				print '<div class="opacitymedium">'.$langs->trans('PreviousValue').' '.dol_escape_htmltag($hours['legacy']).'</div>';
+			}
+			print '</div></div>';
+		}
+		return;
+	}
 	$allowsNotApplicable = PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, $type);
 	$fieldClass = 'powerplantpv-report-field';
 	$fieldClass .= powerplantpvReportFieldCanInline($field) ? ' powerplantpv-report-field-inline' : ' powerplantpv-report-field-block';

@@ -167,6 +167,55 @@ class PowerPlantPVReportParts
 		return preg_match('/^AC[1-6]_(?:TECHNICIANS|TRRT)$/D', $fieldCode) === 1;
 	}
 
+	public static function isHoursField(string $fieldCode): bool
+	{
+		return preg_match('/^AC[1-6]_HOURS$/D', $fieldCode) === 1;
+	}
+
+	/**
+	 * Read the stored interval or parse a legacy time entry without discarding free text.
+	 * @return array{start:string,end:string,legacy:string}
+	 */
+	public static function decodeHours(string $value): array
+	{
+		$value = trim($value);
+		$hours = array('start' => '', 'end' => '', 'legacy' => '');
+		$times = preg_split('/\s*(?:\/|[-–—]|\bà\b)\s*/u', $value, 2);
+		foreach (array('start', 'end') as $index => $key) {
+			$time = trim($times[$index] ?? '');
+			if ($time === '') {
+				continue;
+			}
+			if (!preg_match('/^([01]?\d|2[0-3])\s*(?::|h)\s*([0-5]\d)$/iD', $time, $matches)) {
+				return array('start' => '', 'end' => '', 'legacy' => $value);
+			}
+			$hours[$key] = str_pad($matches[1], 2, '0', STR_PAD_LEFT).':'.$matches[2];
+		}
+
+		return $hours;
+	}
+
+	/**
+	 * Validate the two browser time values and store them in the existing report field.
+	 * @param array<string,mixed> $submitted Submitted time controls
+	 * @return string|null Encoded interval or null when the previous value must be kept
+	 */
+	public static function encodeHours(array $submitted, string $previousValue): ?string
+	{
+		$start = $submitted['start'] ?? null;
+		$end = $submitted['end'] ?? null;
+		foreach (array($start, $end) as $time) {
+			if (!is_string($time) || ($time !== '' && !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D', $time))) {
+				return null;
+			}
+		}
+		if ($start === '' && $end === '') {
+			return self::decodeHours($previousValue)['legacy'] === '' ? '' : null;
+		}
+
+		return trim($start.' / '.$end);
+	}
+
 	/**
 	 * Signature image key of one part role, used by the private signature storage.
 	 *

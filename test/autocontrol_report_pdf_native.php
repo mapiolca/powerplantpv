@@ -134,6 +134,7 @@ foreach ($labels as $part => $label) {
 	$filled = $part <= 3;
 	$general[] = acSection($p.'IDENT', 'Partie '.$part.' · Identification', $position, array(
 		acField($p.'DATE', 'Date des essais', 'text', $filled ? (17 + $part).'/11/2026' : ''),
+		acField($p.'HOURS', 'Heure de début / fin', 'varchar', $part === 1 ? '8h15 – 17h45' : ''),
 		acField($p.'TECHNICIANS', 'Technicien(s)', 'text', 'Ancien nom saisi'),
 		acField($p.'TRRT', 'TR / RT', 'text', 'Ancien visa saisi'),
 	));
@@ -254,6 +255,16 @@ foreach ($signaturePages as $pageText) {
 visualPdfCheck(strpos($text, 'Dernier écart consigné.') !== false, 'Long notes are kept in full');
 visualPdfCheck(strpos($text, '0 Hz') !== false, 'A zero measurement remains visible');
 visualPdfCheck(strpos($text, 'Aucun enregistrement trouvé') !== false, 'The empty attachments message is kept');
+visualPdfCheck(strpos($text, 'Heure de début08:15Heure de fin17:45') !== false
+	&& strpos($text, 'Heure de début / fin') === false, 'Start and end times have separate PDF rows');
+visualPdfCheck(PowerPlantPVReportParts::decodeHours(' / 16:30')['end'] === '16:30'
+	&& PowerPlantPVReportParts::decodeHours('08:00 /')['start'] === '08:00', 'Either time can be saved independently');
+visualPdfCheck(PowerPlantPVReportParts::encodeHours(array('start' => '08:00', 'end' => '16:30'), '') === '08:00 / 16:30'
+	&& PowerPlantPVReportParts::encodeHours(array('start' => '24:00', 'end' => ''), '') === null,
+	'Save valid times and reject invalid hours');
+visualPdfCheck(PowerPlantPVReportParts::encodeHours(array('start' => '', 'end' => ''), 'Horaire à confirmer') === null
+	&& PowerPlantPVReportParts::encodeHours(array('start' => '', 'end' => ''), '08:00 / 16:30') === '',
+	'Keep unparseable legacy input until replaced and allow clearing structured times');
 visualPdfCheck(strpos($text, 'P26074') !== false, 'The project appears on the cover');
 visualPdfCheck(strpos($text, 'Technicien signataire') !== false && strpos($text, 'Ancien nom saisi') === false
 	&& strpos($text, 'Ancien visa saisi') === false, 'The stage technician comes from the signature and legacy manual names are ignored');

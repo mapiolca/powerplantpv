@@ -204,7 +204,7 @@ trait PowerPlantPVReportPartsPdf
 		$pdf->SetTextColor(24, 47, 79);
 		foreach (array('PowerPlantPVAutocontrolStage', 'Reference', 'Date', 'Signature', 'Result') as $column => $key) {
 			$pdf->SetXY($x + 2, $y);
-			$pdf->Cell($widths[$column] - 4, 8, $langs->convToOutputCharset($langs->transnoentities($key)), 0, 0, 'L');
+			$pdf->Cell($widths[$column] - 4, 8, $langs->convToOutputCharset($langs->transnoentities($key)), 0, 0, $column >= 3 ? 'C' : 'L');
 			$x += $widths[$column];
 		}
 		$y += 8;
@@ -224,10 +224,11 @@ trait PowerPlantPVReportPartsPdf
 					$badgeWidth = min($cellWidth - 4, $pdf->GetStringWidth($label) + 8);
 					$badgeHeight = $pdf->getStringHeight($badgeWidth - 4, $label) + 2;
 					$badgeY = $y + ($height - $badgeHeight) / 2;
+					$badgeX = $x + ($cellWidth - $badgeWidth) / 2;
 					$pdf->SetFillColorArray($fill);
-					$pdf->RoundedRect($x + 2, $badgeY, $badgeWidth, $badgeHeight, $badgeHeight / 2, '1111', 'F');
+					$pdf->RoundedRect($badgeX, $badgeY, $badgeWidth, $badgeHeight, $badgeHeight / 2, '1111', 'F');
 					$pdf->SetTextColorArray($text);
-					$pdf->MultiCell($badgeWidth - 4, $badgeHeight, $label, 0, 'C', false, 1, $x + 4, $badgeY, true, 0, false, true, $badgeHeight, 'M');
+					$pdf->MultiCell($badgeWidth - 4, $badgeHeight, $label, 0, 'C', false, 1, $badgeX + 2, $badgeY, true, 0, false, true, $badgeHeight, 'M');
 				}
 				$x += $cellWidth;
 			}

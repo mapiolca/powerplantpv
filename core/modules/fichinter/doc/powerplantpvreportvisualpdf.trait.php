@@ -498,15 +498,25 @@ trait PowerPlantPVReportVisualPdf
 	/**
 	 * @param array<string,mixed> $row Section row
 	 * @param Translate $langs Output language
-	 * @param bool $badgeMissing Display missing values as neutral badges in check panels
+	 * @param bool $autocontrol Apply self-inspection field presentation
 	 * @return array<string,mixed>
 	 */
-	protected function visualSectionPanel($row, $langs, $badgeMissing = false)
+	protected function visualSectionPanel($row, $langs, $autocontrol = false)
 	{
 		$equipment = $row['equipment'] ?? null; $title = is_object($equipment) ? $this->visualIdentity($equipment, false) : PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $langs);
 		$rows = array(); $power = '';
 		foreach ($this->filterVisibleFields($row['fields']) as $field) {
 			if (PowerPlantPVReportPdfDataset::isFileField($field) || PowerPlantPVReportPdfDataset::isSignatureField($field) || in_array((string) $field->field_type, array('textarea','html'), true)) { continue; }
+			if ($autocontrol && PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
+				$hours = PowerPlantPVReportParts::decodeHours((string) $field->value_text);
+				$missing = $langs->transnoentities('PowerPlantPVDataNotFilled');
+				$rows[] = array('label' => $langs->transnoentities('PowerPlantPVAutocontrolStartTime'), 'value' => $hours['start'] ?: $missing);
+				$rows[] = array('label' => $langs->transnoentities('PowerPlantPVAutocontrolEndTime'), 'value' => $hours['end'] ?: $missing);
+				if ($hours['legacy'] !== '') {
+					$rows[] = array('label' => $langs->transnoentities('PreviousValue'), 'value' => $hours['legacy']);
+				}
+				continue;
+			}
 			$value = PowerPlantPVReportPdfDataset::formatFieldValue($field, $langs);
 			if (PowerPlantPVReportPdfDataset::isNumericFieldType($field->field_type)
 				&& is_numeric($field->value_number) && in_array((string) $field->unit, array('W', 'Wc', 'Wp'), true)) {
@@ -515,7 +525,7 @@ trait PowerPlantPVReportVisualPdf
 			if ((string) $field->field_code === 'INVERTER_START_POWER') { $power = $value; continue; }
 			$code = (string) $field->value_text;
 			$status = (string) $field->field_type === 'conformity_so_valid_obs' ? ($code === 'valid' ? 'good' : ($code === 'observation' ? 'warning' : 'neutral')) : (in_array((string) $field->field_type, array('yesno','boolean','checkbox'), true) ? ($code === '' ? 'neutral' : ($code === '1' ? 'good' : 'warning')) : 'text');
-			if (($badgeMissing && ($value === '' || ($code === '' && (string) $field->field_type === 'status')))
+			if (($autocontrol && ($value === '' || ($code === '' && (string) $field->field_type === 'status')))
 				|| ($code === 'not_applicable' && PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, (string) $field->field_type))) {
 				$status = 'neutral';
 			}
