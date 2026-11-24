@@ -1964,7 +1964,6 @@ PowerPlantPVAutocontrolPart5Short=Monitoring
 PowerPlantPVAutocontrolPart6Short=Functional tests
 PowerPlantPVAutocontrolPartNumber=Part %s
 PowerPlantPVAutocontrolHeaderPart=%s  ·  Part %s / %s  ·  %s
-PowerPlantPVAutocontrolFormMeta=%s  ·  Version %s  ·  Effective date %s
 PowerPlantPVAutocontrolCommonSections=Report summary
 PowerPlantPVAutocontrolFinalValidation=Complete report validation
 PowerPlantPVAutocontrolFinalValidationHelp=Once the six parts are signed and the reservations cleared.

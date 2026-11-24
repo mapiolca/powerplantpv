@@ -239,7 +239,11 @@ $text = str_replace("\n", '', $layoutText);
 foreach (array('Partie 1 / 6', 'Partie 6 / 6', 'FM-ESS-001', 'CI-DC-0042', 'A. Martin', 'B. Durand', 'Non signé', 'Validation du dossier complet', 'Conforme avec réserves') as $needle) {
 	visualPdfCheck(strpos($text, $needle) !== false, 'PDF text contains '.$needle);
 }
-visualPdfCheck(substr_count($text, 'CI-DC-0042') === 2 && strpos($text, 'FM-ESS-002') === false, 'The saved reference replaces the default on the cover and the part page');
+$cover = explode('Pied de page test', $layoutText, 2)[0];
+visualPdfCheck(strpos($cover, 'CI-DC-0042') !== false && substr_count($text, 'CI-DC-0042') === 1
+	&& strpos($text, 'FM-ESS-002') === false, 'The saved reference appears only in the cover table');
+visualPdfCheck(strpos($text, 'Date d’application') === false && strpos($text, 'Version 1.0') === false,
+	'No form metadata line is printed under the part titles');
 // A part prints one signature only, even if a legacy row carries another role.
 visualPdfCheck(strpos($text, 'C. Lasserre') === false, 'A part prints a single signature');
 $signaturePages = array_filter(explode('Pied de page test', $layoutText), static function ($pageText) {

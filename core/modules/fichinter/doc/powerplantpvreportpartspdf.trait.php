@@ -48,7 +48,6 @@ trait PowerPlantPVReportPartsPdf
 			$pdf->AddPage();
 			$this->reserveFooterSpace($pdf);
 			$this->renderSectionTitle($pdf, $langs->transnoentities('PowerPlantPVAutocontrolPartNumber', $definition['number']).' · '.$langs->transnoentities($definition['label']), 2);
-			$this->partsMuted($pdf, $langs->transnoentities('PowerPlantPVAutocontrolFormMeta', $definition['ref'], $definition['version'], $definition['application_date']));
 			$conclusionFields = array();
 			foreach ($rowsByPart[$partCode] as $row) {
 				if ((string) $row['section']->section_code === $partCode.'_CONCLUSION') {

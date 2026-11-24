@@ -1965,7 +1965,6 @@ PowerPlantPVAutocontrolPart5Short=Supervision
 PowerPlantPVAutocontrolPart6Short=Essais fonctionnels
 PowerPlantPVAutocontrolPartNumber=Partie %s
 PowerPlantPVAutocontrolHeaderPart=%s  ·  Partie %s / %s  ·  %s
-PowerPlantPVAutocontrolFormMeta=%s  ·  Version %s  ·  Date d’application %s
 PowerPlantPVAutocontrolCommonSections=Synthèse du dossier
 PowerPlantPVAutocontrolFinalValidation=Validation du dossier complet
 PowerPlantPVAutocontrolFinalValidationHelp=Après signature des six parties et levée des réserves.
