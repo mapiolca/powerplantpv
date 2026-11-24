@@ -1911,6 +1911,19 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	private function ensureGeneratedReportSchema()
 	{
+		$evidenceLinkTable = $this->db->sanitize($this->db->prefix().'powerplantpv_report_evidence_link');
+		$result = $this->db->query("SHOW COLUMNS FROM ".$evidenceLinkTable." WHERE Field = 'expires_at' AND `Null` = 'NO'");
+		if (!$result) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		$requiresNullableExpiry = $this->db->num_rows($result) > 0;
+		$this->db->free($result);
+		if ($requiresNullableExpiry && !$this->db->query("ALTER TABLE ".$evidenceLinkTable." MODIFY COLUMN expires_at datetime DEFAULT NULL")) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
 		$createSqls = array(
 			"CREATE TABLE IF NOT EXISTS ".$this->db->prefix()."powerplantpv_equipment_mppt(
 				rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,

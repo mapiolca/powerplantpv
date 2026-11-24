@@ -2403,7 +2403,10 @@ function powerplantpvReportRenderFiles($field, $editable)
 		print '<li>';
 		print '<a href="'.$url.'">'.dol_escape_htmltag((string) $file->filename).'</a>';
 		if ($editable) {
-			print ' <input type="submit" class="button small" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=delete_file&file_id='.(int) $file->id.'" value="'.dol_escape_htmltag($langs->trans('Delete')).'">';
+			$deleteUrl = $_SERVER['PHP_SELF'].'?id='.GETPOSTINT('id').'&action=delete_file&file_id='.(int) $file->id;
+			$deleteLabel = $langs->transnoentities('Delete');
+			print ' <button type="submit" class="powerplantpv-report-file-delete" formaction="'.dol_escape_htmltag($deleteUrl).'" aria-label="'.dol_escape_htmltag($deleteLabel).'">';
+			print img_delete($deleteLabel).'</button>';
 		}
 		print '</li>';
 	}

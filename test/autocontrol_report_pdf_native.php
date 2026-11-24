@@ -206,7 +206,7 @@ $dataset = array(
 	'project' => (object) array('ref' => 'P26074', 'title' => 'COSEC Gymnase Léo Lagrange'), 'contracts' => array(),
 	'internal_contacts' => array(), 'source_services' => array(), 'powerplants' => array($plant),
 	'general_sections' => $general, 'sections_by_powerplant' => array(7 => $byPlant),
-	'evidence_downloads' => array(42 => $proofUrl),
+	'evidence_downloads' => array('days' => 7, 'links' => array(42 => $proofUrl)),
 );
 $snapshot = array('sections' => array(array('code' => 'site', 'rows' => array(
 	array('label_key' => 'PowerPlantPDFReference', 'value' => 'PP2611-0018'),
@@ -319,8 +319,14 @@ visualPdfCheck(PowerPlantPVReportParts::unsignedParts($allStages + array('FINAL'
 $conf->global->POWERPLANTPV_REPORT_PDF_TECHNICAL_SERVICE_SIGNATURE = 1;
 $model->signatures['FINAL']['technical'] = $sign('R. Technique', 21);
 $technicalFile = dirname($file).'/autocontrol-technical.pdf';
+$dataset['evidence_downloads']['days'] = 0;
 $model->build($object, $dataset, $technicalFile);
 $technicalText = autocontrolPdfText($technicalFile);
+visualPdfCheck(strpos($text, 'Validité des liens de téléchargement (en jours) : 7.') !== false,
+	'The configured download lifetime is printed next to the evidence links');
+visualPdfCheck(strpos($technicalText, 'Validité des liens de téléchargement') === false
+	&& strpos(file_get_contents($technicalFile), '/URI ('.$proofUrl.')') !== false,
+	'Permanent links are printed without a validity notice');
 visualPdfCheck(strpos($technicalText, 'Responsable technique') !== false && strpos($technicalText, 'R. Technique') !== false,
 	'The enabled technical manager card uses the recorded signature');
 echo 'Autocontrol PDF: '.$pages.' pages, '.$checks.' checks OK'.($outputDir !== '' ? ' -> '.$file : '')."\n";

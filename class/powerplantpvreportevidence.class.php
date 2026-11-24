@@ -4,12 +4,15 @@
  */
 
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/fichinter/class/fichinter.class.php';
 
 /** Publish report evidence in the native intervention attachments and issue limited download links. */
 class PowerPlantPVReportEvidence
 {
-	private const LINK_LIFETIME = 30 * 86400;
+	public const LIFETIME_SETTING = 'POWERPLANTPV_REPORT_EVIDENCE_LINK_DAYS';
+	public const DEFAULT_LIFETIME_DAYS = 30;
+	public const MAX_LIFETIME_DAYS = 36500;
 
 	/** @var DoliDB Database handler */
 	private $db;
@@ -113,7 +116,7 @@ class PowerPlantPVReportEvidence
 			$now = $this->db->idate(dol_now());
 			$sql = 'UPDATE '.MAIN_DB_PREFIX."powerplantpv_report_evidence_link SET expires_at = '".$now."'";
 			$sql .= ' WHERE entity = '.((int) $report->entity).' AND fk_report_file = '.((int) $file->id);
-			$sql .= " AND expires_at > '".$now."'";
+			$sql .= " AND (expires_at IS NULL OR expires_at > '".$now."')";
 			if (!$this->db->query($sql)) {
 				return '';
 			}
@@ -136,21 +139,38 @@ class PowerPlantPVReportEvidence
 	}
 
 	/**
-	 * Create a reusable, expiring URL. The token is returned once and only its hash is saved.
+	 * Read the link lifetime from the entity that owns the intervention.
 	 */
-	public function issueDownload(Fichinter $intervention, User $user, int $fileId, string $fileHash): string
+	public function configuredLifetimeDays(int $entity): int
+	{
+		global $conf;
+
+		$value = $entity === (int) $conf->entity
+			? getDolGlobalString(self::LIFETIME_SETTING)
+			: dolibarr_get_const($this->db, self::LIFETIME_SETTING, $entity);
+		$days = filter_var($value, FILTER_VALIDATE_INT, array('options' => array('min_range' => 0, 'max_range' => self::MAX_LIFETIME_DAYS)));
+
+		return $days === false ? self::DEFAULT_LIFETIME_DAYS : $days;
+	}
+
+	/**
+	 * Create a reusable URL. The token is returned once and only its hash is saved.
+	 */
+	public function issueDownload(Fichinter $intervention, User $user, int $fileId, string $fileHash, int $lifetimeDays): string
 	{
 		$url = dol_buildpath('/powerplantpv/public/report_evidence.php', 3);
-		if ($fileId <= 0 || !preg_match('/^[0-9a-f]{64}$/D', $fileHash) || parse_url($url, PHP_URL_SCHEME) !== 'https') {
+		$entity = (int) $intervention->entity;
+		if ($fileId <= 0 || $entity <= 0 || $lifetimeDays < 0 || $lifetimeDays > self::MAX_LIFETIME_DAYS
+			|| !preg_match('/^[0-9a-f]{64}$/D', $fileHash) || parse_url($url, PHP_URL_SCHEME) !== 'https') {
 			return '';
 		}
 		$token = bin2hex(random_bytes(32));
 		$now = dol_now();
-		$entity = (int) $intervention->entity;
+		$expiresAt = $lifetimeDays === 0 ? 'NULL' : "'".$this->db->idate($now + $lifetimeDays * 86400)."'";
 		$table = MAIN_DB_PREFIX.'powerplantpv_report_evidence_link';
 		$sql = "INSERT INTO ".$table." (entity, fk_report_file, token_hash, file_hash, date_creation, expires_at, fk_user_creat)";
 		$sql .= " VALUES (".$entity.", ".$fileId.", '".$this->db->escape(hash('sha256', $token))."', '".$this->db->escape($fileHash)."'";
-		$sql .= ", '".$this->db->idate($now)."', '".$this->db->idate($now + self::LINK_LIFETIME)."', ".((int) $user->id).")";
+		$sql .= ", '".$this->db->idate($now)."', ".$expiresAt.", ".((int) $user->id).")";
 		if (!$this->db->query($sql)) {
 			return '';
 		}
@@ -177,7 +197,7 @@ class PowerPlantPVReportEvidence
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'powerplantpv_report AS r ON r.rowid = f.fk_report AND r.entity = l.entity';
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'fichinter AS i ON i.rowid = r.fk_fichinter AND i.entity = l.entity';
 		$sql .= ' WHERE l.entity = '.$entity." AND l.token_hash = '".$this->db->escape($hash)."'";
-		$sql .= " AND l.expires_at > '".$this->db->idate(dol_now())."'";
+		$sql .= " AND (l.expires_at IS NULL OR l.expires_at > '".$this->db->idate(dol_now())."')";
 		$result = $this->db->query($sql);
 		if (!$result) {
 			return null;

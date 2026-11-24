@@ -298,7 +298,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	 * Prepare public links for the evidence visible in the report, using the normal document rights.
 	 * @param CommonObject $object Intervention
 	 * @param array<string,mixed> $dataset Report dataset
-	 * @return array<int,string> Links indexed by report-file ID
+	 * @return array{days:int,links:array<int,string>} Lifetime and links indexed by report-file ID
 	 */
 	protected function prepareEvidenceDownloads($object, array $dataset): array
 	{
@@ -308,9 +308,10 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		if (!($object instanceof Fichinter) || !($report instanceof PowerPlantPVReport) || !($user instanceof User)
 			|| (int) $user->socid > 0 || !$user->hasRight('powerplantpv', 'report', 'write') || !$user->hasRight('ficheinter', 'creer')
 			|| !PowerPlantPVReportParts::isPartsReport($report)) {
-			return array();
+			return array('days' => 0, 'links' => array());
 		}
 		$evidence = new PowerPlantPVReportEvidence($this->db);
+		$days = $evidence->configuredLifetimeDays((int) $object->entity);
 		$links = array();
 		foreach ($dataset['tree']['sections'] as $row) {
 			if (empty($row['section']->visible_pdf)) {
@@ -325,7 +326,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 						continue;
 					}
 					$hash = $evidence->attach($object, $report, $file);
-					$link = $hash !== '' ? $evidence->issueDownload($object, $user, (int) $file->id, $hash) : '';
+					$link = $hash !== '' ? $evidence->issueDownload($object, $user, (int) $file->id, $hash, $days) : '';
 					if ($link === '') {
 						throw new RuntimeException('Could not prepare an intervention evidence download');
 					}
@@ -334,7 +335,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			}
 		}
 
-		return $links;
+		return array('days' => $days, 'links' => $links);
 	}
 
 	/**
@@ -1166,24 +1167,31 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		}
 
 		$nonImages = array();
+		$hasDownload = false;
 		foreach ($files as $file) {
 			if (!is_object($file)) {
 				continue;
 			}
 			$path = PowerPlantPVReportPdfDataset::resolveReportFilePath($dataset['report'], $file);
-			$url = $dataset['evidence_downloads'][(int) ($file->id ?? 0)] ?? '';
+			$url = $dataset['evidence_downloads']['links'][(int) ($file->id ?? 0)] ?? '';
 			if (PowerPlantPVReportPdfDataset::isImageFile($file, $path)) {
 				if ($path !== '') {
 					$this->renderImage($pdf, $path, (string) $file->filename, $outputlangs, 80, $url);
+					$hasDownload = $hasDownload || $url !== '';
 				} else {
 					$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('PowerPlantPVReportImageMissing').' : '.(string) $file->filename);
 				}
 			} else {
 				$nonImages[] = array($outputlangs->transnoentities('File'), (string) $file->filename, $url);
+				$hasDownload = $hasDownload || $url !== '';
 			}
 		}
 		if (!empty($nonImages)) {
 			$this->renderKeyValueTable($pdf, $nonImages, '');
+		}
+		$days = (int) ($dataset['evidence_downloads']['days'] ?? 0);
+		if ($hasDownload && $days > 0) {
+			$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('PowerPlantPVReportEvidenceLinkDaysPdf', $days), false);
 		}
 	}
 

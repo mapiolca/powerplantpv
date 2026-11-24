@@ -233,6 +233,20 @@
 	padding: 0;
 }
 
+.page-maintenance-intervention-report .powerplantpv-report-file-delete {
+	background: transparent;
+	border: 0;
+	padding: 4px;
+	cursor: pointer;
+	filter: brightness(0);
+	opacity: 0.55;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-file-delete:hover,
+.page-maintenance-intervention-report .powerplantpv-report-file-delete:focus-visible {
+	opacity: 1;
+}
+
 .page-maintenance-intervention-report .powerplantpv-file-upload {
 	display: flex;
 	flex-wrap: wrap;

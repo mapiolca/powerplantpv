@@ -5,7 +5,7 @@
 - Ajout de la nature d’intervention « Autocontrôles C&I » et de son rapport en six étapes. Le formulaire s’adapte à la centrale et les références des étapes sont personnalisables.
 - La signature du technicien verrouille son étape et renseigne son identité. La finalisation exige les six signatures. Le responsable technique peut signer le dossier finalisé si son option est activée.
 - Le PDF affiche le projet disponible, un tableau de suivi avec badges et les heures de début et de fin séparées. Chaque conclusion reste sur la même page que sa signature.
-- Les preuves sont jointes à l’intervention. Le PDF contient des liens HTTPS valables 30 jours pour télécharger les fichiers publiés.
+- Les preuves sont jointes à l’intervention et se retirent du rapport avec l’icône de suppression Dolibarr. Les nouveaux liens HTTPS expirent après 30 jours par défaut. La durée est réglable par entité et indiquée dans le PDF. Recharger le module pour activer l’option sans expiration sur une installation existante.
 - L’onglet Rapport utilise Select2 et affiche son sommaire uniquement dans le menu gauche. Recharger le module dans Dolibarr pour installer la nature, le modèle et les tables nécessaires.
 
 ## 1.9.2 — 2026-11-24

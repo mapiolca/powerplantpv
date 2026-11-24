@@ -5,6 +5,6 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_evidence_link (
 	token_hash varchar(64) NOT NULL,
 	file_hash varchar(64) NOT NULL,
 	date_creation datetime NOT NULL,
-	expires_at datetime NOT NULL,
+	expires_at datetime DEFAULT NULL,
 	fk_user_creat integer NOT NULL
 ) ENGINE=InnoDB;

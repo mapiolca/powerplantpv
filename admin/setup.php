@@ -62,6 +62,7 @@ require_once DOL_DOCUMENT_ROOT."/core/lib/ajax.lib.php";
 require_once '../lib/powerplantpv.lib.php';
 require_once '../lib/powerplantpv_powerplant.lib.php';
 require_once '../lib/powerplantpv_serialnumber.lib.php';
+require_once __DIR__.'/../class/powerplantpvreportevidence.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvmaintenancereminder.class.php');
 //require_once "../class/myclass.class.php";
 
@@ -780,6 +781,23 @@ if ($action === 'save_equipment_masks') {
 	} else {
 		setEventMessages($db->lasterror(), null, 'errors');
 	}
+} elseif ($action == 'save_report_evidence_settings') {
+	$submittedToken = (string) GETPOST('token', 'alphanohtml', 2);
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || $submittedToken === '' || !hash_equals((string) currentToken(), $submittedToken)) {
+		accessforbidden();
+	}
+	$lifetime = filter_var(GETPOST('report_evidence_link_days', 'alphanohtml', 2), FILTER_VALIDATE_INT, array(
+		'options' => array('min_range' => 0, 'max_range' => PowerPlantPVReportEvidence::MAX_LIFETIME_DAYS),
+	));
+	if ($lifetime === false) {
+		setEventMessages($langs->trans('PowerPlantPVReportEvidenceLinkDaysInvalid', PowerPlantPVReportEvidence::MAX_LIFETIME_DAYS), null, 'errors');
+	} elseif (dolibarr_set_const($db, PowerPlantPVReportEvidence::LIFETIME_SETTING, (string) $lifetime, 'chaine', 0, '', (int) $conf->entity) > 0) {
+		setEventMessages($langs->trans('SetupSaved'), null, 'mesgs');
+	} else {
+		setEventMessages($db->lasterror(), null, 'errors');
+	}
+	header('Location: '.$_SERVER['PHP_SELF'].'#powerplantpv-report-evidence-settings');
+	exit;
 } elseif ($action == 'save_maintenance_reminder_settings') {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
@@ -997,6 +1015,17 @@ foreach (array('HIDE_EQUIPMENT' => 'PowerPlantPVReportPdfHideEquipment', 'SHORT_
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVReportPdfLegalNotice').'</td>';
 print '<td><a href="'.DOL_URL_ROOT.'/admin/fichinter.php">'.$langs->trans('PowerPlantPVReportPdfNativeFooterSettings').'</a></td></tr>';
 print '</table>';
+print '<form method="POST" id="powerplantpv-report-evidence-settings" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="save_report_evidence_settings">';
+print '<table class="noborder centpercent"><tr class="oddeven"><td class="titlefield">';
+print '<label for="report_evidence_link_days">'.$langs->trans('PowerPlantPVReportEvidenceLinkDays').'</label><br>';
+print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportEvidenceLinkDaysHelp', PowerPlantPVReportEvidence::DEFAULT_LIFETIME_DAYS).'</span>';
+print '</td><td>';
+$evidenceLifetime = (new PowerPlantPVReportEvidence($db))->configuredLifetimeDays((int) $conf->entity);
+print '<input type="number" class="flat width75" id="report_evidence_link_days" name="report_evidence_link_days" required min="0" max="'.PowerPlantPVReportEvidence::MAX_LIFETIME_DAYS.'" step="1" value="'.$evidenceLifetime.'"> ';
+print '<input type="submit" class="button small" value="'.$langs->trans('Save').'">';
+print '</td></tr></table></form>';
 print '<br>';
 
 $serialnumbercategories = powerplantpvSerialNumberFetchPhotovoltaicCategories(true);

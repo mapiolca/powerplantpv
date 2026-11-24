@@ -79,6 +79,7 @@ $db->pdo->exec('CREATE TABLE evidence_powerplantpv_report_evidence_link (
 $db->pdo->exec('CREATE TABLE evidence_powerplantpv_report_file (rowid INTEGER, entity INTEGER, fk_report INTEGER, filename TEXT)');
 $db->pdo->exec('CREATE TABLE evidence_powerplantpv_report (rowid INTEGER, entity INTEGER, fk_fichinter INTEGER)');
 $db->pdo->exec('CREATE TABLE evidence_fichinter (rowid INTEGER, entity INTEGER, ref TEXT)');
+$db->pdo->exec('CREATE TABLE evidence_const (name TEXT, entity INTEGER, value TEXT)');
 $db->pdo->exec('CREATE TABLE evidence_ecm_files (
 	rowid INTEGER PRIMARY KEY, ref TEXT, label TEXT, share TEXT, entity INTEGER,
 	filename TEXT, filepath TEXT, fullpath_orig TEXT, description TEXT, keywords TEXT,
@@ -122,7 +123,16 @@ try {
 	evidenceCheck($service->attach($intervention, $report, $file) === $fileHash
 		&& (int) $db->pdo->query("SELECT COUNT(*) FROM evidence_ecm_files WHERE src_object_type = 'fichinter' AND src_object_id = 9 AND entity = 2")->fetchColumn() === 1,
 		'The attachment is indexed by the native API without duplicates');
-	$url = $service->issueDownload($intervention, $user, 42, $fileHash);
+	$days = $service->configuredLifetimeDays(2);
+	evidenceCheck($days === 30, 'Links default to 30 days');
+	$url = $service->issueDownload($intervention, $user, 42, $fileHash, $days);
+	$originalExpiry = $db->pdo->query('SELECT expires_at FROM evidence_powerplantpv_report_evidence_link')->fetchColumn();
+	$conf->global->{PowerPlantPVReportEvidence::LIFETIME_SETTING} = '7';
+	evidenceCheck($service->configuredLifetimeDays(2) === 7, 'The current entity can set the lifetime');
+	$db->pdo->exec("INSERT INTO evidence_const VALUES ('POWERPLANTPV_REPORT_EVIDENCE_LINK_DAYS', 1, '0')");
+	evidenceCheck($service->configuredLifetimeDays(1) === 0, 'A shared intervention uses its owner entity setting');
+	evidenceCheck($db->pdo->query('SELECT expires_at FROM evidence_powerplantpv_report_evidence_link')->fetchColumn() === $originalExpiry,
+		'Existing links retain their own expiry after changing the setting');
 	$token = (string) parse_url($url, PHP_URL_FRAGMENT);
 	evidenceCheck(strlen($token) === 64 && !str_contains((string) parse_url($url, PHP_URL_QUERY), $token), 'Token stays in the URL fragment');
 	$storedHash = $db->pdo->query('SELECT token_hash FROM evidence_powerplantpv_report_evidence_link')->fetchColumn();
@@ -138,10 +148,20 @@ try {
 	file_put_contents($path, 'synthetic PDF evidence');
 	$db->pdo->exec("UPDATE evidence_powerplantpv_report_evidence_link SET expires_at = '2000-01-01 00:00:00'");
 	evidenceCheck($service->resolveDownload($token, 2) === null, 'An expired link is rejected');
-	$newUrl = $service->issueDownload($intervention, $user, 42, $fileHash);
+	$newUrl = $service->issueDownload($intervention, $user, 42, $fileHash, $service->configuredLifetimeDays(2));
 	$newToken = (string) parse_url($newUrl, PHP_URL_FRAGMENT);
 	$download = $service->resolveDownload($newToken, 2);
 	evidenceCheck($token !== $newToken && $download !== null, 'Regeneration issues a new link');
+	fclose($download['stream']);
+	$validity = $db->pdo->query('SELECT date_creation, expires_at FROM evidence_powerplantpv_report_evidence_link')->fetch(PDO::FETCH_ASSOC);
+	evidenceCheck(strtotime($validity['expires_at']) - strtotime($validity['date_creation']) === 7 * 86400, 'The new token expires after the configured seven days');
+	$conf->global->{PowerPlantPVReportEvidence::LIFETIME_SETTING} = '0';
+	$permanentUrl = $service->issueDownload($intervention, $user, 42, $fileHash, $service->configuredLifetimeDays(2));
+	$permanentToken = (string) parse_url($permanentUrl, PHP_URL_FRAGMENT);
+	$db->pdo->exec("UPDATE evidence_powerplantpv_report_evidence_link SET date_creation = '2000-01-01 00:00:00' WHERE expires_at IS NULL");
+	$download = $service->resolveDownload($permanentToken, 2);
+	evidenceCheck($download !== null && (int) $db->pdo->query('SELECT COUNT(*) FROM evidence_powerplantpv_report_evidence_link WHERE expires_at IS NULL')->fetchColumn() === 1,
+		'A permanent link has no expiry and stays usable after a long time');
 	fclose($download['stream']);
 	unlink($path);
 	evidenceCheck($service->resolveDownload($newToken, 2) === null, 'Deleting the native attachment invalidates the link');
@@ -149,14 +169,15 @@ try {
 	$db->pdo->exec('DELETE FROM evidence_ecm_files');
 	evidenceCheck($service->attach($intervention, $report, $file) === $fileHash
 		&& $service->resolveDownload($newToken, 2) === null, 'Restoring an attachment does not revive an old link');
-	$restoredUrl = $service->issueDownload($intervention, $user, 42, $fileHash);
+	evidenceCheck($service->resolveDownload($permanentToken, 2) === null, 'Restoring an attachment also revokes old permanent links');
+	$restoredUrl = $service->issueDownload($intervention, $user, 42, $fileHash, $service->configuredLifetimeDays(2));
 	$restoredToken = (string) parse_url($restoredUrl, PHP_URL_FRAGMENT);
 	$download = $service->resolveDownload($restoredToken, 2);
 	evidenceCheck($download !== null, 'A restored attachment can receive a new link');
 	fclose($download['stream']);
 	$db->pdo->exec('DELETE FROM evidence_powerplantpv_report_file WHERE rowid = 42');
 	evidenceCheck($service->resolveDownload($restoredToken, 2) === null, 'Deleting the report evidence invalidates its link');
-	echo "Evidence download: 14 checks OK\n";
+	echo "Evidence download: 21 checks OK\n";
 } finally {
 	if (is_file($path)) {
 		unlink($path);
