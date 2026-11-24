@@ -223,6 +223,7 @@ $model->snapshot = $snapshot;
 $model->signatures = array(
 	'AC1' => array('technician' => $sign('A. Martin', 18), 'works_manager' => $sign('C. Lasserre', 18)),
 	'AC2' => array('technician' => $sign('B. Durand', 19)),
+	'FINAL' => array('technician' => $sign('Ancien visa final', 20)),
 );
 $model->signatureImage = $dataRoot.'/signature.png';
 file_put_contents($model->signatureImage, base64_decode('iVBORw0KGgoAAAANSUhEUgAAASwAAABkCAIAAACzY5qXAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAJDklEQVR4nO2c+VdUZRjH+yvKSm01ldx3Talj5QqmgKK4oqi44ZqKuOGCGJpAoizuCoHIEUURVwQUFzRwiyQ95kYIKYq4oAz17dCZ7hlwgOHOPHdmvp9zf6HmzH3ve9/P83zfO/f41t+EEFHekh4AIfYOJSREGEpIiDCUkBBhKCEhwlBCQoShhIQIQwkJEYYSEiIMJSREGEpIiDCUkBBhKCEhwlBCQoShhIQIQwkJEYYSEiIMJSREGEpIiDCUkBBhKCEhwlBCQoShhIQIQwkJEYYSEiIMJSREGEpIiDCUkBBhKCEhwlBCQoShhIQIQwkJEYYSEiIMJSREGEpIiDCUkBBhKCEhwlBCojLl5eUhkXHrN8WfPH2x6OFj6eFYAZSQqElZ2SvPaSvebtZXf7RyHOExYfHKddv2p2Tcup1fUVEhPUbNQQmJajwpKR00ap7SwKrHh+0G9Rs6a67/+p27D2VfyXvxskx61PJQQqIO12/c7tZ3vF422Ojo5P3u5/2NO4kP4GOTvv/BnuMrJSQqkHE2p1kXd71aEdv2Vv53NDq0OzQ9tD40QLRB407aZ3ylhKRe6HS6tRtiGjj81/Eat/4O8rzpwzAKXuEDcAymwbcanbSH+EoJiek8Ki4ZOdlfL0yL7h4XL/1Wp29A/kQK/SkqHonUbuOrrUn4pKS0+HGJ/sCf0iOyWdIzsz/v7qHXA/3qQeHDen6nfcZX65Pw/p9FZ7Ku7IpPWb5mCyqiy5j5PZwmOnQbauSG4X/hA6igvdx8cMN8fNcGBG/fnXgMywi37dWr19LXZGU8f/Fy0apI5QwvC9r8+nW56ieyk/hqBRKivh46lrk4MBK+Ne08pMbbYMLR4esxg0bN8wsIj9q579S5S4+fPJW+aO1y+vzlzr3H6acO1e3IyXMWO7tNxleNSlhW9ir9TI5/0Kaeg6bUSaeP2rk06TRYf+BPk7UcPXXZmrDolONn7t5/ID0fmqDwr2KECOUsuXstzC8oEhySbcRXbUn47PmL5KOZ46avNDKbjVoN+NZ1mvec1Ws3xETvOYwyfOna7wWFD41s/8rLy/EBzPj5X67h+zdH7w8M2TFxVmD/YbPafDWyxmqK47POg109fXFGnK6g3jsfqwM1ccOWhE87uuknpFkX94QDqdLjMsRK46tWJMy5mjd9wY/VugdJYMvSHzaZqSlh3m/cupuYnIaQAzN7D57+QZuBxu9cl95eE2au2hpz4EJOrjn2QtpBp9MlJKW27zlaefnjZwZYSyWyivgqLCFKbEzCkV5uPlWno1OvsQtWbEw9dRHt0cKjQue8fuM2Kj3yMDaiaIPGS6nL6HkovagRj4pLLDxU84Hismf/ia59vJQX273/hPTMbOmhmY4246uYhKWlz0Mi4xy+GGZwzR2/9QwI3g4HpAZWLejAew+m+QWEDxw513ifdHT2nrMkNHbv0bybd6RHbSJPS59FbE/Erlh5Xc27um+JTrKxtq+R+Cog4fMXL0Ojdit/YsLRsKXztPlrM87maGGjbBx0b8x+xLa9yK4GOc3gwMZpzNTlwRGxWdm/Wr6fmwDGOWtRiEF/QBBYHbrTTp4Yi8RXi0qImIcW0bLHcOVl4M91G39+WPzEkiNRkcpfUJasjsJm8v2Wzm+6Ww0c+vdwmqivoDBZeuD/gy1x0PpdWEwGY0b3QyqxpYytBM2gsOjRzVv3cDvSTv+SdDgDOyPU1jVh0YtWRc70Cx43faXz8DmNWg2osT3WM75aTsLM85f7DJmhHG67nqO3xx58qaXlWE+Qsc9kXUFRHDnZ/5MOrkZu1UftXJBskW9Rla7m3rT8CwPIUdhv+y7fgL131eGhXuyKT8EytfCoTKbk6bN7+YW5eX+gmR9Pz0pMTtsRl4wbARlwjVPmBo2a4o+t+zcu0zp844mEYqRcqnt83N5lxKSlG7cm5FzNe9NdtoSESDLoAAbVYmf8Idt+VQUlEFUWSxnXjjWtf8W52gNrApvhsT4r0JHi9x2/kJ2rev/R6XSVT5sWB0aiwL/XwqnqMFA4EEfPXriq7qnrBOJS8eOSP+7kX7524/T5yyknzmJCsB1Fql8WtHn24lDsAoZNWOTkMfvLAZNQx5t0MvbYTPUDp8NJcWoMAMPAYDAkDCwkMm5rzIGEpNQjJ89hAn+9fuvu/Qe1fGvS7BIeS8tS5s/Grb9DcULHMPd5tQb2hMg8uFUIOVUfR1V7oGDjZuPzCwMiwjbvqXzPDgUV6TG/oAgrtepZnpY+QzzGCkZDQEjG2g0M2YEdSx/3GcZf65s4OxDdQ/XWV5vI5+a5AEm+W9/xWCcftq3hxyEVDxQ+zDAaI9ojmiRaJRom2ibWJ1ooGikmBE0VM4kGizaLZqvu5Ogxo4RogN5zVisvGyGNb59UAotQnuCk14yALr293mnez5LlvPJwdPaG3ug2tdygajby/VtH2g6EwzAZPsNquA3D4Tlsh/MwH/6jCqAWoCKgLmgqaZtLQlyt8hk3Jgi5wkznsgEQDRBBK3+ZrNSyrs8DanM4dBs6ZJwfeuP+lIy8m3esMfJhkBgqBoxhY/C4BCQCJFjpG1gv1JcQe6HQqN0NFVUQNbLa7ESMg4KNngNh1oXHLlixEXK6evoiWGL32KK7h/EHPwYHlIbY9hz5tIzKEqKij5i0VH8PmnYeknw0U91T2DaMfHaImhJi6pX/1A9qtj3vAK33KZ9NRj4to5qE6ZnZyncsEZ9s6RcIPuUj5kMdCeMSj+lzEdZfQlKqKl9rJhj5iKZQQcJ14bH6NdS8q/uFnNz6f2ctYeQjNkC9JKyoqPALCNevOUdn7zv3Ckz+NkY+Yp+YLqGBga6evsqVx8hHSC0xUUIYOH9ZmHJl93LzYeQjxARMkRAGzvMPU10nRj5in9RZQp1ON3NhMCMfIWpRZwmTj2aiQc31X8/IR4gqaOVfWyPEbqGEhAhDCQkRhhISIgwlJEQYSkiIMJSQEGEoISHCUEJChKGEhAhDCQkRhhISIgwlJEQYSkiIMJSQEGEoISHCUEJChKGEhAhDCQkRhhISIgwlJEQYSkiIMJSQEGEoISHCUEJChKGEhAhDCQkRhhISIsw/A2LOPJg0CZkAAAAASUVORK5CYII='));
@@ -301,6 +302,20 @@ visualPdfCheck(strpos($text, 'P26074') !== false, 'The project appears on the co
 visualPdfCheck(strpos($text, 'Technicien signataire') !== false && strpos($text, 'Ancien nom saisi') === false
 	&& strpos($text, 'Ancien visa saisi') === false, 'The stage technician comes from the signature and legacy manual names are ignored');
 visualPdfCheck(strpos($text, 'Responsable technique') === false, 'The technical manager card is absent when disabled');
+visualPdfCheck(strpos($text, 'Chef d’équipe / technicien(s)') === false && strpos($text, 'Ancien visa final') === false,
+	'The PDF omits the retired final technician card and its historical signature');
+visualPdfCheck(PowerPlantPVReportParts::imageKey(PowerPlantPVReportParts::FINAL_CODE, 'technician') === ''
+	&& PowerPlantPVReportParts::imageKey('AC1', 'technician') !== '', 'Only stage technician signatures can still be recorded');
+$allStages = array();
+foreach (array_keys(PowerPlantPVReportParts::definitions()) as $partCode) {
+	$allStages[$partCode] = array('technician' => $sign('A. Martin', 18));
+}
+visualPdfCheck(PowerPlantPVReportParts::unsignedParts($allStages) === array(), 'One technician can sign all six stages');
+$allStages['AC2']['technician'] = $sign('B. Durand', 19);
+visualPdfCheck(PowerPlantPVReportParts::unsignedParts($allStages) === array(), 'Different technicians can sign the six stages');
+unset($allStages['AC2']);
+visualPdfCheck(PowerPlantPVReportParts::unsignedParts($allStages + array('FINAL' => $model->signatures['FINAL'])) === array('AC2'),
+	'A historical final signature cannot replace a missing stage signature');
 $conf->global->POWERPLANTPV_REPORT_PDF_TECHNICAL_SERVICE_SIGNATURE = 1;
 $model->signatures['FINAL']['technical'] = $sign('R. Technique', 21);
 $technicalFile = dirname($file).'/autocontrol-technical.pdf';

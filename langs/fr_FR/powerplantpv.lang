@@ -1981,7 +1981,6 @@ PowerPlantPVAutocontrolDeviations=Écarts / actions
 PowerPlantPVAutocontrolPartSignature=Signature
 PowerPlantPVAutocontrolSignedOn=Signé le %s
 PowerPlantPVPartSignerWorksManager=Conducteur de travaux
-PowerPlantPVFinalSignerTeamLeader=Chef d’équipe / technicien(s)
 PowerPlantPVFinalSignerTechnical=Responsable technique
 PowerPlantPVPartSignedTechnician=Technicien signataire
 PowerPlantPVAutocontrolStage=Partie

@@ -381,7 +381,7 @@ trait PowerPlantPVReportPartsPdf
 		$roles = PowerPlantPVReportParts::roles($partCode, $technicalEnabled);
 		$gap = 4;
 		$height = self::PARTS_SIGNATURE_CARD_HEIGHT;
-		$columns = $technicalEnabled ? 2 : 3;
+		$columns = $partCode === PowerPlantPVReportParts::FINAL_CODE ? count($roles) : 3;
 		$dateFormat = $partCode === PowerPlantPVReportParts::FINAL_CODE ? 'day' : 'dayhour';
 		$y = $pdf->GetY();
 		$width = ($this->page_largeur - $this->marge_droite - $this->marge_gauche - ($columns - 1) * $gap) / $columns;

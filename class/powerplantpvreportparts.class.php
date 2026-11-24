@@ -142,7 +142,6 @@ class PowerPlantPVReportParts
 	{
 		if ((string) $partCode === self::FINAL_CODE) {
 			$roles = array(
-				'technician' => 'PowerPlantPVFinalSignerTeamLeader',
 				'works_manager' => 'PowerPlantPVPartSignerWorksManager',
 			);
 			if ($technicalSignatureEnabled) {
@@ -343,7 +342,11 @@ class PowerPlantPVReportParts
 			return false;
 		}
 		// One person signs one role per part.
-		foreach (($signatures[$partCode] ?? array()) as $signature) {
+		foreach (($signatures[$partCode] ?? array()) as $signedRole => $signature) {
+			// Keep historical final signatures for the audit trail without treating them as an active role.
+			if ($partCode === self::FINAL_CODE && $signedRole === 'technician') {
+				continue;
+			}
 			if ((int) $signature->fk_user === (int) $user->id) {
 				return false;
 			}
