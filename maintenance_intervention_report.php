@@ -2638,6 +2638,9 @@ function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSign
 			print ' <span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolFinalValidationHelp').'</span></td></tr>';
 			foreach ($roles as $role => $labelKey) {
 				$signature = $partSignatures[$partCode][$role] ?? null;
+				if ($role === 'works_manager' && !$technicalSignatureEnabled) {
+					$labelKey = 'PowerPlantPVFinalSignerTechnical';
+				}
 				print '<tr class="oddeven"><td class="titlefieldmiddle">'.$langs->trans($labelKey).'</td><td>';
 				if (is_object($signature)) {
 					print dol_escape_htmltag((string) $signature->signer_name).' <span class="opacitymedium">'.dol_print_date($signature->date_sign, 'dayhour').'</span>';
