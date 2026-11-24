@@ -2,6 +2,7 @@
 
 ## 1.9.1 — 2026-11-23
 
+- Dossier d’autocontrôle : nouvelle nature d’intervention « Autocontrôle avant mise en service » et modèle de rapport en six parties (FM-ESS-001 à 006 : pré-contrôles, essais DC, essais AC et protections, mise en service onduleurs, supervision, essais fonctionnels). Chaque partie est signée dans l’ERP le jour de ses essais (technicien, binôme, conducteur de travaux) et sa première signature ne fige que cette partie. Le dossier complet est validé par le chef d’équipe, le conducteur de travaux et le responsable / chargé d’affaires, puis il est entièrement figé. Le PDF garde la charte du rapport de maintenance : en-tête « Partie N / 6 », conclusion colorée et signatures sans cadre en fin de partie, cadres de signature pour la validation finale. Actualiser le module par l’action native de Dolibarr pour créer la table des signatures et le modèle.
 - Rapports de maintenance et PDF : retrait des index d’injection par onduleur et des photos associées. Les index de production par onduleur et le compteur d’injection général restent disponibles.
 - Rapports et PDF : libellés français et anglais pour les réponses de contrôle, les listes d’options et les actions de configuration.
 - PDF : blocs de contrôle des onduleurs sur toute la largeur, y compris lorsqu’un bloc se poursuit sur la page suivante.

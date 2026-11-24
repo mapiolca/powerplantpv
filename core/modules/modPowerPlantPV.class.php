@@ -2990,7 +2990,317 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
-		return $this->seedMaintenanceReportTemplateEngineData($entity);
+		$result = $this->seedMaintenanceReportTemplateEngineData($entity);
+		if ($result < 0) {
+			return -1;
+		}
+
+		return $this->seedAutocontrolReportTemplate($entity);
+	}
+
+	/**
+	 * Seed the self-inspection report template ("dossier d'autocontrôle") and its intervention nature.
+	 * Section codes are prefixed by their part (AC1_ to AC6_): each part is signed separately.
+	 *
+	 * @param	int	$entity	Current entity
+	 * @return	int			1 if OK, <0 if KO
+	 */
+	private function seedAutocontrolReportTemplate($entity)
+	{
+		$code = 'autocontrol';
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
+			'entity' => $entity,
+			'code' => $code,
+			'label' => 'Dossier d’autocontrôle photovoltaïque',
+			'label_en' => 'Photovoltaic self-inspection report',
+			'description' => 'Autocontrôles avant mise en service, en six parties signées le jour des essais.',
+			'description_en' => 'Pre-commissioning self-inspections, in six parts signed on the day of the tests.',
+			'target_element' => 'fichinter',
+			'is_default' => 0,
+			'active' => 1,
+			'position' => 20,
+			'date_creation' => $this->db->idate(dol_now()),
+		), "entity = ".$entity." AND code = '".$code."'");
+		if ($result < 0) {
+			return -1;
+		}
+		$templateId = $this->getReportTemplateId($entity, $code);
+		if ($templateId <= 0) {
+			$this->errors[] = 'Unable to fetch self-inspection report template';
+			return -1;
+		}
+
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'c_powerplantpv_intervention_nature', array(
+			'entity' => $entity,
+			'code' => 'AUTOCONTROL',
+			'label' => 'Autocontrôle avant mise en service',
+			'label_en' => 'Pre-commissioning self-inspection',
+			'description' => 'Essais et autocontrôles d’une centrale photovoltaïque avant sa mise en service',
+			'description_en' => 'Tests and self-inspections of a photovoltaic power plant before commissioning',
+			'fk_report_template' => $templateId,
+			'report_template_code' => $code,
+			'is_maintenance' => 0,
+			'is_preventive' => 0,
+			'requires_report' => 1,
+			'requires_signature' => 1,
+			'active' => 1,
+			'position' => 20,
+		), "entity = ".$entity." AND code = 'AUTOCONTROL'");
+		if ($result < 0) {
+			return -1;
+		}
+
+		// Section: code, label, label_en, scope, equipment type, repeat mode, description.
+		$sections = array(
+			array('AC1_IDENT', 'Partie 1 · Identification', 'Part 1 · Identification', 'intervention', '', 'once', 'FM-ESS-001 · Pré-contrôles visuels et documentaires'),
+			array('AC1_CHECKLIST', 'Partie 1 · Check-list', 'Part 1 · Checklist', 'intervention', '', 'once', ''),
+			array('AC1_CONCLUSION', 'Partie 1 · Conclusion', 'Part 1 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC2_IDENT', 'Partie 2 · Identification', 'Part 2 · Identification', 'intervention', '', 'once', 'FM-ESS-002 · Essais DC (strings et coffrets DC)'),
+			array('DC_ELECTRICAL_MEASURE', 'Partie 2 · Relevés par string', 'Part 2 · String readings', 'pv_input', 'INVERTER', 'once_per_powerplant', ''),
+			array('AC2_BOX', 'Partie 2 · Contrôle coffret DC', 'Part 2 · DC box check', 'electrical_box', '', 'once_per_equipment', ''),
+			array('AC2_CONCLUSION', 'Partie 2 · Conclusion', 'Part 2 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC3_IDENT', 'Partie 3 · Identification', 'Part 3 · Identification', 'intervention', '', 'once', 'FM-ESS-003 · Essais AC et protections (BT)'),
+			array('AC3_GRID', 'Partie 3 · Mesures réseau', 'Part 3 · Grid measurements', 'inverter', '', 'once_per_equipment', ''),
+			array('AC3_PROTECTIONS', 'Partie 3 · Essais des protections', 'Part 3 · Protection tests', 'intervention', '', 'once', ''),
+			array('AC3_CONCLUSION', 'Partie 3 · Conclusion', 'Part 3 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC4_IDENT', 'Partie 4 · Identification', 'Part 4 · Identification', 'intervention', '', 'once', 'FM-ESS-004 · Mise en service et paramétrage onduleurs'),
+			array('AC4_INVERTER', 'Partie 4 · Paramétrage onduleur', 'Part 4 · Inverter settings', 'inverter', '', 'once_per_equipment', ''),
+			array('AC4_CONCLUSION', 'Partie 4 · Conclusion', 'Part 4 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC5_IDENT', 'Partie 5 · Identification', 'Part 5 · Identification', 'intervention', '', 'once', 'FM-ESS-005 · Supervision, communication et alarmes'),
+			array('AC5_ACCOUNT', 'Partie 5 · Compte de supervision du client', 'Part 5 · Customer monitoring account', 'intervention', '', 'once', ''),
+			array('AC5_INVERTER', 'Partie 5 · Sauvegarde et supervision', 'Part 5 · Backup and monitoring', 'inverter', '', 'once_per_equipment', ''),
+			array('AC5_CONCLUSION', 'Partie 5 · Conclusion', 'Part 5 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC6_IDENT', 'Partie 6 · Identification', 'Part 6 · Identification', 'intervention', '', 'once', 'FM-ESS-006 · Essais fonctionnels et production initiale'),
+			array('AC6_INVERTER', 'Partie 6 · Arrêt, reprise et production', 'Part 6 · Stop, restart and production', 'inverter', '', 'once_per_equipment', ''),
+			array('AC6_THERMOGRAPHY', 'Partie 6 · Thermographie (option)', 'Part 6 · Thermography (optional)', 'intervention', '', 'once', ''),
+			array('AC6_CONCLUSION', 'Partie 6 · Conclusion', 'Part 6 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC_RESERVES', 'Synthèse des réserves', 'Reservations summary', 'intervention', '', 'once', ''),
+		);
+		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
+		$sectionIds = array();
+		$position = 10;
+		foreach ($sections as $section) {
+			$where = "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape($section[0])."'";
+			$result = $this->insertMaintenanceDefaultRow($sectionTable, array(
+				'entity' => $entity,
+				'fk_report_template' => $templateId,
+				'code' => $section[0],
+				'label' => $section[1],
+				'label_en' => $section[2],
+				'description' => $section[6],
+				'description_en' => '',
+				'scope_type' => $section[3],
+				'equipment_type' => $section[4],
+				'repeat_mode' => $section[5],
+				'is_required' => 1,
+				'visible_form' => 1,
+				'visible_pdf' => 1,
+				'active' => 1,
+				'position' => $position,
+				'date_creation' => $this->db->idate(dol_now()),
+			), $where);
+			if ($result < 0) {
+				return -1;
+			}
+			$position += 10;
+			$rowid = $this->fetchSeedRowId($sectionTable, $where);
+			if ($rowid <= 0) {
+				return -1;
+			}
+			$sectionIds[$section[0]] = $rowid;
+		}
+
+		$results = array('CONFORM' => array('Conforme', 'Compliant'), 'NON_CONFORM' => array('Non conforme', 'Non-compliant'), 'RESERVES' => array('Conforme avec réserves', 'Compliant with reservations'));
+		$decisions = array('AUTHORIZE' => array('Autoriser les essais DC/AC', 'Authorize DC/AC tests'), 'BLOCK' => array('Bloquer et corriger', 'Block and correct'));
+		// Field: section, code, label, label_en, type, unit, required, help, options.
+		$fields = array();
+		foreach (array(1, 2, 3, 4, 5, 6) as $part) {
+			$prefix = 'AC'.$part.'_';
+			$fields[] = array($prefix.'IDENT', $prefix.'DATE', 'Date des essais', 'Test date', 'date', '', 1);
+			$fields[] = array($prefix.'IDENT', $prefix.'HOURS', 'Heure de début / fin', 'Start / end time', 'text', '', 0);
+			$fields[] = array($prefix.'IDENT', $prefix.'TECHNICIANS', 'Technicien(s)', 'Technician(s)', 'text', '', 1);
+			$fields[] = array($prefix.'IDENT', $prefix.'TRRT', 'TR / RT', 'TR / RT', 'text', '', 0);
+			$fields[] = array($prefix.'CONCLUSION', $prefix.'RESULT', 'Résultat', 'Result', 'select', '', 1, '', $results);
+			if ($part <= 2) {
+				$fields[] = array($prefix.'CONCLUSION', $prefix.'DECISION', 'Décision', 'Decision', 'select', '', 1, '', $decisions);
+			}
+			$fields[] = array($prefix.'CONCLUSION', $prefix.'DEVIATIONS', $part <= 2 ? 'Écarts / actions / re-contrôle' : 'Écarts / actions / re-test', $part <= 2 ? 'Deviations / actions / re-check' : 'Deviations / actions / re-test', 'textarea', '', 0);
+		}
+		$checks = array(
+			array('DOCS', 'Documents à jour', 'Up-to-date documents', 'Plans, schémas, fiches, paramètres réseau, consignes'),
+			array('GED', 'GED / ECM prête', 'Document management ready', 'Arborescence, droits, nommage, trames PV'),
+			array('MAPPING', 'Cartographie disponible', 'Mapping available', 'Strings → coffrets → MPPT ou méthode prévue'),
+			array('LABELING', 'Repérage', 'Labeling', 'Strings, coffrets, onduleurs, protections, terre'),
+			array('ROUTING', 'Cheminements', 'Cable routing', 'Fixations, UV, rayons de courbure, abrasion / écrasement'),
+			array('DC_CONNECTORS', 'Connectique DC', 'DC connectors', 'Compatibilité, verrouillage, inversion'),
+			array('DC_BOXES', 'Coffrets DC', 'DC boxes', 'Accessibilité, intégrité, repérage, terre'),
+			array('INVERTERS', 'Onduleurs', 'Inverters', 'Fixation, ventilation, accès maintenance'),
+			array('SAFETY', 'Sécurité', 'Safety', 'Coupures identifiées, consignation, EPI'),
+		);
+		foreach ($checks as $check) {
+			$fields[] = array('AC1_CHECKLIST', 'AC1_CHK_'.$check[0], $check[1], $check[2], 'conformity_so_valid_obs', '', 1, $check[3]);
+		}
+		$fields[] = array('AC1_CHECKLIST', 'AC1_CHECKLIST_NOTES', 'Observations / actions', 'Observations / actions', 'textarea', '', 0);
+		$fields[] = array('AC1_CHECKLIST', 'AC1_EVIDENCE', 'Preuves (photos / fichiers)', 'Evidence (photos / files)', 'file', '', 0);
+		$fields = array_merge($fields, array(
+			array('AC2_IDENT', 'AC2_WEATHER', 'Météo / température', 'Weather / temperature', 'text', '', 0),
+			array('AC2_IDENT', 'AC2_IRRADIANCE', 'Irradiance', 'Irradiance', 'number', 'W/m²', 0),
+			array('AC2_IDENT', 'AC2_INSTRUMENT', 'Matériel de mesure (réf. / n° de série / étalonnage)', 'Measuring instrument (ref. / serial number / calibration)', 'text', '', 1),
+			array('AC2_IDENT', 'AC2_TEST_VOLTAGE', 'Tension d’essai d’isolement', 'Insulation test voltage', 'number', 'V', 0, 'Typiquement 1000 V DC'),
+			array('AC2_BOX', 'AC2_BOX_LABELING', 'Repérage', 'Labeling', 'conformity_so_valid_obs', '', 1),
+			array('AC2_BOX', 'AC2_BOX_SWITCH', 'Sectionneur', 'Switch disconnector', 'conformity_so_valid_obs', '', 1),
+			array('AC2_BOX', 'AC2_BOX_EARTH', 'Terre', 'Earthing', 'conformity_so_valid_obs', '', 1),
+			array('AC2_BOX', 'AC2_BOX_INTERNAL', 'Organes internes (si applicables)', 'Internal devices (if applicable)', 'conformity_so_valid_obs', '', 0),
+			array('AC2_BOX', 'AC2_BOX_NOTES', 'Observations', 'Observations', 'textarea', '', 0),
+			array('AC3_IDENT', 'AC3_CONNECTION_POINT', 'Point de raccordement', 'Connection point', 'text', '', 0),
+			array('AC3_IDENT', 'AC3_AC_DIAGRAM', 'Référence du schéma AC', 'AC diagram reference', 'text', '', 0),
+			array('AC3_GRID', 'AC3_U_LL', 'Tension entre phases (U L-L)', 'Line-to-line voltage (U L-L)', 'number', 'V', 1),
+			array('AC3_GRID', 'AC3_U_LN', 'Tension phase-neutre (U L-N)', 'Line-to-neutral voltage (U L-N)', 'number', 'V', 1),
+			array('AC3_GRID', 'AC3_FREQUENCY', 'Fréquence', 'Frequency', 'number', 'Hz', 1),
+			array('AC3_GRID', 'AC3_PHASE_ORDER', 'Ordre des phases', 'Phase order', 'conformity_so_valid_obs', '', 1),
+			array('AC3_GRID', 'AC3_PE_CONTINUITY', 'Continuité PE', 'PE continuity', 'conformity_so_valid_obs', '', 1),
+			array('AC3_GRID', 'AC3_CABLE_INSULATION', 'Isolement du câble', 'Cable insulation', 'number', 'MΩ', 0),
+			array('AC3_GRID', 'AC3_GRID_ALARMS', 'Alarmes réseau', 'Grid alarms', 'text', '', 0),
+			array('AC3_PROTECTIONS', 'AC3_PROT_BREAKER', 'Disjoncteur de départ', 'Outgoing circuit breaker', 'conformity_so_valid_obs', '', 1, 'Type / calibre, réglage attendu et constaté'),
+			array('AC3_PROTECTIONS', 'AC3_PROT_SWITCH', 'Sectionneur(s)', 'Switch disconnector(s)', 'conformity_so_valid_obs', '', 1),
+			array('AC3_PROTECTIONS', 'AC3_PROT_RCD', 'DDR / RCD (si présent)', 'RCD (if present)', 'conformity_so_valid_obs', '', 0),
+			array('AC3_PROTECTIONS', 'AC3_PROT_SPD', 'Parafoudre AC', 'AC surge protection', 'conformity_so_valid_obs', '', 1),
+			array('AC3_PROTECTIONS', 'AC3_PROT_RELAY', 'Relais / réglages paramétrables', 'Relays / adjustable settings', 'conformity_so_valid_obs', '', 0),
+			array('AC3_PROTECTIONS', 'AC3_PROT_SETTINGS', 'Réglages constatés / observations', 'Observed settings / observations', 'textarea', '', 0),
+			array('AC4_IDENT', 'AC4_TOOL', 'Outil de paramétrage', 'Configuration tool', 'text', '', 0),
+			array('AC4_INVERTER', 'AC4_FIRMWARE', 'Firmware', 'Firmware', 'text', '', 1),
+			array('AC4_INVERTER', 'AC4_GRID_CODE', 'Code réseau', 'Grid code', 'text', '', 1),
+			array('AC4_INVERTER', 'AC4_CLOCK', 'Date / heure', 'Date / time', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_POWER_LIMIT', 'Limitation de puissance', 'Power limitation', 'text', '', 0),
+			array('AC4_INVERTER', 'AC4_REACTIVE', 'Réactif (mode)', 'Reactive power (mode)', 'text', '', 0),
+			array('AC4_INVERTER', 'AC4_AC_ON', 'Mise sous tension AC', 'AC power-on', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_DC_ON', 'Mise sous tension DC', 'DC power-on', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_MPPT', 'MPPT cohérents', 'Consistent MPPTs', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_ALARMS', 'Alarmes', 'Alarms', 'text', '', 0),
+			array('AC4_INVERTER', 'AC4_EVIDENCE', 'Preuves', 'Evidence', 'file', '', 0),
+			array('AC5_IDENT', 'AC5_PLATFORM', 'Plateforme de supervision', 'Monitoring platform', 'text', '', 0),
+			array('AC5_ACCOUNT', 'AC5_CONNECTION', 'Type de connexion internet', 'Internet connection type', 'select', '', 1, '', array('4G' => array('4G', '4G'), 'WIFI' => array('Wi-Fi', 'Wi-Fi'), 'ETHERNET' => array('Ethernet', 'Ethernet'), 'OTHER' => array('Autre', 'Other'))),
+			array('AC5_ACCOUNT', 'AC5_WIFI_JUSTIFICATION', 'Si Wi-Fi : justification', 'If Wi-Fi: justification', 'text', '', 0),
+			array('AC5_ACCOUNT', 'AC5_ICCID', 'ICCID', 'ICCID', 'text', '', 0),
+			array('AC5_ACCOUNT', 'AC5_APN', 'APN', 'APN', 'text', '', 0),
+			array('AC5_ACCOUNT', 'AC5_IMEI', 'IMEI', 'IMEI', 'text', '', 0),
+			array('AC5_ACCOUNT', 'AC5_PLANT_NAME', 'Nom de la centrale (portail)', 'Plant name (portal)', 'text', '', 0),
+			array('AC5_ACCOUNT', 'AC5_CUSTOMER_LOGIN', 'Identifiant client', 'Customer login', 'text', '', 0, 'Le mot de passe est transmis séparément et n’est jamais imprimé.'),
+			array('AC5_INVERTER', 'AC5_EXPORT_DONE', 'Export des paramètres réalisé', 'Settings export done', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_EXPORT_FILE', 'Nom de fichier / réf. GED', 'File name / document reference', 'text', '', 0),
+			array('AC5_INVERTER', 'AC5_EXPORT_MEDIA', 'Support', 'Media', 'select', '', 0, '', array('PAPER' => array('Papier', 'Paper'), 'USB' => array('Clé USB', 'USB key'))),
+			array('AC5_INVERTER', 'AC5_VISIBLE', 'Visible en supervision', 'Visible in monitoring', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_DATA', 'Données cohérentes', 'Consistent data', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_TIMESTAMP', 'Horodatage', 'Timestamp', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_ALARM_TEST', 'Test d’alarme', 'Alarm test', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_EVIDENCE', 'Preuves (captures)', 'Evidence (screenshots)', 'file', '', 0),
+			array('AC6_IDENT', 'AC6_LIMITATION', 'Limitation active', 'Active limitation', 'yesno', '', 0),
+			array('AC6_IDENT', 'AC6_LIMITATION_DETAIL', 'Détail de la limitation', 'Limitation details', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_STOP', 'Arrêt', 'Stop', 'conformity_so_valid_obs', '', 1),
+			array('AC6_INVERTER', 'AC6_RESTART', 'Reprise', 'Restart', 'conformity_so_valid_obs', '', 1),
+			array('AC6_INVERTER', 'AC6_RESTART_TIME', 'Temps de reprise', 'Restart time', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_STABILITY', 'Stabilité', 'Stability', 'conformity_so_valid_obs', '', 1),
+			array('AC6_INVERTER', 'AC6_ALARMS', 'Alarmes', 'Alarms', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_READING_TIME', 'Heure du relevé', 'Reading time', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_AC_POWER', 'Puissance AC', 'AC power', 'number', 'kW', 0),
+			array('AC6_INVERTER', 'AC6_DAY_ENERGY', 'Énergie du jour', 'Daily energy', 'number', 'kWh', 0),
+			array('AC6_INVERTER', 'AC6_CONDITIONS', 'Conditions (météo / température)', 'Conditions (weather / temperature)', 'text', '', 0),
+			array('AC6_INVERTER', 'AC6_EVIDENCE', 'Preuves', 'Evidence', 'file', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_DC_BOXES', 'Coffrets DC', 'DC boxes', 'conformity_so_valid_obs', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_AC_TERMINALS', 'Borniers AC', 'AC terminals', 'conformity_so_valid_obs', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_MAIN_CONNECTIONS', 'Connexions principales', 'Main connections', 'conformity_so_valid_obs', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_MAX', 'Température maximale', 'Maximum temperature', 'number', '°C', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_NOTES', 'Localisation / actions', 'Location / actions', 'textarea', '', 0),
+			array('AC_RESERVES', 'AC_RESERVES_LIST', 'Réserves à lever', 'Reservations to clear', 'textarea', '', 0, 'Une réserve par ligne : partie, écart, action corrective, échéance.'),
+		));
+
+		$sectionOrder = array_flip(array_keys($sectionIds));
+		usort($fields, static function ($a, $b) use ($sectionOrder) {
+			return ($sectionOrder[$a[0]] ?? 0) <=> ($sectionOrder[$b[0]] ?? 0);
+		});
+		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
+		$optionTable = $this->db->prefix().'powerplantpv_report_template_field_option';
+		$position = 10;
+		foreach ($fields as $field) {
+			$help = isset($field[7]) ? (string) $field[7] : '';
+			$where = "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape($field[1])."'";
+			$result = $this->insertMaintenanceDefaultRow($fieldTable, array(
+				'entity' => $entity,
+				'fk_report_template' => $templateId,
+				'fk_report_template_section' => $sectionIds[$field[0]],
+				'report_template_code' => $code,
+				'fk_report_section' => 0,
+				'code' => $field[1],
+				'label' => $field[2],
+				'label_en' => $field[3],
+				'description' => $help,
+				'field_type' => $field[4],
+				'scope_type' => '',
+				'unit' => $field[5],
+				'help' => $help,
+				'is_required' => (int) $field[6],
+				'visible_form' => 1,
+				'visible_pdf' => 1,
+				'readonly' => 0,
+				'active' => 1,
+				'position' => $position,
+				'date_creation' => $this->db->idate(dol_now()),
+			), $where);
+			if ($result < 0) {
+				return -1;
+			}
+			$position += 10;
+			if (empty($field[8])) {
+				continue;
+			}
+			$fieldId = $this->fetchSeedRowId($fieldTable, $where);
+			if ($fieldId <= 0) {
+				return -1;
+			}
+			$optionPosition = 10;
+			foreach ($field[8] as $optionCode => $labels) {
+				$result = $this->insertMaintenanceDefaultRow($optionTable, array(
+					'entity' => $entity,
+					'fk_report_template_field' => $fieldId,
+					'code' => (string) $optionCode,
+					'label' => $labels[0],
+					'label_en' => $labels[1],
+					'active' => 1,
+					'position' => $optionPosition,
+					'date_creation' => $this->db->idate(dol_now()),
+				), "entity = ".$entity." AND fk_report_template_field = ".$fieldId." AND code = '".$this->db->escape((string) $optionCode)."'");
+				if ($result < 0) {
+					return -1;
+				}
+				$optionPosition += 10;
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Return the id of the row matched by a seed predicate.
+	 *
+	 * @param	string	$table	Table name with prefix
+	 * @param	string	$where	SQL predicate
+	 * @return	int				Row id, <0 on error
+	 */
+	private function fetchSeedRowId($table, $where)
+	{
+		$resql = $this->db->query("SELECT rowid FROM ".$this->db->sanitize($table)." WHERE ".$where);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!is_object($obj)) {
+			$this->errors[] = 'Seed row not found in '.$table;
+			return -1;
+		}
+
+		return (int) $obj->rowid;
 	}
 
 	/**

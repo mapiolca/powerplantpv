@@ -16,6 +16,7 @@
 require_once __DIR__.'/powerplantpvinverterproduction.class.php';
 require_once __DIR__.'/powerplantpvreportpresentation.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvreportparts.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportpowerplant.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportsourceservice.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportequipment.class.php');
@@ -266,6 +267,16 @@ class PowerPlantPVReportBuilder
 	 */
 	public function recalculateSnapshot(PowerPlantPVReport $report, $intervention, User $user, $manualServiceIds = array(), $status = PowerPlantPVReport::STATUS_DRAFT)
 	{
+		// Signed parts of a self-inspection report must keep the structure they were signed on.
+		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
+		if (!is_array($lockedSectionIds)) {
+			return -1;
+		}
+		if (!empty($lockedSectionIds)) {
+			$this->setError('PowerPlantPVPartSignedRecalculateLocked');
+			return -1;
+		}
+
 		// A recalculation without a new selection must retain the manually selected services.
 		if (!$manualServiceIds && (string) $report->source_mode === 'manual') {
 			$source = new PowerPlantPVReportSourceService($this->db);
@@ -418,6 +429,9 @@ class PowerPlantPVReportBuilder
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
 		if (!$report->lockUnsignedForEdit()) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
 		if ($this->persistInverterProductionSections((int) $report->id, $user) < 0) { $this->db->rollback(); return -1; }
+		// A signed part of a self-inspection report keeps the values it was signed on.
+		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
+		if (!is_array($lockedSectionIds)) { $this->db->rollback(); return -1; }
 
 		$fieldObject = new PowerPlantPVReportField($this->db);
 		$fields = $fieldObject->fetchAllByReport((int) $report->id, 'position', 'ASC');
@@ -428,7 +442,8 @@ class PowerPlantPVReportBuilder
 		}
 
 		foreach ($fields as $field) {
-			if (!empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)) {
+			if (!empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
+				|| !empty($lockedSectionIds[(int) $field->fk_report_section])) {
 				continue;
 			}
 			$stableKey = (string) $field->stable_key;
@@ -495,9 +510,16 @@ class PowerPlantPVReportBuilder
 			$this->copyErrorsFrom($measureObject);
 			return -1;
 		}
+		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
+		if (!is_array($lockedSectionIds)) {
+			return -1;
+		}
 		$byId = array();
 		$byStableKey = array();
 		foreach ($measures as $measure) {
+			if (!empty($lockedSectionIds[(int) $measure->fk_report_section])) {
+				continue;
+			}
 			$byId[(int) $measure->id] = $measure;
 			$byStableKey[(string) $measure->stable_key] = $measure;
 		}
@@ -538,6 +560,24 @@ class PowerPlantPVReportBuilder
 		if ($this->db->commit() <= 0) { $this->setError($this->db->lasterror()); $this->db->rollback(); return -1; }
 
 		return 1;
+	}
+
+	/**
+	 * Snapshot sections frozen by a part signature of a self-inspection report.
+	 *
+	 * @param	PowerPlantPVReport	$report	Report
+	 * @return	array<int,bool>|int			Section id => true, <0 on error
+	 */
+	public function fetchLockedPartSectionIds(PowerPlantPVReport $report)
+	{
+		$parts = new PowerPlantPVReportParts($this->db);
+		$locked = $parts->lockedSectionIds($report);
+		if (!is_array($locked)) {
+			$this->copyErrorsFrom($parts);
+			return -1;
+		}
+
+		return $locked;
 	}
 
 	/**
