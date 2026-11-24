@@ -60,6 +60,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreportbuilder.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportparts.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfield.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
+require_once __DIR__.'/class/powerplantpvreportevidence.class.php';
 require_once __DIR__.'/lib/powerplantpv_indexphoto.lib.php';
 require_once __DIR__.'/lib/powerplantpv_reportsignature.lib.php';
 require_once __DIR__.'/class/powerplantpvinterventionnature.class.php';
@@ -2420,13 +2421,12 @@ function powerplantpvReportOutputDir($report, $intervention)
 {
 	global $conf;
 
-	$entity = !empty($report->entity) ? (int) $report->entity : (int) $conf->entity;
-	$base = '';
-	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
-		$base = $conf->powerplantpv->multidir_output[$entity];
-	} elseif (!empty($conf->powerplantpv->dir_output)) {
-		$base = $conf->powerplantpv->dir_output;
+	$entity = (int) $report->entity;
+	if ($entity <= 0 || $entity !== (int) $intervention->entity || (int) $report->fk_fichinter !== (int) $intervention->id
+		|| empty($conf->powerplantpv->multidir_output[$entity])) {
+		return '';
 	}
+	$base = $conf->powerplantpv->multidir_output[$entity];
 	$ref = !empty($intervention->ref) ? dol_sanitizeFileName($intervention->ref) : 'intervention_'.((int) $report->fk_fichinter);
 
 	return $base.'/report/'.$ref;
@@ -2453,13 +2453,17 @@ function powerplantpvReportUploadFile($report, $intervention, $fieldId, $user)
 	if (empty($_FILES[$fileKey]) || !is_array($_FILES[$fileKey]) || !empty($_FILES[$fileKey]['error'])) {
 		return -1;
 	}
-	$originalName = dol_sanitizeFileName((string) $_FILES[$fileKey]['name']);
+	$originalName = dol_sanitizeFileName(basename(str_replace('\\', '/', (string) $_FILES[$fileKey]['name'])));
 	if ($originalName === '') {
 		return -1;
 	}
 	$relativeDir = 'report/'.dol_sanitizeFileName((string) $intervention->ref).'/field_'.((int) $fieldId);
-	$uploadDir = powerplantpvReportOutputDir($report, $intervention).'/field_'.((int) $fieldId);
-	if (dol_mkdir($uploadDir) < 0) {
+	$reportDir = powerplantpvReportOutputDir($report, $intervention);
+	if ($reportDir === '') {
+		return -1;
+	}
+	$uploadDir = $reportDir.'/field_'.((int) $fieldId);
+	if (is_link($reportDir) || is_link($uploadDir) || dol_mkdir($uploadDir) < 0) {
 		return -1;
 	}
 	$dest = $uploadDir.'/'.$originalName;
@@ -2480,7 +2484,18 @@ function powerplantpvReportUploadFile($report, $intervention, $fieldId, $user)
 	$file->fk_user_upload = (int) $user->id;
 	$file->position = 0;
 
-	return $file->create($user, 0) > 0 ? 1 : -1;
+	if ($file->create($user, 0) <= 0) {
+		dol_delete_file($dest, 1);
+		return -1;
+	}
+	if (PowerPlantPVReportParts::isPartsReport($report)
+		&& (new PowerPlantPVReportEvidence($db))->attach($intervention, $report, $file) === '') {
+		$file->delete($user, 0);
+		dol_delete_file($dest, 1);
+		return -1;
+	}
+
+	return 1;
 }
 
 /**
@@ -2499,16 +2514,20 @@ function powerplantpvReportDeleteFile($report, $intervention, $fileId)
 	if ($file->fetch((int) $fileId) <= 0 || (int) $file->fk_report !== (int) $report->id) {
 		return -1;
 	}
-	$base = powerplantpvReportOutputDir($report, $intervention);
-	$relative = (string) $file->filepath;
-	$prefix = 'report/'.dol_sanitizeFileName((string) $intervention->ref).'/';
-	if (strpos($relative, $prefix) !== 0) {
+	if ((int) $file->entity !== (int) $report->entity || (int) $intervention->entity !== (int) $report->entity
+		|| (int) $intervention->id !== (int) $report->fk_fichinter) {
 		return -1;
 	}
-	$physical = dirname($base).'/'.substr($relative, strlen('report/'.dol_sanitizeFileName((string) $intervention->ref).'/') + strlen(''));
-	$physical = $base.'/'.substr($relative, strlen($prefix));
-	if (is_file($physical)) {
-		dol_delete_file($physical);
+	$physical = PowerPlantPVReportEvidence::sourcePath($report, $file);
+	if (PowerPlantPVReportParts::isPartsReport($report)) {
+		$attachment = PowerPlantPVReportEvidence::attachmentPath($intervention, (int) $file->id, (string) $file->filename);
+		if ($attachment !== '' && is_file($attachment) && realpath($attachment) === $attachment
+			&& dol_delete_file($attachment, 1, 0, 0, $intervention) <= 0) {
+			return -1;
+		}
+	}
+	if ($physical !== '' && dol_delete_file($physical, 1) <= 0) {
+		return -1;
 	}
 
 	return $file->delete($GLOBALS['user'], 0);

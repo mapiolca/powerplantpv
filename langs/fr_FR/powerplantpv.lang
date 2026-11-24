@@ -1987,6 +1987,7 @@ PowerPlantPVPartSignedTechnician=Technicien signataire
 PowerPlantPVAutocontrolStage=Partie
 PowerPlantPVAutocontrolStartTime=Heure de début
 PowerPlantPVAutocontrolEndTime=Heure de fin
+PowerPlantPVReportEvidenceLinkUnavailable=Ce lien de téléchargement est indisponible ou a expiré.
 PowerPlantPVFinalSignerBusinessManager=Responsable / chargé d’affaires
 PowerPlantPVPartSignatures=Signatures des parties
 PowerPlantPVPartSignedBy=Signée par %s

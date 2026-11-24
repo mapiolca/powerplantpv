@@ -129,6 +129,9 @@ $general = array();
 $byPlant = array();
 $position = 10;
 $labels = array(1 => 'Pré-contrôles visuels et documentaires', 2 => 'Essais DC', 3 => 'Essais AC et protections', 4 => 'Mise en service', 5 => 'Supervision', 6 => 'Essais fonctionnels');
+$proof = (object) array('id' => 42, 'entity' => 1, 'fk_report' => 3, 'fk_report_field' => 8,
+	'filename' => 'preuve-essai.pdf', 'filepath' => 'report/PROV42/field_8/preuve-essai.pdf', 'filemime' => 'application/pdf');
+$proofUrl = 'https://example.test/custom/powerplantpv/public/report_evidence.php?entity=1#'.str_repeat('a', 64);
 foreach ($labels as $part => $label) {
 	$p = 'AC'.$part.'_';
 	$filled = $part <= 3;
@@ -152,11 +155,14 @@ foreach ($labels as $part => $label) {
 		$position += 10;
 	}
 	if ($part === 3) {
+		$proofField = acField('AC3_GRID_PROOF', 'Justificatif', 'file', '');
+		$proofField->files = array($proof);
 		$general[] = acSection('AC3_GRID', 'Partie 3 · Mesures réseau', $position, array(
 			acField('AC3_GRID_VOLTAGE', 'Tension entre phases', 'number', null, 'V'),
 			acField('AC3_GRID_FREQUENCY', 'Fréquence', 'number', 0, 'Hz'),
 			acField('AC3_GRID_ALARM', 'Alarmes réseau', 'text', ''),
 			acField('AC3_GRID_FILES', 'Preuves', 'file', ''),
+			$proofField,
 		));
 		$position += 10;
 	}
@@ -200,6 +206,7 @@ $dataset = array(
 	'project' => (object) array('ref' => 'P26074', 'title' => 'COSEC Gymnase Léo Lagrange'), 'contracts' => array(),
 	'internal_contacts' => array(), 'source_services' => array(), 'powerplants' => array($plant),
 	'general_sections' => $general, 'sections_by_powerplant' => array(7 => $byPlant),
+	'evidence_downloads' => array(42 => $proofUrl),
 );
 $snapshot = array('sections' => array(array('code' => 'site', 'rows' => array(
 	array('label_key' => 'PowerPlantPDFReference', 'value' => 'PP2611-0018'),
@@ -259,6 +266,27 @@ foreach ($signaturePages as $pageText) {
 visualPdfCheck(strpos($text, 'Dernier écart consigné.') !== false, 'Long notes are kept in full');
 visualPdfCheck(strpos($text, '0 Hz') !== false, 'A zero measurement remains visible');
 visualPdfCheck(strpos($text, 'Aucun enregistrement trouvé') !== false, 'The empty attachments message is kept');
+visualPdfCheck(strpos($text, 'preuve-essai.pdf') !== false && strpos(file_get_contents($file), '/URI ('.$proofUrl.')') !== false,
+	'The evidence name links to the public download in the PDF');
+$source = $conf->powerplantpv->multidir_output[1].'/'.$proof->filepath;
+mkdir(dirname($source), 0777, true);
+file_put_contents($source, 'synthetic evidence');
+$proofReport = (object) array('id' => 3, 'entity' => 1);
+visualPdfCheck(PowerPlantPVReportEvidence::sourcePath($proofReport, $proof) === realpath($source), 'Legacy evidence stays readable');
+$foreignProof = clone $proof;
+$foreignProof->entity = 2;
+visualPdfCheck(PowerPlantPVReportEvidence::sourcePath($proofReport, $foreignProof) === '', 'Evidence in another entity is rejected');
+$foreignProof->entity = 1;
+$foreignProof->filepath = 'report/../field_8/preuve-essai.pdf';
+visualPdfCheck(PowerPlantPVReportEvidence::sourcePath($proofReport, $foreignProof) === '', 'A traversing evidence path is rejected');
+mkdir($conf->ficheinter->multidir_output[1], 0777, true);
+$fixtureIntervention = (new ReflectionClass(Fichinter::class))->newInstanceWithoutConstructor();
+$fixtureIntervention->id = 42;
+$fixtureIntervention->entity = 1;
+$fixtureIntervention->ref = 'FI2611-0200';
+visualPdfCheck(PowerPlantPVReportEvidence::attachmentPath($fixtureIntervention, 42, $proof->filename)
+	=== realpath($conf->ficheinter->multidir_output[1]).DIRECTORY_SEPARATOR.'FI2611-0200'.DIRECTORY_SEPARATOR.'PPV-42-preuve-essai.pdf',
+	'The evidence is placed in the native intervention document directory');
 visualPdfCheck(strpos($text, 'Heure de début08:15Heure de fin17:45') !== false
 	&& strpos($text, 'Heure de début / fin') === false, 'Start and end times have separate PDF rows');
 visualPdfCheck(PowerPlantPVReportParts::decodeHours(' / 16:30')['end'] === '16:30'
