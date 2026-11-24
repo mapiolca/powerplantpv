@@ -55,7 +55,7 @@ trait PowerPlantPVReportPartsPdf
 					$conclusionFields = array_merge($conclusionFields, $row['fields']);
 					continue;
 				}
-				$this->partsSection($pdf, $row, $dataset, $langs);
+				$this->partsSection($pdf, $row, $dataset, $langs, $signatures[$partCode]['technician'] ?? null);
 			}
 			$this->partsConclusionAndSignature($pdf, $conclusionFields, $dataset, $partCode, $signatures[$partCode] ?? array(), $langs);
 		}
@@ -121,11 +121,11 @@ trait PowerPlantPVReportPartsPdf
 		$this->renderSectionTitle($pdf, $langs->transnoentities('PowerPlantPVAutocontrolSiteInstallation'), 2);
 		$client = $dataset['thirdparty'];
 		$left = array(array('label' => $langs->transnoentities('Customer'), 'value' => is_object($client) ? (string) $client->name : $missing));
+		$left[] = array('label' => $langs->transnoentities('Intervention'), 'value' => (string) ($dataset['intervention']->ref ?? ''));
 		$project = $dataset['project'] ?? null;
 		if (is_object($project)) {
-			$left[] = array('label' => $langs->transnoentities('Project'), 'value' => trim((string) $project->ref.' - '.(string) $project->title));
+			$left[] = array('label' => $langs->transnoentities('Project'), 'value' => implode(' - ', array_filter(array((string) $project->ref, (string) $project->title))));
 		}
-		$left[] = array('label' => $langs->transnoentities('Intervention'), 'value' => (string) ($dataset['intervention']->ref ?? ''));
 		$right = array();
 		foreach (array('PowerPlantPDFReference' => 'Reference', 'PowerPlantPDFAddress' => 'Address', 'PowerPlantPDFInstalledPower' => 'PowerPlantPDFPower', 'PowerPlantPDFConnectionType' => 'Type') as $key => $label) {
 			if (!empty($facts[$key])) {
@@ -146,30 +146,106 @@ trait PowerPlantPVReportPartsPdf
 					$fields[(string) $field->field_code] = $field;
 				}
 			}
-			$technicians = array();
-			foreach (array('technician') as $role) {
-				if (!empty($signatures[$partCode][$role])) {
-					$technicians[] = (string) $signatures[$partCode][$role]->signer_name;
-				}
-			}
+			$technician = $signatures[$partCode]['technician'] ?? null;
 			$date = isset($fields[$partCode.'_DATE']) ? PowerPlantPVReportPdfDataset::formatFieldValue($fields[$partCode.'_DATE'], $langs) : '';
-			$result = isset($fields[$partCode.'_RESULT']) ? PowerPlantPVReportPdfDataset::formatFieldValue($fields[$partCode.'_RESULT'], $langs) : '';
+			$resultField = $fields[$partCode.'_RESULT'] ?? null;
+			$result = PowerPlantPVReportPdfDataset::formatFieldValue($resultField, $langs);
 			$rows[] = array(
-				'label' => $definition['number'].'. '.$langs->transnoentities($definition['short']),
-				'value' => $definition['ref'].'  ·  '.($date !== '' ? $date : $missing).'  ·  '.($technicians ? implode(', ', $technicians) : $langs->transnoentities('PowerPlantPVAutocontrolNotSigned')).($result !== '' ? '  ·  '.$result : ''),
-				'status' => 'text',
+				'values' => array(
+					$definition['number'].'. '.$langs->transnoentities($definition['short']),
+					$definition['ref'],
+					$date !== '' ? $date : $missing,
+					is_object($technician) ? (string) $technician->signer_name : $langs->transnoentities('PowerPlantPVAutocontrolNotSigned'),
+					$result !== '' ? $result : $missing,
+				),
+				'signed' => is_object($technician),
+				'result' => (string) ($resultField->value_text ?? ''),
 			);
 		}
+		$this->partsFollowUpTable($pdf, $rows, $langs);
+	}
+
+	/**
+	 * @param TCPDF|TCPDI $pdf PDF handler
+	 * @param list<array{values:list<string>,signed:bool,result:string}> $rows Follow-up rows
+	 * @param Translate $langs Output language
+	 * @return void
+	 */
+	protected function partsFollowUpTable(&$pdf, array $rows, $langs)
+	{
+		$left = $this->marge_gauche;
+		$width = $this->page_largeur - $left - $this->marge_droite;
+		$widths = array_map(static function ($fraction) use ($width) { return $fraction * $width; }, array(0.26, 0.21, 0.15, 0.17, 0.21));
+		$palette = array(
+			'CONFORM' => array(array(227, 245, 238), array(18, 128, 92)),
+			'RESERVES' => array(array(253, 243, 220), array(154, 107, 0)),
+			'NON_CONFORM' => array(array(253, 232, 232), array(170, 40, 40)),
+			'neutral' => array(array(238, 240, 243), array(102, 112, 133)),
+		);
+		$table = array();
+		$tableHeight = 8;
+		foreach ($rows as $row) {
+			$labels = array_map(array($langs, 'convToOutputCharset'), $row['values']);
+			$height = 8;
+			foreach ($labels as $column => $label) {
+				$pdf->SetFont('', $column >= 3 ? 'B' : '', 8);
+				$height = max($height, $pdf->getStringHeight($widths[$column] - ($column >= 3 ? 8 : 4), $label) + 4);
+			}
+			$table[] = array($labels, $height, $row['signed'] ? 'CONFORM' : 'neutral', $row['result']);
+			$tableHeight += $height;
+		}
+		$this->ensureSpace($pdf, $tableHeight + 16);
 		$this->renderSectionTitle($pdf, $langs->transnoentities('PowerPlantPVAutocontrolPartsFollowUp'), 2);
-		$this->visualPanels($pdf, array(array('title' => '', 'rows' => $rows, 'info' => true, 'compact' => 0.3)), false);
+		$y = $pdf->GetY();
+		$x = $left;
+		$pdf->SetFillColor(247, 249, 252);
+		$pdf->Rect($left, $y, $width, 8, 'F');
+		$pdf->SetFont('', 'B', 8);
+		$pdf->SetTextColor(24, 47, 79);
+		foreach (array('PowerPlantPVAutocontrolStage', 'Reference', 'Date', 'Signature', 'Result') as $column => $key) {
+			$pdf->SetXY($x + 2, $y);
+			$pdf->Cell($widths[$column] - 4, 8, $langs->convToOutputCharset($langs->transnoentities($key)), 0, 0, 'L');
+			$x += $widths[$column];
+		}
+		$y += 8;
+		foreach ($table as [$labels, $height, $signatureStatus, $resultStatus]) {
+			$x = $left;
+			$pdf->SetDrawColor(218, 228, 240);
+			$pdf->Line($left, $y, $left + $width, $y);
+			foreach ($labels as $column => $label) {
+				$cellWidth = $widths[$column];
+				$pdf->SetFont('', $column >= 3 ? 'B' : '', 8);
+				$pdf->SetTextColor(40, 50, 68);
+				if ($column < 3) {
+					$pdf->MultiCell($cellWidth - 4, $height, $label, 0, 'L', false, 1, $x + 2, $y, true, 0, false, true, $height, 'M');
+				} else {
+					$status = $column === 3 ? $signatureStatus : $resultStatus;
+					[$fill, $text] = $palette[$status] ?? $palette['neutral'];
+					$badgeWidth = min($cellWidth - 4, $pdf->GetStringWidth($label) + 8);
+					$badgeHeight = $pdf->getStringHeight($badgeWidth - 4, $label) + 2;
+					$badgeY = $y + ($height - $badgeHeight) / 2;
+					$pdf->SetFillColorArray($fill);
+					$pdf->RoundedRect($x + 2, $badgeY, $badgeWidth, $badgeHeight, $badgeHeight / 2, '1111', 'F');
+					$pdf->SetTextColorArray($text);
+					$pdf->MultiCell($badgeWidth - 4, $badgeHeight, $label, 0, 'C', false, 1, $x + 4, $badgeY, true, 0, false, true, $badgeHeight, 'M');
+				}
+				$x += $cellWidth;
+			}
+			$y += $height;
+		}
+		$pdf->Line($left, $y, $left + $width, $y);
+		$pdf->SetY($y + 4);
+		$pdf->SetFont('', '', $this->defaultFontSize);
+		$pdf->SetTextColor(24, 47, 79);
 	}
 
 	/**
 	 * One section of a part.
 	 * @param TCPDF|TCPDI $pdf @param array<string,mixed> $row @param array<string,mixed> $dataset @param Translate $langs
+	 * @param stdClass|null $technician Stage technician signature
 	 * @return void
 	 */
-	protected function partsSection(&$pdf, $row, $dataset, $langs)
+	protected function partsSection(&$pdf, $row, $dataset, $langs, $technician = null)
 	{
 		$code = (string) $row['section']->section_code;
 		if ($code === 'DC_ELECTRICAL_MEASURE') {
@@ -180,6 +256,9 @@ trait PowerPlantPVReportPartsPdf
 			}
 			return;
 		}
+		$row['fields'] = array_filter($row['fields'], static function ($field) {
+			return is_object($field) && !PowerPlantPVReportParts::isManualSignerField((string) $field->field_code);
+		});
 		$panel = $this->visualSectionPanel($row, $langs, true);
 		if (empty($row['equipment'])) {
 			$panel['title'] = preg_replace('/^[^·]+·\s*/u', '', (string) $panel['title']);
@@ -189,8 +268,10 @@ trait PowerPlantPVReportPartsPdf
 				$panelRow = array('label' => $panelRow['label'], 'value' => $panelRow['value']);
 			}
 			unset($panelRow);
-			$panel['info'] = true;
-			$panel['compact'] = 0.3;
+			if (is_object($technician)) {
+				$panel['rows'][] = array('label' => $langs->transnoentities('PowerPlantPVPartSignedTechnician'), 'value' => (string) $technician->signer_name);
+			}
+			$panel['valueAlign'] = 'R';
 		}
 		if ($panel['rows']) {
 			$this->visualPanels($pdf, array($panel), false);
@@ -279,7 +360,10 @@ trait PowerPlantPVReportPartsPdf
 		$this->ensureSpace($pdf, self::PARTS_SIGNATURE_CARD_HEIGHT + 20);
 		$this->renderSectionTitle($pdf, $langs->transnoentities('PowerPlantPVAutocontrolFinalValidation'), 2);
 		$this->partsMuted($pdf, $langs->transnoentities('PowerPlantPVAutocontrolFinalValidationHelp'));
-		$this->partsSignatureCards($pdf, $dataset, PowerPlantPVReportParts::FINAL_CODE, $finalSignatures, $langs);
+		$report = $dataset['report'] ?? null;
+		$technicalEnabled = $report instanceof PowerPlantPVReport ? $report->technicalSignatureEnabled()
+			: getDolGlobalInt('POWERPLANTPV_REPORT_PDF_TECHNICAL_SERVICE_SIGNATURE') > 0;
+		$this->partsSignatureCards($pdf, $dataset, PowerPlantPVReportParts::FINAL_CODE, $finalSignatures, $langs, $technicalEnabled);
 	}
 
 	/**
@@ -289,21 +373,27 @@ trait PowerPlantPVReportPartsPdf
 	 * @param string $partCode Stage or final validation code
 	 * @param array<string,stdClass> $signatures Signatures by role
 	 * @param Translate $langs Output language
+	 * @param bool $technicalEnabled Whether the technical manager card is required
 	 * @return void
 	 */
-	protected function partsSignatureCards(&$pdf, $dataset, $partCode, $signatures, $langs)
+	protected function partsSignatureCards(&$pdf, $dataset, $partCode, $signatures, $langs, bool $technicalEnabled = false)
 	{
-		$roles = PowerPlantPVReportParts::roles($partCode);
+		$roles = PowerPlantPVReportParts::roles($partCode, $technicalEnabled);
 		$gap = 4;
 		$height = self::PARTS_SIGNATURE_CARD_HEIGHT;
-		$columns = count(PowerPlantPVReportParts::roles(PowerPlantPVReportParts::FINAL_CODE));
+		$columns = $technicalEnabled ? 2 : 3;
 		$dateFormat = $partCode === PowerPlantPVReportParts::FINAL_CODE ? 'day' : 'dayhour';
 		$y = $pdf->GetY();
 		$width = ($this->page_largeur - $this->marge_droite - $this->marge_gauche - ($columns - 1) * $gap) / $columns;
 		$i = 0;
 		foreach ($roles as $role => $labelKey) {
+			if ($i > 0 && $i % $columns === 0) {
+				$pdf->SetY($y + $height + $gap);
+				$this->ensureSpace($pdf, $height + 4);
+				$y = $pdf->GetY();
+			}
 			$signature = $signatures[$role] ?? null;
-			$x = $this->marge_gauche + $i * ($width + $gap);
+			$x = $this->marge_gauche + ($i % $columns) * ($width + $gap);
 			$pdf->SetDrawColor(218, 228, 240);
 			$pdf->SetFillColor(255, 255, 255);
 			$pdf->RoundedRect($x, $y, $width, $height, 2.65, '1111', 'DF');

@@ -633,7 +633,7 @@ trait PowerPlantPVReportVisualPdf
 							$pdf->MultiCell($panel['labelWidth'], $rh, $row['label'], 0, 'L', false, 1, $x + 4, $cy, true, 0, false, true, $rh, 'M');
 						}
 						if (!$compact && !$row['badge']) {
-							$pdf->MultiCell($panel['valueWidth'], $rh, $row['value'], 0, 'L', false, 1, $vx, $cy, true, 0, false, true, $rh, 'M');
+							$pdf->MultiCell($panel['valueWidth'], $rh, $row['value'], 0, $panel['valueAlign'] ?? 'L', false, 1, $vx, $cy, true, 0, false, true, $rh, 'M');
 						} elseif (!$compact) {
 							$status = $row['status'];
 							$bg = $status === 'good' ? array(227, 245, 238) : ($status === 'warning' ? array(253, 243, 220) : array(238, 240, 243));

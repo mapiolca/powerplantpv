@@ -134,22 +134,37 @@ class PowerPlantPVReportParts
 	/**
 	 * Signer roles of one part, in display order.
 	 *
+	 * @param string $partCode Stage or final validation code
+	 * @param bool $technicalSignatureEnabled Whether to include the technical manager
 	 * @return	array<string,string>	Role => translation key
 	 */
-	public static function roles($partCode = ''): array
+	public static function roles($partCode = '', bool $technicalSignatureEnabled = false): array
 	{
 		if ((string) $partCode === self::FINAL_CODE) {
-			return array(
+			$roles = array(
 				'technician' => 'PowerPlantPVFinalSignerTeamLeader',
 				'works_manager' => 'PowerPlantPVPartSignerWorksManager',
-				'business_manager' => 'PowerPlantPVFinalSignerBusinessManager',
 			);
+			if ($technicalSignatureEnabled) {
+				$roles['technical'] = 'PowerPlantPVFinalSignerTechnical';
+			}
+			$roles['business_manager'] = 'PowerPlantPVFinalSignerBusinessManager';
+
+			return $roles;
 		}
 
 		// A part carries one signature: the person who ran its tests that day.
 		return array(
 			'technician' => 'PowerPlantPVAutocontrolPartSignature',
 		);
+	}
+
+	/**
+	 * Legacy self-inspection fields replaced by the recorded signatures.
+	 */
+	public static function isManualSignerField(string $fieldCode): bool
+	{
+		return preg_match('/^AC[1-6]_(?:TECHNICIANS|TRRT)$/D', $fieldCode) === 1;
 	}
 
 	/**
@@ -162,7 +177,7 @@ class PowerPlantPVReportParts
 	public static function imageKey($partCode, $role): string
 	{
 		$known = isset(self::definitions()[(string) $partCode]) || (string) $partCode === self::FINAL_CODE;
-		if (!$known || !isset(self::roles($partCode)[(string) $role])) {
+		if (!$known || !isset(self::roles($partCode, true)[(string) $role])) {
 			return '';
 		}
 
@@ -275,7 +290,7 @@ class PowerPlantPVReportParts
 		if (!empty($signatures[self::FINAL_CODE]) && $partCode !== self::FINAL_CODE) {
 			return false;
 		}
-		if ($partCode === self::FINAL_CODE && self::unsignedParts($signatures)) {
+		if ($partCode === self::FINAL_CODE && (!$report->isSaved() || self::unsignedParts($signatures))) {
 			return false;
 		}
 		// One person signs one role per part.
@@ -287,8 +302,13 @@ class PowerPlantPVReportParts
 		if ($role === 'works_manager') {
 			return $this->isWorksManager($report, $user);
 		}
+		if ($role === 'technical') {
+			return $user->hasRight('powerplantpv', 'report', 'sign_technical')
+				&& $report->technicalSignatureEnabled() && $report->isTechnicalSupervisor($intervention, $user);
+		}
 		if ($role === 'business_manager') {
-			return (bool) $user->hasRight('powerplantpv', 'report', 'sign_technical');
+			return $user->hasRight('powerplantpv', 'report', 'sign_technical')
+				&& (!$report->technicalSignatureEnabled() || !empty($signatures[self::FINAL_CODE]['technical']));
 		}
 		if ($partCode !== self::FINAL_CODE && $this->isWorksManager($report, $user)) {
 			return true;

@@ -441,8 +441,10 @@ class PowerPlantPVReportBuilder
 			return -1;
 		}
 
+		$isPartsReport = PowerPlantPVReportParts::isPartsReport($report);
 		foreach ($fields as $field) {
 			if (!empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
+				|| ($isPartsReport && PowerPlantPVReportParts::isManualSignerField((string) $field->field_code))
 				|| !empty($lockedSectionIds[(int) $field->fk_report_section])) {
 				continue;
 			}
@@ -1383,6 +1385,8 @@ class PowerPlantPVReportBuilder
 		);
 		foreach ($context['template_fields'] as $field) {
 			if (PowerPlantPVReportPresentation::isInverterInjectionField((string) $field->field_code)
+				|| (($context['template']['code'] ?? '') === PowerPlantPVReportParts::TEMPLATE_CODE
+					&& PowerPlantPVReportParts::isManualSignerField((string) $field->field_code))
 				|| !$this->isTemplateFlagEnabled($field, 'active', 1) || !$this->isTemplateFlagEnabled($field, 'visible_form', 1)) {
 				$stats['fields_skipped_hidden']++;
 				continue;

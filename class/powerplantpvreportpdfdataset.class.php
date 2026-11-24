@@ -110,6 +110,9 @@ class PowerPlantPVReportPdfDataset
 		}
 
 		$powerplants = isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array();
+		if ($project === null && (int) ($intervention->fk_project ?? 0) <= 0 && PowerPlantPVReportParts::isPartsReport($report)) {
+			$project = $this->loadSinglePowerplantProject($powerplants);
+		}
 		$equipment = isset($tree['equipment']) && is_array($tree['equipment']) ? $tree['equipment'] : array();
 		$sections = isset($tree['sections']) && is_array($tree['sections']) ? $tree['sections'] : array();
 
@@ -407,15 +410,42 @@ class PowerPlantPVReportPdfDataset
 	 */
 	private function loadProject($intervention)
 	{
-		if (!class_exists('Project') || empty($intervention->fk_project)) {
+		global $user;
+		if (!class_exists('Project') || !isModEnabled('project') || empty($intervention->fk_project) || !($user instanceof User)) {
+			return null;
+		}
+		require_once __DIR__.'/powerplantpvprojectlink.class.php';
+		$projects = (new PowerPlantPVProjectLink($this->db))->projects($user);
+
+		return $projects[(int) $intervention->fk_project] ?? null;
+	}
+
+	/**
+	 * Use the single accessible project of the report's single power plant.
+	 * @param array<int,PowerPlantPVReportPowerPlant> $powerplants Report snapshots
+	 * @return Project|null
+	 */
+	private function loadSinglePowerplantProject(array $powerplants)
+	{
+		global $user;
+		if (!isModEnabled('project') || !($user instanceof User) || count($powerplants) !== 1
+			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')
+			|| (!$user->hasRight('projet', 'lire') && !$user->hasRight('projet', 'all', 'lire'))) {
+			return null;
+		}
+		require_once __DIR__.'/powerplant.class.php';
+		$powerplant = new PowerPlant($this->db);
+		$snapshot = reset($powerplants);
+		if (!is_object($snapshot) || $powerplant->fetch((int) $snapshot->fk_powerplant, null, 1, 1) <= 0) {
+			return null;
+		}
+		$projectId = $powerplant->getSingleProjectId($user);
+		if ($projectId <= 0) {
 			return null;
 		}
 		$project = new Project($this->db);
-		if ($project->fetch((int) $intervention->fk_project) > 0) {
-			return $project;
-		}
 
-		return null;
+		return $project->fetch($projectId) > 0 ? $project : null;
 	}
 
 	/**

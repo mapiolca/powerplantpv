@@ -3199,8 +3199,6 @@ class modPowerPlantPV extends DolibarrModules
 			$prefix = 'AC'.$part.'_';
 			$fields[] = array($prefix.'IDENT', $prefix.'DATE', 'Date des essais', 'Test date', 'date', '', 1);
 			$fields[] = array($prefix.'IDENT', $prefix.'HOURS', 'Heure de début / fin', 'Start / end time', 'varchar', '', 0);
-			$fields[] = array($prefix.'IDENT', $prefix.'TECHNICIANS', 'Technicien(s)', 'Technician(s)', 'varchar', '', 1);
-			$fields[] = array($prefix.'IDENT', $prefix.'TRRT', 'TR / RT', 'TR / RT', 'varchar', '', 0);
 			$fields[] = array($prefix.'CONCLUSION', $prefix.'RESULT', 'Résultat', 'Result', 'select', '', 1, '', $results);
 			if ($part <= 2) {
 				$fields[] = array($prefix.'CONCLUSION', $prefix.'DECISION', 'Décision', 'Decision', 'select', '', 1, '', $decisions);

@@ -69,9 +69,9 @@ class AutocontrolPdfFixture extends pdf_powerplantpvreport
 	protected function resolvePowerplantTechnicalSummarySnapshot($powerplant, $outputlangs) { return $this->snapshot; }
 	protected function partsSignatures($dataset) { return $this->signatures; }
 	protected function partsSignatureImage($dataset, $partCode, $role) { return $this->signatureImage; }
-	protected function partsSection(&$pdf, $row, $dataset, $langs)
+	protected function partsSection(&$pdf, $row, $dataset, $langs, $technician = null)
 	{
-		parent::partsSection($pdf, $row, $dataset, $langs);
+		parent::partsSection($pdf, $row, $dataset, $langs, $technician);
 		if ($row['section']->section_code === 'AC2_BOX') {
 			// Enough room for the conclusion alone, but not the signature card.
 			$pdf->SetY($this->getContentBottomY() - 44);
@@ -134,8 +134,8 @@ foreach ($labels as $part => $label) {
 	$filled = $part <= 3;
 	$general[] = acSection($p.'IDENT', 'Partie '.$part.' · Identification', $position, array(
 		acField($p.'DATE', 'Date des essais', 'text', $filled ? (17 + $part).'/11/2026' : ''),
-		acField($p.'TECHNICIANS', 'Technicien(s)', 'text', $filled ? 'A. Martin, B. Durand' : ''),
-		acField($p.'TRRT', 'TR / RT', 'text', ''),
+		acField($p.'TECHNICIANS', 'Technicien(s)', 'text', 'Ancien nom saisi'),
+		acField($p.'TRRT', 'TR / RT', 'text', 'Ancien visa saisi'),
 	));
 	if ($part === 2) {
 		$general[count($general) - 1]['section']->part_ref = 'CI-DC-0042';
@@ -221,14 +221,19 @@ file_put_contents($model->signatureImage, base64_decode('iVBORw0KGgoAAAANSUhEUgA
 $file = ($outputDir !== '' ? rtrim($outputDir, '/\\') : $dataRoot).'/autocontrol.pdf';
 $pages = $model->build($object, $dataset, $file);
 visualPdfCheck(is_file($file) && $pages >= 8, 'The cover, six parts and final validation are rendered');
-$raw = file_get_contents($file);
-preg_match_all('/\[((?:\\\\.|[^\]\\\\])*)\]\s*TJ|\(((?:\\\\.|[^)\\\\])*)\)\s*Tj/s', $raw, $matches, PREG_SET_ORDER);
-$text = '';
-foreach ($matches as $match) {
-	preg_match_all('/\(((?:\\\\.|[^)\\\\])*)\)/s', $match[1] !== '' ? $match[1] : '('.($match[2] ?? '').')', $pieces);
-	$text .= stripcslashes(implode('', $pieces[1]))."\n";
+function autocontrolPdfText(string $file): string
+{
+	$raw = file_get_contents($file);
+	preg_match_all('/\[((?:\\\\.|[^\]\\\\])*)\]\s*TJ|\(((?:\\\\.|[^)\\\\])*)\)\s*Tj/s', $raw, $matches, PREG_SET_ORDER);
+	$text = '';
+	foreach ($matches as $match) {
+		preg_match_all('/\(((?:\\\\.|[^)\\\\])*)\)/s', $match[1] !== '' ? $match[1] : '('.($match[2] ?? '').')', $pieces);
+		$text .= stripcslashes(implode('', $pieces[1]))."\n";
+	}
+
+	return mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
 }
-$layoutText = mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
+$layoutText = autocontrolPdfText($file);
 $text = str_replace("\n", '', $layoutText);
 foreach (array('Partie 1 / 6', 'Partie 6 / 6', 'FM-ESS-001', 'CI-DC-0042', 'A. Martin', 'B. Durand', 'Non signé', 'Validation du dossier complet', 'Conforme avec réserves') as $needle) {
 	visualPdfCheck(strpos($text, $needle) !== false, 'PDF text contains '.$needle);
@@ -237,7 +242,7 @@ visualPdfCheck(substr_count($text, 'CI-DC-0042') === 2 && strpos($text, 'FM-ESS-
 // A part prints one signature only, even if a legacy row carries another role.
 visualPdfCheck(strpos($text, 'C. Lasserre') === false, 'A part prints a single signature');
 $signaturePages = array_filter(explode('Pied de page test', $layoutText), static function ($pageText) {
-	return strpos($pageText, "\nSignature\n") !== false;
+	return strpos($pageText, "\nSignature\n") !== false && preg_match('/Partie [1-6] \/ 6/', $pageText);
 });
 visualPdfCheck(count($signaturePages) === 6, 'Each stage has its own signature card');
 foreach ($signaturePages as $pageText) {
@@ -249,4 +254,15 @@ foreach ($signaturePages as $pageText) {
 visualPdfCheck(strpos($text, 'Dernier écart consigné.') !== false, 'Long notes are kept in full');
 visualPdfCheck(strpos($text, '0 Hz') !== false, 'A zero measurement remains visible');
 visualPdfCheck(strpos($text, 'Aucun enregistrement trouvé') !== false, 'The empty attachments message is kept');
+visualPdfCheck(strpos($text, 'P26074') !== false, 'The project appears on the cover');
+visualPdfCheck(strpos($text, 'Technicien signataire') !== false && strpos($text, 'Ancien nom saisi') === false
+	&& strpos($text, 'Ancien visa saisi') === false, 'The stage technician comes from the signature and legacy manual names are ignored');
+visualPdfCheck(strpos($text, 'Responsable technique') === false, 'The technical manager card is absent when disabled');
+$conf->global->POWERPLANTPV_REPORT_PDF_TECHNICAL_SERVICE_SIGNATURE = 1;
+$model->signatures['FINAL']['technical'] = $sign('R. Technique', 21);
+$technicalFile = dirname($file).'/autocontrol-technical.pdf';
+$model->build($object, $dataset, $technicalFile);
+$technicalText = autocontrolPdfText($technicalFile);
+visualPdfCheck(strpos($technicalText, 'Responsable technique') !== false && strpos($technicalText, 'R. Technique') !== false,
+	'The enabled technical manager card uses the recorded signature');
 echo 'Autocontrol PDF: '.$pages.' pages, '.$checks.' checks OK'.($outputDir !== '' ? ' -> '.$file : '')."\n";
