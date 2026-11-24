@@ -162,6 +162,23 @@
 	max-width: 100% !important;
 }
 
+.page-maintenance-intervention-report .powerplantpv-report-date .divfordateinput {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-date .divfordateinput > input {
+	width: 12ch !important;
+}
+
+.page-maintenance-intervention-report .powerplantpv-report-date .divfordateinput > .ui-datepicker-trigger,
+.page-maintenance-intervention-report .powerplantpv-report-date .datenowlink {
+	flex-shrink: 0;
+}
+
 .page-maintenance-intervention-report .powerplantpv-report-input .tox-tinymce,
 .page-maintenance-intervention-report .powerplantpv-report-input .mce-tinymce,
 .page-maintenance-intervention-report .powerplantpv-report-input .cke,
