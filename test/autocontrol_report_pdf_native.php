@@ -69,6 +69,14 @@ class AutocontrolPdfFixture extends pdf_powerplantpvreport
 	protected function resolvePowerplantTechnicalSummarySnapshot($powerplant, $outputlangs) { return $this->snapshot; }
 	protected function partsSignatures($dataset) { return $this->signatures; }
 	protected function partsSignatureImage($dataset, $partCode, $role) { return $this->signatureImage; }
+	protected function partsSection(&$pdf, $row, $dataset, $langs)
+	{
+		parent::partsSection($pdf, $row, $dataset, $langs);
+		if ($row['section']->section_code === 'AC2_BOX') {
+			// Enough room for the conclusion alone, but not the signature card.
+			$pdf->SetY($this->getContentBottomY() - 44);
+		}
+	}
 	protected function _pagefoot(&$pdf, $object, $outputlangs, $hidefreetext = 0)
 	{
 		$pdf->SetFont('', '', 7); $pdf->SetXY($this->marge_gauche, $this->page_hauteur - 14);
@@ -142,6 +150,15 @@ foreach ($labels as $part => $label) {
 		));
 		$position += 10;
 	}
+	if ($part === 3) {
+		$general[] = acSection('AC3_GRID', 'Partie 3 · Mesures réseau', $position, array(
+			acField('AC3_GRID_VOLTAGE', 'Tension entre phases', 'number', null, 'V'),
+			acField('AC3_GRID_FREQUENCY', 'Fréquence', 'number', 0, 'Hz'),
+			acField('AC3_GRID_ALARM', 'Alarmes réseau', 'text', ''),
+			acField('AC3_GRID_FILES', 'Preuves', 'file', ''),
+		));
+		$position += 10;
+	}
 	if ($part === 2) {
 		$measures = array();
 		foreach (range(0, 7) as $i) {
@@ -166,7 +183,8 @@ foreach ($labels as $part => $label) {
 	if ($part <= 2) {
 		$conclusion[] = acSelect($p.'DECISION', 'Décision', $filled ? 'AUTHORIZE' : '', $decisions);
 	}
-	$conclusion[] = acField($p.'DEVIATIONS', 'Écarts / actions / re-contrôle', 'textarea', $part === 1 ? 'Repérage CC2 repris le jour même.' : '');
+	$deviations = array(1 => 'Repérage CC2 repris le jour même.', 4 => str_repeat("Écart vérifié et consigné.\n", 80).'Dernier écart consigné.');
+	$conclusion[] = acField($p.'DEVIATIONS', 'Écarts / actions / re-contrôle', 'textarea', $deviations[$part] ?? '');
 	$general[] = acSection($p.'CONCLUSION', 'Partie '.$part.' · Conclusion', $position, $conclusion);
 	$position += 10;
 }
@@ -210,11 +228,25 @@ foreach ($matches as $match) {
 	preg_match_all('/\(((?:\\\\.|[^)\\\\])*)\)/s', $match[1] !== '' ? $match[1] : '('.($match[2] ?? '').')', $pieces);
 	$text .= stripcslashes(implode('', $pieces[1]))."\n";
 }
-$text = str_replace("\n", '', mb_convert_encoding($text, 'UTF-8', 'Windows-1252'));
+$layoutText = mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
+$text = str_replace("\n", '', $layoutText);
 foreach (array('Partie 1 / 6', 'Partie 6 / 6', 'FM-ESS-001', 'CI-DC-0042', 'A. Martin', 'B. Durand', 'Non signé', 'Validation du dossier complet', 'Conforme avec réserves') as $needle) {
 	visualPdfCheck(strpos($text, $needle) !== false, 'PDF text contains '.$needle);
 }
 visualPdfCheck(substr_count($text, 'CI-DC-0042') === 2 && strpos($text, 'FM-ESS-002') === false, 'The saved reference replaces the default on the cover and the part page');
 // A part prints one signature only, even if a legacy row carries another role.
 visualPdfCheck(strpos($text, 'C. Lasserre') === false, 'A part prints a single signature');
+$signaturePages = array_filter(explode('Pied de page test', $layoutText), static function ($pageText) {
+	return strpos($pageText, "\nSignature\n") !== false;
+});
+visualPdfCheck(count($signaturePages) === 6, 'Each stage has its own signature card');
+foreach ($signaturePages as $pageText) {
+	visualPdfCheck(
+		strpos($pageText, 'Conclusion :') !== false && strpos($pageText, "\nNom\n") !== false && strpos($pageText, "\nDate\n") !== false,
+		'The stage conclusion and the full signature card are on the same PDF page'
+	);
+}
+visualPdfCheck(strpos($text, 'Dernier écart consigné.') !== false, 'Long notes are kept in full');
+visualPdfCheck(strpos($text, '0 Hz') !== false, 'A zero measurement remains visible');
+visualPdfCheck(strpos($text, 'Aucun enregistrement trouvé') !== false, 'The empty attachments message is kept');
 echo 'Autocontrol PDF: '.$pages.' pages, '.$checks.' checks OK'.($outputDir !== '' ? ' -> '.$file : '')."\n";

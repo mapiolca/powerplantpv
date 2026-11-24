@@ -495,8 +495,13 @@ trait PowerPlantPVReportVisualPdf
 		return $converted ? implode(' / ', $formatted) : $value;
 	}
 
-	/** @param array<string,mixed> $row @param Translate $langs @return array<string,mixed> */
-	protected function visualSectionPanel($row, $langs)
+	/**
+	 * @param array<string,mixed> $row Section row
+	 * @param Translate $langs Output language
+	 * @param bool $badgeMissing Display missing values as neutral badges in check panels
+	 * @return array<string,mixed>
+	 */
+	protected function visualSectionPanel($row, $langs, $badgeMissing = false)
 	{
 		$equipment = $row['equipment'] ?? null; $title = is_object($equipment) ? $this->visualIdentity($equipment, false) : PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $langs);
 		$rows = array(); $power = '';
@@ -510,7 +515,8 @@ trait PowerPlantPVReportVisualPdf
 			if ((string) $field->field_code === 'INVERTER_START_POWER') { $power = $value; continue; }
 			$code = (string) $field->value_text;
 			$status = (string) $field->field_type === 'conformity_so_valid_obs' ? ($code === 'valid' ? 'good' : ($code === 'observation' ? 'warning' : 'neutral')) : (in_array((string) $field->field_type, array('yesno','boolean','checkbox'), true) ? ($code === '' ? 'neutral' : ($code === '1' ? 'good' : 'warning')) : 'text');
-			if ($code === 'not_applicable' && PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, (string) $field->field_type)) {
+			if (($badgeMissing && ($value === '' || ($code === '' && (string) $field->field_type === 'status')))
+				|| ($code === 'not_applicable' && PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, (string) $field->field_type))) {
 				$status = 'neutral';
 			}
 			$rows[] = array('label'=>PowerPlantPVReportPdfDataset::localizedProperty($field,'field_label',$langs), 'value'=>$value !== '' ? $value : $langs->transnoentities('PowerPlantPVDataNotFilled'), 'status'=>$status);

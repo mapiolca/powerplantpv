@@ -33,6 +33,8 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 {
 	use PowerPlantPVReportVisualPdf;
 	use PowerPlantPVReportPartsPdf;
+
+	protected const PARTS_SIGNATURE_CARD_HEIGHT = 58;
 	/**
 	 * @var DoliDB Database handler
 	 */
@@ -1114,7 +1116,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			$this->renderSectionTitle($pdf, $title, 3);
 		}
 		if (empty($files)) {
-			$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('NoRecordFound'));
+			$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('NoRecordFound'), false);
 			return;
 		}
 
@@ -1490,11 +1492,12 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	 *
 	 * @param	TCPDF|TCPDI	$pdf	PDF handler
 	 * @param	string		$text	Text
+	 * @param	bool		$border	Draw the outline
 	 * @return	void
 	 */
-	protected function renderEmptyBlock(&$pdf, $text)
+	protected function renderEmptyBlock(&$pdf, $text, $border = true)
 	{
-		$html = '<table border="1" cellpadding="4" cellspacing="0" width="100%"><tr><td style="color:#777777;">'.dol_escape_htmltag((string) $text).'</td></tr></table>';
+		$html = '<table border="'.($border ? '1' : '0').'" cellpadding="4" cellspacing="0" width="100%"><tr><td style="color:#777777;">'.dol_escape_htmltag((string) $text).'</td></tr></table>';
 		$this->writeHtml($pdf, $html);
 		$pdf->Ln(2);
 	}
