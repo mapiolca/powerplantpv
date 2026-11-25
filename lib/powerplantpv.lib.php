@@ -640,10 +640,17 @@ function powerplantpvFetchOriginObject($origin, $originid)
  */
 function powerplantpvApplyOriginDefaults(&$powerplant, $origin, $originid)
 {
-	global $langs;
+	global $langs, $user;
 
 	$sourceobject = powerplantpvFetchOriginObject($origin, $originid);
 	if (!is_object($sourceobject)) {
+		return 0;
+	}
+
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/security.lib.php';
+	if (!$user->hasRight($sourceobject->element, 'lire')
+		|| !in_array((int) $sourceobject->entity, array_map('intval', explode(',', getEntity($sourceobject->element))), true)
+		|| !checkUserAccessToObject($user, array($sourceobject->element), $sourceobject, $sourceobject->table_element, '', 'fk_soc')) {
 		return 0;
 	}
 

@@ -204,39 +204,6 @@ if (!$permissiontoread) {
 }
 
 $error = 0;
-$canApplyThirdPartyAddress = isModEnabled('societe')
-	&& $user->hasRight('powerplantpv', 'powerplant', 'write')
-	&& $user->hasRight('societe', 'lire');
-$thirdPartyAddress = array();
-
-if ($action === 'add' && empty($object->id) && !$cancel && GETPOST('apply_thirdparty_address', 'alpha', 2)) {
-	if (!$canApplyThirdPartyAddress) {
-		accessforbidden();
-	}
-
-	$action = 'create';
-	$thirdPartyId = GETPOSTINT('fk_soc', 2);
-	if ($thirdPartyId <= 0) {
-		setEventMessages($langs->trans('SelectThirdParty'), null, 'warnings');
-	} else {
-		require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
-		require_once DOL_DOCUMENT_ROOT.'/core/lib/security.lib.php';
-		$thirdParty = new Societe($db);
-		if ($thirdParty->fetch($thirdPartyId) > 0
-			&& in_array((int) $thirdParty->entity, array_map('intval', explode(',', getEntity('societe'))), true)
-			&& checkUserAccessToObject($user, array('societe'), $thirdParty, 'societe')) {
-			$thirdPartyAddress = array(
-				'address' => (string) $thirdParty->address,
-				'zip' => (string) $thirdParty->zip,
-				'town' => (string) $thirdParty->town,
-				'fk_country' => (int) $thirdParty->country_id,
-			);
-		} else {
-			setEventMessages($langs->trans('PowerPlantThirdPartyAddressUnavailable'), null, 'warnings');
-		}
-	}
-}
-
 if ($action == 'add' && !empty($origin) && $originid > 0) {
 	$object->origin = $origin;
 	$object->origin_id = $originid;
@@ -510,6 +477,9 @@ if ($action == 'create') {
 	if (empty($permissiontoadd)) {
 		accessforbidden('NotEnoughPermissions', 0, 1);
 	}
+	$canApplyThirdPartyAddress = $conf->use_javascript_ajax && isModEnabled('societe')
+		&& $user->hasRight('powerplantpv', 'powerplant', 'write')
+		&& $user->hasRight('societe', 'lire');
 	if (!empty($origin) && $originid > 0) {
 		powerplantpvApplyOriginDefaults($object, $origin, $originid);
 	}
@@ -573,7 +543,9 @@ if ($action == 'create') {
 
 		$nativeval = powerplantGetNativeFieldDefinition($val);
 		$type = (string) $nativeval['type'];
-		if (in_array($type, array('int', 'integer'))) {
+		if ($key === 'fk_soc') {
+			$value = GETPOSTISSET('fk_soc') ? $fk_soc : (int) $object->fk_soc;
+		} elseif (in_array($type, array('int', 'integer'))) {
 			$value = GETPOST($key);
 		} elseif (preg_match('/^double/', $type)) {
 			$value = price2num(GETPOST($key, 'alphanohtml'));
@@ -597,10 +569,6 @@ if ($action == 'create') {
 			$value = GETPOST($key, 'alphanohtml');
 		}
 
-		if (array_key_exists($key, $thirdPartyAddress)) {
-			$value = $thirdPartyAddress[$key];
-		}
-
 		print '<tr class="field_'.$key.'">';
 		print '<td class="titlefieldcreate'.((isset($val['notnull']) && $val['notnull'] > 0) ? ' fieldrequired' : '').(($type == 'text' || $type == 'html') ? ' tdtop' : '').'">';
 		print '<label for="'.$key.'" class="block">';
@@ -622,8 +590,18 @@ if ($action == 'create') {
 			$formadmin = new FormAdmin($db);
 			print img_picto('', 'language', 'class="pictofixedwidth"');
 			print $formadmin->select_language($value, $key, 0, array(), 1, 0, 0, 'minwidth300', 2);
+		} elseif ($key === 'address') {
+			print '<textarea class="flat minwidth300 valignmiddle" name="address" id="address" rows="'.ROWS_2.'" maxlength="255">'
+				.dol_escape_htmltag($value).'</textarea>';
 		} else {
 			print powerplantRenderPowerPlantInputField($object, $val, $key, $value);
+		}
+		if ($key === 'address' && $canApplyThirdPartyAddress) {
+			print ' <a href="#" id="copyaddressfromsoc" class="marginleftonly" hidden data-url="'
+				.dol_escape_htmltag(dol_buildpath('/powerplantpv/ajax/thirdparty_address.php', 1)).'">'
+				.$langs->trans('CopyAddressFromSoc').'</a>';
+			print ' <span id="powerplant-thirdparty-address-error" class="error" role="status">'
+				.'<span hidden>'.$langs->trans('PowerPlantThirdPartyAddressUnavailable').'</span></span>';
 		}
 		print '</td>';
 		print '</tr>';
@@ -717,15 +695,54 @@ if ($action == 'create') {
 	}
 
 	print powerplantRenderProjectSelection($object, $user);
-	print '<div class="center">';
-	print $form->buttonsSaveCancel('Create', 'Cancel', array(), true);
-	if ($canApplyThirdPartyAddress) {
-		print '<input type="submit" class="button marginleftonly" name="apply_thirdparty_address" formnovalidate value="'
-			.dol_escape_htmltag($langs->transnoentities('PowerPlantApplyThirdPartyAddress')).'">';
-	}
-	print '</div>';
-
+	print $form->buttonsSaveCancel("Create");
 	print '</form>';
+
+	if ($canApplyThirdPartyAddress) {
+		print '<script nonce="'.getNonce().'">';
+		print <<<'JS'
+jQuery(function ($) {
+	var link = $("#copyaddressfromsoc");
+	var form = link.closest("form");
+	var thirdParty = form.find("select[name=fk_soc]");
+	var error = $("#powerplant-thirdparty-address-error span");
+	var pending;
+
+	function resetCopyLink() {
+		if (pending) {
+			pending.abort();
+			pending = null;
+		}
+		link.prop("hidden", !(Number(thirdParty.val()) > 0));
+		error.prop("hidden", true);
+	}
+
+	thirdParty.on("change", resetCopyLink);
+	resetCopyLink();
+	link.on("click", function (event) {
+		event.preventDefault();
+		resetCopyLink();
+		var selected = thirdParty.val();
+		if (!(Number(selected) > 0)) {
+			return;
+		}
+		pending = $.getJSON(link.attr("data-url"), { fk_soc: selected })
+			.done(function (address) {
+				form.find("[name=address]").val(address.address);
+				form.find("[name=zip]").val(address.zip);
+				form.find("[name=town]").val(address.town);
+				form.find("select[name=fk_country]").val(String(address.fk_country)).trigger("change");
+			})
+			.fail(function (xhr, status) {
+				if (status !== "abort") {
+					error.prop("hidden", false);
+				}
+			});
+	});
+});
+JS;
+		print '</script>';
+	}
 
 	//dol_set_focus('input[name="ref"]');
 }
