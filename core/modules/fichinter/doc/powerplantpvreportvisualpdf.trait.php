@@ -1122,7 +1122,7 @@ trait PowerPlantPVReportVisualPdf
 				else { $pdf->SetDrawColor(184, 192, 204); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => '0.6,0.8')); $pdf->Line($x + 16, $y + $line[2] + 3.5, $x + $width - 4, $y + $line[2] + 3.5); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => 0)); }
 			}
 			$bx = $x + 4; $by = $y + 24; $bw = $width - 8;
-			$bh = $height - ($i === count($cards) - 1 ? 25 : 28);
+			$bh = $height - 28;
 			$pdf->SetDrawColor(207, 213, 223); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => '1,1')); $pdf->RoundedRect($bx, $by, $bw, $bh, 1.5, '1111', 'D'); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => 0));
 			if ($i === $columns - 1) {
 				// Record the placement on the actual PDF being signed, even if the settings later change.

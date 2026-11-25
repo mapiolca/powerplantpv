@@ -456,7 +456,9 @@ class ActionsPowerplantpv
 			$pdf->AddPage($size['h'] > $size['w'] ? 'P' : 'L', array($size['w'], $size['h']));
 			$pdf->useTemplate($template);
 		}
-		if ($x + $width > $pdf->getPageWidth() || $y + 29 > $pdf->getPageHeight()) {
+		// Leave 2 mm of padding at each end of the 30 mm signature frame.
+		$maxSignatureHeight = 26;
+		if ($x + $width > $pdf->getPageWidth() || $y + $maxSignatureHeight > $pdf->getPageHeight()) {
 			throw new RuntimeException('Invalid client signature placement in the maintenance report.');
 		}
 
@@ -469,10 +471,10 @@ class ActionsPowerplantpv
 		$pdf->SetXY($x + 10, $y - 9);
 		$pdf->Cell($width - 8, 4, $langs->convToOutputCharset(dol_print_date(dol_now(), 'day', false, $langs, true)), 0, 0, 'L', true);
 
-		$scale = min($width / $imageSize[0], 29 / $imageSize[1]);
+		$scale = min($width / $imageSize[0], $maxSignatureHeight / $imageSize[1]);
 		$signatureWidth = $imageSize[0] * $scale;
 		$signatureHeight = $imageSize[1] * $scale;
-		$pdf->Image($image, $x + ($width - $signatureWidth) / 2, $y + (29 - $signatureHeight) / 2, $signatureWidth, $signatureHeight);
+		$pdf->Image($image, $x + ($width - $signatureWidth) / 2, $y + ($maxSignatureHeight - $signatureHeight) / 2, $signatureWidth, $signatureHeight);
 
 		$temporaryFile = tempnam($directory, '.ppv-signed-');
 		if ($temporaryFile === false) {
