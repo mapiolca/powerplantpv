@@ -607,7 +607,7 @@ trait PowerPlantPVReportVisualPdf
 				foreach ($panel['rows'] as &$row) {
 					$row['label'] = $langs->convToOutputCharset($row['label']);
 					$row['value'] = $langs->convToOutputCharset($row['value']);
-					$row['badge'] = empty($panel['info']) && ($row['status'] ?? 'text') !== 'text';
+					$row['badge'] = empty($panel['info']) && (!empty($panel['badgeValues']) || ($row['status'] ?? 'text') !== 'text');
 					$pdf->SetFont('', '', $compact ? 10 : 9.8);
 					$labelHeight = $pdf->getStringHeight($panel['labelWidth'], $row['label']);
 					if ($compact) { $pdf->SetFont('', 'B', 10); }
@@ -615,7 +615,8 @@ trait PowerPlantPVReportVisualPdf
 					if ($row['badge']) {
 						$pdf->SetFont('', 'B', 8.6);
 						$iconSpace = $row['status'] === 'good' ? 3.8 : 0;
-						$row['badgeWidth'] = min($panel['valueWidth'], max(20, $pdf->GetStringWidth($row['value']) + 5 + $iconSpace));
+						$minimumBadgeWidth = empty($panel['badgeValues']) ? 20 : 26;
+						$row['badgeWidth'] = min($panel['valueWidth'], max($minimumBadgeWidth, $pdf->GetStringWidth($row['value']) + 5 + $iconSpace));
 						$row['badgeHeight'] = $pdf->getStringHeight($row['badgeWidth'] - 2 - $iconSpace, $row['value']) + 1.2;
 						$valueHeight = $row['badgeHeight'];
 					}

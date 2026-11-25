@@ -48,6 +48,7 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 				$previousCode = $code;
 			}
 			$panel = $this->visualSectionPanel($row, $outputlangs, true);
+			$panel['badgeValues'] = true;
 			if ($panel['rows']) {
 				if (!is_object($row['equipment'] ?? null)) {
 					$panel['title'] = '';
@@ -81,6 +82,7 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 			$this->renderSectionTitle($pdf, $title, 2);
 		}
 		$panel = $this->visualSectionPanel($row, $langs, true);
+		$panel['badgeValues'] = true;
 		$panel['title'] = '';
 		$this->visualPanels($pdf, array($panel), false);
 	}
