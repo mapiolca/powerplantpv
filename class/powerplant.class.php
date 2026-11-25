@@ -514,6 +514,9 @@ class PowerPlant extends CommonObject
 		if (isset($this->connection_type)) {
 			$this->connection_type = self::normalizeConnectionTypeValue($this->connection_type);
 		}
+		if (in_array($this->fk_country, array('', '-1', '0', -1, 0), true)) {
+			$this->fk_country = null;
+		}
 
 		// Ensure provisional reference and draft status before creation
 		if (empty($this->ref)) {
@@ -1079,6 +1082,9 @@ class PowerPlant extends CommonObject
 		}
 		if (isset($this->connection_type)) {
 			$this->connection_type = self::normalizeConnectionTypeValue($this->connection_type);
+		}
+		if (in_array($this->fk_country, array('', '-1', '0', -1, 0), true)) {
+			$this->fk_country = null;
 		}
 
 		$result = $this->updateCommon($user, 1);
@@ -2006,9 +2012,10 @@ class PowerPlant extends CommonObject
 	 */
 	public function validateField($fields, $fieldKey, $fieldValue)
 	{
-		// Add your own validation rules here.
-		// ...
-
+		if ($fieldKey === 'connection_type' && in_array((string) $fieldValue, array('-1', '0'), true)) {
+			// Select2 submits a sentinel for the optional empty choice.
+			$fieldValue = '';
+		}
 		return parent::validateField($fields, $fieldKey, $fieldValue);
 	}
 
