@@ -100,7 +100,7 @@ dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 // Load translation files required by the page
-$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other", "agenda"));
+$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other", "agenda", "companies"));
 
 // Get parameters
 $id = GETPOSTINT('id');
@@ -204,6 +204,39 @@ if (!$permissiontoread) {
 }
 
 $error = 0;
+$canApplyThirdPartyAddress = isModEnabled('societe')
+	&& $user->hasRight('powerplantpv', 'powerplant', 'write')
+	&& $user->hasRight('societe', 'lire');
+$thirdPartyAddress = array();
+
+if ($action === 'add' && empty($object->id) && !$cancel && GETPOST('apply_thirdparty_address', 'alpha', 2)) {
+	if (!$canApplyThirdPartyAddress) {
+		accessforbidden();
+	}
+
+	$action = 'create';
+	$thirdPartyId = GETPOSTINT('fk_soc', 2);
+	if ($thirdPartyId <= 0) {
+		setEventMessages($langs->trans('SelectThirdParty'), null, 'warnings');
+	} else {
+		require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+		require_once DOL_DOCUMENT_ROOT.'/core/lib/security.lib.php';
+		$thirdParty = new Societe($db);
+		if ($thirdParty->fetch($thirdPartyId) > 0
+			&& in_array((int) $thirdParty->entity, array_map('intval', explode(',', getEntity('societe'))), true)
+			&& checkUserAccessToObject($user, array('societe'), $thirdParty, 'societe')) {
+			$thirdPartyAddress = array(
+				'address' => (string) $thirdParty->address,
+				'zip' => (string) $thirdParty->zip,
+				'town' => (string) $thirdParty->town,
+				'fk_country' => (int) $thirdParty->country_id,
+			);
+		} else {
+			setEventMessages($langs->trans('PowerPlantThirdPartyAddressUnavailable'), null, 'warnings');
+		}
+	}
+}
+
 if ($action == 'add' && !empty($origin) && $originid > 0) {
 	$object->origin = $origin;
 	$object->origin_id = $originid;
@@ -564,6 +597,10 @@ if ($action == 'create') {
 			$value = GETPOST($key, 'alphanohtml');
 		}
 
+		if (array_key_exists($key, $thirdPartyAddress)) {
+			$value = $thirdPartyAddress[$key];
+		}
+
 		print '<tr class="field_'.$key.'">';
 		print '<td class="titlefieldcreate'.((isset($val['notnull']) && $val['notnull'] > 0) ? ' fieldrequired' : '').(($type == 'text' || $type == 'html') ? ' tdtop' : '').'">';
 		print '<label for="'.$key.'" class="block">';
@@ -680,7 +717,13 @@ if ($action == 'create') {
 	}
 
 	print powerplantRenderProjectSelection($object, $user);
-	print $form->buttonsSaveCancel("Create");
+	print '<div class="center">';
+	print $form->buttonsSaveCancel('Create', 'Cancel', array(), true);
+	if ($canApplyThirdPartyAddress) {
+		print '<input type="submit" class="button marginleftonly" name="apply_thirdparty_address" formnovalidate value="'
+			.dol_escape_htmltag($langs->transnoentities('PowerPlantApplyThirdPartyAddress')).'">';
+	}
+	print '</div>';
 
 	print '</form>';
 

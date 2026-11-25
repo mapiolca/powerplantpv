@@ -1,5 +1,10 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.10.1 — Non publiée
+
+- Le bouton « Annuler » du formulaire de création revient à la liste des attestations sans valider ni enregistrer la saisie.
+- À la création d’une centrale, « Appliquer les données du tiers » remplit l’adresse, le code postal, la ville et le pays à partir du tiers sélectionné.
+
 ## 1.10.0 — 2026-11-25
 
 - La nature d’intervention « Installation Autocontrôles C&I » reprend le rapport C&I en six étapes. L’actualisation du module renomme le libellé par défaut, en conservant la nature existante et ses liaisons.
