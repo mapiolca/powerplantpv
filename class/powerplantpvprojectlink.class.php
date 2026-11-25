@@ -66,7 +66,7 @@ class PowerPlantPVProjectLink
 	 */
 	public function powerplants(User $user, array $entityids = array())
 	{
-		if (!isModEnabled('powerplantpv') || !$user->hasRight('powerplantpv', 'powerplant', 'read')) {
+		if (!isModEnabled('powerplantpv') || !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) {
 			return array();
 		}
 		$sql = 'SELECT p.rowid, p.ref, p.label, p.entity, p.fk_soc, p.status';
@@ -186,9 +186,9 @@ class PowerPlantPVProjectLink
 		$this->error = '';
 		$isproject = $object instanceof Project;
 		if (!isModEnabled('powerplantpv') || !isModEnabled('project') || $user->socid > 0
-			|| !$user->hasRight('powerplantpv', 'powerplant', 'read')
+			|| !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))
 			|| ($isproject && !$user->hasRight('projet', 'creer') && !$user->hasRight('projet', 'all', 'creer'))
-			|| (!$isproject && (!($object instanceof PowerPlant) || !$user->hasRight('powerplantpv', 'powerplant', 'write')))) {
+			|| (!$isproject && (!($object instanceof PowerPlant) || !($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin))))) {
 			$this->error = 'ErrorForbidden';
 			return -1;
 		}

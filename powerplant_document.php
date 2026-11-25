@@ -141,8 +141,8 @@ if ($id > 0 || !empty($ref)) {
 	$upload_dir = powerplantGetDocumentUploadDir($object);
 }
 
-$permissiontoread = $user->hasRight('powerplantpv', 'powerplant', 'read');
-$permissiontoadd = $user->hasRight('powerplantpv', 'powerplant', 'write');
+$permissiontoread = ($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin));
+$permissiontoadd = ($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin));
 
 // Security check (enable the most restrictive one)
 if ($user->socid > 0) {

@@ -47,9 +47,12 @@ jobs:
           php -l powerplantpv/maintenance_intervention_report.php
           php -l powerplantpv/core/modules/modPowerPlantPV.class.php
           php -l powerplantpv/core/modules/fichinter/doc/pdf_powerplantpvreport.modules.php
+          php -l powerplantpv/core/modules/fichinter/doc/powerplantpvreportpartspdf.trait.php
           php powerplantpv/test/inverter_maintenance.php
           php powerplantpv/test/report_plant_completion.php dolibarr/htdocs
       - name: Native contracts with simulated schema and PDF capture
         run: php powerplantpv/test/inverter_maintenance_native.php dolibarr/htdocs powerplantpv
       - name: Visual PDF rendered with the core TCPDF
         run: php powerplantpv/test/visual_report_pdf_native.php dolibarr/htdocs powerplantpv
+      - name: Self-inspection PDF rendered by parts with the core TCPDF
+        run: php powerplantpv/test/autocontrol_report_pdf_native.php dolibarr/htdocs powerplantpv

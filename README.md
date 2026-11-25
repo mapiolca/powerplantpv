@@ -42,7 +42,7 @@ Panel serials are available in a separate CSV attachment generated from the repo
 See [the implementation and validation notes](docs/release/v1.8-maintenance-development.md)
 for activation, historic reports, naming existing equipment and validation limits.
 
-Version 1.10.0 adds the commissioning attestation for PV power plants, including pre-commissioning checks, CONSUEL details and two PDF layouts. See [ChangeLog.md](ChangeLog.md).
+Version 1.10.0 adds the six-step C&I self-inspection report and the commissioning attestation for PV power plants, including pre-commissioning checks, CONSUEL details and two PDF layouts. See [ChangeLog.md](ChangeLog.md).
 
 Version 1.9.1 removes per-inverter injection readings from maintenance reports, translates report answers and displays inverter checks in full-width PDF panels. See [ChangeLog.md](ChangeLog.md#191--2026-11-23).
 
@@ -357,3 +357,11 @@ L’option **Masquer les MPPT et entrées PV non exploités dans la saisie** est
 par entité dans les réglages. Elle ne modifie pas le PDF : les entrées non raccordées y
 restent identifiées comme « Non exploité par la centrale ». Aucun relevé stocké n’est supprimé.
 Les indicateurs PDF comptent les réponses explicites du modèle ; ils ne remplacent pas une conclusion technique.
+
+### Télécharger les preuves d’un rapport Autocontrôles C&I
+
+Les preuves ajoutées dans l’onglet **Rapport** sont également jointes à l’intervention.
+La génération du PDF rattache les preuves existantes et ajoute leurs liens de téléchargement pour un utilisateur interne disposant des droits de modification du rapport et de l’intervention.
+Le nom du fichier dans le PDF ouvre une page de téléchargement HTTPS accessible sans compte. Le lien expire après 30 jours. La suppression ou le remplacement du fichier joint invalide l’accès.
+
+Après mise à jour du code, recharger PowerPlantPV depuis la liste native des modules pour installer la table des liens, puis régénérer le PDF.

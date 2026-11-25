@@ -22,26 +22,6 @@
  */
 
 /**
- * Check a maintenance permission, with Dolibarr administrator bypass.
- *
- * @param	User	$user	Current user
- * @param	string	$right	Right code
- * @return	bool			True when allowed
- */
-function powerplantpvMaintenanceUserHasRight($user, $right = 'config')
-{
-	if (!empty($user->admin)) {
-		return true;
-	}
-
-	if (method_exists($user, 'hasRight')) {
-		return (bool) $user->hasRight('powerplantpv', 'maintenance', $right);
-	}
-
-	return !empty($user->rights->powerplantpv->maintenance->{$right});
-}
-
-/**
  * Return supported report section scopes.
  *
  * @return	array<string,string>	Option labels by code

@@ -89,7 +89,6 @@ $object->entity = 1;
 $object->type_code = PowerPlantPVAttestationTypes::TYPE_MISE_EN_SERVICE;
 $object->date_attestation = dol_mktime(12, 0, 0, 11, 24, 2026);
 $object->date_completion = dol_mktime(12, 0, 0, 11, 20, 2026);
-$object->note_public = '<p>Réserve de recette</p>';
 $object->check_visual = 1;
 $object->check_strings = 2;
 $object->check_protections = 1;
@@ -107,8 +106,17 @@ foreach (PowerPlantPVAttestationTypes::COMMISSIONING_MODELS as $modelName) {
 	}
 	$class = 'pdf_'.$modelName;
 	$model = new $class($db);
-	foreach (array('filled', 'missing') as $case) {
+	foreach (array('filled', 'missing', 'long-remarks') as $case) {
 		$object->ref = $modelName.'-'.$case;
+		$object->note_public = 'Réserve de recette';
+		if ($case === 'long-remarks') {
+			for ($i = 1; $i <= 95; $i++) {
+				$object->note_public .= "
+".sprintf('Observation de contrôle %03d : point à vérifier avant la levée des réserves.', $i);
+			}
+			$object->note_public .= "
+Dernière observation à signer.";
+		}
 		$object->consuel_number = $case === 'filled' ? 'CONS-2026-12345' : null;
 		$object->date_consuel = $case === 'filled' ? dol_mktime(12, 0, 0, 11, 12, 2026) : null;
 		if ($model->write_file($object, $langs) !== 1) {
@@ -123,6 +131,17 @@ foreach (PowerPlantPVAttestationTypes::COMMISSIONING_MODELS as $modelName) {
 		}
 		if ((strpos($pdfText, 'CONS-2026-12345') !== false) !== ($case === 'filled')) {
 			throw new RuntimeException($class.': incorrect CONSUEL reference for '.$case);
+		}
+		if ($case === 'long-remarks') {
+			for ($i = 1; $i <= 95; $i++) {
+				$observation = sprintf('Observation de contrôle %03d', $i);
+				if (substr_count($pdfText, $observation) !== 1) {
+					throw new RuntimeException($class.': missing or repeated '.$observation);
+				}
+			}
+			if (strpos($pdfText, 'Dernière observation à signer.') === false) {
+				throw new RuntimeException($class.': missing the end of the remarks.');
+			}
 		}
 		echo $file.PHP_EOL;
 	}

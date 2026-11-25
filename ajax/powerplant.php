@@ -74,7 +74,7 @@ $value = GETPOST('value', 'aZ09');
 $object = new PowerPlant($db);
 
 // Security check
-if (!$user->hasRight('powerplantpv', 'powerplant', 'write')) {
+if (!($user->hasRight('powerplantpv', 'powerplant', 'write') || !empty($user->admin))) {
 	accessforbidden();
 }
 

@@ -29,6 +29,14 @@ dol_include_once('/powerplantpv/class/powerplantpvreportconfigbase.class.php');
 class PowerPlantPVReportTemplate extends PowerPlantPVReportConfigBase
 {
 	public const TARGET_INTERVENTION = 'fichinter';
+	public const CODE_AUTOCONTROL = 'autocontrol';
+	public const CODE_RESIDENTIAL = 'autocontrol_residential';
+	public const PDF_MODEL_RESIDENTIAL = 'powerplantpvresidential';
+
+	public static function isInstallationTemplate(string $code): bool
+	{
+		return in_array($code, array(self::CODE_AUTOCONTROL, self::CODE_RESIDENTIAL), true);
+	}
 
 	public $element = 'powerplantpv_report_template';
 	public $table_element = 'powerplantpv_report_template';
@@ -209,6 +217,7 @@ class PowerPlantPVReportTemplate extends PowerPlantPVReportConfigBase
 			$newSection->label_en = $section->label_en;
 			$newSection->description = $section->description;
 			$newSection->description_en = $section->description_en;
+			$newSection->part_ref = $section->part_ref;
 			$newSection->scope_type = $section->scope_type;
 			$newSection->equipment_type = $section->equipment_type;
 			$newSection->repeat_mode = $section->repeat_mode;

@@ -129,11 +129,20 @@ nativeMaintenanceCheck($measure->inverter_label === 'Manual' && $measure->mppt_n
 class NativeMaintenanceSchemaDb
 {
  public $columns = array(); public $index = false; public $ddl = array();
+ public $evidenceExpiryNullable = false;
  public function prefix() { return 'long_test_prefix_'; }
  public function sanitize($value) { return $value; }
  public function escape($value) { return $value; }
  public function idate($value) { return '2000-01-01 00:00:00'; }
  public function query($sql) {
+  if (strpos($sql, "WHERE Field = 'expires_at' AND `Null` = 'NO'") !== false) {
+   return (object) array('count' => $this->evidenceExpiryNullable ? 0 : 1);
+  }
+  if (strpos($sql, 'MODIFY COLUMN expires_at datetime DEFAULT NULL') !== false) {
+   $this->evidenceExpiryNullable = true;
+   $this->ddl[] = $sql;
+   return true;
+  }
   if (strpos($sql, 'CREATE TABLE') === 0) { return true; }
   if (preg_match("/SHOW COLUMNS FROM ([a-z_]+) LIKE '((?:equipment|inverter)_(?:marker|identification)|fk_product|fk_report_illustration)'/", $sql, $m)) {
    return (object) array('count' => isset($this->columns[$m[1].'.'.$m[2]]) ? 1 : 0);
@@ -152,6 +161,7 @@ $schema = new NativeMaintenanceSchemaDb();
 $dbProperty = new ReflectionProperty($descriptor, 'db'); $dbProperty->setAccessible(true); $dbProperty->setValue($descriptor, $schema);
 $migration = new ReflectionMethod($descriptor, 'ensureGeneratedReportSchema'); $migration->setAccessible(true);
 nativeMaintenanceCheck($migration->invoke($descriptor) === 1 && count($schema->columns) === 8 && $schema->index, 'Existing schema receives six nullable identity columns and the module product relationship and a unique marker index');
+nativeMaintenanceCheck($schema->evidenceExpiryNullable, 'Existing evidence links support permanent expiry settings');
 $count = count($schema->ddl);
 nativeMaintenanceCheck($migration->invoke($descriptor) === 1 && count($schema->ddl) === $count, 'Repeated activation does not recreate columns or indexes');
 
@@ -268,9 +278,21 @@ nativeMaintenanceCheck(method_exists('CommonObject', 'setValueFrom'), 'Native si
 
 require_once $module.'/class/actions_powerplantpv.class.php';
 $langs->tab_translate['PowerPlantPVInterventionReportPdfName'] = 'Rapport de maintenance photovoltaïque';
-$models = array('powerplantpvreport' => 'powerplantpvreport', 'soleil' => 'soleil');
+$langs->tab_translate['PowerPlantPVAutocontrolPdfName'] = 'Rapport d’autocontrôle C&I';
+$langs->tab_translate['PowerPlantPVResidentialPdfName'] = 'Rapport d’autocontrôles Résidentiel';
+$models = array(
+	'powerplantpvreport' => 'powerplantpvreport',
+	PowerPlantPVReportParts::PDF_MODEL => PowerPlantPVReportParts::PDF_MODEL,
+	PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL => PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL,
+	'soleil' => 'soleil',
+);
 (new ActionsPowerplantpv())->getListOfModels(array('type' => 'ficheinter', 'list' => &$models));
-nativeMaintenanceCheck($models === array('powerplantpvreport' => 'Rapport de maintenance photovoltaïque', 'soleil' => 'soleil'), 'The selector translates the module title without changing model keys or other vendors’ choices');
+nativeMaintenanceCheck($models === array(
+	'powerplantpvreport' => 'Rapport de maintenance photovoltaïque',
+	PowerPlantPVReportParts::PDF_MODEL => 'Rapport d’autocontrôle C&I',
+	PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL => 'Rapport d’autocontrôles Résidentiel',
+	'soleil' => 'soleil',
+), 'The selector lists all three separate translated models alongside other native choices');
 
 require_once $module.'/core/modules/fichinter/doc/pdf_powerplantpvreport.modules.php';
 class NativeMaintenancePdfLifecycle extends pdf_powerplantpvreport
@@ -343,6 +365,9 @@ foreach (array(0 => '1', 1 => '2', 2 => '1,2') as $mode => $entities) {
 		'PDF model lookup follows dictionary sharing mode '.$mode.' without changing intervention ownership');
 }
 $mc = null;
+$natureDb->model = PowerPlantPVReportParts::PDF_MODEL;
+nativeMaintenanceCheck($nature->configuredPdfModel($newIntervention) === PowerPlantPVReportParts::PDF_MODEL,
+	'The nature resolves the dedicated C&I model for document generation');
 $statuses = PowerPlantPVReport::interventionSignatureStatuses();
 foreach (array(false, true) as $technicalRequired) {
 	$orders = $technicalRequired

@@ -51,13 +51,16 @@ if (!$res) {
  * @var User $user
  */
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/ajax.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 dol_include_once('/powerplantpv/lib/powerplantpv.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_maintenance.lib.php');
 dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportbuilder.class.php');
+dol_include_once('/powerplantpv/class/powerplantpvreportparts.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfield.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
+require_once __DIR__.'/class/powerplantpvreportevidence.class.php';
 require_once __DIR__.'/lib/powerplantpv_indexphoto.lib.php';
 require_once __DIR__.'/lib/powerplantpv_reportsignature.lib.php';
 require_once __DIR__.'/class/powerplantpvinterventionnature.class.php';
@@ -75,11 +78,14 @@ if (isModEnabled('project')) {
 $langs->loadLangs(array('powerplantpv@powerplantpv', 'interventions', 'companies', 'contracts', 'other'));
 
 $id = GETPOSTINT('id');
+$ref = $id > 0 ? '' : (string) GETPOST('ref', 'alphanohtml');
 $action = GETPOST('action', 'aZ09');
 $token = GETPOST('token', 'alphanohtml');
 $fieldId = GETPOSTINT('field_id');
 $fileId = GETPOSTINT('file_id');
 $dcSectionId = GETPOSTINT('add_dc_section_id');
+$partToValidate = (string) GETPOST('validate_part_submit', 'aZ09', 2);
+$partToReopen = (string) GETPOST('reopen_part_code', 'aZ09');
 $reportRestoreScrollY = GETPOSTINT('report_scroll_y');
 $legacyVoltageCards = GETPOST('adopt_legacy_voltage_submit', 'array', 2);
 $legacyVoltageCard = is_array($legacyVoltageCards) && count($legacyVoltageCards) === 1 ? (string) key($legacyVoltageCards) : '';
@@ -89,7 +95,9 @@ if (!preg_match('/^[a-f0-9]{32}$/D', $legacyVoltageCard)) {
 $manualServiceIds = powerplantpvSanitizeIdArray(GETPOST('manual_services', 'array:int'));
 
 if ($action === '') {
-	if (GETPOSTISSET('save_draft_submit') || $legacyVoltageCard !== '') {
+	if ($partToValidate !== '') {
+		$action = 'validate_part';
+	} elseif (GETPOSTISSET('save_draft_submit') || $legacyVoltageCard !== '') {
 		$action = 'save_draft';
 	} elseif (GETPOSTISSET('save_report_submit')) {
 		$action = 'save';
@@ -101,14 +109,20 @@ if ($action === '') {
 if (!isModEnabled('powerplantpv') || !getDolGlobalInt('POWERPLANTPV_MAINTENANCE_ENABLE', 1)) {
 	accessforbidden();
 }
-if ($id <= 0) {
+if (!$user->hasRight('ficheinter', 'lire') || !($user->hasRight('powerplantpv', 'report', 'read') || !empty($user->admin))) {
+	accessforbidden();
+}
+if ($id <= 0 && $ref === '') {
 	accessforbidden($langs->trans('ErrorRecordNotFound'));
 }
 
 $intervention = new Fichinter($db);
-if ($intervention->fetch($id) <= 0) {
+if ($intervention->fetch($id, $ref) <= 0) {
 	accessforbidden($langs->trans('ErrorRecordNotFound'));
 }
+$id = (int) $intervention->id;
+restrictedArea($user, 'ficheinter', $id, 'fichinter');
+
 if (method_exists($intervention, 'fetch_optionals')) {
 	$intervention->fetch_optionals();
 }
@@ -116,14 +130,8 @@ if (method_exists($intervention, 'fetch_thirdparty')) {
 	$intervention->fetch_thirdparty();
 }
 
-$permissiontoread = $user->hasRight('ficheinter', 'lire') && $user->hasRight('powerplantpv', 'maintenance', 'read');
-$permissiontowrite = $user->hasRight('powerplantpv', 'maintenance', 'report') || $user->hasRight('powerplantpv', 'maintenance', 'write');
+$permissiontowrite = ($user->hasRight('powerplantpv', 'report', 'write') || !empty($user->admin));
 $usercancreateintervention = $user->hasRight('ficheinter', 'creer');
-if (!$permissiontoread) {
-	accessforbidden();
-}
-
-restrictedArea($user, 'ficheinter', $id, 'fichinter');
 
 $builder = new PowerPlantPVReportBuilder($db);
 $report = new PowerPlantPVReport($db);
@@ -157,9 +165,109 @@ $canSign = $reportFetch > 0 && (int) $signatureState->fk_statut === Fichinter::S
 	&& $report->isSaved() && $signatureScript !== '';
 $signingAllowed = array(
 	'technician' => $canSign && !$technicianSigned && $report->isAssignedTechnician($intervention, $user),
-	'technical' => $canSign && !$technicalSigned && $user->hasRight('powerplantpv', 'maintenance', 'sign_technical')
+	'technical' => $canSign && !$technicalSigned && ($user->hasRight('powerplantpv', 'report', 'sign_technical') || !empty($user->admin))
 		&& $report->technicalSignatureEnabled() && $report->isTechnicalSupervisor($intervention, $user),
 );
+// Self-inspection reports: each part is signed on the day of its tests and only that part is frozen.
+$partsHelper = new PowerPlantPVReportParts($db);
+$isPartsReport = $reportFetch > 0 && PowerPlantPVReportParts::isPartsReport($report);
+$partSignatures = array();
+$lockedPartSectionIds = array();
+if ($isPartsReport) {
+	$partSignatures = $partsHelper->fetchSignatures($report);
+	$lockedPartSectionIds = is_array($partSignatures) ? $partsHelper->lockedSectionIds($report) : -1;
+	if (!is_array($partSignatures) || !is_array($lockedPartSectionIds)) {
+		setEventMessages($partsHelper->error, $partsHelper->errors, 'errors');
+		$partSignatures = array();
+		$lockedPartSectionIds = array();
+		$caneditreport = false;
+	}
+	if (PowerPlantPVReportParts::isFinalSigned($partSignatures)) {
+		$caneditreport = false;
+	}
+	// The final validation of the parts replaces the report-wide signatures.
+	$signingAllowed = array('technician' => false, 'technical' => false);
+}
+$partSigning = array();
+$partSignatureError = '';
+if (($action === 'prepare_part_signature' || $action === 'sign_part') && $isPartsReport) {
+	$partCode = GETPOST('part_code', 'aZ09');
+	$partRole = GETPOST('part_role', 'aZ09');
+	if ($locked || $signatureScript === '' || !$partsHelper->canSign($report, $intervention, $user, $partCode, $partRole, $partSignatures)
+		|| powerplantpvReportSnapshotNeedsRebuild($builder, (int) $report->id)) {
+		accessforbidden();
+	}
+	if ($action === 'prepare_part_signature' && $partCode !== PowerPlantPVReportParts::FINAL_CODE) {
+		$partTree = $builder->loadReportTree((int) $report->id);
+		$sectionIds = is_array($partTree) ? powerplantpvReportPartSectionIds($partTree, $partCode) : array();
+		$missing = $sectionIds ? powerplantpvReportFindMissingRequiredFields((int) $report->id, $sectionIds, true) : -1;
+		if (!is_array($missing) || $missing) {
+			$message = is_array($missing)
+				? $langs->transnoentities('PowerPlantPVPartMissingRequiredFields', implode(', ', $missing))
+				: $langs->trans('ErrorRecordNotFound');
+			setEventMessages($message, null, 'errors');
+			header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partCode);
+			exit;
+		}
+	}
+	$partSigning = array('part' => $partCode, 'role' => $partRole);
+	if ($action === 'sign_part') {
+		if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !powerplantpvReportSubmittedTokenValid($token)
+			|| GETPOSTINT('signature_consent', 2) !== 1) {
+			accessforbidden();
+		}
+		if ($db->begin() <= 0) {
+			accessforbidden();
+		}
+		// Use the same row lock as report writes before reading the values being signed.
+		$lockedForSignature = $report->lockUnsignedForEdit() && $report->fetch((int) $report->id) > 0;
+		$currentSignatures = $lockedForSignature ? $partsHelper->fetchSignatures($report) : -1;
+		if (!is_array($currentSignatures)
+			|| !$partsHelper->canSign($report, $intervention, $user, $partCode, $partRole, $currentSignatures)) {
+			$db->rollback();
+			accessforbidden();
+		}
+		$signatureError = '';
+		$partTree = $builder->loadReportTree((int) $report->id);
+		$missingPartFields = is_array($partTree) ? powerplantpvReportFindMissingRequiredFields((int) $report->id, powerplantpvReportPartSectionIds($partTree, $partCode), true) : -1;
+		if (!is_array($missingPartFields)) {
+			$signatureError = $langs->trans('ErrorRecordNotFound');
+		} elseif ($missingPartFields) {
+			$signatureError = $langs->trans('PowerPlantPVPartMissingRequiredFields', implode(', ', $missingPartFields));
+		}
+		$signaturePath = '';
+		if ($signatureError === '') {
+			$signaturePath = powerplantpvReportSignaturePath((int) $report->entity, (int) $report->id, PowerPlantPVReportParts::imageKey($partCode, $partRole), true);
+			if ($signaturePath === '' || is_file($signaturePath) || !powerplantpvReportSignatureStore((string) GETPOST('signature_image', 'none', 2), $signaturePath)) {
+				$signatureError = $langs->trans('PowerPlantPVSignatureDrawingFailed');
+				$signaturePath = '';
+			}
+		}
+		if ($signatureError === '') {
+			if ($partsHelper->sign($report, $user, $partCode, $partRole, $user->getFullName($langs)) > 0
+				&& $report->recordLifecycleEvent($intervention, $user, 'signed', $partCode) >= 0
+				&& $db->commit() > 0) {
+				setEventMessages($langs->trans('PowerPlantPVSignatureRecorded'), null, 'mesgs');
+				if ($partCode === PowerPlantPVReportParts::FINAL_CODE) {
+					$model = (new PowerPlantPVInterventionNature($db))->configuredPdfModel($intervention);
+					if ($model === null || $intervention->generateDocument($model !== '' ? $model : PowerPlantPVReportParts::PDF_MODEL, $langs) <= 0) {
+						setEventMessages($langs->trans('PowerPlantPVInterventionPdfGenerationFailed'), null, 'warnings');
+					}
+				}
+				header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-signature-'.$partCode);
+				exit;
+			}
+			dol_delete_file($signaturePath, 1, 1, 1, null, false, 0);
+			$signatureError = $langs->trans('PowerPlantPVSignatureDrawingFailed');
+		}
+		$db->rollback();
+		if ($partCode === PowerPlantPVReportParts::FINAL_CODE) {
+			setEventMessages($signatureError, null, 'errors');
+		} else {
+			$partSignatureError = $signatureError;
+		}
+	}
+}
 $signatureRole = '';
 if ($action === 'prepare_signature' || $action === 'save_signature') {
 	$signatureRole = GETPOST('signature_role', 'aZ09');
@@ -175,9 +283,11 @@ if ($action === 'prepare_signature' || $action === 'save_signature') {
 		if ($report->signDrawn($intervention, $user, $signatureRole, $user->getFullName($langs), $drawing) > 0) {
 			setEventMessages($langs->trans('PowerPlantPVSignatureRecorded'), null, 'mesgs');
 			$model = (new PowerPlantPVInterventionNature($db))->configuredPdfModel($intervention);
+			$defaultModel = $report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL
+				? PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL : 'powerplantpvreport';
 			$canRegenerate = !PowerPlantPVReport::interventionSignedByThirdParty((int) $intervention->signed_status)
-				|| $model === '' || $model === 'powerplantpvreport';
-			if ($model === null || ($canRegenerate && $intervention->generateDocument($model !== '' ? $model : 'powerplantpvreport', $langs) <= 0)) {
+				|| $model === '' || $model === $defaultModel;
+			if ($model === null || ($canRegenerate && $intervention->generateDocument($model !== '' ? $model : $defaultModel, $langs) <= 0)) {
 				setEventMessages($langs->trans('PowerPlantPVInterventionPdfGenerationFailed'), null, 'warnings');
 			}
 			header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-report-signatures');
@@ -199,7 +309,7 @@ if ($action === 'view_index_photo') {
 
 $completionService = new PowerPlantPVReportPlantCompletion($db);
 $canwriteplant = $user->hasRight('powerplantpv', 'powerplant', 'read') && $user->hasRight('powerplantpv', 'powerplant', 'write');
-$caneditcompletion = $caneditreport && $canwriteplant && !$report->isSaved();
+$caneditcompletion = $caneditreport && $canwriteplant && !$report->isSaved() && !$isPartsReport;
 $completionPayload = array();
 $completionPayloadInvalid = false;
 if (($action === 'save_draft' || $action === 'save') && GETPOSTISSET('plant_completion', 2)) {
@@ -230,11 +340,18 @@ if (GETPOSTINT('retry_plant_completion', 2) > 0) {
 	exit;
 }
 
-$sensitiveActions = array('save_draft', 'save', 'recalculate', 'upload_file', 'delete_file', 'add_dc_measure_line');
+$sensitiveActions = array('save_draft', 'save', 'validate_part', 'recalculate', 'upload_file', 'delete_file', 'add_dc_measure_line');
 if ($action === 'generate_serial_annex' && (!$cangenerateserialannex || !powerplantpvReportSubmittedTokenValid($token))) { accessforbidden(); }
 if (in_array($action, $sensitiveActions, true)) {
 	if (!$caneditreport) {
 		accessforbidden();
+	}
+	if (in_array($action, array('upload_file', 'delete_file'), true) && !empty($lockedPartSectionIds)
+		&& powerplantpvReportFileActionTargetsLockedPart($action === 'upload_file' ? $fieldId : 0, $action === 'delete_file' ? $fileId : 0, $lockedPartSectionIds)) {
+		accessforbidden($langs->trans('PowerPlantPVPartSignedLocked'));
+	}
+	if ($action === 'recalculate' && !empty($lockedPartSectionIds)) {
+		accessforbidden($langs->trans('PowerPlantPVPartSignedRecalculateLocked'));
 	}
 	if (!powerplantpvReportSubmittedTokenValid($token)) {
 		accessforbidden('Invalid CSRF token');
@@ -266,6 +383,67 @@ if ($action === 'classin' && $usercancreateintervention) {
 		setEventMessages($intervention->error, $intervention->errors, 'errors');
 	} else {
 		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id);
+		exit;
+	}
+}
+
+if ($action === 'validate_part') {
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !$isPartsReport || $signatureScript === ''
+		|| !isset(PowerPlantPVReportParts::definitions()[$partToValidate])
+		|| !$partsHelper->canSign($report, $intervention, $user, $partToValidate, 'technician', $partSignatures)
+		|| powerplantpvReportSnapshotNeedsRebuild($builder, (int) $report->id)) {
+		accessforbidden();
+	}
+	$treeForSignature = $builder->loadReportTree((int) $report->id);
+	$partSectionIds = is_array($treeForSignature) ? powerplantpvReportPartSectionIds($treeForSignature, $partToValidate) : array();
+	$redirectUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partToValidate;
+	if (!$partSectionIds) {
+		setEventMessages($langs->trans('ErrorRecordNotFound'), null, 'errors');
+	} elseif ($db->begin() <= 0) {
+		setEventMessages($db->lasterror(), null, 'errors');
+	} else {
+		$result = $builder->saveValues((int) $report->id, powerplantpvReportGetSubmittedValues(), powerplantpvReportGetSubmittedDateValues(), $user, (string) $report->status, $partSectionIds);
+		if ($result > 0) {
+			$result = $builder->saveDcMeasureValues((int) $report->id, powerplantpvReportGetSubmittedDcMeasures(), $user, '', $partSectionIds);
+		}
+		$missing = $result > 0 ? powerplantpvReportFindMissingRequiredFields((int) $report->id, $partSectionIds, true) : -1;
+		if (is_array($missing) && !$missing && $report->recordLifecycleEvent($intervention, $user, 'stage_validated', $partToValidate) < 0) {
+			$result = -1;
+		}
+		if ($result <= 0 || !is_array($missing)) {
+			$db->rollback();
+			setEventMessages($result <= 0 ? $langs->trans($builder->error ?: $report->error) : $langs->trans('ErrorRecordNotFound'), $builder->errors, 'errors');
+		} elseif ($db->commit() <= 0) {
+			$error = $db->lasterror();
+			$db->rollback();
+			setEventMessages($error, null, 'errors');
+		} elseif ($missing) {
+			setEventMessages($langs->transnoentities('PowerPlantPVPartMissingRequiredFields', implode(', ', $missing)), null, 'errors');
+		} else {
+			$redirectUrl = powerplantpvReportPartSignatureUrl($partToValidate, 'technician');
+		}
+	}
+	header('Location: '.$redirectUrl);
+	exit;
+}
+
+if (in_array($action, array('reopen_part', 'confirm_reopen_part'), true)) {
+	$stageSigner = $partSignatures[$partToReopen]['technician'] ?? null;
+	if (!$isPartsReport || $locked || !isset(PowerPlantPVReportParts::definitions()[$partToReopen])
+		|| !($user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !empty($user->admin)) || !is_object($stageSigner)
+		|| !$partsHelper->isSignerOrSupervisor($user, (int) $stageSigner->fk_user) || !powerplantpvReportSubmittedTokenValid($token)) {
+		accessforbidden();
+	}
+	if ($action === 'confirm_reopen_part') {
+		if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || GETPOST('confirm', 'aZ09', 2) !== 'yes') {
+			accessforbidden();
+		}
+		if ($partsHelper->reopenPart($report, $intervention, $user, $partToReopen) > 0) {
+			setEventMessages($langs->trans('PowerPlantPVPartReopened'), null, 'mesgs');
+		} else {
+			setEventMessages($langs->trans($partsHelper->error), null, 'errors');
+		}
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partToReopen);
 		exit;
 	}
 }
@@ -315,6 +493,7 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 			$state = $completionTransaction ? $report->readInterventionSignatureState($intervention, true) : null;
 			if (!$state || PowerPlantPVReport::interventionSignedByThirdParty((int) $state->signed_status)
 				|| !$report->lockUnsignedForEdit() || $report->fetchByIntervention($id) <= 0 || $report->isSaved()
+				|| PowerPlantPVReportParts::isPartsReport($report)
 				|| !$completionService->save($report, $intervention, $user, $completionPayload)) {
 				$result = -1;
 				$message = $completionService->error ?: PowerPlantPVReportPlantCompletion::CONFLICT;
@@ -335,7 +514,7 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 			$photoErrors = powerplantpvReportSaveIndexPhotos(
 				$report,
 				(string) $status === PowerPlantPVReport::STATUS_SAVED,
-				$user->hasRight('powerplantpv', 'maintenance', 'finalize_missing_evidence'),
+				($user->hasRight('powerplantpv', 'report', 'finalize_missing_evidence') || !empty($user->admin)),
 				$photoWarnings
 			);
 			if ($photoErrors) {
@@ -355,8 +534,17 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 				$db->rollback();
 			}
 		}
+		if ($result >= 0 && (string) $status === PowerPlantPVReport::STATUS_SAVED && PowerPlantPVReportParts::isPartsReport($report)) {
+			$signaturesForFinalize = $partsHelper->fetchSignatures($report);
+			$unsignedParts = is_array($signaturesForFinalize) ? PowerPlantPVReportParts::unsignedParts($signaturesForFinalize) : array_keys(PowerPlantPVReportParts::definitions());
+			if ($unsignedParts) {
+				$result = -1;
+				$requiredValidationFailed = 1;
+				setEventMessages($langs->trans('PowerPlantPVPartsUnsignedForFinalize', implode(', ', array_map('powerplantpvReportPartLabel', $unsignedParts))), null, 'errors');
+			}
+		}
 		if ($result >= 0 && (string) $status === PowerPlantPVReport::STATUS_SAVED) {
-			$missingRequiredFields = powerplantpvReportFindMissingRequiredFields((int) $report->id);
+			$missingRequiredFields = powerplantpvReportFindMissingRequiredFields((int) $report->id, null, PowerPlantPVReportParts::isPartsReport($report));
 			if (!is_array($missingRequiredFields)) {
 				$result = -1;
 				$requiredValidationFailed = 1;
@@ -380,10 +568,21 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 					if ($result >= 0) {
 						$nature = new PowerPlantPVInterventionNature($db);
 						$finalPdfModel = $nature->configuredPdfModel($intervention);
+						if ($finalPdfModel === '') {
+							$finalPdfModel = match ($report->report_template_code) {
+								PowerPlantPVReportTemplate::CODE_AUTOCONTROL => PowerPlantPVReportParts::PDF_MODEL,
+								PowerPlantPVReportTemplate::CODE_RESIDENTIAL => PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL,
+								default => '',
+							};
+						}
 						if ($finalPdfModel === null || $nature->applyPdfModel($intervention, $user, $finalPdfModel) < 0) {
 							$result = -1;
 							$builder->error = $langs->trans('PowerPlantPVInterventionPdfModelFailed');
 						}
+					}
+					if ($result >= 0 && !$report->isSaved() && $report->recordLifecycleEvent($intervention, $user, 'finalized') < 0) {
+						$result = -1;
+						$builder->error = $report->error;
 					}
 					if ($result >= 0 && $db->commit() <= 0) {
 						$result = -1;
@@ -485,10 +684,13 @@ $title = $langs->trans('PowerPlantPVReportTab');
 
 $morejs = array('/powerplantpv/js/powerplantpv_report.js?v='.(int) filemtime(__DIR__.'/js/powerplantpv_report.js'),
 	'/powerplantpv/js/powerplantpv_reportcompletion.js?v='.(int) filemtime(__DIR__.'/js/powerplantpv_reportcompletion.js'));
-if ($signatureRole !== '') {
+if ($signatureRole !== '' || !empty($partSigning)) {
 	array_unshift($morejs, $signatureScript);
 }
 $morecss = array('/powerplantpv/css/powerplantpv_report.css?v='.(int) filemtime(__DIR__.'/css/powerplantpv_report.css'));
+if (!defined('REQUIRE_JQUERY_MULTISELECT')) {
+	define('REQUIRE_JQUERY_MULTISELECT', 'select2');
+}
 llxHeader('', $title, '', '', 0, 0, $morejs, $morecss, '', 'mod-powerplantpv page-maintenance-intervention-report');
 
 $head = array();
@@ -496,6 +698,10 @@ if (function_exists('fichinter_prepare_head')) {
 	$head = fichinter_prepare_head($intervention);
 }
 print dol_get_fiche_head($head, 'powerplantpv_report', $langs->trans('Intervention'), -1, 'intervention');
+if ($action === 'reopen_part') {
+	$confirmationUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&reopen_part_code='.urlencode($partToReopen);
+	print $form->formconfirm($confirmationUrl, $langs->trans('PowerPlantPVPartReopen'), $langs->trans('PowerPlantPVPartReopenConfirm'), 'confirm_reopen_part');
+}
 
 $linkback = '<a href="'.DOL_URL_ROOT.'/fichinter/list.php?restore_lastsearch_values=1'
 	.(!empty($intervention->socid) ? '&socid='.(int) $intervention->socid : '').'">'
@@ -606,6 +812,7 @@ if ($emptyExistingSnapshot) {
 if ($invalidExistingSnapshot) {
 	$messages[] = 'PowerPlantPVReportSnapshotSectionsWithoutFields';
 }
+$treeIsParts = $isPartsReport || (is_array($tree) && PowerPlantPVReportParts::isPartsTemplate($tree['template']['code'] ?? ''));
 if (is_array($tree) && !empty($tree['messages']) && is_array($tree['messages'])) {
 	$messages = array_merge($messages, $tree['messages']);
 }
@@ -613,6 +820,10 @@ if (is_array($diagnosticTree) && !empty($diagnosticTree['messages']) && is_array
 	$messages = array_merge($messages, $diagnosticTree['messages']);
 }
 $messages = array_values(array_unique($messages));
+if ($treeIsParts) {
+	// A self-inspection report does not depend on maintenance contract services.
+	$messages = array_values(array_diff($messages, array('PowerPlantPVReportNoContractPrestations')));
+}
 if (!empty($messages)) {
 	foreach ($messages as $messageKey) {
 		print '<div class="info">'.$langs->trans((string) $messageKey).'</div>';
@@ -630,6 +841,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	$showManualSelection = (($reportFetch <= 0 || $snapshotNeedsRebuild)
 		&& $caneditreport
 		&& $noContractPrestations
+		&& !$treeIsParts
 		&& !empty($manualOptions));
 	$formClass = 'powerplantpv-report-form'.($caneditreport ? ' powerplantpv-report-form-editable' : '');
 	$viewKey = (int) $conf->entity.':'.(int) $user->id.':'.(int) $id;
@@ -643,30 +855,48 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	if ($showManualSelection) {
 		print '<div class="powerplantpv-report-manual">';
 		print '<label>'.$langs->trans('PowerPlantPVReportManualServices').'</label>';
-		print $form->multiselectarray('manual_services', $manualOptions, $manualServiceIds, 0, 0, 'powerplantpv-report-control', 0, 0);
+		print $form->multiselectarray('manual_services', $manualOptions, $manualServiceIds, 0, 0, 'powerplantpv-report-control powerplantpv-report-choice', 0, 0, '', '', '', 0);
 		print '<div class="opacitymedium">'.$langs->trans('PowerPlantPVReportManualServicesHelp').'</div>';
 		print '</div>';
 	}
 
-	powerplantpvRenderReportCompletion($completionService, $report, $intervention, $user, $caneditcompletion, $canwriteplant && $permissiontowrite, $completionPayload ?: array(), $langs);
+	if (!$treeIsParts) {
+		powerplantpvRenderReportCompletion($completionService, $report, $intervention, $user, $caneditcompletion, $canwriteplant && $permissiontowrite, $completionPayload ?: array(), $langs);
+	}
 
 	$renderEditableFields = $caneditreport;
 	if (!empty($conf->use_javascript_ajax)) {
-		print '<div class="powerplantpv-report-navigation">';
-		print '<nav class="blockvmenu" aria-labelledby="powerplantpv-report-contents-label" data-report-contents hidden>';
-		print '<div id="powerplantpv-report-contents-label" class="menu_titre">'.$langs->trans('PowerPlantPVReportContents').'</div>';
-		print '</nav>';
-		print '<div class="marginbottomonly" data-report-disclosure-controls hidden>';
-		print dolGetButtonAction($langs->transnoentities('PowerPlantPVReportExpandAll'), '', 'default', '#', '', 1, array(
-			'attr' => array('role' => 'button', 'data-report-disclosure' => 'open'),
-		));
-		print ' ';
-		print dolGetButtonAction($langs->transnoentities('PowerPlantPVReportCollapseAll'), '', 'default', '#', '', 1, array(
-			'attr' => array('role' => 'button', 'data-report-disclosure' => 'close'),
-		));
+		print '<div class="powerplantpv-report-navigation" data-report-contents-label="'.dol_escape_htmltag($langs->transnoentities('PowerPlantPVReportContents')).'">';
+		print '<div class="right marginbottomonly" data-report-disclosure-controls hidden>';
+		$disclosureActions = array('open' => array('ExpandAll', 'folder-open'), 'close' => array('UndoExpandAll', 'folder'));
+		foreach ($disclosureActions as $disclosure => list($translation, $icon)) {
+			$label = dol_escape_htmltag($langs->transnoentities($translation));
+			print '<a href="#" role="button" title="'.$label.'" aria-label="'.$label.'" data-report-disclosure="'.$disclosure.'">';
+			print img_picto('', $icon, 'class="paddingright"').'<span class="hideonsmartphone">'.$label.'</span></a>';
+			if ($disclosure === 'open') {
+				print ' | ';
+			}
+		}
 		print '</div></div>';
 	}
-	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form, isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array());
+	$signableParts = array();
+	$reopenableParts = array();
+	if ($reportFetch > 0 && $isPartsReport && !$locked && !$snapshotNeedsRebuild && $signatureScript !== '') {
+		foreach (array_keys(PowerPlantPVReportParts::definitions()) as $partCode) {
+			if ($partsHelper->canSign($report, $intervention, $user, $partCode, 'technician', $partSignatures)) {
+				$signableParts[$partCode] = true;
+			}
+		}
+	}
+	if ($isPartsReport && !$locked && ($user->hasRight('powerplantpv', 'attestation', 'manage_signed') || !empty($user->admin))) {
+		foreach (array_keys(PowerPlantPVReportParts::definitions()) as $partCode) {
+			$signature = $partSignatures[$partCode]['technician'] ?? null;
+			if (is_object($signature) && $partsHelper->isSignerOrSupervisor($user, (int) $signature->fk_user)) {
+				$reopenableParts[$partCode] = true;
+			}
+		}
+	}
+	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form, isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array(), $treeIsParts ? $lockedPartSectionIds : array(), $treeIsParts ? $partSignatures : null, $signableParts, $reopenableParts);
 
 	if ($caneditreport) {
 		print '<div class="center powerplantpv-report-actions">';
@@ -674,7 +904,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print ' ';
 		print '<input type="submit" class="button button-save" name="save_report_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportFinalize')).'">';
 		print ' ';
-		if ($snapshotNeedsRebuild && $reportFetch > 0) {
+		if ($snapshotNeedsRebuild && $reportFetch > 0 && empty($lockedPartSectionIds)) {
 			print ' ';
 			print '<input type="submit" class="button button-save" name="recalculate_submit" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
 		}
@@ -684,7 +914,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	print '</form>';
 
 	print '<div class="center powerplantpv-report-actions" id="powerplantpv-report-signatures">';
-	if ($reportFetch > 0 && $report->isSaved() && !$snapshotNeedsRebuild && !$thirdPartySigned && $permissiontowrite) {
+	if ($reportFetch > 0 && !$treeIsParts && $report->isSaved() && !$snapshotNeedsRebuild && !$thirdPartySigned && $permissiontowrite) {
 		$signatureUrl = powerplantpvReportGetInterventionOnlineSignatureUrl($intervention);
 		if ($signatureUrl !== '') {
 			print dolGetButtonAction($langs->trans('PowerPlantPVReportSignButton'), '', 'default', $signatureUrl);
@@ -719,9 +949,24 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '<input type="submit" class="button" value="'.dol_escape_htmltag($langs->trans($signatureLabels[$signatureRole])).'">';
 		print '</form>';
 	}
+	if ($reportFetch > 0 && $isPartsReport) {
+		powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSignatures, $partSigning);
+		if (!empty($partSigning) && $partSigning['part'] !== PowerPlantPVReportParts::FINAL_CODE) {
+			$cancelUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-part-actions-'.$partSigning['part'];
+			print '<div class="center" data-part-signature-dialog data-title="'.dol_escape_htmltag(powerplantpvReportPartLabel($partSigning['part'])).'"';
+			print ' data-close-label="'.dol_escape_htmltag($langs->transnoentities('Close')).'" data-cancel-url="'.dol_escape_htmltag($cancelUrl).'">';
+			powerplantpvReportRenderPartSignatureForm($partSigning['part'], $partSigning['role'], $partSignatureError);
+			print '</div>';
+		}
+	}
 	print '</div>';
 
-	if ($cangenerateserialannex && $reportFetch > 0) {
+	$showSerialAnnex = $cangenerateserialannex && $reportFetch > 0;
+	$showRecalculate = $caneditreport && $reportFetch > 0 && !$snapshotNeedsRebuild && empty($lockedPartSectionIds);
+	if ($showSerialAnnex || $showRecalculate) {
+		print '<div class="powerplantpv-report-document-actions">';
+	}
+	if ($showSerialAnnex) {
 		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="powerplantpv-inline-form">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="id" value="'.(int) $id.'">';
@@ -730,20 +975,25 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '</form>';
 	}
 
-	if ($caneditreport && $reportFetch > 0 && !$snapshotNeedsRebuild) {
-		print '<div class="tabsAction">';
+	if ($showRecalculate) {
 		print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="powerplantpv-inline-form">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="id" value="'.((int) $id).'">';
 		print '<input type="hidden" name="action" value="recalculate">';
-		print '<input type="submit" class="butAction" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
+		print '<input type="submit" class="button" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVReportRecalculate')).'">';
 		print '</form>';
+	}
+	if ($showSerialAnnex || $showRecalculate) {
 		print '</div>';
 	}
 }
 print '</div>';
 
 print dol_get_fiche_end();
+
+// Apply the native Select2 presentation consistently to report choices.
+print ajax_combobox('.powerplantpv-report-choice', array(), 0, 0, '100%');
+print ajax_combobox('.powerplantpv-report-date select');
 
 llxFooter();
 $db->close();
@@ -945,6 +1195,22 @@ function powerplantpvReportGetSubmittedValues()
 		}
 	}
 
+	$choiceKeys = GETPOST('report_choice_keys', 'array');
+	if (is_array($choiceKeys)) {
+		foreach ($choiceKeys as $hash => $stableKey) {
+			if (!is_string($stableKey) || (string) $hash !== hash('sha256', $stableKey)) {
+				continue;
+			}
+			$input = 'report_choice_'.$hash;
+			if (GETPOSTISSET($input.'_multiselect')) {
+				$selected = GETPOST($input, 'array', 2);
+				$values[$stableKey] = is_array($selected) ? array_map('dol_string_nohtmltag', array_map('strval', $selected)) : array();
+			} elseif (GETPOSTISSET($input)) {
+				$values[$stableKey] = GETPOST($input, 'alphanohtml', 2);
+			}
+		}
+	}
+
 	$textareaKeys = GETPOST('report_textarea_keys', 'array');
 	if (is_array($textareaKeys)) {
 		foreach ($textareaKeys as $hash => $stableKey) {
@@ -963,12 +1229,10 @@ function powerplantpvReportGetSubmittedValues()
 /**
  * Return submitted date values.
  *
- * @return	array<string,string>	Date values by stable key
+ * @return	array<string,int|string>	Timestamps or an empty string for a cleared field
  */
 function powerplantpvReportGetSubmittedDateValues()
 {
-	global $db;
-
 	$keys = GETPOST('report_date_keys', 'array');
 	if (!is_array($keys)) {
 		return array();
@@ -991,7 +1255,9 @@ function powerplantpvReportGetSubmittedDateValues()
 			continue;
 		}
 		$timestamp = dol_mktime($hour, $min, 0, $month, $day, $year);
-		$values[$stableKey] = $db->idate($timestamp);
+		if (is_int($timestamp)) {
+			$values[$stableKey] = $timestamp;
+		}
 	}
 
 	return $values;
@@ -1037,9 +1303,11 @@ function powerplantpvReportGetSubmittedDcMeasures()
  * Return missing required field labels for a report.
  *
  * @param	int	$reportId	Report id
+ * @param	array<int,bool>|null	$onlySectionIds	Restrict to these snapshot sections
+ * @param	bool	$isPartsReport	Whether manual signer fields are obsolete
  * @return	array<int,string>|int	Labels, <0 on error
  */
-function powerplantpvReportFindMissingRequiredFields($reportId)
+function powerplantpvReportFindMissingRequiredFields($reportId, $onlySectionIds = null, bool $isPartsReport = false)
 {
 	global $db;
 
@@ -1054,7 +1322,12 @@ function powerplantpvReportFindMissingRequiredFields($reportId)
 		if (!is_object($field) || empty($field->is_required)) {
 			continue;
 		}
-		if (!empty($field->readonly) || (int) $field->visible_form <= 0 || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)) {
+		if (is_array($onlySectionIds) && empty($onlySectionIds[(int) $field->fk_report_section])) {
+			continue;
+		}
+		if (!empty($field->readonly) || (int) $field->visible_form <= 0 || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
+			|| ($isPartsReport && ((string) $field->field_code === PowerPlantPVReportParts::LEGACY_RESERVES_FIELD
+				|| PowerPlantPVReportParts::isManualSignerField((string) $field->field_code)))) {
 			continue;
 		}
 		if (in_array((string) $field->field_type, array('computed', 'signature'), true)) {
@@ -1189,11 +1462,15 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
  * @param	bool							$editable	Editable flag
  * @param	Form							$form		Form helper
  * @param	array<int,mixed>					$powerplants	Power plants
+ * @param	array<int,bool>						$lockedSectionIds	Sections locked by a signature
+ * @param	array<string,array<string,stdClass>>|null	$partSignatures	Signatures of a C&I report
+ * @param	array<string,bool>					$signableParts	Parts the current user can sign
+ * @param	array<string,bool>					$reopenableParts	Parts the current user can reopen
  * @return	void
  */
-function powerplantpvReportRenderSections($sections, $editable, $form, $powerplants = array())
+function powerplantpvReportRenderSections($sections, $editable, $form, $powerplants = array(), $lockedSectionIds = array(), $partSignatures = null, array $signableParts = array(), array $reopenableParts = array())
 {
-	global $intervention, $langs;
+	global $id, $intervention, $langs;
 
 	if (empty($sections) && empty($powerplants)) {
 		print '<table class="noborder centpercent">';
@@ -1203,6 +1480,16 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 	}
 
 	$groups = array();
+	$byPart = is_array($partSignatures);
+	$partDefinitions = array();
+	if ($byPart) {
+		// Self-inspection reports are grouped by part, each part being filled and signed on its own test day.
+		$powerplants = array();
+		$partDefinitions = PowerPlantPVReportParts::definitions($sections);
+		foreach (array_merge(array(''), array_keys($partDefinitions)) as $partCode) {
+			$groups['part:'.$partCode] = array('part' => $partCode, 'powerplant' => null, 'sections' => array());
+		}
+	}
 	foreach ($powerplants as $powerplant) {
 		$key = 'powerplant:'.powerplantpvReportPowerplantSourceId($powerplant);
 		if ($key === 'powerplant:0') {
@@ -1222,7 +1509,12 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			continue;
 		}
 		$key = 'general';
-		if (!empty($row['powerplant'])) {
+		if ($byPart) {
+			if ((string) $row['section']->section_code === PowerPlantPVReportParts::LEGACY_RESERVES_SECTION) {
+				continue;
+			}
+			$key = 'part:'.PowerPlantPVReportParts::partCodeForSection((string) $row['section']->section_code);
+		} elseif (!empty($row['powerplant'])) {
 			$key = 'powerplant:'.powerplantpvReportPowerplantSourceId($row['powerplant']);
 		}
 		if (!isset($groups[$key])) {
@@ -1235,10 +1527,28 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 	$singlePlant = count($powerplants) === 1 ? powerplantpvReportPowerplantSourceId(reset($powerplants)) : 0;
 	foreach ($groups as $group) {
 		$hasPlant = !empty($group['powerplant']);
-		$inverterNumber = 0;
-		if ($hasPlant) {
+		$partCode = '';
+		$partContentsTitle = '';
+		if ($byPart) {
+			if (empty($group['sections'])) {
+				continue;
+			}
+			$partCode = (string) $group['part'];
+			$plantLabel = $partCode !== '' ? powerplantpvReportPartLabel($partCode) : $langs->trans('PowerPlantPVAutocontrolCommonSections');
+			if (isset($partDefinitions[$partCode])) {
+				$partContentsTitle = $langs->transnoentities('PowerPlantPVAutocontrolPartNumber', $partDefinitions[$partCode]['number']);
+				print '<div data-contents-group="'.dol_escape_htmltag($partContentsTitle).'">';
+				$plantLabel .= ' · '.$partDefinitions[$partCode]['ref'];
+			}
+			$signedBy = array();
+			foreach (($partSignatures[$partCode] ?? array()) as $signature) {
+				$signedBy[] = (string) $signature->signer_name;
+			}
+			$morehtml = $signedBy ? '<span class="badge badge-status4 marginleftonlyshort">'.dol_escape_htmltag($langs->trans('PowerPlantPVPartSignedBy', implode(', ', array_unique($signedBy)))).'</span>' : '';
+			print load_fiche_titre(dol_escape_htmltag($plantLabel).$morehtml, '', 'fa-clipboard-check');
+		} elseif ($hasPlant) {
 			$plantLabel = powerplantpvReportPowerplantLabel($group['powerplant']);
-			print '<div data-contents-plant="'.dol_escape_htmltag($plantLabel).'">';
+			print '<div data-contents-group="'.dol_escape_htmltag($plantLabel).'">';
 			print load_fiche_titre(dol_escape_htmltag($plantLabel), '', 'fa-industry');
 			powerplantpvReportRenderPowerplantTechnicalSummary($group['powerplant']);
 		}
@@ -1247,10 +1557,12 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			if (powerplantpvReportSectionIsPowerplantTechnicalSummary((string) $section->section_code)) {
 				continue;
 			}
-			$fields = powerplantpvReportFilterRenderableFields(isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array());
+			$fields = powerplantpvReportFilterRenderableFields(isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array(), $byPart);
 			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
 				continue;
 			}
+			// A signed part stays visible but can no longer be changed.
+			$sectionEditable = $editable && empty($lockedSectionIds[(int) $section->id]);
 			$label = powerplantpvReportLocalizedObjectLabel($section, 'section_label');
 			$identity = !empty($row['equipment']) ? (object) $row['equipment'] : null;
 			$identity = $identity && (string) $identity->equipment_type === 'INVERTER' ? $identity : null;
@@ -1264,13 +1576,33 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 				}
 			}
 			$contentsLabel = $label;
-			if ((string) $section->section_code === 'INVERTER' && $identity) {
-				$contentsLabel = $langs->transnoentities('PowerPlantPVVisualInverterNumber', ++$inverterNumber);
+			if ($partContentsTitle !== '') {
+				$sectionPrefix = $partContentsTitle.' · ';
+				if (strpos($contentsLabel, $sectionPrefix) === 0) {
+					$contentsLabel = substr($contentsLabel, strlen($sectionPrefix));
+				}
+			}
+			if ($identity) {
+				$marker = trim((string) $identity->equipment_marker);
+				if ($marker !== '') {
+					$contentsLabel .= ' · '.$marker;
+				}
 			} elseif (!empty($row['equipment'])) {
 				$contentsLabel .= ' · '.powerplantpvReportEquipmentLabel($row['equipment']);
 			}
 			print '<details id="'.$anchor.'" class="powerplantpv-report-section" data-state-key="section:'.$sectionKey.'" data-contents-label="'.dol_escape_htmltag($contentsLabel).'" open>';
+			$sectionSuffix = '';
+			if ((string) $section->section_code === 'AC3_INSTALLATION') {
+				$labelParts = explode(' · ', $label, 3);
+				if (count($labelParts) === 3) {
+					$label = $labelParts[0].' · '.$labelParts[1];
+					$sectionSuffix = $labelParts[2];
+				}
+			}
 			print '<summary class="liste_titre"><span>'.dol_escape_htmltag($label).'</span><span class="powerplantpv-report-progress opacitymedium" data-progress-label="'.dol_escape_htmltag($langs->transnoentities('PowerPlantPVReportProgress')).'"></span>';
+			if ($sectionSuffix !== '') {
+				print ' <span>'.dol_escape_htmltag($sectionSuffix).'</span>';
+			}
 			if ($identity) {
 				print ' <span class="powerplantpv-identity-mobile">'.dol_escape_htmltag(PowerPlantPVReportPresentation::identity($identity, false)).'</span>';
 				print ' <span class="powerplantpv-identity-desktop">'.dol_escape_htmltag(PowerPlantPVReportPresentation::identity($identity)).'</span>';
@@ -1284,13 +1616,20 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			}
 			if ((string) $section->section_code === 'DC_ELECTRICAL_MEASURE') {
 				$dcMeasures = isset($row['dc_measures']) && is_array($row['dc_measures']) ? $row['dc_measures'] : array();
-				powerplantpvReportRenderDcMeasures($section, $dcMeasures, $editable, $form);
+				powerplantpvReportRenderDcMeasures($section, $dcMeasures, $sectionEditable, $form);
 				print '</details>';
 				continue;
 			}
 			print '<div class="powerplantpv-report-fields">';
 			foreach ($fields as $field) {
-				powerplantpvReportRenderField($field, $editable, $form);
+				powerplantpvReportRenderField($field, $sectionEditable, $form);
+			}
+			if ($byPart && (string) $section->section_code === $partCode.'_IDENT') {
+				$technician = $partSignatures[$partCode]['technician'] ?? null;
+				if (is_object($technician)) {
+					print '<div class="powerplantpv-report-field"><strong>'.$langs->trans('PowerPlantPVPartSignedTechnician').'</strong> ';
+					print dol_escape_htmltag((string) $technician->signer_name).'</div>';
+				}
 			}
 			if ($section->section_code === 'PRODUCTION_READING' && empty($row['equipment'])) {
 				$endDate = (int) ($intervention->datei ?? 0);
@@ -1303,7 +1642,23 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			print '</div>';
 			print '</details>';
 		}
-		if ($hasPlant) {
+		if (!empty($signableParts[$partCode])) {
+			$label = $langs->trans('PowerPlantPVPartValidateAndSign', $partDefinitions[$partCode]['number']);
+			print '<div class="center powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
+			if ($editable) {
+				print '<button type="submit" class="butAction" name="validate_part_submit" value="'.dol_escape_htmltag($partCode).'">'.dol_escape_htmltag($label).'</button>';
+			} else {
+				print powerplantpvReportPartSignButton($partCode, 'technician', $label);
+			}
+			print '</div>';
+		}
+		if (!empty($reopenableParts[$partCode])) {
+			$reopenUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=reopen_part&reopen_part_code='.urlencode($partCode).'&token='.newToken();
+			print '<div class="center powerplantpv-report-actions" id="powerplantpv-part-actions-'.dol_escape_htmltag($partCode).'">';
+			print dolGetButtonAction($langs->trans('PowerPlantPVPartReopen'), '', 'default', $reopenUrl);
+			print '</div>';
+		}
+		if ($partContentsTitle !== '' || (!$byPart && $hasPlant)) {
 			print '</div>';
 		}
 	}
@@ -1583,14 +1938,16 @@ function powerplantpvReportRenderNativeCustomerSignatureBlock($signatureRows)
  * Return fields rendered in the report tab.
  *
  * @param	array<int,PowerPlantPVReportField>	$fields	Fields
+ * @param	bool								$isPartsReport	Whether manual signer fields are obsolete
  * @return	array<int,PowerPlantPVReportField>			Renderable fields
  */
-function powerplantpvReportFilterRenderableFields($fields)
+function powerplantpvReportFilterRenderableFields($fields, bool $isPartsReport = false)
 {
 	$filtered = array();
 	foreach ($fields as $field) {
 		if (!is_object($field) || (int) $field->visible_form <= 0 || (string) $field->field_type === 'signature'
-			|| PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)) {
+			|| PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
+			|| ($isPartsReport && PowerPlantPVReportParts::isManualSignerField((string) $field->field_code))) {
 			continue;
 		}
 		$filtered[] = $field;
@@ -1898,13 +2255,32 @@ function powerplantpvReportRenderDcMeasureCard($measure, $editable, $form)
  */
 function powerplantpvReportRenderField($field, $editable, $form)
 {
-	global $langs;
+	global $id, $langs;
 
 	$fieldEditable = $editable && empty($field->readonly);
 	$label = powerplantpvReportLocalizedObjectLabel($field, 'field_label');
 	$name = 'report_values['.dol_escape_htmltag((string) $field->stable_key).']';
 	$type = (string) $field->field_type;
 	$value = powerplantpvReportFieldDisplayValue($field);
+	if (PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
+		$hours = PowerPlantPVReportParts::decodeHours((string) $value);
+		foreach (array('start' => 'PowerPlantPVAutocontrolStartTime', 'end' => 'PowerPlantPVAutocontrolEndTime') as $key => $labelKey) {
+			$inputId = 'powerplantpv-hours-'.md5((string) $field->stable_key).'-'.$key;
+			print '<div class="powerplantpv-report-field powerplantpv-report-field-inline">';
+			print '<label for="'.$inputId.'">'.$langs->trans($labelKey).'</label>';
+			print '<div class="powerplantpv-report-input">';
+			if ($fieldEditable) {
+				print '<input type="time" id="'.$inputId.'" class="flat powerplantpv-report-control" name="'.$name.'['.$key.']" value="'.dol_escape_htmltag($hours[$key]).'">';
+			} else {
+				print '<div class="powerplantpv-report-readonly">'.dol_escape_htmltag($hours[$key]).'</div>';
+			}
+			if ($key === 'start' && $hours['legacy'] !== '') {
+				print '<div class="opacitymedium">'.$langs->trans('PreviousValue').' '.dol_escape_htmltag($hours['legacy']).'</div>';
+			}
+			print '</div></div>';
+		}
+		return;
+	}
 	$allowsNotApplicable = PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, $type);
 	$fieldClass = 'powerplantpv-report-field';
 	$fieldClass .= powerplantpvReportFieldCanInline($field) ? ' powerplantpv-report-field-inline' : ' powerplantpv-report-field-block';
@@ -1954,28 +2330,33 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		print '<input type="text" class="flat powerplantpv-report-control right" name="'.$name.'" value="'.dol_escape_htmltag((string) $value).'">';
 	} elseif ($type === 'date' || $type === 'datetime') {
 		$hash = md5((string) $field->stable_key);
-		$timestamp = !empty($field->value_date) ? strtotime((string) $field->value_date) : 0;
+		$timestamp = is_int($field->value_date) ? $field->value_date : '';
 		print '<input type="hidden" name="report_date_keys['.$hash.']" value="'.dol_escape_htmltag((string) $field->stable_key).'">';
-		print '<div class="powerplantpv-report-date">';
+		print '<div class="powerplantpv-report-date" data-date-format="'.dol_escape_htmltag($langs->transnoentitiesnoconv('FormatDateShortJavaInput')).'">';
 		print $form->selectDate($timestamp, 'report_date_'.$hash, ($type === 'datetime' ? 1 : 0), ($type === 'datetime' ? 1 : 0), 1, 'powerplantpvreportform', 1, 1);
 		print '</div>';
-	} elseif ($allowsNotApplicable) {
-		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), (string) $value, 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control');
-	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean'), true)) {
-		print $form->selectarray($name, PowerPlantPVReportPresentation::choiceOptions($field, $langs), $type === 'boolean' ? $value : (int) $value, $type === 'boolean' ? 1 : 0, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control');
-	} elseif (in_array($type, array('select', 'conformity_so_valid_obs', 'status'), true)) {
+	} elseif (in_array($type, array('checkbox', 'yesno', 'boolean', 'select', 'conformity_so_valid_obs', 'status', 'multiselect'), true)) {
+		// Select2 and Dolibarr both use the HTML id to target the open list.
+		$hash = hash('sha256', (string) $field->stable_key);
+		$selectName = 'report_choice_'.$hash;
+		print '<input type="hidden" name="report_choice_keys['.$hash.']" value="'.dol_escape_htmltag((string) $field->stable_key).'">';
 		$options = PowerPlantPVReportPresentation::choiceOptions($field, $langs);
-		print $form->selectarray($name, $options, (string) $value, 1, 0, 0, '', 0, 0, 0, '', 'powerplantpv-report-control');
-	} elseif ($type === 'multiselect') {
-		$options = PowerPlantPVReportPresentation::choiceOptions($field, $langs);
-		$selected = array_filter(explode("\n", (string) $value));
-		print $form->multiselectarray($name, $options, $selected, 0, 0, 'powerplantpv-report-control', 0, 0);
+		$controlClass = 'powerplantpv-report-control powerplantpv-report-choice';
+		if ($type === 'multiselect') {
+			$selected = array_filter(explode("\n", (string) $value));
+			print $form->multiselectarray($selectName, $options, $selected, 0, 0, $controlClass, 0, 0, '', '', '', 0);
+		} else {
+			$isBinary = in_array($type, array('checkbox', 'yesno'), true);
+			$selected = $isBinary && !$allowsNotApplicable ? (int) $value : (string) $value;
+			$showEmpty = $allowsNotApplicable || $isBinary ? 0 : 1;
+			print $form->selectarray($selectName, $options, $selected, $showEmpty, 0, 0, '', 0, 0, 0, '', $controlClass, 0);
+		}
 	} elseif ($type === 'file') {
 		powerplantpvReportRenderFiles($field, true);
 		if (!empty($field->id)) {
 			print '<div class="powerplantpv-file-upload">';
 			print '<input type="file" name="report_file_'.$field->id.'" class="flat powerplantpv-report-control">';
-			print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=upload_file&field_id='.((int) $field->id).'" value="'.dol_escape_htmltag($langs->trans('Upload')).'">';
+			print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.(int) $id.'&action=upload_file&field_id='.((int) $field->id).'" value="'.dol_escape_htmltag($langs->trans('Upload')).'">';
 			print '</div>';
 		} else {
 			print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportFileAfterFirstSave').'</span>';
@@ -2036,14 +2417,14 @@ function powerplantpvReportSaveIndexPhotos(PowerPlantPVReport $report, bool $fin
 
 function powerplantpvReportRenderIndexPhoto(PowerPlantPVReportField $field, bool $editable): void
 {
-	global $langs;
+	global $id, $langs;
 
 	if (!powerplantpvReportIndexPhotoField($field)) {
 		return;
 	}
 	$path = powerplantpvReportIndexPhotoPath($field);
 	if ($path !== '' && is_file($path)) {
-		$url = dol_buildpath('/powerplantpv/maintenance_intervention_report.php', 1).'?id='.GETPOSTINT('id').'&action=view_index_photo&field_id='.(int) $field->id;
+		$url = dol_buildpath('/powerplantpv/maintenance_intervention_report.php', 1).'?id='.(int) $id.'&action=view_index_photo&field_id='.(int) $field->id;
 		print '<div><a href="'.dol_escape_htmltag($url).'">'.img_picto('', 'fa-camera').' '.$langs->trans('PowerPlantPVIndexPhoto').'</a></div>';
 	}
 	if ($editable && powerplantpvIndexPhotoAvailable()) {
@@ -2215,7 +2596,7 @@ function powerplantpvReportFieldDisplayValue($field)
 		return $field->value_number !== null ? price($field->value_number) : '';
 	}
 	if ((string) $field->field_type === 'date' || (string) $field->field_type === 'datetime') {
-		return !empty($field->value_date) ? dol_print_date(strtotime((string) $field->value_date), ((string) $field->field_type === 'datetime' ? 'dayhour' : 'day')) : '';
+		return is_int($field->value_date) ? dol_print_date($field->value_date, ((string) $field->field_type === 'datetime' ? 'dayhour' : 'day')) : '';
 	}
 	if (PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, (string) $field->field_type)) {
 		return (string) $field->value_text;
@@ -2269,7 +2650,7 @@ function powerplantpvReportIsNumericFieldType($fieldType)
  */
 function powerplantpvReportRenderFiles($field, $editable)
 {
-	global $langs;
+	global $id, $langs;
 
 	$files = isset($field->files) && is_array($field->files) ? $field->files : array();
 	if (empty($files)) {
@@ -2282,7 +2663,10 @@ function powerplantpvReportRenderFiles($field, $editable)
 		print '<li>';
 		print '<a href="'.$url.'">'.dol_escape_htmltag((string) $file->filename).'</a>';
 		if ($editable) {
-			print ' <input type="submit" class="button small" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.GETPOSTINT('id').'&action=delete_file&file_id='.(int) $file->id.'" value="'.dol_escape_htmltag($langs->trans('Delete')).'">';
+			$deleteUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=delete_file&file_id='.(int) $file->id;
+			$deleteLabel = $langs->transnoentities('Delete');
+			print ' <button type="submit" class="powerplantpv-report-file-delete" formaction="'.dol_escape_htmltag($deleteUrl).'" aria-label="'.dol_escape_htmltag($deleteLabel).'">';
+			print img_delete($deleteLabel).'</button>';
 		}
 		print '</li>';
 	}
@@ -2300,13 +2684,12 @@ function powerplantpvReportOutputDir($report, $intervention)
 {
 	global $conf;
 
-	$entity = !empty($report->entity) ? (int) $report->entity : (int) $conf->entity;
-	$base = '';
-	if (!empty($conf->powerplantpv->multidir_output[$entity])) {
-		$base = $conf->powerplantpv->multidir_output[$entity];
-	} elseif (!empty($conf->powerplantpv->dir_output)) {
-		$base = $conf->powerplantpv->dir_output;
+	$entity = (int) $report->entity;
+	if ($entity <= 0 || $entity !== (int) $intervention->entity || (int) $report->fk_fichinter !== (int) $intervention->id
+		|| empty($conf->powerplantpv->multidir_output[$entity])) {
+		return '';
 	}
+	$base = $conf->powerplantpv->multidir_output[$entity];
 	$ref = !empty($intervention->ref) ? dol_sanitizeFileName($intervention->ref) : 'intervention_'.((int) $report->fk_fichinter);
 
 	return $base.'/report/'.$ref;
@@ -2333,13 +2716,17 @@ function powerplantpvReportUploadFile($report, $intervention, $fieldId, $user)
 	if (empty($_FILES[$fileKey]) || !is_array($_FILES[$fileKey]) || !empty($_FILES[$fileKey]['error'])) {
 		return -1;
 	}
-	$originalName = dol_sanitizeFileName((string) $_FILES[$fileKey]['name']);
+	$originalName = dol_sanitizeFileName(basename(str_replace('\\', '/', (string) $_FILES[$fileKey]['name'])));
 	if ($originalName === '') {
 		return -1;
 	}
 	$relativeDir = 'report/'.dol_sanitizeFileName((string) $intervention->ref).'/field_'.((int) $fieldId);
-	$uploadDir = powerplantpvReportOutputDir($report, $intervention).'/field_'.((int) $fieldId);
-	if (dol_mkdir($uploadDir) < 0) {
+	$reportDir = powerplantpvReportOutputDir($report, $intervention);
+	if ($reportDir === '') {
+		return -1;
+	}
+	$uploadDir = $reportDir.'/field_'.((int) $fieldId);
+	if (is_link($reportDir) || is_link($uploadDir) || dol_mkdir($uploadDir) < 0) {
 		return -1;
 	}
 	$dest = $uploadDir.'/'.$originalName;
@@ -2360,7 +2747,18 @@ function powerplantpvReportUploadFile($report, $intervention, $fieldId, $user)
 	$file->fk_user_upload = (int) $user->id;
 	$file->position = 0;
 
-	return $file->create($user, 0) > 0 ? 1 : -1;
+	if ($file->create($user, 0) <= 0) {
+		dol_delete_file($dest, 1);
+		return -1;
+	}
+	if (PowerPlantPVReportParts::isPartsReport($report)
+		&& (new PowerPlantPVReportEvidence($db))->attach($intervention, $report, $file) === '') {
+		$file->delete($user, 0);
+		dol_delete_file($dest, 1);
+		return -1;
+	}
+
+	return 1;
 }
 
 /**
@@ -2379,17 +2777,223 @@ function powerplantpvReportDeleteFile($report, $intervention, $fileId)
 	if ($file->fetch((int) $fileId) <= 0 || (int) $file->fk_report !== (int) $report->id) {
 		return -1;
 	}
-	$base = powerplantpvReportOutputDir($report, $intervention);
-	$relative = (string) $file->filepath;
-	$prefix = 'report/'.dol_sanitizeFileName((string) $intervention->ref).'/';
-	if (strpos($relative, $prefix) !== 0) {
+	if ((int) $file->entity !== (int) $report->entity || (int) $intervention->entity !== (int) $report->entity
+		|| (int) $intervention->id !== (int) $report->fk_fichinter) {
 		return -1;
 	}
-	$physical = dirname($base).'/'.substr($relative, strlen('report/'.dol_sanitizeFileName((string) $intervention->ref).'/') + strlen(''));
-	$physical = $base.'/'.substr($relative, strlen($prefix));
-	if (is_file($physical)) {
-		dol_delete_file($physical);
+	$physical = PowerPlantPVReportEvidence::sourcePath($report, $file);
+	if (PowerPlantPVReportParts::isPartsReport($report)) {
+		$attachment = PowerPlantPVReportEvidence::attachmentPath($intervention, (int) $file->id, (string) $file->filename);
+		if ($attachment !== '' && is_file($attachment) && realpath($attachment) === $attachment
+			&& dol_delete_file($attachment, 1, 0, 0, $intervention) <= 0) {
+			return -1;
+		}
+	}
+	if ($physical !== '' && dol_delete_file($physical, 1) <= 0) {
+		return -1;
 	}
 
 	return $file->delete($GLOBALS['user'], 0);
+}
+
+/**
+ * Translated label of a self-inspection part, or of the final validation.
+ *
+ * @param	string	$partCode	Part code
+ * @return	string				Label
+ */
+function powerplantpvReportPartLabel($partCode)
+{
+	global $langs;
+
+	if ((string) $partCode === PowerPlantPVReportParts::FINAL_CODE) {
+		return $langs->trans('PowerPlantPVAutocontrolFinalValidation');
+	}
+	$definitions = PowerPlantPVReportParts::definitions();
+	if (!isset($definitions[$partCode])) {
+		return (string) $partCode;
+	}
+
+	return $langs->trans('PowerPlantPVAutocontrolPartNumber', $definitions[$partCode]['number']).' · '.$langs->trans($definitions[$partCode]['label']);
+}
+
+/**
+ * Snapshot section ids of one part. The final validation covers every section.
+ *
+ * @param	array<string,mixed>	$tree		Report tree
+ * @param	string				$partCode	Part code
+ * @return	array<int,bool>					Section id => true
+ */
+function powerplantpvReportPartSectionIds($tree, $partCode)
+{
+	$ids = array();
+	foreach ((isset($tree['sections']) && is_array($tree['sections']) ? $tree['sections'] : array()) as $row) {
+		if (!is_array($row) || empty($row['section']) || !is_object($row['section'])) {
+			continue;
+		}
+		$sectionPart = PowerPlantPVReportParts::partCodeForSection((string) $row['section']->section_code);
+		if ((string) $partCode === PowerPlantPVReportParts::FINAL_CODE || $sectionPart === (string) $partCode) {
+			$ids[(int) $row['section']->id] = true;
+		}
+	}
+
+	return $ids;
+}
+
+/**
+ * Return true when a file upload or deletion targets a field of a signed part.
+ *
+ * @param	int				$fieldId				Uploaded field id, 0 for a deletion
+ * @param	int				$fileId					Deleted file id, 0 for an upload
+ * @param	array<int,bool>	$lockedPartSectionIds	Locked section ids
+ * @return	bool
+ */
+function powerplantpvReportFileActionTargetsLockedPart($fieldId, $fileId, $lockedPartSectionIds)
+{
+	global $db;
+
+	if ($fileId > 0) {
+		$file = new PowerPlantPVReportFile($db);
+		if ($file->fetch((int) $fileId) <= 0) {
+			return true;
+		}
+		$fieldId = (int) $file->fk_report_field;
+	}
+	$field = new PowerPlantPVReportField($db);
+	if ($fieldId <= 0 || $field->fetch((int) $fieldId) <= 0) {
+		return true;
+	}
+
+	return !empty($lockedPartSectionIds[(int) $field->fk_report_section]);
+}
+
+/**
+ * Render the signature of each self-inspection part, then the final validation of the complete report.
+ * A part shows who signed it; the final validation keeps its three signers.
+ *
+ * @param	bool									$snapshotNeedsRebuild	True when the snapshot must be rebuilt first
+ * @param	array<string,array<string,stdClass>>	$partSignatures			Part signatures
+ * @param	array<string,string>					$partSigning			Part and role being signed, empty otherwise
+ * @return	void
+ */
+function powerplantpvReportRenderPartSignatures($snapshotNeedsRebuild, $partSignatures, $partSigning)
+{
+	global $id, $langs, $report, $intervention, $user, $partsHelper, $locked, $signatureScript;
+
+	$canDraw = !$locked && !$snapshotNeedsRebuild && $signatureScript !== '';
+	$technicalSignatureEnabled = $report->technicalSignatureEnabled();
+	$parts = array_keys(PowerPlantPVReportParts::definitions());
+	$parts[] = PowerPlantPVReportParts::FINAL_CODE;
+	print '<div class="div-table-responsive-no-min">';
+	print '<table class="noborder centpercent">';
+	print '<tr class="liste_titre"><td colspan="3">'.$langs->trans('PowerPlantPVPartSignatures').'</td></tr>';
+	foreach ($parts as $partCode) {
+		$isFinal = ($partCode === PowerPlantPVReportParts::FINAL_CODE);
+		$roles = PowerPlantPVReportParts::roles($partCode, $technicalSignatureEnabled);
+		$signable = array();
+		foreach (array_keys($roles) as $role) {
+			if ($canDraw && $partsHelper->canSign($report, $intervention, $user, $partCode, $role, $partSignatures)) {
+				$signable[] = $role;
+			}
+		}
+		if ($isFinal) {
+			print '<tr class="liste_titre_filter" id="powerplantpv-part-signature-'.$partCode.'"><td colspan="3"><strong>'.dol_escape_htmltag(powerplantpvReportPartLabel($partCode)).'</strong>';
+			print ' <span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolFinalValidationHelp').'</span></td></tr>';
+			foreach ($roles as $role => $labelKey) {
+				$signature = $partSignatures[$partCode][$role] ?? null;
+				if ($role === 'works_manager' && !$technicalSignatureEnabled) {
+					$labelKey = 'PowerPlantPVFinalSignerTechnical';
+				}
+				print '<tr class="oddeven"><td class="titlefieldmiddle">'.$langs->trans($labelKey).'</td><td>';
+				if (is_object($signature)) {
+					print dol_escape_htmltag((string) $signature->signer_name).' <span class="opacitymedium">'.dol_print_date($signature->date_sign, 'dayhour').'</span>';
+				} elseif (PowerPlantPVReportParts::unsignedParts($partSignatures)) {
+					print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVFinalWaitingParts').'</span>';
+				} else {
+					print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolNotSigned').'</span>';
+				}
+				print '</td><td class="right">';
+				if (in_array($role, $signable, true)) {
+					print powerplantpvReportPartSignButton($partCode, $role, $langs->trans('PowerPlantPVPartSignButton'));
+				}
+				print '</td></tr>';
+				if (($partSigning['part'] ?? '') === $partCode && ($partSigning['role'] ?? '') === $role) {
+					print '<tr class="oddeven"><td colspan="3">';
+					powerplantpvReportRenderPartSignatureForm($partCode, $role);
+					print '</td></tr>';
+				}
+			}
+			continue;
+		}
+		// A part only shows who signed it.
+		$signers = array();
+		foreach ($roles as $role => $labelKey) {
+			$signature = $partSignatures[$partCode][$role] ?? null;
+			if (is_object($signature)) {
+				$signers[] = dol_escape_htmltag((string) $signature->signer_name).' <span class="opacitymedium">'.dol_print_date($signature->date_sign, 'dayhour').'</span>';
+			}
+		}
+		print '<tr class="oddeven" id="powerplantpv-part-signature-'.$partCode.'"><td class="titlefieldmiddle">'.dol_escape_htmltag(powerplantpvReportPartLabel($partCode)).'</td><td>';
+		print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolPartSignature').' :</span> ';
+		print $signers ? implode(', ', $signers) : '<span class="opacitymedium">'.$langs->trans('PowerPlantPVAutocontrolNotSigned').'</span>';
+		print '</td><td></td></tr>';
+	}
+	print '</table>';
+	print '</div>';
+}
+
+/**
+ * Action button opening the signature pad of a part.
+ *
+ * @param	string	$partCode	Part code
+ * @param	string	$role		Signer role
+ * @param	string	$label		Button label
+ * @return	string				HTML
+ */
+function powerplantpvReportPartSignButton($partCode, $role, $label)
+{
+	return dolGetButtonAction($label, '', 'default', powerplantpvReportPartSignatureUrl($partCode, $role));
+}
+
+/**
+ * Address of the native signature pad for a specific role and part.
+ */
+function powerplantpvReportPartSignatureUrl(string $partCode, string $role): string
+{
+	global $id;
+
+	return $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=prepare_part_signature&part_code='.urlencode($partCode).'&part_role='.urlencode($role).'&token='.newToken().'#powerplantpv-part-signature-'.$partCode;
+}
+
+/**
+ * Signature pad of the part being signed, drawn with the native Dolibarr jSignature plugin.
+ *
+ * @param	string	$partCode	Part code of the row
+ * @param	string	$role		Signer role of the row
+ * @param	string	$error		Translated error from a previous signature attempt
+ * @return	void
+ */
+function powerplantpvReportRenderPartSignatureForm($partCode, $role, $error = '')
+{
+	global $id, $langs;
+
+	$consent = $partCode === PowerPlantPVReportParts::FINAL_CODE ? 'PowerPlantPVFinalSignConsent' : 'PowerPlantPVPartSignConsent';
+	if ($role === 'technical') {
+		$consent = 'PowerPlantPVTechnicalSignConsent';
+	}
+	print '<form method="POST" id="powerplantpv-signature-form" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+	if ($error !== '') {
+		print '<p class="error" role="alert">'.dol_escape_htmltag(html_entity_decode($error, ENT_QUOTES, 'UTF-8')).'</p>';
+	}
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="id" value="'.(int) $id.'">';
+	print '<input type="hidden" name="action" value="sign_part">';
+	print '<input type="hidden" name="part_code" value="'.dol_escape_htmltag($partCode).'">';
+	print '<input type="hidden" name="part_role" value="'.dol_escape_htmltag($role).'">';
+	print '<input type="hidden" name="signature_image" value="">';
+	print '<div id="powerplantpv-signature-pad"></div>';
+	print '<button type="button" class="button buttonreset" id="powerplantpv-signature-clear">'.$langs->trans('ClearSignature').'</button>';
+	print '<p><label><input type="checkbox" name="signature_consent" value="1" required> '.$langs->trans($consent).'</label></p>';
+	print '<input type="submit" class="button" value="'.dol_escape_htmltag($langs->trans('PowerPlantPVPartSignButton')).'">';
+	print '</form>';
 }

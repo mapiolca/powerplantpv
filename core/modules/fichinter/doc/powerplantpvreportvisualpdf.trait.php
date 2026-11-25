@@ -409,10 +409,19 @@ trait PowerPlantPVReportVisualPdf
 	protected function visualIllustration(&$pdf, $snapshot, $langs)
 	{
 		global $user;
-		if (!$user->hasRight('powerplantpv', 'powerplant', 'read')) { return; }
+		if (!($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))) { return; }
 		$plant = new PowerPlant($this->db);
 		if ($plant->fetch((int) $snapshot->fk_powerplant) <= 0 || (int) $plant->fk_report_illustration <= 0) { return; }
-		if (!restrictedArea($user, 'powerplantpv', $plant, $plant->table_element.'&'.$plant->element, $plant->element, 'fk_soc', 'rowid', (int) ((int) $plant->status === PowerPlant::STATUS_DRAFT), 1)) { return; }
+		$sharedEntities = array_map('intval', explode(',', (string) getEntity($plant->element)));
+		if (!in_array((int) $plant->entity, $sharedEntities, true)) {
+			return;
+		}
+		if ((empty($user->admin) || !empty($user->socid)) && !restrictedArea(
+			$user, 'powerplantpv', $plant, $plant->table_element.'&'.$plant->element, $plant->element, 'fk_soc', 'rowid',
+			(int) ((int) $plant->status === PowerPlant::STATUS_DRAFT), 1
+		)) {
+			return;
+		}
 		$source = new PowerPlantPVReportIllustration($this->db); $files = $source->files($plant);
 		if (!is_array($files) || !isset($files[(int) $plant->fk_report_illustration])) { $this->renderEmptyBlock($pdf, $langs->transnoentities('PowerPlantPVReportIllustrationInvalid')); return; }
 		$caption = $this->powerplantLabel($snapshot);
@@ -499,13 +508,28 @@ trait PowerPlantPVReportVisualPdf
 		return $converted ? implode(' / ', $formatted) : $value;
 	}
 
-	/** @param array<string,mixed> $row @param Translate $langs @return array<string,mixed> */
-	protected function visualSectionPanel($row, $langs)
+	/**
+	 * @param array<string,mixed> $row Section row
+	 * @param Translate $langs Output language
+	 * @param bool $autocontrol Apply self-inspection field presentation
+	 * @return array<string,mixed>
+	 */
+	protected function visualSectionPanel($row, $langs, $autocontrol = false)
 	{
 		$equipment = $row['equipment'] ?? null; $title = is_object($equipment) ? $this->visualIdentity($equipment, false) : PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $langs);
 		$rows = array(); $power = '';
 		foreach ($this->filterVisibleFields($row['fields']) as $field) {
 			if (PowerPlantPVReportPdfDataset::isFileField($field) || PowerPlantPVReportPdfDataset::isSignatureField($field) || in_array((string) $field->field_type, array('textarea','html'), true)) { continue; }
+			if ($autocontrol && PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
+				$hours = PowerPlantPVReportParts::decodeHours((string) $field->value_text);
+				$missing = $langs->transnoentities('PowerPlantPVDataNotFilled');
+				$rows[] = array('label' => $langs->transnoentities('PowerPlantPVAutocontrolStartTime'), 'value' => $hours['start'] ?: $missing);
+				$rows[] = array('label' => $langs->transnoentities('PowerPlantPVAutocontrolEndTime'), 'value' => $hours['end'] ?: $missing);
+				if ($hours['legacy'] !== '') {
+					$rows[] = array('label' => $langs->transnoentities('PreviousValue'), 'value' => $hours['legacy']);
+				}
+				continue;
+			}
 			$value = PowerPlantPVReportPdfDataset::formatFieldValue($field, $langs);
 			if (PowerPlantPVReportPdfDataset::isNumericFieldType($field->field_type)
 				&& is_numeric($field->value_number) && in_array((string) $field->unit, array('W', 'Wc', 'Wp'), true)) {
@@ -514,13 +538,49 @@ trait PowerPlantPVReportVisualPdf
 			if ((string) $field->field_code === 'INVERTER_START_POWER') { $power = $value; continue; }
 			$code = (string) $field->value_text;
 			$status = (string) $field->field_type === 'conformity_so_valid_obs' ? ($code === 'valid' ? 'good' : ($code === 'observation' ? 'warning' : 'neutral')) : (in_array((string) $field->field_type, array('yesno','boolean','checkbox'), true) ? ($code === '' ? 'neutral' : ($code === '1' ? 'good' : 'warning')) : 'text');
-			if ($code === 'not_applicable' && PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, (string) $field->field_type)) {
+			if (($autocontrol && ($value === '' || ($code === '' && (string) $field->field_type === 'status')))
+				|| ($code === 'not_applicable' && PowerPlantPVReportPresentation::allowsNotApplicable((string) $field->field_code, (string) $field->field_type))) {
 				$status = 'neutral';
 			}
 			$rows[] = array('label'=>PowerPlantPVReportPdfDataset::localizedProperty($field,'field_label',$langs), 'value'=>$value !== '' ? $value : $langs->transnoentities('PowerPlantPVDataNotFilled'), 'status'=>$status);
 		}
 		$metadata = is_object($equipment) && !getDolGlobalInt('POWERPLANTPV_REPORT_PDF_HIDE_EQUIPMENT') ? trim($this->formatEquipmentProductRef($equipment).' | '.(string) $equipment->serial_number) : '';
 		return array('title'=>$title, 'rows'=>$rows, 'metadata'=>$metadata, 'power'=>$power);
+	}
+
+	/**
+	 * @param array<string,mixed> $dataset Report dataset
+	 * @param Translate $langs Output language
+	 * @return array{title:string,rows:list<array{label:string,value:string}>,info:bool,compact:float}
+	 */
+	protected function visualInspectionSitePanel(array $dataset, $langs): array
+	{
+		$client = $dataset['thirdparty'];
+		$left = array(array('label' => $langs->transnoentities('Customer'), 'value' => is_object($client) ? (string) $client->name : $langs->transnoentities('PowerPlantPVDataNotFilled')));
+		$left[] = array('label' => $langs->transnoentities('Intervention'), 'value' => (string) ($dataset['intervention']->ref ?? ''));
+		$project = $dataset['project'] ?? null;
+		if (is_object($project)) {
+			$left[] = array('label' => $langs->transnoentities('Project'), 'value' => implode(' - ', array_filter(array((string) $project->ref, (string) $project->title))));
+		}
+		return array('title' => $langs->transnoentities('PowerPlantPVAutocontrolSite'), 'rows' => $left, 'info' => true, 'compact' => 0.26);
+	}
+
+	/**
+	 * @param object|null $plant Report power plant
+	 * @param array<string,string> $facts Technical summary indexed by translation key
+	 * @param Translate $langs Output language
+	 * @return array{title:string,rows:list<array{label:string,value:string}>,info:bool,compact:float}
+	 */
+	protected function visualInspectionPlantPanel($plant, array $facts, $langs): array
+	{
+		$right = array();
+		foreach (array('PowerPlantPDFReference' => 'Reference', 'PowerPlantPDFAddress' => 'Address', 'PowerPlantPDFInstalledPower' => 'PowerPlantPDFPower', 'PowerPlantPDFConnectionType' => 'Type') as $key => $label) {
+			if (!empty($facts[$key])) {
+				$right[] = array('label' => $langs->transnoentities($label), 'value' => $facts[$key]);
+			}
+		}
+		$plantTitle = is_object($plant) ? trim($langs->transnoentities('PowerPlant').' '.(string) $plant->powerplant_label) : $langs->transnoentities('PowerPlant');
+		return array('title' => $plantTitle, 'rows' => $right, 'info' => true, 'compact' => 0.22);
 	}
 
 	/** @param TCPDF|TCPDI $pdf @param array<int,array<string,mixed>> $panels @param bool $paired @param bool $sharedFrame @return void */
@@ -543,7 +603,7 @@ trait PowerPlantPVReportVisualPdf
 				$panel['labelWidth'] = ($width - 8) * ($compact ? $panel['compact'] : (!empty($panel['info']) ? 0.38 : 0.61));
 				$panel['valueWidth'] = $width - 8 - $panel['labelWidth'];
 				$pdf->SetFont('', 'B', 11);
-				$panel['titleHeight'] = $pdf->getStringHeight($width - 8, $panel['title'] === '' ? 'A' : $panel['title']);
+				$panel['titleHeight'] = $panel['title'] === '' ? 0 : $pdf->getStringHeight($width - 8, $panel['title']);
 				$pdf->SetFont('', '', 8.5);
 				$panel['metaHeight'] = $panel['metadata'] === '' ? 0 : $pdf->getStringHeight($width - 8, $panel['metadata']) + 1;
 				$panel['powerHeight'] = $panel['power'] === '' ? 0 : $pdf->getStringHeight($width - 8, $panel['power']) + 1;
@@ -551,7 +611,7 @@ trait PowerPlantPVReportVisualPdf
 				foreach ($panel['rows'] as &$row) {
 					$row['label'] = $langs->convToOutputCharset($row['label']);
 					$row['value'] = $langs->convToOutputCharset($row['value']);
-					$row['badge'] = empty($panel['info']) && ($row['status'] ?? 'text') !== 'text';
+					$row['badge'] = empty($panel['info']) && (!empty($panel['badgeValues']) || ($row['status'] ?? 'text') !== 'text');
 					$pdf->SetFont('', '', $compact ? 10 : 9.8);
 					$labelHeight = $pdf->getStringHeight($panel['labelWidth'], $row['label']);
 					if ($compact) { $pdf->SetFont('', 'B', 10); }
@@ -559,7 +619,8 @@ trait PowerPlantPVReportVisualPdf
 					if ($row['badge']) {
 						$pdf->SetFont('', 'B', 8.6);
 						$iconSpace = $row['status'] === 'good' ? 3.8 : 0;
-						$row['badgeWidth'] = min($panel['valueWidth'], max(20, $pdf->GetStringWidth($row['value']) + 5 + $iconSpace));
+						$minimumBadgeWidth = empty($panel['badgeValues']) ? 20 : 26;
+						$row['badgeWidth'] = min($panel['valueWidth'], max($minimumBadgeWidth, $pdf->GetStringWidth($row['value']) + 5 + $iconSpace));
 						$row['badgeHeight'] = $pdf->getStringHeight($row['badgeWidth'] - 2 - $iconSpace, $row['value']) + 1.2;
 						$valueHeight = $row['badgeHeight'];
 					}
@@ -606,7 +667,9 @@ trait PowerPlantPVReportVisualPdf
 					}
 					$pdf->SetTextColor(23, 40, 74);
 					$pdf->SetFont('', 'B', 11);
-					$pdf->MultiCell($width - 8, $panel['titleHeight'], $panel['title'], 0, 'L', false, 1, $x + 4, $y + 3);
+					if ($panel['title'] !== '') {
+						$pdf->MultiCell($width - 8, $panel['titleHeight'], $panel['title'], 0, 'L', false, 1, $x + 4, $y + 3);
+					}
 					$cy = $y + 3 + $panel['titleHeight'];
 					foreach (array('power' => 'powerHeight', 'metadata' => 'metaHeight') as $key => $heightKey) {
 						if ($panel[$key] === '') { continue; }
@@ -631,7 +694,7 @@ trait PowerPlantPVReportVisualPdf
 							$pdf->MultiCell($panel['labelWidth'], $rh, $row['label'], 0, 'L', false, 1, $x + 4, $cy, true, 0, false, true, $rh, 'M');
 						}
 						if (!$compact && !$row['badge']) {
-							$pdf->MultiCell($panel['valueWidth'], $rh, $row['value'], 0, 'L', false, 1, $vx, $cy, true, 0, false, true, $rh, 'M');
+							$pdf->MultiCell($panel['valueWidth'], $rh, $row['value'], 0, $panel['valueAlign'] ?? 'L', false, 1, $vx, $cy, true, 0, false, true, $rh, 'M');
 						} elseif (!$compact) {
 							$status = $row['status'];
 							$bg = $status === 'good' ? array(227, 245, 238) : ($status === 'warning' ? array(253, 243, 220) : array(238, 240, 243));
@@ -1046,7 +1109,7 @@ trait PowerPlantPVReportVisualPdf
 		$cards[] = array($langs->transnoentities('PowerPlantPVVisualCustomerSignature'), $customerName, $customerImage !== '' ? $date : '', $customerImage);
 
 		$gap = 4;
-		$height = 58;
+		$height = self::VISUAL_SIGNATURE_HEIGHT;
 		$columns = count($cards);
 		$top = $this->getContentBottomY() - $height - 2;
 		$this->ensureSpace($pdf, $height + 16);
@@ -1064,7 +1127,7 @@ trait PowerPlantPVReportVisualPdf
 				else { $pdf->SetDrawColor(184, 192, 204); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => '0.6,0.8')); $pdf->Line($x + 16, $y + $line[2] + 3.5, $x + $width - 4, $y + $line[2] + 3.5); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => 0)); }
 			}
 			$bx = $x + 4; $by = $y + 24; $bw = $width - 8;
-			$bh = $height - ($i === count($cards) - 1 ? 25 : 28);
+			$bh = $height - 28;
 			$pdf->SetDrawColor(207, 213, 223); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => '1,1')); $pdf->RoundedRect($bx, $by, $bw, $bh, 1.5, '1111', 'D'); $pdf->SetLineStyle(array('width' => 0.2, 'dash' => 0));
 			if ($i === $columns - 1) {
 				// Record the placement on the actual PDF being signed, even if the settings later change.

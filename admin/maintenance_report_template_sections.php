@@ -70,7 +70,7 @@ if (in_array($action, array('add', 'update', 'disable', 'delete', 'moveup', 'mov
 
 if ($action === 'add' || $action === 'update') {
 	if ($action === 'update') {
-		if ($id <= 0 || $object->fetch($id) <= 0) {
+		if ($id <= 0 || $object->fetch($id) <= 0 || (int) $object->fk_report_template !== (int) $templateId) {
 			accessforbidden();
 		}
 	} else {
@@ -82,6 +82,9 @@ if ($action === 'add' || $action === 'update') {
 	$object->label_en = trim(GETPOST('label_en', 'alphanohtml'));
 	$object->description = GETPOST('description', 'restricthtml');
 	$object->description_en = GETPOST('description_en', 'restricthtml');
+	if ($template->code === PowerPlantPVReportTemplate::CODE_AUTOCONTROL && preg_match('/^AC[1-6]_IDENT$/D', $object->code)) {
+		$object->part_ref = trim(GETPOST('part_ref', 'alphanohtml'));
+	}
 	$object->scope_type = GETPOST('scope_type', 'alphanohtml');
 	$object->equipment_type = GETPOST('equipment_type', 'alphanohtml');
 	$object->repeat_mode = GETPOST('repeat_mode', 'alphanohtml');
@@ -283,6 +286,11 @@ print '<tr><td class="titlefieldcreate">'.$langs->trans('Label').'</td><td><inpu
 print '<tr><td>'.$langs->trans('PowerPlantPVEnglishLabel').'</td><td><input class="flat minwidth300" type="text" name="label_en" value="'.dol_escape_htmltag((string) $object->label_en).'"></td></tr>';
 print '<tr><td>'.$langs->trans('Description').'</td><td><textarea class="flat centpercent" name="description" rows="2">'.dol_escape_htmltag((string) $object->description).'</textarea></td></tr>';
 print '<tr><td>'.$langs->trans('PowerPlantPVEnglishDescription').'</td><td><textarea class="flat centpercent" name="description_en" rows="2">'.dol_escape_htmltag((string) $object->description_en).'</textarea></td></tr>';
+if ($template->code === PowerPlantPVReportTemplate::CODE_AUTOCONTROL && preg_match('/^AC[1-6]_IDENT$/D', (string) $object->code)) {
+	print '<tr><td><label for="part_ref">'.$langs->trans('PowerPlantPVAutocontrolPartReference').'</label></td><td>';
+	print '<input id="part_ref" class="flat maxwidth200" type="text" name="part_ref" maxlength="64" value="'.dol_escape_htmltag((string) $object->part_ref).'">';
+	print '<span class="opacitymedium marginleftonlyshort">'.$langs->trans('PowerPlantPVAutocontrolPartReferenceHelp').'</span></td></tr>';
+}
 print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlantPVReportScope').'</td><td>'.$form->selectarray('scope_type', $scopeOptions, $object->scope_type ?: 'intervention', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200').'</td></tr>';
 print '<tr><td>'.$langs->trans('PowerPlantPVEquipmentType').'</td><td>'.$form->selectarray('equipment_type', powerplantpvReportTemplateTranslateOptions(powerplantpvReportTemplateEquipmentTypes()), $object->equipment_type, 0, 0, 0, '', 0, 0, 0, '', 'minwidth200').'</td></tr>';
 print '<tr><td class="titlefieldcreate">'.$langs->trans('PowerPlantPVRepeatMode').'</td><td>'.$form->selectarray('repeat_mode', $repeatOptions, $object->repeat_mode ?: 'once', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200').'</td></tr>';

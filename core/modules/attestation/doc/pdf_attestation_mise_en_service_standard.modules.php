@@ -11,6 +11,8 @@ require_once __DIR__.'/../../../../class/powerplantpvattestationtypes.class.php'
  */
 class pdf_attestation_mise_en_service_standard extends pdf_attestation_bridage_dynamique
 {
+	protected $centerTableCells = true;
+
 	public function __construct($db)
 	{
 		parent::__construct($db);
@@ -56,7 +58,8 @@ class pdf_attestation_mise_en_service_standard extends pdf_attestation_bridage_d
 			$result = PowerPlantPVAttestationTypes::COMMISSIONING_RESULTS[(int) $object->{$field}] ?? PowerPlantPVAttestationTypes::COMMISSIONING_RESULTS[0];
 			$rows[] = array($label, $outputlangs->transnoentities($result));
 		}
-		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, $rows);
+		$contentWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+		$this->renderInfoTable($pdf, $outputlangs, $defaultFontSize, $rows, $contentWidth * 0.58);
 
 		$pdf->Ln(4);
 		$this->renderSectionTitle($pdf, $outputlangs, 'AttestationCommissioningComplianceTitle', $defaultFontSize);
@@ -65,26 +68,26 @@ class pdf_attestation_mise_en_service_standard extends pdf_attestation_bridage_d
 			array('AttestationConsuelDate', $this->valueOrNotProvided($consuelDate, $outputlangs)),
 		));
 
-		if (trim((string) $object->note_public) !== '') {
-			$pdf->Ln(4);
-			$this->renderSectionTitle($pdf, $outputlangs, 'AttestationCommissioningRemarks', $defaultFontSize);
-			$pdf->SetFont('', '', $defaultFontSize);
-			$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset(dol_string_nohtmltag($object->note_public, 0)), 0, 'L');
-		}
 		if (!empty($object->lines)) {
 			$pdf->Ln(4);
 			$this->renderSectionTitle($pdf, $outputlangs, 'AttestationStaticEquipmentUsed', $defaultFontSize);
 			$this->renderEquipmentTable($pdf, $object, $outputlangs, $defaultFontSize);
 		}
 
-		$this->ensureSpace($pdf, 48);
-		$pdf->Ln(4);
-		$pdf->SetFont('', '', $defaultFontSize);
-		$pdf->MultiCell(0, 5, $outputlangs->convToOutputCharset($outputlangs->transnoentities(
+		$doneAt = $outputlangs->convToOutputCharset($outputlangs->transnoentities(
 			'AttestationCommissioningDoneAt',
 			$derived['place'],
 			!empty($object->date_attestation) ? dol_print_date($object->date_attestation, 'day', 'tzuser', $outputlangs) : ''
-		)), 0, 'L');
+		));
+		$pdf->SetFont('', '', $defaultFontSize);
+		$closingHeight = 42 + max(5, $pdf->getStringHeight($contentWidth, $doneAt)) + (!empty($object->date_signature) ? 5 : 0);
+		$pdf->Ln(4);
+		$this->renderRemarksBeforeSignature($pdf, $outputlangs, (string) $object->note_public, $defaultFontSize, $closingHeight, function () use ($pdf, $outputlangs, $defaultFontSize) {
+			$this->renderSectionTitle($pdf, $outputlangs, 'AttestationCommissioningRemarks', $defaultFontSize);
+		});
+		$pdf->Ln(4);
+		$pdf->SetFont('', '', $defaultFontSize);
+		$pdf->MultiCell(0, 5, $doneAt, 0, 'L');
 		$pdf->Ln(5);
 		$this->renderNativeSignatureStampBoxes($pdf, $object, $outputlangs, $defaultFontSize, $derived, 'AttestationCompanySeal');
 		if (!empty($object->date_signature)) {

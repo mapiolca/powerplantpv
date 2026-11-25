@@ -206,7 +206,7 @@ class modPowerPlantPV extends DolibarrModules
 		//                             2 => array('POWERPLANTPV_MYNEWCONST2', 'chaine', 'myvalue', 'This is another constant to add', 0, 'current', 1)
 		// );
 		$this->const = array();
-		foreach (array_merge($this->getPowerPlantActionTriggers(), $this->getAttestationActionTriggers()) as $trigger) {
+		foreach (array_merge($this->getPowerPlantActionTriggers(), $this->getAttestationActionTriggers(), $this->getReportActionTriggers()) as $trigger) {
 			$this->const[] = array('MAIN_AGENDA_ACTIONAUTO_'.$trigger['code'], 'chaine', '1', $trigger['description'], 0, 'current');
 		}
 		$this->const[] = array('POWERPLANTPV_ATTESTATION_ENABLE', 'chaine', '1', 'Enable attestations', 0, 'current');
@@ -249,7 +249,7 @@ class modPowerPlantPV extends DolibarrModules
 		// Menu/tab descriptors are parsed by dol_eval(), so their conditions must keep descriptor-safe syntax.
 		$this->tabs = array(
 			'product:+pvpanel:PVPanelTabTitle:powerplantpv@powerplantpv:$user->hasRight(\'produit\', \'lire\'):/powerplantpv/product_detailedcaracteristics.php?id=__ID__',
-			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:$user->admin || $user->rights->powerplantpv->maintenance->read:/powerplantpv/maintenance_intervention_report.php?id=__ID__'
+			'intervention:+powerplantpv_report:PowerPlantPVReportTab:powerplantpv@powerplantpv:$user->hasRight(\'ficheinter\', \'lire\') && ($user->admin || $user->hasRight(\'powerplantpv\', \'report\', \'read\')):/powerplantpv/maintenance_intervention_report.php?id=__ID__'
 		);
 		/* END MODULEBUILDER TABS */
 		// Example:
@@ -496,6 +496,7 @@ class modPowerPlantPV extends DolibarrModules
 		// );
 
 		// Permissions provided by this module
+		$this->rights_admin_allowed = 1;
 		$this->rights = array();
 		$r = 0;
 		// Add here entries to declare new permissions
@@ -605,9 +606,9 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][5] = 'delete';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
-		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionReport';
-		$this->rights[$r][4] = 'maintenance';
-		$this->rights[$r][5] = 'report';
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionWrite';
+		$this->rights[$r][4] = 'report';
+		$this->rights[$r][5] = 'write';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionConfig';
@@ -615,14 +616,24 @@ class modPowerPlantPV extends DolibarrModules
 		$this->rights[$r][5] = 'config';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
-		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionTechnicalSign';
-		$this->rights[$r][4] = 'maintenance';
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionTechnicalSign';
+		$this->rights[$r][4] = 'report';
 		$this->rights[$r][5] = 'sign_technical';
 		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
-		$this->rights[$r][1] = 'PowerPlantPVMaintenancePermissionMissingEvidence';
-		$this->rights[$r][4] = 'maintenance';
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionMissingEvidence';
+		$this->rights[$r][4] = 'report';
 		$this->rights[$r][5] = 'finalize_missing_evidence';
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionRead';
+		$this->rights[$r][4] = 'report';
+		$this->rights[$r][5] = 'read';
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'PowerPlantPVReportPermissionConfig';
+		$this->rights[$r][4] = 'report';
+		$this->rights[$r][5] = 'config';
 
 		/* END MODULEBUILDER PERMISSIONS */
 
@@ -661,7 +672,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
@@ -676,7 +687,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "write")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "write"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
@@ -691,7 +702,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv")',
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlant'
@@ -707,7 +718,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
-			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "attestation", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'
@@ -722,7 +733,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
-			'perms' => '$user->hasRight("powerplantpv", "attestation", "write")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "attestation", "write"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'
@@ -737,7 +748,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_ATTESTATION_ENABLE", 1)',
-			'perms' => '$user->hasRight("powerplantpv", "attestation", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "attestation", "read"))',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVAttestation'
@@ -753,7 +764,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -768,7 +779,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && isModEnabled("ficheinter") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || ($user->rights->powerplantpv->maintenance->write && $user->rights->ficheinter->creer)',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "maintenance", "write")) && $user->hasRight("ficheinter", "creer")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -783,7 +794,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -798,7 +809,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -813,7 +824,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
-			'perms' => '$user->admin || $user->rights->powerplantpv->maintenance->read',
+			'perms' => '$user->admin || $user->hasRight("powerplantpv", "maintenance", "read")',
 			'target' => '',
 			'user' => 2,
 			'object' => 'PowerPlantPVMaintenance'
@@ -832,7 +843,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => "isModEnabled('powerplantpv')", // Define condition to show or hide menu entry. Use isModEnabled("powerplantpv") if entry must be visible if module is enabled.
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")',
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))',
 			'target' => '',
 			'user' => 2,				                // 0=Menu for internal users, 1=external users, 2=both
 			'object' => 'PowerPlant'
@@ -847,7 +858,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => "isModEnabled('powerplantpv')", // Define condition to show or hide menu entry. Use isModEnabled("powerplantpv") if entry must be visible if module is enabled. Use '$leftmenu==\'system\'' to show if leftmenu system is selected.
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "write")'
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "write"))'
 			'target' => '',
 			'user' => 2,				                // 0=Menu for internal users, 1=external users, 2=both
 			'object' => 'PowerPlant'
@@ -862,7 +873,7 @@ class modPowerPlantPV extends DolibarrModules
 			'langs' => 'powerplantpv@powerplantpv',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => "isModEnabled('powerplantpv')", // Define condition to show or hide menu entry. Use isModEnabled("powerplantpv") if entry must be visible if module is enabled.
-			'perms' => '$user->hasRight("powerplantpv", "powerplant", "read")'
+			'perms' => '($user->admin || $user->hasRight("powerplantpv", "powerplant", "read"))'
 			'target' => '',
 			'user' => 2,				                // 0=Menu for internal users, 1=external users, 2=both
 			'object' => 'PowerPlant'
@@ -1306,20 +1317,20 @@ class modPowerPlantPV extends DolibarrModules
 			$sql[] = $sqlmodel;
 		}
 
-		$sqlreportmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";
-		$sqlreportmodel .= " SELECT 'powerplantpvreport', 'ficheinter', ".((int) $conf->entity);
-		$sqlreportmodel .= " WHERE NOT EXISTS (";
-		$sqlreportmodel .= " SELECT 1 FROM ".$this->db->prefix()."document_model";
-		$sqlreportmodel .= " WHERE nom = 'powerplantpvreport'";
-		$sqlreportmodel .= " AND type = 'ficheinter'";
-		$sqlreportmodel .= " AND entity = ".((int) $conf->entity);
-		$sqlreportmodel .= ")";
-		$sql[] = $sqlreportmodel;
+		require_once __DIR__.'/../../lib/powerplantpv_pdfmodels.lib.php';
+		$reportModels = powerplantpvPdfModelLabels();
+		foreach (array_keys($reportModels['ficheinter']) as $reportModelId) {
+			$reportModelSql = $this->db->escape($reportModelId);
+			$sqlreportmodel = "INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity)";
+			$sqlreportmodel .= " SELECT '".$reportModelSql."', 'ficheinter', ".((int) $conf->entity);
+			$sqlreportmodel .= " WHERE NOT EXISTS (SELECT 1 FROM ".$this->db->prefix()."document_model";
+			$sqlreportmodel .= " WHERE nom = '".$reportModelSql."' AND type = 'ficheinter' AND entity = ".((int) $conf->entity).")";
+			$sql[] = $sqlreportmodel;
+		}
 
 		// Dolibarr 20–22 displays the stored label without a model-list hook.
-		require_once __DIR__.'/../../lib/powerplantpv_pdfmodels.lib.php';
 		$langs->load('powerplantpv@powerplantpv');
-		foreach (powerplantpvPdfModelLabels() as $type => $models) {
+		foreach ($reportModels as $type => $models) {
 			foreach ($models as $id => $label) {
 				$labelSql = $this->db->escape($langs->transnoentities($label));
 				$idSql = $this->db->escape($id);
@@ -1337,12 +1348,16 @@ class modPowerPlantPV extends DolibarrModules
 		$sql[] = $sqlmigrateagenda;
 
 		$sql = array_merge($sql, $this->getPowerPlantActionTriggerSql());
-		$sql = array_merge($sql, $this->getAttestationActionTriggerSql());
+		$sql = array_merge($sql, $this->getLifecycleActionTriggerSql($this->getAttestationActionTriggers(), 'attestation@powerplantpv'));
+		$sql = array_merge($sql, $this->getLifecycleActionTriggerSql($this->getReportActionTriggers(), 'powerplantpv_report@powerplantpv'));
 		$sql = array_merge($sql, $this->getAttestationAgendaDuplicateCleanupSql());
 
 		$result = $this->_init($sql, $options);
 		if ($result <= 0) {
 			return $result;
+		}
+		if ($this->migrateReportPermissions((int) $conf->entity) < 0) {
+			return -1;
 		}
 		if ($migrateProjectLinks && dolibarr_set_const($this->db, 'POWERPLANTPV_PROJECT_LINKS_V150_MIGRATED',
 			'1', 'chaine', 0, '', (int) $conf->entity) <= 0) {
@@ -1367,6 +1382,54 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Copy the existing report access granted by shared maintenance permissions once per entity.
+	 * The three report-only permissions keep their original IDs and need no assignment update.
+	 *
+	 * @param int $entity Entity being activated
+	 * @return int Positive on success, negative on failure
+	 */
+	private function migrateReportPermissions(int $entity): int
+	{
+		$marker = 'POWERPLANTPV_REPORT_PERMISSIONS_MIGRATED';
+		if (getDolGlobalInt($marker)) {
+			return 1;
+		}
+
+		// The offsets are stable in the descriptor. Existing maintenance grants are retained.
+		$offsets = array(21 => 28, 22 => 24, 25 => 29);
+		if ($this->db->begin() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		foreach (array('user_rights' => 'fk_user', 'usergroup_rights' => 'fk_usergroup') as $tableName => $ownerColumn) {
+			$table = $this->db->prefix().$tableName;
+			foreach ($offsets as $oldOffset => $newOffset) {
+				$oldId = (int) $this->rights[$oldOffset][0];
+				$newId = (int) $this->rights[$newOffset][0];
+				$sql = "INSERT INTO ".$table." (entity, ".$ownerColumn.", fk_id)";
+				$sql .= " SELECT DISTINCT source.entity, source.".$ownerColumn.", ".$newId;
+				$sql .= " FROM ".$table." AS source";
+				$sql .= " WHERE source.entity = ".$entity." AND source.fk_id = ".$oldId;
+				$sql .= " AND NOT EXISTS (SELECT 1 FROM ".$table." AS existing";
+				$sql .= " WHERE existing.entity = source.entity AND existing.".$ownerColumn." = source.".$ownerColumn;
+				$sql .= " AND existing.fk_id = ".$newId.")";
+				if (!$this->db->query($sql)) {
+					$this->errors[] = $this->db->lasterror();
+					$this->db->rollback();
+					return -1;
+				}
+			}
+		}
+		if (dolibarr_set_const($this->db, $marker, '1', 'chaine', 0, '', $entity) <= 0 || $this->db->commit() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**
@@ -1789,6 +1852,9 @@ class modPowerPlantPV extends DolibarrModules
 	private function ensureReportTemplateEngineSchema()
 	{
 		$tables = array(
+			$this->db->prefix().'powerplantpv_report_template_section' => array(
+				'part_ref' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
+			),
 			$this->db->prefix().'c_powerplantpv_intervention_nature' => array(
 				'model_pdf' => array('type' => 'varchar', 'value' => '255', 'null' => ''),
 				'fk_report_template' => array('type' => 'integer', 'value' => '', 'null' => ''),
@@ -1872,6 +1938,19 @@ class modPowerPlantPV extends DolibarrModules
 	 */
 	private function ensureGeneratedReportSchema()
 	{
+		$evidenceLinkTable = $this->db->sanitize($this->db->prefix().'powerplantpv_report_evidence_link');
+		$result = $this->db->query("SHOW COLUMNS FROM ".$evidenceLinkTable." WHERE Field = 'expires_at' AND `Null` = 'NO'");
+		if (!$result) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		$requiresNullableExpiry = $this->db->num_rows($result) > 0;
+		$this->db->free($result);
+		if ($requiresNullableExpiry && !$this->db->query("ALTER TABLE ".$evidenceLinkTable." MODIFY COLUMN expires_at datetime DEFAULT NULL")) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
 		$createSqls = array(
 			"CREATE TABLE IF NOT EXISTS ".$this->db->prefix()."powerplantpv_equipment_mppt(
 				rowid integer AUTO_INCREMENT PRIMARY KEY NOT NULL,
@@ -2006,6 +2085,7 @@ class modPowerPlantPV extends DolibarrModules
 			$this->db->prefix().'powerplantpv_report_section' => array(
 				'fk_report' => array('type' => 'integer', 'value' => '', 'null' => 'NOT NULL'),
 				'section_code' => array('type' => 'varchar', 'value' => '64', 'null' => 'NOT NULL'),
+				'part_ref' => array('type' => 'varchar', 'value' => '64', 'null' => ''),
 				'occurrence_key' => array('type' => 'varchar', 'value' => '255', 'null' => 'NOT NULL'),
 			),
 			$this->db->prefix().'powerplantpv_report_field' => array(
@@ -3015,7 +3095,454 @@ class modPowerPlantPV extends DolibarrModules
 			return -1;
 		}
 
-		return $this->seedMaintenanceReportTemplateEngineData($entity);
+		$result = $this->seedMaintenanceReportTemplateEngineData($entity);
+		if ($result < 0) {
+			return -1;
+		}
+
+		if ($this->db->begin() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		if ($this->seedAutocontrolReportTemplate($entity) < 0 || $this->seedResidentialReportTemplate($entity) < 0) {
+			$this->db->rollback();
+			return -1;
+		}
+		if ($this->db->commit() <= 0) {
+			$this->errors[] = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		return 1;
+	}
+
+	/**
+	 * Seed the self-inspection report template ("dossier d'autocontrôle") and its intervention nature.
+	 * Section codes are prefixed by their part (AC1_ to AC6_): each part is signed separately.
+	 *
+	 * @param	int	$entity	Current entity
+	 * @return	int			1 if OK, <0 if KO
+	 */
+	private function seedAutocontrolReportTemplate(int $entity): int
+	{
+		require_once __DIR__.'/../../class/powerplantpvreporttemplate.class.php';
+		require_once __DIR__.'/../../class/powerplantpvreportparts.class.php';
+		$code = PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
+			'entity' => $entity,
+			'code' => $code,
+			'label' => 'Rapport d’autocontrôles C&I',
+			'label_en' => 'C&I self-inspection report',
+			'description' => 'Autocontrôles avant mise en service d’une centrale photovoltaïque C&I, en six parties.',
+			'description_en' => 'Six-part pre-commissioning self-inspection for C&I photovoltaic plants.',
+			'target_element' => 'fichinter',
+			'is_default' => 0,
+			'active' => 1,
+			'position' => 20,
+			'date_creation' => $this->db->idate(dol_now()),
+		), "entity = ".$entity." AND code = '".$code."'");
+		if ($result < 0) {
+			return -1;
+		}
+		$templateId = $this->getReportTemplateId($entity, $code);
+		if ($templateId <= 0) {
+			$this->errors[] = 'Unable to fetch self-inspection report template';
+			return -1;
+		}
+
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'c_powerplantpv_intervention_nature', array(
+			'entity' => $entity,
+			'code' => 'AUTOCONTROL',
+			'label' => 'Installation Autocontrôles C&I',
+			'label_en' => 'C&I installation self-inspections',
+			'description' => 'Essais et autocontrôles d’une centrale photovoltaïque avant sa mise en service',
+			'description_en' => 'Tests and self-inspections of a photovoltaic power plant before commissioning',
+			'fk_report_template' => $templateId,
+			'report_template_code' => $code,
+			'model_pdf' => PowerPlantPVReportParts::PDF_MODEL,
+			'is_maintenance' => 0,
+			'is_preventive' => 0,
+			'requires_report' => 1,
+			'requires_signature' => 1,
+			'active' => 1,
+			'position' => 20,
+		), "entity = ".$entity." AND code = 'AUTOCONTROL'");
+		if ($result < 0) {
+			return -1;
+		}
+
+		// Move legacy default selections to the dedicated model without changing custom selections or PDFs.
+		$prefix = $this->db->prefix();
+		$model = $this->db->escape(PowerPlantPVReportParts::PDF_MODEL);
+		$natureTable = $prefix.'c_powerplantpv_intervention_nature';
+		$ciNature = " WHERE entity = ".$entity." AND code = 'AUTOCONTROL'";
+		$sqlLabel = "UPDATE ".$natureTable." SET label = 'Installation Autocontrôles C&I'".$ciNature." AND label = 'Autocontrôles C&I'";
+		$sqlLabelEn = "UPDATE ".$natureTable." SET label_en = 'C&I installation self-inspections'".$ciNature." AND label_en = 'C&I self-inspections'";
+		$sqlNature = "UPDATE ".$prefix."c_powerplantpv_intervention_nature SET model_pdf = '".$model."'";
+		$sqlNature .= $ciNature." AND model_pdf = 'powerplantpvreport'";
+		$sqlInterventions = "UPDATE ".$prefix."fichinter AS fi";
+		$sqlInterventions .= " INNER JOIN ".$prefix."fichinter_extrafields AS ef ON ef.fk_object = fi.rowid";
+		$sqlInterventions .= " INNER JOIN ".$prefix."c_powerplantpv_intervention_nature AS n";
+		$sqlInterventions .= " ON n.rowid = ef.powerplantpv_intervention_nature AND n.entity = fi.entity";
+		$sqlInterventions .= " SET fi.model_pdf = '".$model."' WHERE fi.entity = ".$entity;
+		$sqlInterventions .= " AND n.code = 'AUTOCONTROL' AND n.model_pdf = '".$model."'";
+		$sqlInterventions .= " AND (fi.model_pdf = 'powerplantpvreport' OR fi.model_pdf = '' OR fi.model_pdf IS NULL)";
+		if (!$this->db->query($sqlLabel) || !$this->db->query($sqlLabelEn)
+			|| !$this->db->query($sqlNature) || !$this->db->query($sqlInterventions)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+
+		// Section: code, label, label_en, scope, equipment type, repeat mode, description.
+		$sections = array(
+			array('AC1_IDENT', 'Partie 1 · Identification', 'Part 1 · Identification', 'intervention', '', 'once', 'FM-ESS-001 · Pré-contrôles visuels et documentaires'),
+			array('AC1_CHECKLIST', 'Partie 1 · Check-list', 'Part 1 · Checklist', 'intervention', '', 'once', ''),
+			array('AC1_CONCLUSION', 'Partie 1 · Conclusion', 'Part 1 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC2_IDENT', 'Partie 2 · Identification', 'Part 2 · Identification', 'intervention', '', 'once', 'FM-ESS-002 · Essais DC (strings et coffrets DC)'),
+			array('DC_ELECTRICAL_MEASURE', 'Partie 2 · Relevés par string', 'Part 2 · String readings', 'pv_input', 'INVERTER', 'once_per_powerplant', ''),
+			array('AC2_BOX', 'Partie 2 · Contrôle coffret DC', 'Part 2 · DC box check', 'electrical_box', 'DC_BOX', 'once_per_equipment', ''),
+			array('AC2_CONCLUSION', 'Partie 2 · Conclusion', 'Part 2 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC3_IDENT', 'Partie 3 · Identification', 'Part 3 · Identification', 'intervention', '', 'once', 'FM-ESS-003 · Essais AC et protections (BT)'),
+			array('AC3_INSTALLATION', 'Partie 3 · Mesures réseau · Installation', 'Part 3 · Grid measurements · Installation', 'intervention', '', 'once', ''),
+			array('AC3_GRID', 'Partie 3 · Mesures réseau', 'Part 3 · Grid measurements', 'inverter', '', 'once_per_equipment', ''),
+			array('AC3_PROTECTIONS', 'Partie 3 · Essais des protections', 'Part 3 · Protection tests', 'intervention', '', 'once', ''),
+			array('AC3_CONCLUSION', 'Partie 3 · Conclusion', 'Part 3 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC4_IDENT', 'Partie 4 · Identification', 'Part 4 · Identification', 'intervention', '', 'once', 'FM-ESS-004 · Mise en service et paramétrage onduleurs'),
+			array('AC4_INVERTER', 'Partie 4 · Paramétrage onduleur', 'Part 4 · Inverter settings', 'inverter', '', 'once_per_equipment', ''),
+			array('AC4_CONCLUSION', 'Partie 4 · Conclusion', 'Part 4 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC5_IDENT', 'Partie 5 · Identification', 'Part 5 · Identification', 'intervention', '', 'once', 'FM-ESS-005 · Supervision, communication et alarmes'),
+			array('AC5_ACCOUNT', 'Partie 5 · Compte de supervision du client', 'Part 5 · Customer monitoring account', 'intervention', '', 'once', ''),
+			array('AC5_INVERTER', 'Partie 5 · Sauvegarde et supervision', 'Part 5 · Backup and monitoring', 'inverter', '', 'once_per_equipment', ''),
+			array('AC5_CONCLUSION', 'Partie 5 · Conclusion', 'Part 5 · Conclusion', 'intervention', '', 'once', ''),
+			array('AC6_IDENT', 'Partie 6 · Identification', 'Part 6 · Identification', 'intervention', '', 'once', 'FM-ESS-006 · Essais fonctionnels et production initiale'),
+			array('AC6_INVERTER', 'Partie 6 · Arrêt, reprise et production', 'Part 6 · Stop, restart and production', 'inverter', '', 'once_per_equipment', ''),
+			array('AC6_THERMOGRAPHY', 'Partie 6 · Thermographie (option)', 'Part 6 · Thermography (optional)', 'intervention', '', 'once', ''),
+			array('AC6_CONCLUSION', 'Partie 6 · Conclusion', 'Part 6 · Conclusion', 'intervention', '', 'once', ''),
+		);
+		$sectionIds = $this->seedInstallationReportSections($entity, $templateId, $sections);
+		if (!is_array($sectionIds)) {
+			return -1;
+		}
+
+		$results = array('CONFORM' => array('Conforme', 'Compliant'), 'NON_CONFORM' => array('Non conforme', 'Non-compliant'), 'RESERVES' => array('Conforme avec réserves', 'Compliant with reservations'));
+		$decisions = array('AUTHORIZE' => array('Autoriser les essais DC/AC', 'Authorize DC/AC tests'), 'BLOCK' => array('Bloquer et corriger', 'Block and correct'));
+		// Field: section, code, label, label_en, type, unit, required, help, options.
+		$fields = array();
+		foreach (array(1, 2, 3, 4, 5, 6) as $part) {
+			$prefix = 'AC'.$part.'_';
+			$fields[] = array($prefix.'IDENT', $prefix.'DATE', 'Date des essais', 'Test date', 'date', '', 1);
+			$fields[] = array($prefix.'IDENT', $prefix.'HOURS', 'Heure de début / fin', 'Start / end time', 'varchar', '', 0);
+			$fields[] = array($prefix.'CONCLUSION', $prefix.'RESULT', 'Résultat', 'Result', 'select', '', 1, '', $results);
+			if ($part <= 2) {
+				$fields[] = array($prefix.'CONCLUSION', $prefix.'DECISION', 'Décision', 'Decision', 'select', '', 1, '', $decisions);
+			}
+			$fields[] = array($prefix.'CONCLUSION', $prefix.'DEVIATIONS', $part <= 2 ? 'Écarts / actions / re-contrôle' : 'Écarts / actions / re-test', $part <= 2 ? 'Deviations / actions / re-check' : 'Deviations / actions / re-test', 'textarea', '', 0);
+		}
+		$checks = array(
+			array('DOCS', 'Documents à jour', 'Up-to-date documents', 'Plans, schémas, fiches, paramètres réseau, consignes'),
+			array('GED', 'GED / ECM prête', 'Document management ready', 'Arborescence, droits, nommage, trames PV'),
+			array('MAPPING', 'Cartographie disponible', 'Mapping available', 'Des strings aux MPPT via les coffrets, ou méthode prévue'),
+			array('LABELING', 'Repérage', 'Labeling', 'Strings, coffrets, onduleurs, protections, terre'),
+			array('ROUTING', 'Cheminements', 'Cable routing', 'Fixations, UV, rayons de courbure, abrasion / écrasement'),
+			array('DC_CONNECTORS', 'Connectique DC', 'DC connectors', 'Compatibilité, verrouillage, inversion'),
+			array('DC_BOXES', 'Coffrets DC', 'DC boxes', 'Accessibilité, intégrité, repérage, terre'),
+			array('INVERTERS', 'Onduleurs', 'Inverters', 'Fixation, ventilation, accès maintenance'),
+			array('SAFETY', 'Sécurité', 'Safety', 'Coupures identifiées, consignation, EPI'),
+		);
+		foreach ($checks as $check) {
+			$fields[] = array('AC1_CHECKLIST', 'AC1_CHK_'.$check[0], $check[1], $check[2], 'conformity_so_valid_obs', '', 1, $check[3]);
+		}
+		$fields[] = array('AC1_CHECKLIST', 'AC1_CHECKLIST_NOTES', 'Observations / actions', 'Observations / actions', 'textarea', '', 0);
+		$fields[] = array('AC1_CHECKLIST', 'AC1_EVIDENCE', 'Preuves (photos / fichiers)', 'Evidence (photos / files)', 'file', '', 0);
+		$fields = array_merge($fields, array(
+			array('AC2_IDENT', 'AC2_WEATHER', 'Météo / température', 'Weather / temperature', 'varchar', '', 0),
+			array('AC2_IDENT', 'AC2_IRRADIANCE', 'Irradiance', 'Irradiance', 'number', 'W/m²', 0),
+			array('AC2_IDENT', 'AC2_INSTRUMENT', 'Matériel de mesure (réf. / n° de série / étalonnage)', 'Measuring instrument (ref. / serial number / calibration)', 'varchar', '', 1),
+			array('AC2_IDENT', 'AC2_TEST_VOLTAGE', 'Tension d’essai d’isolement', 'Insulation test voltage', 'number', 'V', 0, 'Typiquement 1000 V DC'),
+			array('AC2_BOX', 'AC2_BOX_LABELING', 'Repérage', 'Labeling', 'conformity_so_valid_obs', '', 1),
+			array('AC2_BOX', 'AC2_BOX_SWITCH', 'Sectionneur', 'Switch disconnector', 'conformity_so_valid_obs', '', 1),
+			array('AC2_BOX', 'AC2_BOX_EARTH', 'Terre', 'Earthing', 'conformity_so_valid_obs', '', 1),
+			array('AC2_BOX', 'AC2_BOX_INTERNAL', 'Organes internes (si applicables)', 'Internal devices (if applicable)', 'conformity_so_valid_obs', '', 0),
+			array('AC2_BOX', 'AC2_BOX_NOTES', 'Observations', 'Observations', 'textarea', '', 0),
+			array('AC3_IDENT', 'AC3_CONNECTION_POINT', 'Point de raccordement', 'Connection point', 'varchar', '', 0),
+			array('AC3_IDENT', 'AC3_AC_DIAGRAM', 'Référence du schéma AC', 'AC diagram reference', 'varchar', '', 0),
+			array(
+				'AC3_INSTALLATION', 'AC3_EARTH_RESISTANCE',
+				'Résistance de terre (barrette de coupure ou bornier TGBT)',
+				'Earth resistance (disconnecting link or main LV switchboard terminal)',
+				'number', 'ohm', 0,
+			),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_U_LL', 'Tension entre phases (U L-L)', 'Line-to-line voltage (U L-L)', 'number', 'V', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_U_LN', 'Tension phase-neutre (U L-N)', 'Line-to-neutral voltage (U L-N)', 'number', 'V', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_PE_CONTINUITY', 'Continuité PE', 'PE continuity', 'conformity_so_valid_obs', '', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_PHASE_ORDER', 'Ordre des phases', 'Phase order', 'conformity_so_valid_obs', '', 1),
+			array('AC3_INSTALLATION', 'AC3_INSTALLATION_FREQUENCY', 'Fréquence', 'Frequency', 'number', 'Hz', 1),
+			array('AC3_GRID', 'AC3_U_LL', 'Tension entre phases (U L-L)', 'Line-to-line voltage (U L-L)', 'number', 'V', 1),
+			array('AC3_GRID', 'AC3_U_LN', 'Tension phase-neutre (U L-N)', 'Line-to-neutral voltage (U L-N)', 'number', 'V', 1),
+			array('AC3_GRID', 'AC3_FREQUENCY', 'Fréquence', 'Frequency', 'number', 'Hz', 1),
+			array('AC3_GRID', 'AC3_PHASE_ORDER', 'Ordre des phases', 'Phase order', 'conformity_so_valid_obs', '', 1),
+			array('AC3_GRID', 'AC3_PE_CONTINUITY', 'Continuité PE', 'PE continuity', 'conformity_so_valid_obs', '', 1),
+			array('AC3_GRID', 'AC3_CABLE_INSULATION', 'Isolement du câble', 'Cable insulation', 'number', 'MOhm', 0),
+			array('AC3_GRID', 'AC3_GRID_ALARMS', 'Alarmes réseau', 'Grid alarms', 'varchar', '', 0),
+			array('AC3_PROTECTIONS', 'AC3_PROT_BREAKER', 'Disjoncteur de départ', 'Outgoing circuit breaker', 'conformity_so_valid_obs', '', 1, 'Type / calibre, réglage attendu et constaté'),
+			array('AC3_PROTECTIONS', 'AC3_PROT_SWITCH', 'Sectionneur(s)', 'Switch disconnector(s)', 'conformity_so_valid_obs', '', 1),
+			array('AC3_PROTECTIONS', 'AC3_PROT_RCD', 'DDR / RCD (si présent)', 'RCD (if present)', 'conformity_so_valid_obs', '', 0),
+			array('AC3_PROTECTIONS', 'AC3_PROT_SPD', 'Parafoudre AC', 'AC surge protection', 'conformity_so_valid_obs', '', 1),
+			array('AC3_PROTECTIONS', 'AC3_PROT_RELAY', 'Relais / réglages paramétrables', 'Relays / adjustable settings', 'conformity_so_valid_obs', '', 0),
+			array('AC3_PROTECTIONS', 'AC3_PROT_SETTINGS', 'Réglages constatés / observations', 'Observed settings / observations', 'textarea', '', 0),
+			array('AC4_IDENT', 'AC4_TOOL', 'Outil de paramétrage', 'Configuration tool', 'varchar', '', 0),
+			array('AC4_INVERTER', 'AC4_FIRMWARE', 'Firmware', 'Firmware', 'varchar', '', 1),
+			array('AC4_INVERTER', 'AC4_GRID_CODE', 'Code réseau', 'Grid code', 'varchar', '', 1),
+			array('AC4_INVERTER', 'AC4_CLOCK', 'Date / heure', 'Date / time', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_POWER_LIMIT', 'Limitation de puissance', 'Power limitation', 'varchar', '', 0),
+			array('AC4_INVERTER', 'AC4_REACTIVE', 'Réactif (mode)', 'Reactive power (mode)', 'varchar', '', 0),
+			array('AC4_INVERTER', 'AC4_AC_ON', 'Mise sous tension AC', 'AC power-on', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_DC_ON', 'Mise sous tension DC', 'DC power-on', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_MPPT', 'MPPT cohérents', 'Consistent MPPTs', 'conformity_so_valid_obs', '', 1),
+			array('AC4_INVERTER', 'AC4_ALARMS', 'Alarmes', 'Alarms', 'varchar', '', 0),
+			array('AC4_INVERTER', 'AC4_EVIDENCE', 'Preuves', 'Evidence', 'file', '', 0),
+			array('AC5_IDENT', 'AC5_PLATFORM', 'Plateforme de supervision', 'Monitoring platform', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_CONNECTION', 'Type de connexion internet', 'Internet connection type', 'select', '', 1, '', array('4G' => array('4G', '4G'), 'WIFI' => array('Wi-Fi', 'Wi-Fi'), 'ETHERNET' => array('Ethernet', 'Ethernet'), 'OTHER' => array('Autre', 'Other'))),
+			array('AC5_ACCOUNT', 'AC5_WIFI_JUSTIFICATION', 'Si Wi-Fi : justification', 'If Wi-Fi: justification', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_ICCID', 'ICCID', 'ICCID', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_APN', 'APN', 'APN', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_IMEI', 'IMEI', 'IMEI', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_PLANT_NAME', 'Nom de la centrale (portail)', 'Plant name (portal)', 'varchar', '', 0),
+			array('AC5_ACCOUNT', 'AC5_CUSTOMER_LOGIN', 'Identifiant client', 'Customer login', 'varchar', '', 0, 'Le mot de passe est transmis séparément et n’est jamais imprimé.'),
+			array('AC5_INVERTER', 'AC5_EXPORT_DONE', 'Export des paramètres réalisé', 'Settings export done', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_EXPORT_FILE', 'Nom de fichier / réf. GED', 'File name / document reference', 'varchar', '', 0),
+			array('AC5_INVERTER', 'AC5_EXPORT_MEDIA', 'Support', 'Media', 'select', '', 0, '', array('PAPER' => array('Papier', 'Paper'), 'USB' => array('Clé USB', 'USB key'))),
+			array('AC5_INVERTER', 'AC5_VISIBLE', 'Visible en supervision', 'Visible in monitoring', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_DATA', 'Données cohérentes', 'Consistent data', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_TIMESTAMP', 'Horodatage', 'Timestamp', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_ALARM_TEST', 'Test d’alarme', 'Alarm test', 'conformity_so_valid_obs', '', 1),
+			array('AC5_INVERTER', 'AC5_EVIDENCE', 'Preuves (captures)', 'Evidence (screenshots)', 'file', '', 0),
+			array('AC6_IDENT', 'AC6_LIMITATION', 'Limitation active', 'Active limitation', 'yesno', '', 0),
+			array('AC6_IDENT', 'AC6_LIMITATION_DETAIL', 'Détail de la limitation', 'Limitation details', 'varchar', '', 0),
+			array('AC6_INVERTER', 'AC6_STOP', 'Arrêt', 'Stop', 'conformity_so_valid_obs', '', 1),
+			array('AC6_INVERTER', 'AC6_RESTART', 'Reprise', 'Restart', 'conformity_so_valid_obs', '', 1),
+			array('AC6_INVERTER', 'AC6_RESTART_TIME', 'Temps de reprise', 'Restart time', 'varchar', '', 0),
+			array('AC6_INVERTER', 'AC6_STABILITY', 'Stabilité', 'Stability', 'conformity_so_valid_obs', '', 1),
+			array('AC6_INVERTER', 'AC6_ALARMS', 'Alarmes', 'Alarms', 'varchar', '', 0),
+			array('AC6_INVERTER', 'AC6_READING_TIME', 'Heure du relevé', 'Reading time', 'varchar', '', 0),
+			array('AC6_INVERTER', 'AC6_AC_POWER', 'Puissance AC', 'AC power', 'number', 'kW', 0),
+			array('AC6_INVERTER', 'AC6_DAY_ENERGY', 'Énergie du jour', 'Daily energy', 'number', 'kWh', 0),
+			array('AC6_INVERTER', 'AC6_CONDITIONS', 'Conditions (météo / température)', 'Conditions (weather / temperature)', 'varchar', '', 0),
+			array('AC6_INVERTER', 'AC6_EVIDENCE', 'Preuves', 'Evidence', 'file', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_DC_BOXES', 'Coffrets DC', 'DC boxes', 'conformity_so_valid_obs', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_AC_TERMINALS', 'Borniers AC', 'AC terminals', 'conformity_so_valid_obs', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_MAIN_CONNECTIONS', 'Connexions principales', 'Main connections', 'conformity_so_valid_obs', '', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_MAX', 'Température maximale', 'Maximum temperature', 'number', '°C', 0),
+			array('AC6_THERMOGRAPHY', 'AC6_THERMO_NOTES', 'Localisation / actions', 'Location / actions', 'textarea', '', 0),
+		));
+
+		return $this->seedInstallationReportFields($entity, $templateId, $code, $sectionIds, $fields);
+	}
+
+	/**
+	 * Create the FR37-inspired template and its intervention nature.
+	 * @param int $entity Template owner
+	 * @return int 1 on success, -1 on error
+	 */
+	private function seedResidentialReportTemplate(int $entity): int
+	{
+		$code = PowerPlantPVReportTemplate::CODE_RESIDENTIAL;
+		$label = 'Rapport d’autocontrôles Résidentiel';
+		$labelEn = 'Residential self-inspection report';
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
+			'entity' => $entity,
+			'code' => $code,
+			'label' => $label,
+			'label_en' => $labelEn,
+			'description' => 'Préparation du chantier et autocontrôles photovoltaïques résidentiels.',
+			'description_en' => 'Preparation and self-inspections for residential photovoltaic installations.',
+			'target_element' => 'fichinter',
+			'is_default' => 0,
+			'active' => 1,
+			'position' => 30,
+			'date_creation' => $this->db->idate(dol_now()),
+		), "entity = ".$entity." AND code = '".$code."'");
+		if ($result < 0) {
+			return -1;
+		}
+		$templateId = $this->getReportTemplateId($entity, $code);
+		if ($templateId <= 0) {
+			$this->errors[] = 'Unable to fetch residential self-inspection report template';
+			return -1;
+		}
+
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'c_powerplantpv_intervention_nature', array(
+			'entity' => $entity,
+			'code' => 'AUTOCONTROL_RESIDENTIAL',
+			'label' => 'Installation et Autocontrôles Résidentiels',
+			'label_en' => 'Residential installation and self-inspections',
+			'description' => 'Installation photovoltaïque et autocontrôles sur un chantier résidentiel.',
+			'description_en' => 'Photovoltaic installation and self-inspections on a residential site.',
+			'fk_report_template' => $templateId,
+			'report_template_code' => $code,
+			'model_pdf' => PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL,
+			'is_maintenance' => 0,
+			'is_preventive' => 0,
+			'requires_report' => 1,
+			'requires_signature' => 1,
+			'active' => 1,
+			'position' => 30,
+		), "entity = ".$entity." AND code = 'AUTOCONTROL_RESIDENTIAL'");
+		if ($result < 0) {
+			return -1;
+		}
+
+		$definition = require __DIR__.'/powerplantpv_residential_report.php';
+		$sectionIds = $this->seedInstallationReportSections($entity, $templateId, $definition['sections']);
+		if (!is_array($sectionIds)) {
+			return -1;
+		}
+		return $this->seedInstallationReportFields($entity, $templateId, $code, $sectionIds, $definition['fields']);
+	}
+
+	/**
+	 * @param int $entity Template owner
+	 * @param int $templateId Template ID
+	 * @param list<array{string,string,string,string,string,string,string}> $sections Section definitions
+	 * @return array<string,int>|null Section IDs by code, or null on error
+	 */
+	private function seedInstallationReportSections(int $entity, int $templateId, array $sections): ?array
+	{
+		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
+		$sectionIds = array();
+		$position = 10;
+		foreach ($sections as $section) {
+			// Insert the installation before the inverter sections without shifting existing default positions.
+			$isInstallation = $section[0] === 'AC3_INSTALLATION';
+			$where = "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape($section[0])."'";
+			$result = $this->insertMaintenanceDefaultRow($sectionTable, array(
+				'entity' => $entity,
+				'fk_report_template' => $templateId,
+				'code' => $section[0],
+				'label' => $section[1],
+				'label_en' => $section[2],
+				'description' => $section[6],
+				'description_en' => '',
+				'part_ref' => $section[6] !== '' ? explode(' · ', $section[6], 2)[0] : null,
+				'scope_type' => $section[3],
+				'equipment_type' => $section[4],
+				'repeat_mode' => $section[5],
+				'is_required' => 1,
+				'visible_form' => 1,
+				'visible_pdf' => 1,
+				'active' => 1,
+				'position' => $isInstallation ? $position - 5 : $position,
+				'date_creation' => $this->db->idate(dol_now()),
+			), $where);
+			if ($result < 0) {
+				return null;
+			}
+			if (!$isInstallation) {
+				$position += 10;
+			}
+			$rowid = $this->fetchSeedRowId($sectionTable, $where);
+			if ($rowid <= 0) {
+				return null;
+			}
+			$sectionIds[$section[0]] = $rowid;
+		}
+
+		return $sectionIds;
+	}
+
+	/**
+	 * @param int $entity Template owner
+	 * @param int $templateId Template ID
+	 * @param string $code Template code
+	 * @param array<string,int> $sectionIds Section IDs by code
+	 * @param list<array{0:string,1:string,2:string,3:string,4:string,5:string,6:int,7?:string,8?:array<string,array{string,string}>}> $fields Field definitions
+	 * @return int 1 on success, -1 on error
+	 */
+	private function seedInstallationReportFields(int $entity, int $templateId, string $code, array $sectionIds, array $fields): int
+	{
+		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
+		$optionTable = $this->db->prefix().'powerplantpv_report_template_field_option';
+		$position = 10;
+		foreach ($fields as $field) {
+			$help = isset($field[7]) ? (string) $field[7] : '';
+			$where = "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape($field[1])."'";
+			$result = $this->insertMaintenanceDefaultRow($fieldTable, array(
+				'entity' => $entity,
+				'fk_report_template' => $templateId,
+				'fk_report_template_section' => $sectionIds[$field[0]],
+				'report_template_code' => $code,
+				'fk_report_section' => 0,
+				'code' => $field[1],
+				'label' => $field[2],
+				'label_en' => $field[3],
+				'description' => $help,
+				'field_type' => $field[4],
+				'scope_type' => '',
+				'unit' => $field[5],
+				'help' => $help,
+				'is_required' => (int) $field[6],
+				'visible_form' => 1,
+				'visible_pdf' => 1,
+				'readonly' => 0,
+				'active' => 1,
+				'position' => $position,
+				'date_creation' => $this->db->idate(dol_now()),
+			), $where);
+			if ($result < 0) {
+				return -1;
+			}
+			$position += 10;
+			if (empty($field[8])) {
+				continue;
+			}
+			$fieldId = $this->fetchSeedRowId($fieldTable, $where);
+			if ($fieldId <= 0) {
+				return -1;
+			}
+			$optionPosition = 10;
+			foreach ($field[8] as $optionCode => $labels) {
+				$result = $this->insertMaintenanceDefaultRow($optionTable, array(
+					'entity' => $entity,
+					'fk_report_template_field' => $fieldId,
+					'code' => (string) $optionCode,
+					'label' => $labels[0],
+					'label_en' => $labels[1],
+					'active' => 1,
+					'position' => $optionPosition,
+					'date_creation' => $this->db->idate(dol_now()),
+				), "entity = ".$entity." AND fk_report_template_field = ".$fieldId." AND code = '".$this->db->escape((string) $optionCode)."'");
+				if ($result < 0) {
+					return -1;
+				}
+				$optionPosition += 10;
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Return the id of the row matched by a seed predicate.
+	 *
+	 * @param	string	$table	Table name with prefix
+	 * @param	string	$where	SQL predicate
+	 * @return	int				Row id, <0 on error
+	 */
+	private function fetchSeedRowId(string $table, string $where): int
+	{
+		$resql = $this->db->query("SELECT rowid FROM ".$this->db->sanitize($table)." WHERE ".$where);
+		if (!$resql) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!is_object($obj)) {
+			$this->errors[] = 'Seed row not found in '.$table;
+			return -1;
+		}
+
+		return (int) $obj->rowid;
 	}
 
 	/**
@@ -3895,11 +4422,24 @@ class modPowerPlantPV extends DolibarrModules
 	}
 
 	/**
-	 * Return SQL statements that register attestation business triggers.
+	 * @return array<int,array<string,int|string>> Native Agenda report trigger definitions
+	 */
+	private function getReportActionTriggers(): array
+	{
+		return array(
+			array('code' => 'POWERPLANTPV_REPORT_CREATE', 'label' => 'Notify_POWERPLANTPV_REPORT_CREATE', 'description' => 'PowerPlantPVReportAgendaCreateHelp', 'rang' => 45000437),
+			array('code' => 'POWERPLANTPV_REPORT_UPDATE', 'label' => 'Notify_POWERPLANTPV_REPORT_UPDATE', 'description' => 'PowerPlantPVReportAgendaUpdateHelp', 'rang' => 45000438),
+		);
+	}
+
+	/**
+	 * Return SQL statements that register lifecycle triggers in the native dictionary.
 	 *
+	 * @param	array<int,array<string,int|string>> $triggers Trigger definitions
+	 * @param	string $elementType Native element name
 	 * @return	string[]	SQL statements
 	 */
-	private function getAttestationActionTriggerSql()
+	private function getLifecycleActionTriggerSql(array $triggers, string $elementType): array
 	{
 		global $langs;
 
@@ -3907,9 +4447,9 @@ class modPowerPlantPV extends DolibarrModules
 
 		$sql = array();
 		$table = $this->db->prefix().'c_action_trigger';
-		$elementtype = $this->db->escape('attestation@powerplantpv');
+		$elementtype = $this->db->escape($elementType);
 
-		foreach ($this->getAttestationActionTriggers() as $trigger) {
+		foreach ($triggers as $trigger) {
 			$code = $this->db->escape($trigger['code']);
 			$label = $this->db->escape($langs->transnoentitiesnoconv($trigger['label']));
 			$description = $this->db->escape($langs->transnoentitiesnoconv($trigger['description']));

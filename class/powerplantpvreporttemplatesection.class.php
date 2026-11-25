@@ -35,6 +35,7 @@ class PowerPlantPVReportTemplateSection extends PowerPlantPVReportConfigBase
 		'label_en' => array('type' => 'varchar(255)', 'label' => 'PowerPlantPVEnglishLabel', 'enabled' => 1, 'position' => 31, 'notnull' => 0, 'visible' => 1),
 		'description' => array('type' => 'text', 'label' => 'Description', 'enabled' => 1, 'position' => 40, 'notnull' => 0, 'visible' => 1),
 		'description_en' => array('type' => 'text', 'label' => 'PowerPlantPVEnglishDescription', 'enabled' => 1, 'position' => 41, 'notnull' => 0, 'visible' => 1),
+		'part_ref' => array('type' => 'varchar(64)', 'label' => 'PowerPlantPVAutocontrolPartReference', 'enabled' => 1, 'position' => 42, 'notnull' => 0, 'visible' => 1),
 		'scope_type' => array('type' => 'varchar(32)', 'label' => 'PowerPlantPVReportScope', 'enabled' => 1, 'position' => 50, 'notnull' => 1, 'visible' => 1),
 		'equipment_type' => array('type' => 'varchar(32)', 'label' => 'PowerPlantPVEquipmentType', 'enabled' => 1, 'position' => 60, 'notnull' => 0, 'visible' => 1),
 		'repeat_mode' => array('type' => 'varchar(32)', 'label' => 'PowerPlantPVRepeatMode', 'enabled' => 1, 'position' => 70, 'notnull' => 1, 'visible' => 1),
@@ -56,6 +57,7 @@ class PowerPlantPVReportTemplateSection extends PowerPlantPVReportConfigBase
 	public $label_en;
 	public $description;
 	public $description_en;
+	public $part_ref;
 	public $scope_type;
 	public $equipment_type;
 	public $repeat_mode;
@@ -80,6 +82,10 @@ class PowerPlantPVReportTemplateSection extends PowerPlantPVReportConfigBase
 			return -1;
 		}
 		if ($this->validateRequiredString('label', 'PowerPlantPVReportSectionLabelRequired') < 0) {
+			return -1;
+		}
+		if (!$this->validateField($this->fields, 'part_ref', (string) $this->part_ref)) {
+			$this->setError($this->getFieldError('part_ref'));
 			return -1;
 		}
 		if ($this->validateEnum('scope_type', powerplantpvReportTemplateScopeTypes(), 'PowerPlantPVReportScopeInvalid') < 0) {

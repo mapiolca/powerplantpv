@@ -2,8 +2,19 @@
 
 ## 1.10.0 — Non publiée
 
+- La nature d’intervention « Installation Autocontrôles C&I » reprend le rapport C&I en six étapes. L’actualisation du module renomme le libellé par défaut, en conservant la nature existante et ses liaisons.
+- Ajout de la nature « Installation et Autocontrôles Résidentiels » et de son modèle PDF dédié. Inspiré du FR37-V01, le rapport regroupe la préparation du chantier, la sécurité, les travaux, les essais et la conclusion, avec les signatures du rapport complet.
+- Chaque partie peut être validée et signée depuis le formulaire. Le signataire ou son responsable direct peut rouvrir une partie avec la permission de gestion des attestations et rapports signés. La réouverture archive la signature concernée et les visas finaux.
+- La finalisation exige les six signatures. Le responsable technique peut signer le dossier finalisé si son option est activée. Les créations, validations, signatures, réouvertures et finalisations sont consignées par les événements natifs de l’Agenda.
+- Le PDF affiche le projet disponible, un tableau de suivi avec badges et les heures de début et de fin séparées. Chaque conclusion reste sur la même page que sa signature.
+- Les rapports de maintenance photovoltaïque et d’autocontrôle C&I ont chacun leur modèle PDF dans Dolibarr. Actualiser le module pour ajouter le modèle C&I et migrer les anciennes sélections par défaut. Les PDF existants et les modèles personnalisés sont conservés.
+- Dans la partie 3 du rapport C&I, la section « Mesures réseau · Installation » regroupe la résistance de terre en ohms à la barrette de coupure ou au bornier du TGBT, les tensions U L-L et U L-N, la continuité PE, l’ordre des phases et la fréquence. Les résultats figurent dans le PDF. Après actualisation du module, recalculer les brouillons existants depuis leur modèle si leur état le permet.
+- Les preuves sont jointes à l’intervention et se retirent du rapport avec l’icône de suppression Dolibarr. Les nouveaux liens HTTPS expirent après 30 jours par défaut. La durée est réglable par entité et indiquée dans le PDF. Recharger le module pour activer l’option sans expiration sur une installation existante.
+- L’onglet Rapport utilise Select2 et affiche son sommaire uniquement dans le menu gauche. Recharger le module dans Dolibarr pour installer la nature, le modèle et les tables nécessaires.
+- Les flèches Précédent et Suivant ouvrent les rapports par référence d’intervention.
+- Les administrateurs disposent des permissions de PowerPlantPV sans attribution individuelle. Actualiser le module dans Dolibarr pour mettre à jour les menus et l’onglet Rapport.
 - Centrales : attestation de mise en service avec date, résultats des sept contrôles préalables, références CONSUEL et observations.
-- Attestations : deux modèles PDF, standard et rapport, avec choix du modèle par défaut dans les réglages de chaque entité.
+- Attestations : deux modèles PDF, standard et rapport, avec choix du modèle par défaut dans les réglages de chaque entité. Les observations restent avec les signatures lorsque l’espace le permet. Le rapport aligne les badges de contrôle à droite et le modèle standard élargit les libellés des contrôles.
 - Après mise à jour, actualiser le module dans Dolibarr pour ajouter les champs et enregistrer les deux modèles PDF.
 
 ## 1.9.2 — 2026-11-24

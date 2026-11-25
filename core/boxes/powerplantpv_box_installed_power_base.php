@@ -51,7 +51,7 @@ abstract class PowerPlantPVInstalledPowerBoxBase extends ModeleBoxes
 		if (
 			is_object($user)
 			&& getDolGlobalInt('POWERPLANTPV_ENABLE_PERMISSION_CHECK')
-			&& !$user->hasRight('powerplantpv', 'powerplant', 'read')
+			&& !($user->hasRight('powerplantpv', 'powerplant', 'read') || !empty($user->admin))
 		) {
 			$this->hidden = true;
 		}

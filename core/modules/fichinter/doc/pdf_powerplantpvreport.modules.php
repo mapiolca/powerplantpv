@@ -20,6 +20,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
 dol_include_once('/powerplantpv/class/powerplantpvreportpdfdataset.class.php');
 require_once __DIR__.'/../../../../class/powerplantpvreportpresentation.class.php';
+require_once __DIR__.'/../../../../class/powerplantpvreportevidence.class.php';
 require_once __DIR__.'/../../../../class/powerplantpvreportillustration.class.php';
 require_once __DIR__.'/../../../../class/powerplant.class.php';
 require_once __DIR__.'/powerplantpvreportvisualpdf.trait.php';
@@ -31,6 +32,17 @@ dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 class pdf_powerplantpvreport extends ModelePDFFicheinter
 {
 	use PowerPlantPVReportVisualPdf;
+
+	protected const VISUAL_SIGNATURE_HEIGHT = 58;
+	protected const SECTION_ACCENT = array(22, 136, 224);
+	protected const REPORT_TEMPLATE_CODE = '';
+	protected const MODEL_LABEL = 'PowerPlantPVInterventionReportPdfName';
+	protected const MODEL_DESCRIPTION = 'PowerPlantPVInterventionReportPdfModel';
+	protected const PDF_SUBJECT = 'PowerPlantPVReportPdfTitle';
+
+	/** @var string Subtitle for the current page header */
+	protected $visualHeaderSubtitle = '';
+
 	/**
 	 * @var DoliDB Database handler
 	 */
@@ -124,8 +136,8 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 
 		$this->db = $db;
 		$langs->loadLangs(array('main', 'companies', 'interventions', 'powerplantpv@powerplantpv'));
-		$this->name = $langs->trans('PowerPlantPVInterventionReportPdfName');
-		$this->description = $langs->trans('PowerPlantPVInterventionReportPdfModel');
+		$this->name = $langs->trans(static::MODEL_LABEL);
+		$this->description = $langs->trans(static::MODEL_DESCRIPTION);
 
 		$formatarray = pdf_getFormat();
 		$this->page_largeur = $formatarray['width'];
@@ -146,7 +158,8 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	 */
 	public function info($langs)
 	{
-		return $langs->trans('PowerPlantPVInterventionReportPdfModel');
+		$langs->load('powerplantpv@powerplantpv');
+		return $langs->trans(static::MODEL_DESCRIPTION);
 	}
 
 	// phpcs:disable PEAR.NamingConventions.ValidFunctionName.ScopeNotCamelCaps
@@ -240,9 +253,20 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			$this->errors = $datasetLoader->errors;
 			return -1;
 		}
+		if (static::REPORT_TEMPLATE_CODE !== '' && empty($dataset['report_found'])) {
+			$this->error = $outputlangs->transnoentities('PowerPlantPVInstallationPdfRequiresSavedReport');
+			return -1;
+		}
+		$templateCode = (string) ($dataset['report']->report_template_code ?? '');
+		if ((static::REPORT_TEMPLATE_CODE !== '' && $templateCode !== static::REPORT_TEMPLATE_CODE)
+			|| (static::REPORT_TEMPLATE_CODE === '' && PowerPlantPVReportTemplate::isInstallationTemplate($templateCode))) {
+			$this->error = $outputlangs->transnoentities('PowerPlantPVInterventionPdfModelMismatch');
+			return -1;
+		}
 
 		$staged = array();
 		try {
+			$dataset['evidence_downloads'] = $this->prepareEvidenceDownloads($object, $dataset);
 			foreach (array($annexFile => true, $file => false) as $destination => $annex) {
 				$temporaryFile = tempnam($realDirectory, '.ppv-');
 				if ($temporaryFile === false) {
@@ -289,6 +313,50 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	}
 
 	/**
+	 * Prepare public links for the evidence visible in the report, using the normal document rights.
+	 * @param CommonObject $object Intervention
+	 * @param array<string,mixed> $dataset Report dataset
+	 * @return array{days:int,links:array<int,string>} Lifetime and links indexed by report-file ID
+	 */
+	protected function prepareEvidenceDownloads($object, array $dataset): array
+	{
+		global $user;
+
+		$report = $dataset['report'] ?? null;
+		if (!($object instanceof Fichinter) || !($report instanceof PowerPlantPVReport) || !($user instanceof User)
+			|| (int) $user->socid > 0 || !($user->hasRight('powerplantpv', 'report', 'write') || !empty($user->admin)) || !$user->hasRight('ficheinter', 'creer')
+			|| !PowerPlantPVReportTemplate::isInstallationTemplate((string) $report->report_template_code)) {
+			return array('days' => 0, 'links' => array());
+		}
+		$evidence = new PowerPlantPVReportEvidence($this->db);
+		$days = $evidence->configuredLifetimeDays((int) $object->entity);
+		$links = array();
+		foreach ($dataset['tree']['sections'] as $row) {
+			if (empty($row['section']->visible_pdf)) {
+				continue;
+			}
+			foreach ($this->filterVisibleFields($row['fields']) as $field) {
+				if (!PowerPlantPVReportPdfDataset::isFileField($field)) {
+					continue;
+				}
+				foreach ($field->files ?? array() as $file) {
+					if (!is_object($file) || isset($links[(int) $file->id]) || PowerPlantPVReportEvidence::sourcePath($report, $file) === '') {
+						continue;
+					}
+					$hash = $evidence->attach($object, $report, $file);
+					$link = $hash !== '' ? $evidence->issueDownload($object, $user, (int) $file->id, $hash, $days) : '';
+					if ($link === '') {
+						throw new RuntimeException('Could not prepare an intervention evidence download');
+					}
+					$links[(int) $file->id] = $link;
+				}
+			}
+		}
+
+		return array('days' => $days, 'links' => $links);
+	}
+
+	/**
 	 * Render either document with its own header, footer and pagination.
 	 * @param CommonObject $object Intervention
 	 * @param array<string,mixed> $dataset Report snapshot
@@ -316,11 +384,11 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$pdf->SetFont(pdf_getPDFFont($outputlangs), '', $this->defaultFontSize);
 		$pdf->SetMargins($this->marge_gauche, 34, $this->marge_droite);
 		$pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
-		$subject = $outputlangs->transnoentities($annex ? 'PowerPlantPVReportPdfAnnexTitle' : 'PowerPlantPVReportPdfTitle');
+		$subject = $outputlangs->transnoentities($annex ? 'PowerPlantPVReportPdfAnnexTitle' : static::PDF_SUBJECT);
 		$pdf->SetSubject($outputlangs->convToOutputCharset($subject));
 		$pdf->SetCreator('Dolibarr '.DOL_VERSION);
 		$pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
-		$pdf->SetKeyWords($outputlangs->convToOutputCharset($object->ref.' '.$outputlangs->transnoentities('PowerPlantPVReportPdfTitle')));
+		$pdf->SetKeyWords($outputlangs->convToOutputCharset($object->ref.' '.$subject));
 		if (getDolGlobalString('MAIN_DISABLE_PDF_COMPRESSION')) {
 			$pdf->SetCompression(false);
 		}
@@ -331,6 +399,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$this->completedPageFooters = array();
 		$this->visualHeaders = array();
 		$this->visualInverterNumbers = array();
+		$this->visualHeaderSubtitle = '';
 		$this->visualReportTitle = $annex ? $subject : PowerPlantPVReportPdfDataset::localizedProperty($dataset['report'] ?? null, 'report_template_label', $outputlangs);
 
 		$pdf->Open();
@@ -532,6 +601,9 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$ref = $outputlangs->transnoentities('Intervention').' '.$object->ref;
 		if (!empty($dateIntervention)) {
 			$ref = $outputlangs->transnoentities('PowerPlantPVReportInterventionHeader', dol_print_date($dateIntervention, 'day', 'tzuser', $outputlangs), $object->ref);
+		}
+		if ($this->visualHeaderSubtitle !== '') {
+			$ref = $this->visualHeaderSubtitle;
 		}
 		$pdf->SetFont('', 'B', 10);
 		$pdf->SetX($this->marge_gauche + 55);
@@ -1113,32 +1185,36 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			$this->renderSectionTitle($pdf, $title, 3);
 		}
 		if (empty($files)) {
-			$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('NoRecordFound'));
+			$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('NoRecordFound'), false);
 			return;
 		}
 
 		$nonImages = array();
+		$hasDownload = false;
 		foreach ($files as $file) {
 			if (!is_object($file)) {
 				continue;
 			}
 			$path = PowerPlantPVReportPdfDataset::resolveReportFilePath($dataset['report'], $file);
+			$url = $dataset['evidence_downloads']['links'][(int) ($file->id ?? 0)] ?? '';
 			if (PowerPlantPVReportPdfDataset::isImageFile($file, $path)) {
 				if ($path !== '') {
-					$this->renderImage($pdf, $path, (string) $file->filename, $outputlangs);
+					$this->renderImage($pdf, $path, (string) $file->filename, $outputlangs, 80, $url);
+					$hasDownload = $hasDownload || $url !== '';
 				} else {
 					$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('PowerPlantPVReportImageMissing').' : '.(string) $file->filename);
 				}
 			} else {
-				$nonImages[] = (string) $file->filename;
+				$nonImages[] = array($outputlangs->transnoentities('File'), (string) $file->filename, $url);
+				$hasDownload = $hasDownload || $url !== '';
 			}
 		}
 		if (!empty($nonImages)) {
-			$rows = array();
-			foreach ($nonImages as $filename) {
-				$rows[] = array($outputlangs->transnoentities('File'), $filename);
-			}
-			$this->renderKeyValueTable($pdf, $rows, '');
+			$this->renderKeyValueTable($pdf, $nonImages, '');
+		}
+		$days = (int) ($dataset['evidence_downloads']['days'] ?? 0);
+		if ($hasDownload && $days > 0) {
+			$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('PowerPlantPVReportEvidenceLinkDaysPdf', $days), false);
 		}
 	}
 
@@ -1447,7 +1523,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$pdf->SetTextColor(23, 40, 74);
 		$y = $pdf->GetY();
 		if ($level <= 2) {
-			$pdf->SetFillColor(22, 136, 224);
+			$pdf->SetFillColorArray(static::SECTION_ACCENT);
 			$pdf->RoundedRect($this->marge_gauche, $y + 0.6, 1.6, 4.8, 0.8, '1111', 'F');
 		}
 		$pdf->MultiCell($width, $height, $title, 0, 'L', false, 1, $this->marge_gauche + $indent, $y);
@@ -1476,7 +1552,11 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		foreach ($rows as $row) {
 			$html .= '<tr>';
 			$html .= '<td width="32%" style="border:0.2px solid #dce7f1;background-color:#e9f3ff;font-weight:bold;">'.dol_escape_htmltag((string) $row[0]).'</td>';
-			$html .= '<td width="68%" style="border:0.2px solid #dce7f1;">'.dol_htmlentitiesbr((string) $row[1]).'</td>';
+			$value = dol_htmlentitiesbr((string) $row[1]);
+			if (!empty($row[2])) {
+				$value = '<a href="'.dol_escape_htmltag($row[2]).'">'.$value.'</a>';
+			}
+			$html .= '<td width="68%" style="border:0.2px solid #dce7f1;">'.$value.'</td>';
 			$html .= '</tr>';
 		}
 		$html .= '</table>';
@@ -1489,11 +1569,12 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	 *
 	 * @param	TCPDF|TCPDI	$pdf	PDF handler
 	 * @param	string		$text	Text
+	 * @param	bool		$border	Draw the outline
 	 * @return	void
 	 */
-	protected function renderEmptyBlock(&$pdf, $text)
+	protected function renderEmptyBlock(&$pdf, $text, $border = true)
 	{
-		$html = '<table border="1" cellpadding="4" cellspacing="0" width="100%"><tr><td style="color:#777777;">'.dol_escape_htmltag((string) $text).'</td></tr></table>';
+		$html = '<table border="'.($border ? '1' : '0').'" cellpadding="4" cellspacing="0" width="100%"><tr><td style="color:#777777;">'.dol_escape_htmltag((string) $text).'</td></tr></table>';
 		$this->writeHtml($pdf, $html);
 		$pdf->Ln(2);
 	}
@@ -1506,9 +1587,10 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	 * @param	string		$caption		Caption
 	 * @param	Translate	$outputlangs	Output language
 	 * @param	float		$maxWidth		Max width
+	 * @param	string		$url			Download link
 	 * @return	void
 	 */
-	protected function renderImage(&$pdf, $path, $caption, $outputlangs, $maxWidth = 80)
+	protected function renderImage(&$pdf, $path, $caption, $outputlangs, $maxWidth = 80, $url = '')
 	{
 		$size = @getimagesize($path);
 		if (empty($size[0]) || empty($size[1])) {
@@ -1523,7 +1605,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 		$this->ensureSpace($pdf, $height + 12);
 		$x = $this->marge_gauche;
 		$y = $pdf->GetY();
-		$pdf->Image($path, $x, $y, $width, $height);
+		$pdf->Image($path, $x, $y, $width, $height, '', $url);
 		$pdf->SetY($y + $height + 1);
 		if ($caption !== '') {
 			$pdf->SetFont('', '', max(7, $this->defaultFontSize - 1));

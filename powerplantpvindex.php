@@ -107,7 +107,9 @@ $permissiontoread = powerplantpvUserHasRightPath($user, array('powerplantpv', 'p
 if (!$permissiontoread) {
 	accessforbidden();
 }
-restrictedArea($user, 'powerplantpv', 0, 'powerplantpv_powerplant', 'powerplant', 'fk_soc', 'rowid');
+if (empty($user->admin) || !empty($user->socid)) {
+	restrictedArea($user, 'powerplantpv', 0, 'powerplantpv_powerplant', 'powerplant', 'fk_soc', 'rowid');
+}
 
 if (getDolGlobalInt('POWERPLANTPV_ATTESTATION_ENABLE', 1)
 	&& class_exists('PowerPlantPVAttestation')
