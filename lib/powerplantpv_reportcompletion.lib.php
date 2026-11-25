@@ -15,7 +15,13 @@ function powerplantpvRenderReportCompletion(PowerPlantPVReportPlantCompletion $s
 	try {
 		$stored = $service->forReport((int) $report->id, (int) $intervention->entity);
 		$catalog = $editable ? $service->catalog() : array();
-		$connectionTypes = $editable ? PowerPlant::getConnectionTypeOptions() : array();
+		$connectionTypes = array();
+		if ($editable) {
+			$langs->load('products');
+			foreach (PowerPlant::getConnectionTypeOptions() as $code => $label) {
+				$connectionTypes[$code] = $langs->transnoentities($label);
+			}
+		}
 		$plants = powerplantpvGetLinkedPowerPlants($intervention);
 		$options = array('inverters' => array(), 'modules' => array());
 		foreach ($catalog as $id => $product) {
@@ -24,7 +30,7 @@ function powerplantpvRenderReportCompletion(PowerPlantPVReportPlantCompletion $s
 		$labels = array();
 		foreach (array('PowerPlantPrmPdlNumber', 'PowerPlantConnectionType', 'PowerPlantPVInverter', 'PowerPlantPVMPPT', 'PowerPlantPVPVInputCount',
 			'PowerPlantPVCompletionInput', 'PowerPlantPVCompletionMarker', 'PowerPlantPVCompletionIdentification',
-			'SerialNumber', 'PowerPlantPDFModules', 'Qty', 'Add', 'Delete', 'SelectProduct', 'PowerPlantPVCompletionAddInverter',
+			'PowerPlantPDFSerialNumber', 'PowerPlantPDFModules', 'Qty', 'Add', 'Delete', 'Product', 'PowerPlantPVCompletionAddInverter',
 			'PowerPlantPVCompletionAddModules', 'PowerPlantPVCompletionAddMppt', 'PowerPlantPVCompletionAddString', 'PowerPlantPVCompletionInstalled') as $key) {
 			$labels[$key] = $langs->transnoentities($key);
 		}
@@ -50,7 +56,7 @@ function powerplantpvRenderReportCompletion(PowerPlantPVReportPlantCompletion $s
 				'current' => $composition + array('prm' => (string) $plant->prm_pdl_number, 'type' => (string) $plant->connection_type,
 					'typeLabel' => PowerPlant::getConnectionTypeLabel($plant->connection_type, $langs)),
 				'revision' => is_string($submitted[$id]['revision'] ?? null) ? $submitted[$id]['revision'] : hash('sha256', $entry->proposal ?? ''),
-				'proposal' => is_array($submitted[$id]['proposal'] ?? null) ? $submitted[$id]['proposal'] : ($entry->data ?? array()),
+				'proposal' => (object) (is_array($submitted[$id]['proposal'] ?? null) ? $submitted[$id]['proposal'] : ($entry->data ?? array())),
 				'dirty' => isset($submitted[$id]),
 			);
 		}

@@ -350,7 +350,7 @@ class PowerPlantPVPowerPlantSummary
 			'title_key' => 'PowerPlantPVCompletion',
 			'type' => 'table',
 			'columns' => $this->columns(array('product', 'marker', 'serial', 'mppt', 'module', 'count'),
-				array('Product', 'PowerPlantPVCompletionMarker', 'SerialNumber', 'PowerPlantPVCompletionInput', 'PowerPlantPDFModules', 'Qty')),
+				array('Product', 'PowerPlantPVCompletionMarker', 'PowerPlantPDFSerialNumber', 'PowerPlantPVCompletionInput', 'PowerPlantPDFModules', 'Qty')),
 			'rows' => $rows,
 		);
 	}

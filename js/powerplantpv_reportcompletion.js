@@ -78,7 +78,7 @@
 
 		function renderPlant(editor) {
 			const current = editor.current;
-			const proposal = editor.proposal;
+			const proposal = editor.proposal = {...editor.proposal};
 			const moduleSelectors = new Set();
 			const availableModules = () => ({
 				...Object.fromEntries(Object.entries(current.modules).map(([key, module]) => [key, module.label])),
@@ -121,7 +121,7 @@
 			const additions = Object.fromEntries(Object.entries(options.modules).filter(([id]) => !current.modules[id]));
 			function renderModule(module) {
 				const line = element(moduleList, 'div');
-				control(line, 'SelectProduct', module.product, value => {
+				control(line, 'Product', module.product, value => {
 					write(module, 'product')(value);
 					refreshModules();
 				}, {options: additions});
@@ -148,11 +148,11 @@
 				const id = inverter.key.startsWith('line-') ? inverter.key.slice(5) : '';
 				const source = current.inverters[id] || {};
 				element(line, 'legend', id ? installedOptions[id] : label('PowerPlantPVInverter'));
-				if (!id) control(line, 'SelectProduct', inverter.product, write(inverter, 'product'), {options: options.inverters});
+				if (!id) control(line, 'Product', inverter.product, write(inverter, 'product'), {options: options.inverters});
 				for (const [field, key, length] of [
 					['equipment_marker', 'PowerPlantPVCompletionMarker', 32],
 					['equipment_identification', 'PowerPlantPVCompletionIdentification', 255],
-					['serial_number', 'SerialNumber', 128],
+					['serial_number', 'PowerPlantPDFSerialNumber', 128],
 				]) {
 					control(line, key, source[field] || inverter[field], source[field] ? null : write(inverter, field), {length});
 				}
