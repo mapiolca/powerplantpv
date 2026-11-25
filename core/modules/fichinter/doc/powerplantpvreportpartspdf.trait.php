@@ -11,9 +11,6 @@ require_once __DIR__.'/../../../../class/powerplantpvreportparts.class.php';
  */
 trait PowerPlantPVReportPartsPdf
 {
-	/** @var string Second header line, set per part */
-	protected $visualHeaderSubtitle = '';
-
 	/**
 	 * @param TCPDF|TCPDI $pdf PDF handler
 	 * @param CommonObject $object Intervention
@@ -21,7 +18,7 @@ trait PowerPlantPVReportPartsPdf
 	 * @param Translate $langs Output language
 	 * @return void
 	 */
-	protected function renderPartsReport(&$pdf, $object, $dataset, $langs)
+	protected function renderReport(&$pdf, $object, $dataset, $langs)
 	{
 		$langs->load('powerplantpv@powerplantpv');
 		$signatures = $this->partsSignatures($dataset);

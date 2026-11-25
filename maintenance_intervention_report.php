@@ -249,7 +249,7 @@ if (($action === 'prepare_part_signature' || $action === 'sign_part') && $isPart
 				setEventMessages($langs->trans('PowerPlantPVSignatureRecorded'), null, 'mesgs');
 				if ($partCode === PowerPlantPVReportParts::FINAL_CODE) {
 					$model = (new PowerPlantPVInterventionNature($db))->configuredPdfModel($intervention);
-					if ($model === null || $intervention->generateDocument($model !== '' ? $model : 'powerplantpvreport', $langs) <= 0) {
+					if ($model === null || $intervention->generateDocument($model !== '' ? $model : PowerPlantPVReportParts::PDF_MODEL, $langs) <= 0) {
 						setEventMessages($langs->trans('PowerPlantPVInterventionPdfGenerationFailed'), null, 'warnings');
 					}
 				}
@@ -502,6 +502,9 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 					if ($result >= 0) {
 						$nature = new PowerPlantPVInterventionNature($db);
 						$finalPdfModel = $nature->configuredPdfModel($intervention);
+						if ($finalPdfModel === '' && PowerPlantPVReportParts::isPartsReport($report)) {
+							$finalPdfModel = PowerPlantPVReportParts::PDF_MODEL;
+						}
 						if ($finalPdfModel === null || $nature->applyPdfModel($intervention, $user, $finalPdfModel) < 0) {
 							$result = -1;
 							$builder->error = $langs->trans('PowerPlantPVInterventionPdfModelFailed');
