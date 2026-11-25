@@ -6,8 +6,6 @@
 /** Visual, data-driven maintenance layout. TCPDF remains responsible for text and pagination. */
 trait PowerPlantPVReportVisualPdf
 {
-	protected const VISUAL_SIGNATURE_HEIGHT = 58;
-
 	/** @var string */
 	protected $visualReportTitle = '';
 	/** @var array<int,bool> */

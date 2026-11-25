@@ -33,6 +33,7 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 {
 	use PowerPlantPVReportVisualPdf;
 
+	protected const VISUAL_SIGNATURE_HEIGHT = 58;
 	protected const SECTION_ACCENT = array(22, 136, 224);
 	protected const REPORT_TEMPLATE_CODE = '';
 	protected const MODEL_LABEL = 'PowerPlantPVInterventionReportPdfName';
