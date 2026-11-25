@@ -57,7 +57,7 @@ class PowerPlantPVPowerPlantSummary
 	 * @param	Translate|null		$outputlangs	Output language
 	 * @return	array<string,mixed>					Snapshot, empty array on error
 	 */
-	public function buildSnapshotById($powerplantId, $outputlangs = null)
+	public function buildSnapshotById($powerplantId, $outputlangs = null, array $completion = array())
 	{
 		$this->error = '';
 		$this->errors = array();
@@ -79,7 +79,7 @@ class PowerPlantPVPowerPlantSummary
 			return array();
 		}
 
-		return $this->buildSnapshot($powerplant, $outputlangs);
+		return $this->buildSnapshot($powerplant, $outputlangs, $completion);
 	}
 
 	/**
@@ -89,7 +89,7 @@ class PowerPlantPVPowerPlantSummary
 	 * @param	Translate|null		$outputlangs	Output language
 	 * @return	array<string,mixed>					Snapshot
 	 */
-	public function buildSnapshot($powerplant, $outputlangs = null)
+	public function buildSnapshot($powerplant, $outputlangs = null, array $completion = array())
 	{
 		global $langs;
 
@@ -103,6 +103,15 @@ class PowerPlantPVPowerPlantSummary
 		}
 
 		$components = $this->fetchComponents($powerplant, $translator);
+		if ($completion) {
+			$powerplant = clone $powerplant;
+			if ($completion['prm'] !== '') {
+				$powerplant->prm_pdl_number = $completion['prm'];
+			}
+			if ($completion['type'] !== '') {
+				$powerplant->connection_type = $completion['type'];
+			}
+		}
 		$thirdparty = $this->fetchThirdpartyName($powerplant);
 		$address = $this->formatPowerPlantAddress($powerplant, $translator);
 		$installedPower = $this->formatNumber($powerplant->installed_power, 2, $translator);
@@ -191,6 +200,9 @@ class PowerPlantPVPowerPlantSummary
 			),
 		);
 
+		if ($completion) {
+			$sections[] = $this->completionSection($completion);
+		}
 		$sections = array_values(array_filter($sections, array($this, 'snapshotSectionHasContent')));
 
 		return array(
@@ -301,6 +313,48 @@ class PowerPlantPVPowerPlantSummary
 	 * @param	Translate	$outputlangs	Output language
 	 * @return	array<int,array<string,mixed>>	Rows
 	 */
+	private function completionSection(array $completion): array
+	{
+		require_once __DIR__.'/powerplantpvreportplantcompletion.class.php';
+		$service = new PowerPlantPVReportPlantCompletion($this->db);
+		$catalog = $service->catalog();
+		$rows = array();
+		foreach ($completion['modules'] as $module) {
+			$product = $catalog[$module['product']] ?? null;
+			$rows[] = array('product' => trim(($product->ref ?? '').' '.($product->label ?? '')), 'count' => (string) $module['count']);
+		}
+		foreach ($completion['inverters'] as $inverter) {
+			$product = $catalog[$inverter['product']] ?? null;
+			$identity = array(
+				'product' => trim(($product->ref ?? '').' '.($product->label ?? '')),
+				'marker' => trim($inverter['equipment_marker'].' '.$inverter['equipment_identification']),
+				'serial' => $inverter['serial_number'],
+			);
+			$rows[] = $identity;
+			foreach ($inverter['mppts'] as $mppt) {
+				if (!$mppt['strings']) {
+					$rows[] = $identity + array('mppt' => (string) $mppt['number']);
+				}
+				foreach ($mppt['strings'] as $string) {
+					$module = $catalog[$string['product']] ?? null;
+					$rows[] = $identity + array(
+						'mppt' => $mppt['number'].' / '.$string['input'],
+						'module' => trim(($module->ref ?? '').' '.($module->label ?? '')),
+						'count' => (string) $string['count'],
+					);
+				}
+			}
+		}
+		return array(
+			'code' => 'plant_completion',
+			'title_key' => 'PowerPlantPVCompletion',
+			'type' => 'table',
+			'columns' => $this->columns(array('product', 'marker', 'serial', 'mppt', 'module', 'count'),
+				array('Product', 'PowerPlantPVCompletionMarker', 'SerialNumber', 'PowerPlantPVCompletionInput', 'PowerPlantPDFModules', 'Qty')),
+			'rows' => $rows,
+		);
+	}
+
 	private function fetchComponents($powerplant, $outputlangs)
 	{
 		$rows = array();

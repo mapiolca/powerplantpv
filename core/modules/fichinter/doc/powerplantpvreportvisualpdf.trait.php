@@ -120,7 +120,7 @@ trait PowerPlantPVReportVisualPdf
 						return in_array($row['label_key'] ?? '', array('PowerPlantPDFPrmPdl', 'PowerPlantPDFConnectionType', 'PowerPlantPDFConnectionContractPower'), true);
 					});
 				}
-				if (in_array((string) ($section['code'] ?? ''), array('site', 'connection', 'operation', 'material', 'composition', 'contacts'), true)) { $this->renderPowerplantTechnicalSummarySection($pdf, $section, $outputlangs); }
+				if (in_array((string) ($section['code'] ?? ''), array('site', 'connection', 'operation', 'material', 'composition', 'contacts', 'plant_completion'), true)) { $this->renderPowerplantTechnicalSummarySection($pdf, $section, $outputlangs); }
 			}
 			$url = dol_buildpath('/powerplantpv/powerplant_composition.php', 2).'?id='.(int) $plant->fk_powerplant;
 			$this->writeHtml($pdf, '<p style="color:#64748b;">'.dol_escape_htmltag($outputlangs->transnoentities('PowerPlantPVVisualSerialAnnex')).' <a href="'.dol_escape_htmltag($url).'">'.dol_escape_htmltag($outputlangs->transnoentities('PowerPlantPVConsultPowerplant')).'</a></p>');
@@ -146,6 +146,10 @@ trait PowerPlantPVReportVisualPdf
 		// Legacy rows without marker: stable number in order of appearance, never the product label.
 		$key = (int) ($row->fk_powerplant_line ?? $row->fk_inverter ?? 0);
 		$key = $key > 0 ? 'line:'.$key : 'object:'.spl_object_id($row);
+		$technicalKey = (string) ($row->technical_key ?? $row->stable_key ?? '');
+		if (preg_match('/(?:^|:)(new-[a-f0-9]{16})(?:$|:)/D', $technicalKey, $match)) {
+			$key = (int) ($row->fk_powerplant ?? 0).':'.$match[1];
+		}
 		if (!isset($this->visualInverterNumbers[$key])) { $this->visualInverterNumbers[$key] = count($this->visualInverterNumbers) + 1; }
 		return $this->currentOutputLangs->transnoentities('PowerPlantPVVisualInverterNumber', $this->visualInverterNumbers[$key]);
 	}

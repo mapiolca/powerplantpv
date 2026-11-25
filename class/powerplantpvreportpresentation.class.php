@@ -257,7 +257,7 @@ class PowerPlantPVReportPresentation
 	}
 
 	/**
-	 * Group installed inverters by line ID and legacy manual entries by their recorded inverter label.
+	 * Group DC measures by installed line, draft inverter, or legacy manual label.
 	 * @param array<int,object> $measures Frozen DC measures
 	 * @return array<string,array{identity:object,mppts:array<string,array<int,object>>}>
 	 */
@@ -268,7 +268,9 @@ class PowerPlantPVReportPresentation
 			$source = (int) $row->fk_inverter;
 			$label = trim((string) ($row->inverter_label ?? ''));
 			$key = (int) $row->fk_powerplant.':line:'.$source;
-			if ($source <= 0) {
+			if ($source <= 0 && preg_match('/:dc:inverter:(new-[a-f0-9]{16}):mppt:/D', (string) $row->stable_key, $match)) {
+				$key = (int) $row->fk_powerplant.':completion:'.$match[1];
+			} elseif ($source <= 0) {
 				$key = (int) $row->fk_powerplant.':manual:'.($label !== '' ? 'label:'.$label : 'row:'.(string) $row->stable_key);
 			}
 			$mppt = $row->mppt_number === null ? '' : (string) $row->mppt_number;

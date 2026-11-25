@@ -70,9 +70,9 @@ class PowerPlantPVReportBuilder
 	 * @param	int[]			$manualServiceIds	Manual maintenance service ids
 	 * @return	array<string,mixed>			Preview tree
 	 */
-	public function buildPreviewTree($intervention, $manualServiceIds = array())
+	public function buildPreviewTree($intervention, $manualServiceIds = array(), int $reportId = 0)
 	{
-		$context = $this->buildGenerationContext($intervention, $manualServiceIds);
+		$context = $this->buildGenerationContext($intervention, $manualServiceIds, $reportId);
 		if (empty($context['can_generate'])) {
 			return $context;
 		}
@@ -276,7 +276,7 @@ class PowerPlantPVReportBuilder
 			}
 		}
 
-		$context = $this->buildGenerationContext($intervention, $manualServiceIds);
+		$context = $this->buildGenerationContext($intervention, $manualServiceIds, (int) $report->id);
 		if (empty($context['can_generate'])) {
 			$this->errors = isset($context['messages']) && is_array($context['messages']) ? $context['messages'] : array('PowerPlantPVReportCannotBeGenerated');
 			$this->error = (string) reset($this->errors);
@@ -590,7 +590,7 @@ class PowerPlantPVReportBuilder
 	 * @param	int[]			$manualServiceIds	Manual maintenance service ids
 	 * @return	array<string,mixed>			Context
 	 */
-	private function buildGenerationContext($intervention, $manualServiceIds)
+	private function buildGenerationContext($intervention, $manualServiceIds, int $reportId = 0)
 	{
 		$messages = array();
 		$interventionId = powerplantpvGetCommonObjectId($intervention);
@@ -632,6 +632,19 @@ class PowerPlantPVReportBuilder
 
 		$equipment = $this->fetchEquipmentContext($powerplants);
 		$dcMeasureInputs = $this->fetchDcMeasureInputContext($powerplants, $equipment);
+		$completion = array();
+		if ($reportId > 0) {
+			require_once __DIR__.'/powerplantpvreportplantcompletion.class.php';
+			$service = new PowerPlantPVReportPlantCompletion($this->db);
+			try {
+				$completion = array_intersect_key($service->forReport($reportId, (int) $intervention->entity), $powerplants);
+				if ($completion) {
+					$this->overlayPlantCompletion($equipment, $dcMeasureInputs, $completion, $service->catalog());
+				}
+			} catch (RuntimeException | JsonException $e) {
+				return array('can_generate' => 0, 'messages' => array(PowerPlantPVReportPlantCompletion::DATABASE));
+			}
+		}
 		$templateSections = $this->fetchTemplateSections((int) $template['id']);
 		$templateFields = $this->fetchTemplateFields((int) $template['id'], (string) $template['code']);
 		$fieldOptions = $this->fetchFieldOptions($templateFields);
@@ -648,6 +661,7 @@ class PowerPlantPVReportBuilder
 			'nature' => $nature,
 			'template' => $template,
 			'powerplants' => $powerplants,
+			'plant_completion' => $completion,
 			'source_services' => $serviceRows,
 			'service_ids' => $serviceIds,
 			'service_ids_by_powerplant' => $serviceIdsByPowerplant,
@@ -753,7 +767,8 @@ class PowerPlantPVReportBuilder
 		$position = 0;
 		$summaryBuilder = new PowerPlantPVPowerPlantSummary($this->db);
 		foreach ($context['powerplants'] as $powerplantId => $powerplant) {
-			$technicalSnapshot = $summaryBuilder->buildSnapshotById((int) $powerplantId);
+			$completion = $context['plant_completion'][$powerplantId]->data ?? array();
+			$technicalSnapshot = $summaryBuilder->buildSnapshotById((int) $powerplantId, null, $completion);
 			if ($summaryBuilder->error !== '') {
 				$this->copyErrorsFrom($summaryBuilder);
 				return -1;
@@ -1060,7 +1075,7 @@ class PowerPlantPVReportBuilder
 			if ((int) $input['fk_powerplant'] !== (int) $plan['fk_powerplant']) {
 				continue;
 			}
-			$stableKey = (string) $plan['occurrence_key'].':dc:inverter:'.((int) $input['fk_inverter']).':mppt:'.((int) $input['mppt_number']).':pvinput:'.((int) $input['pv_input_number']);
+			$stableKey = (string) $plan['occurrence_key'].':dc:inverter:'.($input['completion_key'] ?? (int) $input['fk_inverter']).':mppt:'.((int) $input['mppt_number']).':pvinput:'.((int) $input['pv_input_number']);
 			$row = $this->newDcMeasureFromInput($report, $section, $input, $stableKey, $position, $equipmentMap);
 			if (!empty($oldDcValues[$stableKey])) {
 				$this->copyStoredValueToDcMeasure($row, $oldDcValues[$stableKey]);
@@ -1092,10 +1107,18 @@ class PowerPlantPVReportBuilder
 		$section->rowid = (int) $sectionId;
 		$rows = $this->buildDcMeasureRowsForPlan($report, $section, $plan, $context, $equipmentMap, $oldDcValues);
 		$position = count($rows) * 10;
-		$manualPrefix = (string) $plan['occurrence_key'].':dc:manual:';
+		$prefix = (string) $plan['occurrence_key'].':dc:';
+		$manualPrefix = $prefix.'manual:';
+		$generatedKeys = array_fill_keys(array_map(static fn ($row) => (string) $row->stable_key, $rows), true);
 		foreach ($oldDcValues as $stableKey => $oldValue) {
-			if (strpos((string) $stableKey, $manualPrefix) !== 0) {
+			if (strpos((string) $stableKey, $prefix) !== 0 || isset($generatedKeys[$stableKey])) {
 				continue;
+			}
+			if (strpos((string) $stableKey, $manualPrefix) !== 0) {
+				if (!$this->hasRecordedDcMeasure($oldValue)) {
+					continue;
+				}
+				$stableKey = $manualPrefix.md5((string) $stableKey);
 			}
 			$row = $this->newManualDcMeasureFromStoredValue($report, $section, $oldValue, (string) $stableKey, $position);
 			$rows[] = $row;
@@ -1111,6 +1134,19 @@ class PowerPlantPVReportBuilder
 		}
 
 		return 1;
+	}
+
+	/** A measurement of zero is still an observation. */
+	private function hasRecordedDcMeasure(array $value): bool
+	{
+		return ($value['open_circuit_voltage'] ?? null) !== null
+			|| ($value['insulation_positive_to_ground'] ?? null) !== null
+			|| ($value['insulation_negative_to_ground'] ?? null) !== null
+			|| ($value['positive_to_ground_voltage'] ?? null) !== null
+			|| ($value['negative_to_ground_voltage'] ?? null) !== null
+			|| (int) ($value['polarity_checked'] ?? -1) >= 0
+			|| trim((string) ($value['insulation_status'] ?? '')) !== ''
+			|| trim((string) ($value['observation'] ?? '')) !== '';
 	}
 
 	/**
@@ -1467,9 +1503,9 @@ class PowerPlantPVReportBuilder
 					$powerplantId = (int) $input['fk_powerplant'];
 					$equipmentKey = (string) $input['equipment_key'];
 					if ($repeat === 'once_per_mppt' || $scope === 'mppt') {
-						$key = 'section:'.$code.':inverter:'.((int) $input['fk_inverter']).':mppt:'.((int) $input['mppt_number']);
+						$key = 'section:'.$code.':inverter:'.($input['completion_key'] ?? (int) $input['fk_inverter']).':mppt:'.((int) $input['mppt_number']);
 					} else {
-						$key = 'section:'.$code.':inverter:'.((int) $input['fk_inverter']).':mppt:'.((int) $input['mppt_number']).':pvinput:'.((int) $input['pv_input_number']);
+						$key = 'section:'.$code.':inverter:'.($input['completion_key'] ?? (int) $input['fk_inverter']).':mppt:'.((int) $input['mppt_number']).':pvinput:'.((int) $input['pv_input_number']);
 					}
 					if (!empty($seen[$key])) {
 						continue;
@@ -1580,11 +1616,69 @@ class PowerPlantPVReportBuilder
 		);
 	}
 
+	/** Merge authorized draft observations into the report context before generating sections. */
+	private function overlayPlantCompletion(array &$equipment, array &$inputs, array $completion, array $catalog): void
+	{
+		$equipmentByKey = array_column($equipment, null, 'technical_key');
+		$inputsByKey = array();
+		foreach ($inputs as $input) {
+			$inputsByKey[$input['equipment_key'].':'.$input['mppt_number'].':'.$input['pv_input_number']] = $input;
+		}
+
+		foreach ($completion as $plantId => $entry) {
+			foreach ($entry->data['inverters'] as $inverter) {
+				$existingId = strpos($inverter['key'], 'line-') === 0 ? (int) substr($inverter['key'], 5) : 0;
+				$key = 'powerplant:'.$plantId.($existingId ? ':line:'.$existingId : ':'.$inverter['key']);
+				$product = $catalog[$inverter['product']] ?? null;
+				$row = $equipmentByKey[$key] ?? array(
+					'fk_powerplant' => $plantId, 'fk_powerplant_line' => 0, 'fk_source_equipment' => 0,
+					'fk_product' => $inverter['product'], 'product_ref' => (string) ($product->ref ?? ''),
+					'product_label' => (string) ($product->label ?? ''), 'equipment_brand' => '',
+					'equipment_model' => (string) ($product->label ?? ''), 'equipment_type' => 'INVERTER',
+					'equipment_ref' => (string) ($product->ref ?? ''), 'equipment_label' => (string) ($product->label ?? ''),
+					'equipment_marker' => '', 'equipment_identification' => '', 'serial_number' => '', 'qty' => 1,
+					'technical_key' => $key, 'equipment_position' => '', 'technical_snapshot' => '',
+				);
+				foreach (array('equipment_marker', 'equipment_identification', 'serial_number') as $field) {
+					if ($inverter[$field] !== '') {
+						$row[$field] = $inverter[$field];
+					}
+				}
+				$equipmentByKey[$key] = $row;
+				foreach ($inputsByKey as &$input) {
+					if ($input['equipment_key'] === $key) {
+						$input['inverter_marker'] = $row['equipment_marker'];
+						$input['inverter_identification'] = $row['equipment_identification'];
+						$input['inverter_serial'] = $row['serial_number'];
+					}
+				}
+				unset($input);
+				foreach ($inverter['mppts'] as $mppt) {
+					for ($number = 1; $number <= $mppt['inputs']; $number++) {
+						$inputKey = $key.':'.$mppt['number'].':'.$number;
+						$input = $inputsByKey[$inputKey] ?? $this->newDcMeasureInputContextRow($row, $mppt['number'], $number, '', 0, $mppt['number'] * 1000 + $number);
+						if (!$existingId) {
+							$input['completion_key'] = $inverter['key'];
+						}
+						if (isset($mppt['strings'][$number])) {
+							$string = $mppt['strings'][$number];
+							$input['module_count'] = $string['count'];
+							$input['module_power'] = (float) ($catalog[$string['product']]->pmax ?? 0);
+							$input['is_connected'] = 1;
+						}
+						$inputsByKey[$inputKey] = $input;
+					}
+				}
+			}
+		}
+		$equipment = array_values($equipmentByKey);
+		$inputs = array_values($inputsByKey);
+	}
+
 	/**
 	 * Fetch linked power plants as immutable source rows.
-	 *
-	 * @param	CommonObject	$intervention	Intervention object
-	 * @return	array<int,array<string,mixed>>	Power plants indexed by id
+	 * @param CommonObject $intervention Intervention object
+	 * @return array<int,array<string,mixed>> Power plants indexed by id
 	 */
 	private function fetchLinkedPowerPlantContext($intervention)
 	{
@@ -2585,7 +2679,7 @@ class PowerPlantPVReportBuilder
 	 */
 	private function copyStoredValueToDcMeasure(PowerPlantPVReportDcMeasure $measure, $value)
 	{
-		if ((int) $measure->fk_inverter <= 0) {
+		if ((int) $measure->fk_inverter <= 0 && strpos((string) $measure->stable_key, ':dc:manual:') !== false) {
 		if (!empty($value['inverter_ref'])) {
 			$measure->inverter_ref = (string) $value['inverter_ref'];
 		}

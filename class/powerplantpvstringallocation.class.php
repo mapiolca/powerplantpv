@@ -19,7 +19,7 @@ class PowerPlantPVStringAllocation
 	public function __construct($db, $plant, $entity) { $this->db = $db; $this->plant = (int) $plant; $this->entity = (int) $entity; }
 
 	/** @return array<int,array{label:string,qty:float,power:?float}>|null Null on database error */
-	public function modules()
+	public function modules(bool $lock = false)
 	{
 		$sql = 'SELECT c.fk_product, SUM(c.qty) as qty, p.ref, p.label, panel.pmax';
 		$sql .= ' FROM '.$this->db->prefix().'powerplantpv_powerplantcomp c';
@@ -29,6 +29,9 @@ class PowerPlantPVStringAllocation
 		$sql .= ' LEFT JOIN '.$this->db->prefix().'powerplantpv_product_pvpanel panel ON panel.fk_product = p.rowid AND panel.entity = p.entity';
 		$sql .= ' WHERE c.fk_powerplant = '.$this->plant.' AND c.entity = '.$this->entity.' AND c.fk_status = 4';
 		$sql .= ' GROUP BY c.fk_product, p.ref, p.label, panel.pmax ORDER BY p.ref';
+		if ($lock) {
+			$sql .= ' FOR UPDATE';
+		}
 		$result = $this->db->query($sql);
 		if (!$result) { $this->error = $this->db->lasterror(); return null; }
 		$modules = array();
@@ -44,10 +47,13 @@ class PowerPlantPVStringAllocation
 	 * @param int $input Current input
 	 * @return array{total:int,inverter:int,products:array<int,int>}|null
 	 */
-	public function connected($inverter, $mppt = 0, $input = 0)
+	public function connected($inverter, $mppt = 0, $input = 0, bool $lock = false)
 	{
 		$sql = 'SELECT fk_inverter, fk_product, module_count FROM '.$this->db->prefix().'powerplantpv_equipment_string WHERE fk_powerplant = '.$this->plant.' AND entity = '.$this->entity.' AND is_connected = 1';
 		if ($mppt > 0 && $input > 0) { $sql .= ' AND NOT (fk_inverter = '.(int) $inverter.' AND mppt_number = '.(int) $mppt.' AND pv_input_number = '.(int) $input.')'; }
+		if ($lock) {
+			$sql .= ' FOR UPDATE';
+		}
 		$result = $this->db->query($sql);
 		if (!$result) { $this->error = $this->db->lasterror(); return null; }
 		$counts = array('total' => 0, 'inverter' => 0, 'products' => array());

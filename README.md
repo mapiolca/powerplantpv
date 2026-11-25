@@ -25,6 +25,14 @@
 
 Other external modules are available on [Dolistore.com](https://www.dolistore.com).
 
+## Compléter la centrale depuis un rapport de maintenance
+
+Dans **Rapport → Configuration de la centrale**, un utilisateur autorisé à modifier le rapport et la centrale peut compléter le PRM/PDL, le raccordement et la composition installée. La sélection des modules d'une chaîne utilise le modèle de produit et la quantité. Ajoutez d'abord le modèle à la composition proposée si la centrale ne le référence pas encore.
+
+Enregistrez le brouillon pour visualiser la topologie dans le rapport et renseigner ses mesures DC. La finalisation fige les compléments dans le rapport. Après la dernière signature requise, le travail planifié **Transfert des compléments de centrale signés** applique les ajouts par centrale. Le module Dolibarr **Travaux planifiés** et cette tâche doivent être actifs. Après une mise à jour, rechargez le module selon le parcours natif pour créer la table et inscrire la tâche, puis vérifiez son état dans Dolibarr.
+
+Un conflit affiche **À vérifier** dans le rapport. Les autres centrales restent traitées et la signature reste acquise. Pour une erreur technique, le bouton **Relancer le transfert** réessaie le même complément avec les contrôles d'accès et de composition d'origine.
+
 ## Maintenance reports — 1.8
 
 The development branch adds installed inverter markers and identification, frozen report identities,

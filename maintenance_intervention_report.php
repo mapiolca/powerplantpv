@@ -64,6 +64,7 @@ require_once __DIR__.'/class/powerplantpvinterventionnature.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvreportdcmeasure.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvpowerplantsummary.class.php');
 require_once __DIR__.'/class/powerplantpvreportpresentation.class.php';
+require_once __DIR__.'/lib/powerplantpv_reportcompletion.lib.php';
 dol_include_once('/fichinter/class/fichinter.class.php');
 require_once DOL_DOCUMENT_ROOT.'/core/lib/fichinter.lib.php';
 if (isModEnabled('project')) {
@@ -196,6 +197,39 @@ if ($action === 'view_index_photo') {
 	powerplantpvIndexPhotoDownload(powerplantpvReportIndexPhotoPath($field));
 }
 
+$completionService = new PowerPlantPVReportPlantCompletion($db);
+$canwriteplant = $user->hasRight('powerplantpv', 'powerplant', 'read') && $user->hasRight('powerplantpv', 'powerplant', 'write');
+$caneditcompletion = $caneditreport && $canwriteplant && !$report->isSaved();
+$completionPayload = array();
+$completionPayloadInvalid = false;
+if (($action === 'save_draft' || $action === 'save') && GETPOSTISSET('plant_completion', 2)) {
+	$completionJson = GETPOST('plant_completion', 'none', 2);
+	if (is_string($completionJson) && $completionJson !== '') {
+		$completionPayload = strlen($completionJson) <= 1048576 ? json_decode($completionJson, true, 32) : null;
+		$completionPayloadInvalid = !is_array($completionPayload);
+	}
+}
+if (($completionPayload || $completionPayloadInvalid) && !$caneditcompletion) {
+	accessforbidden();
+}
+if (GETPOSTINT('retry_plant_completion', 2) > 0) {
+	if (!$canwriteplant || !$permissiontowrite || $reportFetch <= 0 || !$report->isSaved() || !powerplantpvReportSubmittedTokenValid($token)) {
+		accessforbidden();
+	}
+	try {
+		$plantId = GETPOSTINT('retry_plant_completion', 2);
+		$entry = $completionService->forReport((int) $report->id, (int) $report->entity)[$plantId] ?? null;
+		if (!$entry || !$completionService->plantForAuthor($intervention, $user, $plantId)) {
+			accessforbidden();
+		}
+		$completionService->transfer((int) $entry->rowid, (int) $report->entity, true);
+	} catch (RuntimeException | JsonException $e) {
+		setEventMessages($langs->trans(PowerPlantPVReportPlantCompletion::DATABASE), null, 'errors');
+	}
+	header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $id.'#powerplantpv-plant-completion');
+	exit;
+}
+
 $sensitiveActions = array('save_draft', 'save', 'recalculate', 'upload_file', 'delete_file', 'add_dc_measure_line');
 if ($action === 'generate_serial_annex' && (!$cangenerateserialannex || !powerplantpvReportSubmittedTokenValid($token))) { accessforbidden(); }
 if (in_array($action, $sensitiveActions, true)) {
@@ -239,8 +273,11 @@ if ($action === 'classin' && $usercancreateintervention) {
 if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 	$status = ($action === 'save') ? PowerPlantPVReport::STATUS_SAVED : PowerPlantPVReport::STATUS_DRAFT;
 	$persistStatus = ($action === 'save') ? PowerPlantPVReport::STATUS_DRAFT : $status;
-	$saveerror = 0;
-	if ($reportFetch <= 0) {
+	$saveerror = (int) $completionPayloadInvalid;
+	if ($saveerror) {
+		setEventMessages($langs->trans(PowerPlantPVReportPlantCompletion::INVALID), null, 'errors');
+	}
+	if (!$saveerror && $reportFetch <= 0) {
 		$createdReport = $builder->createSnapshot($intervention, $user, $manualServiceIds, $persistStatus);
 		if ($createdReport instanceof PowerPlantPVReport) {
 			$report = $createdReport;
@@ -271,7 +308,22 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 		$values = powerplantpvReportGetSubmittedValues();
 		$dateValues = powerplantpvReportGetSubmittedDateValues();
 		$dcValues = powerplantpvReportGetSubmittedDcMeasures();
-		$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $persistStatus);
+		$completionTransaction = false;
+		$result = 1;
+		if ($completionPayload) {
+			$completionTransaction = $db->begin() > 0;
+			$state = $completionTransaction ? $report->readInterventionSignatureState($intervention, true) : null;
+			if (!$state || PowerPlantPVReport::interventionSignedByThirdParty((int) $state->signed_status)
+				|| !$report->lockUnsignedForEdit() || $report->fetchByIntervention($id) <= 0 || $report->isSaved()
+				|| !$completionService->save($report, $intervention, $user, $completionPayload)) {
+				$result = -1;
+				$message = $completionService->error ?: PowerPlantPVReportPlantCompletion::CONFLICT;
+				setEventMessages($langs->trans($message), null, 'errors');
+			}
+		}
+		if ($result >= 0) {
+			$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $persistStatus);
+		}
 		if ($result >= 0) {
 			$result = $builder->saveDcMeasureValues((int) $report->id, $dcValues, $user, $legacyVoltageCard);
 		}
@@ -290,6 +342,17 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 				$result = -1;
 				$requiredValidationFailed = 1;
 				setEventMessages(null, $photoErrors, 'errors');
+			}
+		}
+		if ($completionTransaction) {
+			if ($result >= 0) {
+				$result = $builder->recalculateSnapshot($report, $intervention, $user, $manualServiceIds, PowerPlantPVReport::STATUS_DRAFT);
+			}
+			if ($result >= 0 && $db->commit() <= 0) {
+				$result = -1;
+			}
+			if ($result < 0) {
+				$db->rollback();
 			}
 		}
 		if ($result >= 0 && (string) $status === PowerPlantPVReport::STATUS_SAVED) {
@@ -420,7 +483,8 @@ if ($action === 'delete_file' && $caneditreport && $reportFetch > 0) {
 $form = new Form($db);
 $title = $langs->trans('PowerPlantPVReportTab');
 
-$morejs = array('/powerplantpv/js/powerplantpv_report.js?v='.(int) filemtime(__DIR__.'/js/powerplantpv_report.js'));
+$morejs = array('/powerplantpv/js/powerplantpv_report.js?v='.(int) filemtime(__DIR__.'/js/powerplantpv_report.js'),
+	'/powerplantpv/js/powerplantpv_reportcompletion.js?v='.(int) filemtime(__DIR__.'/js/powerplantpv_reportcompletion.js'));
 if ($signatureRole !== '') {
 	array_unshift($morejs, $signatureScript);
 }
@@ -520,13 +584,13 @@ if ($reportFetch > 0) {
 		setEventMessages($builder->error, $builder->errors, 'errors');
 	} elseif (empty($tree['sections'])) {
 		$emptyExistingSnapshot = true;
-		$diagnosticTree = $builder->buildPreviewTree($intervention, $manualServiceIds);
+		$diagnosticTree = $builder->buildPreviewTree($intervention, $manualServiceIds, (int) $report->id);
 		if (is_array($diagnosticTree)) {
 			$tree = $diagnosticTree;
 		}
 	} elseif (powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)) {
 		$invalidExistingSnapshot = true;
-		$diagnosticTree = $builder->buildPreviewTree($intervention, $manualServiceIds);
+		$diagnosticTree = $builder->buildPreviewTree($intervention, $manualServiceIds, (int) $report->id);
 		if (is_array($diagnosticTree)) {
 			$tree = $diagnosticTree;
 		}
@@ -583,6 +647,8 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '<div class="opacitymedium">'.$langs->trans('PowerPlantPVReportManualServicesHelp').'</div>';
 		print '</div>';
 	}
+
+	powerplantpvRenderReportCompletion($completionService, $report, $intervention, $user, $caneditcompletion, $canwriteplant && $permissiontowrite, $completionPayload ?: array(), $langs);
 
 	$renderEditableFields = $caneditreport;
 	if (!empty($conf->use_javascript_ajax)) {

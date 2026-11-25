@@ -237,6 +237,9 @@ $dataset = array(
 $snapshot = array('sections' => array(
 	array('code' => 'site', 'rows' => array(array('label_key' => 'PowerPlantPDFReference', 'value' => 'PP2611-0018'), array('label_key' => 'PowerPlantPDFInstalledPower', 'value' => '249,89 kWc'))),
 	array('code' => 'connection', 'rows' => array(array('label_key' => 'PowerPlantPDFPrmPdl', 'value' => '50088794738676'), array('label_key' => 'PowerPlantPDFConnectionType', 'value' => 'Valorisation totale'), array('label_key' => 'PowerPlantPDFConnectionContractPower', 'value' => '440,00 kVA'), array('label_key' => 'PowerPlantPDFConnectionRequestNumber', 'value' => 'SDO-RP-2022-003925'))),
+	array('code' => 'plant_completion', 'title_key' => 'PowerPlantPVCompletion', 'type' => 'table',
+		'columns' => array(array('key' => 'product', 'label_key' => 'Product'), array('key' => 'serial', 'label_key' => 'SerialNumber')),
+		'rows' => array(array('product' => 'PV-COMPLETION-430', 'serial' => 'SN-COMPLETION-001'))),
 ));
 $object = (object) array('ref' => 'FI2611-0123', 'entity' => 1, 'datei' => dol_mktime(12, 0, 0, 11, 17, 2026));
 
@@ -305,6 +308,10 @@ foreach ($runs as $name => $options) {
 	}
 }
 $default = $contents['default']; $client = $contents['client'];
+visualPdfCheck(strpos($contents['default-annexe'], 'PV-COMPLETION-430') !== false
+	&& strpos($contents['default-annexe'], 'SN-COMPLETION-001') !== false, 'The frozen completion is included in the material appendix');
+visualPdfCheck(strpos($contents['client-annexe'], 'SN-COMPLETION-001') === false
+	&& strpos($client, 'SN-COMPLETION-001') === false, 'The equipment privacy option covers the frozen completion');
 visualPdfCheck(strpos($default, '6T22B9036710') !== false && strpos($default, 'SDO-RP-2022-003925') !== false, 'Default layout keeps inverter serials and the full connection block');
 visualPdfCheck(strpos($client, '6T22B9036710') === false && strpos($client, 'SUN2000') === false && strpos($client, 'HUAWEI') === false, 'Client layout hides inverter product references and serial numbers');
 visualPdfCheck(strpos($client, 'Onduleur 1') !== false && strpos($client, 'Onduleur 4') !== false, 'Inverters without marker are numbered in the client layout');

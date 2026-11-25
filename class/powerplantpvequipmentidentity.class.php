@@ -40,9 +40,10 @@ class PowerPlantPVEquipmentIdentity
 	 * @param string $name Identification, or empty for a new default
 	 * @param bool $new Allocate defaults only for a new component
 	 * @param string|null $revision Expected previous identity hash on interactive edits
+	 * @param bool $completeMissing Allocate defaults for missing identity fields on an existing line
 	 * @return int 1 on success, -1 on failure
 	 */
-	public function save($plant, $entity, $line, $marker, $name, $new = false, $revision = null)
+	public function save($plant, $entity, $line, $marker, $name, $new = false, $revision = null, $completeMissing = false)
 	{
 		global $langs;
 		$marker = trim($marker);
@@ -85,7 +86,7 @@ class PowerPlantPVEquipmentIdentity
 		if (!$isInverter) {
 			return 1;
 		}
-		if ($new) {
+		if ($new || $completeMissing) {
 			if ($marker === '') {
 				require_once __DIR__.'/powerplantpvequipmentnumbering.class.php';
 				$model = new PowerPlantPVEquipmentNumbering($this->db, 'inverter');

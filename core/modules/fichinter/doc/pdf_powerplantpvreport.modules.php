@@ -687,7 +687,13 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			return;
 		}
 		if ($type === 'table') {
-			$this->renderPowerplantSummaryTable($pdf, isset($section['columns']) && is_array($section['columns']) ? $section['columns'] : array(), isset($section['rows']) && is_array($section['rows']) ? $section['rows'] : array(), $outputlangs);
+			$this->renderPowerplantSummaryTable(
+				$pdf,
+				isset($section['columns']) && is_array($section['columns']) ? $section['columns'] : array(),
+				isset($section['rows']) && is_array($section['rows']) ? $section['rows'] : array(),
+				$outputlangs,
+				($section['code'] ?? '') === 'plant_completion'
+			);
 			return;
 		}
 		if ($type === 'grouped_tables' && !empty($section['tables']) && is_array($section['tables'])) {
@@ -713,10 +719,11 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 	 * @param	Translate					$outputlangs	Output language
 	 * @return	void
 	 */
-	protected function renderPowerplantSummaryTable(&$pdf, $columns, $rows, $outputlangs)
+	protected function renderPowerplantSummaryTable(&$pdf, $columns, $rows, $outputlangs, bool $includeSerial = false)
 	{
-		// Detailed traceability belongs to the appendix; keep the material overview compact.
-		$columns = array_values(array_filter($columns, function ($column) { return is_array($column) && ($column['key'] ?? '') !== 'serial'; }));
+		$columns = array_values(array_filter($columns, static function ($column) use ($includeSerial) {
+			return is_array($column) && ($includeSerial || ($column['key'] ?? '') !== 'serial');
+		}));
 		if (empty($columns) || empty($rows)) {
 			return;
 		}
