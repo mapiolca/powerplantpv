@@ -79,3 +79,20 @@ Les valeurs sont liées au `code` stable du dictionnaire, sans conversion des co
 Validation locale : PHP 8.4.22, sources Dolibarr 25 alpha en cache, objets/helpers natifs et adaptateur SQLite. Les versions 20–24 restent à exécuter ; aucune compatibilité d’instance complète ni validation de l’installateur n’est déduite de la lecture des sources.
 
 Dynamic LMDB Lead dictionary choices require Dolibarr 24+ and its native `completeFetchNameOptionalsLabel` hook. The module adapts only its own dictionary-bound definition to a native plain select in memory, matching LMDB Lead's accepted types. On Dolibarr 20–23 the existing lead select remains intact; the dynamic capability is reported unavailable in Compatibility. In the initial v20 core, filtered sellists produce an invalid `AND` without `WHERE`; the module uses the native unfiltered sellist definition there and prepares active card choices before rendering. Other supported versions keep the native USF filter.
+
+## Compléments de centrale depuis un rapport de maintenance — validation de la branche 1.11
+
+| Dolibarr | Contrôle exécuté |
+|---|---|
+| 20.0 | Tests locaux des compléments, des mesures et de la génération PDF avec les sources natives. Recette web MariaDB non exécutée. |
+| 21.0 | Non exécuté. |
+| 22.0 | Non exécuté. |
+| 23.0 | Non exécuté. |
+| 24.0 | Tests locaux des compléments, des mesures et de la génération PDF avec les sources natives. Recette web MariaDB non exécutée. |
+| 25.0.0-alpha | Recette web sur develop avec MariaDB 10.11.19 le 25 novembre 2026, commit PowerPlantPV `0594bea6`. La version finale de Dolibarr 25 reste à tester. |
+
+Les rapports fictifs FI2611-0024 et FI2611-0025 couvrent les deux ordres de signature sur les mêmes deux centrales. Les compléments sont restés en attente après la première signature. La tâche native de cinq minutes et son lancement manuel ont transféré les propositions après la dernière signature. FI2611-0024 a aussi vérifié les zéros initiaux du PRM/PDL, les sélecteurs de raccordement sur bureau et le transfert d’un onduleur avec MPPT et chaîne.
+
+Pour FI2611-0026, un numéro de série concurrent sur la centrale B a laissé cette centrale en **À vérifier**. La centrale A est passée en **Transféré** et le rapport est resté signé. Un rejeu du travail planifié a traité zéro ligne. Depuis TEST 2, les accès directs au rapport et à la centrale de TEST 1 ont été refusés. Les données fictives ont été conservées.
+
+La recette distante utilisait un modèle sans visa technique et un seul compte interne. Le retrait de droits, le partage interentités autorisé, la concurrence des relances, la signature publique v20 et le rendu sur téléphone restent à vérifier sur instance.
