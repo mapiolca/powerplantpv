@@ -3090,7 +3090,7 @@ class modPowerPlantPV extends DolibarrModules
 			$this->errors[] = $this->db->lasterror();
 			return -1;
 		}
-		if ($this->seedAutocontrolReportTemplate($entity) < 0) {
+		if ($this->seedAutocontrolReportTemplate($entity) < 0 || $this->seedResidentialReportTemplate($entity) < 0) {
 			$this->db->rollback();
 			return -1;
 		}
@@ -3139,8 +3139,8 @@ class modPowerPlantPV extends DolibarrModules
 		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'c_powerplantpv_intervention_nature', array(
 			'entity' => $entity,
 			'code' => 'AUTOCONTROL',
-			'label' => 'Autocontrôles C&I',
-			'label_en' => 'C&I self-inspections',
+			'label' => 'Installation Autocontrôles C&I',
+			'label_en' => 'C&I installation self-inspections',
 			'description' => 'Essais et autocontrôles d’une centrale photovoltaïque avant sa mise en service',
 			'description_en' => 'Tests and self-inspections of a photovoltaic power plant before commissioning',
 			'fk_report_template' => $templateId,
@@ -3160,8 +3160,12 @@ class modPowerPlantPV extends DolibarrModules
 		// Move legacy default selections to the dedicated model without changing custom selections or PDFs.
 		$prefix = $this->db->prefix();
 		$model = $this->db->escape(PowerPlantPVReportParts::PDF_MODEL);
+		$natureTable = $prefix.'c_powerplantpv_intervention_nature';
+		$ciNature = " WHERE entity = ".$entity." AND code = 'AUTOCONTROL'";
+		$sqlLabel = "UPDATE ".$natureTable." SET label = 'Installation Autocontrôles C&I'".$ciNature." AND label = 'Autocontrôles C&I'";
+		$sqlLabelEn = "UPDATE ".$natureTable." SET label_en = 'C&I installation self-inspections'".$ciNature." AND label_en = 'C&I self-inspections'";
 		$sqlNature = "UPDATE ".$prefix."c_powerplantpv_intervention_nature SET model_pdf = '".$model."'";
-		$sqlNature .= " WHERE entity = ".$entity." AND code = 'AUTOCONTROL' AND model_pdf = 'powerplantpvreport'";
+		$sqlNature .= $ciNature." AND model_pdf = 'powerplantpvreport'";
 		$sqlInterventions = "UPDATE ".$prefix."fichinter AS fi";
 		$sqlInterventions .= " INNER JOIN ".$prefix."fichinter_extrafields AS ef ON ef.fk_object = fi.rowid";
 		$sqlInterventions .= " INNER JOIN ".$prefix."c_powerplantpv_intervention_nature AS n";
@@ -3169,7 +3173,8 @@ class modPowerPlantPV extends DolibarrModules
 		$sqlInterventions .= " SET fi.model_pdf = '".$model."' WHERE fi.entity = ".$entity;
 		$sqlInterventions .= " AND n.code = 'AUTOCONTROL' AND n.model_pdf = '".$model."'";
 		$sqlInterventions .= " AND (fi.model_pdf = 'powerplantpvreport' OR fi.model_pdf = '' OR fi.model_pdf IS NULL)";
-		if (!$this->db->query($sqlNature) || !$this->db->query($sqlInterventions)) {
+		if (!$this->db->query($sqlLabel) || !$this->db->query($sqlLabelEn)
+			|| !$this->db->query($sqlNature) || !$this->db->query($sqlInterventions)) {
 			$this->errors[] = $this->db->lasterror();
 			return -1;
 		}
@@ -3200,43 +3205,9 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC6_THERMOGRAPHY', 'Partie 6 · Thermographie (option)', 'Part 6 · Thermography (optional)', 'intervention', '', 'once', ''),
 			array('AC6_CONCLUSION', 'Partie 6 · Conclusion', 'Part 6 · Conclusion', 'intervention', '', 'once', ''),
 		);
-		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
-		$sectionIds = array();
-		$position = 10;
-		foreach ($sections as $section) {
-			// Insert the installation before the inverter sections without shifting existing default positions.
-			$isInstallation = $section[0] === 'AC3_INSTALLATION';
-			$where = "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape($section[0])."'";
-			$result = $this->insertMaintenanceDefaultRow($sectionTable, array(
-				'entity' => $entity,
-				'fk_report_template' => $templateId,
-				'code' => $section[0],
-				'label' => $section[1],
-				'label_en' => $section[2],
-				'description' => $section[6],
-				'description_en' => '',
-				'part_ref' => $section[6] !== '' ? explode(' · ', $section[6], 2)[0] : null,
-				'scope_type' => $section[3],
-				'equipment_type' => $section[4],
-				'repeat_mode' => $section[5],
-				'is_required' => 1,
-				'visible_form' => 1,
-				'visible_pdf' => 1,
-				'active' => 1,
-				'position' => $isInstallation ? $position - 5 : $position,
-				'date_creation' => $this->db->idate(dol_now()),
-			), $where);
-			if ($result < 0) {
-				return -1;
-			}
-			if (!$isInstallation) {
-				$position += 10;
-			}
-			$rowid = $this->fetchSeedRowId($sectionTable, $where);
-			if ($rowid <= 0) {
-				return -1;
-			}
-			$sectionIds[$section[0]] = $rowid;
+		$sectionIds = $this->seedInstallationReportSections($entity, $templateId, $sections);
+		if (!is_array($sectionIds)) {
+			return -1;
 		}
 
 		$results = array('CONFORM' => array('Conforme', 'Compliant'), 'NON_CONFORM' => array('Non conforme', 'Non-compliant'), 'RESERVES' => array('Conforme avec réserves', 'Compliant with reservations'));
@@ -3351,6 +3322,130 @@ class modPowerPlantPV extends DolibarrModules
 			array('AC6_THERMOGRAPHY', 'AC6_THERMO_NOTES', 'Localisation / actions', 'Location / actions', 'textarea', '', 0),
 		));
 
+		return $this->seedInstallationReportFields($entity, $templateId, $code, $sectionIds, $fields);
+	}
+
+	/**
+	 * Create the FR37-inspired template and its intervention nature.
+	 * @param int $entity Template owner
+	 * @return int 1 on success, -1 on error
+	 */
+	private function seedResidentialReportTemplate(int $entity): int
+	{
+		$code = PowerPlantPVReportTemplate::CODE_RESIDENTIAL;
+		$label = 'Rapport d’autocontrôles Résidentiel';
+		$labelEn = 'Residential self-inspection report';
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'powerplantpv_report_template', array(
+			'entity' => $entity,
+			'code' => $code,
+			'label' => $label,
+			'label_en' => $labelEn,
+			'description' => 'Préparation du chantier et autocontrôles photovoltaïques résidentiels.',
+			'description_en' => 'Preparation and self-inspections for residential photovoltaic installations.',
+			'target_element' => 'fichinter',
+			'is_default' => 0,
+			'active' => 1,
+			'position' => 30,
+			'date_creation' => $this->db->idate(dol_now()),
+		), "entity = ".$entity." AND code = '".$code."'");
+		if ($result < 0) {
+			return -1;
+		}
+		$templateId = $this->getReportTemplateId($entity, $code);
+		if ($templateId <= 0) {
+			$this->errors[] = 'Unable to fetch residential self-inspection report template';
+			return -1;
+		}
+
+		$result = $this->insertMaintenanceDefaultRow($this->db->prefix().'c_powerplantpv_intervention_nature', array(
+			'entity' => $entity,
+			'code' => 'AUTOCONTROL_RESIDENTIAL',
+			'label' => 'Installation et Autocontrôles Résidentiels',
+			'label_en' => 'Residential installation and self-inspections',
+			'description' => 'Installation photovoltaïque et autocontrôles sur un chantier résidentiel.',
+			'description_en' => 'Photovoltaic installation and self-inspections on a residential site.',
+			'fk_report_template' => $templateId,
+			'report_template_code' => $code,
+			'model_pdf' => PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL,
+			'is_maintenance' => 0,
+			'is_preventive' => 0,
+			'requires_report' => 1,
+			'requires_signature' => 1,
+			'active' => 1,
+			'position' => 30,
+		), "entity = ".$entity." AND code = 'AUTOCONTROL_RESIDENTIAL'");
+		if ($result < 0) {
+			return -1;
+		}
+
+		$definition = require __DIR__.'/powerplantpv_residential_report.php';
+		$sectionIds = $this->seedInstallationReportSections($entity, $templateId, $definition['sections']);
+		if (!is_array($sectionIds)) {
+			return -1;
+		}
+		return $this->seedInstallationReportFields($entity, $templateId, $code, $sectionIds, $definition['fields']);
+	}
+
+	/**
+	 * @param int $entity Template owner
+	 * @param int $templateId Template ID
+	 * @param list<array{string,string,string,string,string,string,string}> $sections Section definitions
+	 * @return array<string,int>|null Section IDs by code, or null on error
+	 */
+	private function seedInstallationReportSections(int $entity, int $templateId, array $sections): ?array
+	{
+		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
+		$sectionIds = array();
+		$position = 10;
+		foreach ($sections as $section) {
+			// Insert the installation before the inverter sections without shifting existing default positions.
+			$isInstallation = $section[0] === 'AC3_INSTALLATION';
+			$where = "entity = ".$entity." AND fk_report_template = ".$templateId." AND code = '".$this->db->escape($section[0])."'";
+			$result = $this->insertMaintenanceDefaultRow($sectionTable, array(
+				'entity' => $entity,
+				'fk_report_template' => $templateId,
+				'code' => $section[0],
+				'label' => $section[1],
+				'label_en' => $section[2],
+				'description' => $section[6],
+				'description_en' => '',
+				'part_ref' => $section[6] !== '' ? explode(' · ', $section[6], 2)[0] : null,
+				'scope_type' => $section[3],
+				'equipment_type' => $section[4],
+				'repeat_mode' => $section[5],
+				'is_required' => 1,
+				'visible_form' => 1,
+				'visible_pdf' => 1,
+				'active' => 1,
+				'position' => $isInstallation ? $position - 5 : $position,
+				'date_creation' => $this->db->idate(dol_now()),
+			), $where);
+			if ($result < 0) {
+				return null;
+			}
+			if (!$isInstallation) {
+				$position += 10;
+			}
+			$rowid = $this->fetchSeedRowId($sectionTable, $where);
+			if ($rowid <= 0) {
+				return null;
+			}
+			$sectionIds[$section[0]] = $rowid;
+		}
+
+		return $sectionIds;
+	}
+
+	/**
+	 * @param int $entity Template owner
+	 * @param int $templateId Template ID
+	 * @param string $code Template code
+	 * @param array<string,int> $sectionIds Section IDs by code
+	 * @param list<array{0:string,1:string,2:string,3:string,4:string,5:string,6:int,7?:string,8?:array<string,array{string,string}>}> $fields Field definitions
+	 * @return int 1 on success, -1 on error
+	 */
+	private function seedInstallationReportFields(int $entity, int $templateId, string $code, array $sectionIds, array $fields): int
+	{
 		$fieldTable = $this->db->prefix().'powerplantpv_report_template_field';
 		$optionTable = $this->db->prefix().'powerplantpv_report_template_field_option';
 		$position = 10;

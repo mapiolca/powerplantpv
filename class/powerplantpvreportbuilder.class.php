@@ -676,7 +676,7 @@ class PowerPlantPVReportBuilder
 		}
 
 		$powerplants = $this->fetchLinkedPowerPlantContext($intervention);
-		$isAutocontrol = $template['code'] === PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
+		$isAutocontrol = PowerPlantPVReportTemplate::isInstallationTemplate((string) $template['code']);
 		if ($isAutocontrol && empty($powerplants)) {
 			return array('can_generate' => 0, 'messages' => array('NoPowerPlantLinked'), 'nature' => $nature, 'template' => $template);
 		}

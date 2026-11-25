@@ -279,13 +279,20 @@ nativeMaintenanceCheck(method_exists('CommonObject', 'setValueFrom'), 'Native si
 require_once $module.'/class/actions_powerplantpv.class.php';
 $langs->tab_translate['PowerPlantPVInterventionReportPdfName'] = 'Rapport de maintenance photovoltaïque';
 $langs->tab_translate['PowerPlantPVAutocontrolPdfName'] = 'Rapport d’autocontrôle C&I';
-$models = array('powerplantpvreport' => 'powerplantpvreport', PowerPlantPVReportParts::PDF_MODEL => PowerPlantPVReportParts::PDF_MODEL, 'soleil' => 'soleil');
+$langs->tab_translate['PowerPlantPVResidentialPdfName'] = 'Rapport d’autocontrôles Résidentiel';
+$models = array(
+	'powerplantpvreport' => 'powerplantpvreport',
+	PowerPlantPVReportParts::PDF_MODEL => PowerPlantPVReportParts::PDF_MODEL,
+	PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL => PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL,
+	'soleil' => 'soleil',
+);
 (new ActionsPowerplantpv())->getListOfModels(array('type' => 'ficheinter', 'list' => &$models));
 nativeMaintenanceCheck($models === array(
 	'powerplantpvreport' => 'Rapport de maintenance photovoltaïque',
 	PowerPlantPVReportParts::PDF_MODEL => 'Rapport d’autocontrôle C&I',
+	PowerPlantPVReportTemplate::PDF_MODEL_RESIDENTIAL => 'Rapport d’autocontrôles Résidentiel',
 	'soleil' => 'soleil',
-), 'The selector lists the two separate translated models alongside other native choices');
+), 'The selector lists all three separate translated models alongside other native choices');
 
 require_once $module.'/core/modules/fichinter/doc/pdf_powerplantpvreport.modules.php';
 class NativeMaintenancePdfLifecycle extends pdf_powerplantpvreport

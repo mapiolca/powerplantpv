@@ -16,7 +16,7 @@ class pdf_powerplantpvautocontrol extends pdf_powerplantpvreport
 	public $name = 'powerplantpvautocontrol';
 
 	protected const PARTS_SIGNATURE_CARD_HEIGHT = 58;
-	protected const PARTS_REPORT_MODEL = true;
+	protected const REPORT_TEMPLATE_CODE = PowerPlantPVReportTemplate::CODE_AUTOCONTROL;
 	protected const MODEL_LABEL = 'PowerPlantPVAutocontrolPdfName';
 	protected const MODEL_DESCRIPTION = 'PowerPlantPVAutocontrolPdfDescription';
 	protected const PDF_SUBJECT = self::MODEL_LABEL;
