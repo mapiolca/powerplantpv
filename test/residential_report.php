@@ -9,6 +9,7 @@ if (PHP_SAPI !== 'cli' || !isset($argv[1]) || !is_file($argv[1].'/core/lib/funct
 define('DOL_DOCUMENT_ROOT', realpath($argv[1]));
 require_once DOL_DOCUMENT_ROOT.'/core/lib/functions.lib.php';
 require_once dirname(__DIR__).'/class/powerplantpvresidentialreport.class.php';
+require_once dirname(__DIR__).'/class/powerplantpvreportpresentation.class.php';
 
 function residentialCheck(bool $condition, string $message): void
 {
@@ -88,5 +89,38 @@ $legacy = array('sections' => array(array('fields' => array(
 	(object) array('field_code' => 'RES_STRING_2_VOLTAGE', 'value_number' => null),
 ))));
 residentialCheck(PowerPlantPVResidentialReport::legacyStrings($legacy) === array(array('module_count' => 8, 'voltage' => 315)), 'Legacy string measurements populate the first revised draft');
+
+$staffOptions = $options + array('staff' => array(12 => 'Équipe A', 13 => 'Équipe B'));
+$staffInput = array('staff' => array('roof_user' => array('12', '13', '12'), 'electrical' => '13'));
+$result = PowerPlantPVResidentialReport::normalize($staffInput, $staffOptions, false);
+residentialCheck(!$result['errors'] && $result['data']['staff'] === array('roof_user' => array(12 => 'Équipe A', 13 => 'Équipe B'),
+	'electrical' => array(13 => 'Équipe B')), 'A roofing team is multiple and the electrical lead is single');
+$staffInput['staff']['electrical'] = '77';
+residentialCheck(in_array('PVResidentialStaffInvalid', PowerPlantPVResidentialReport::normalize($staffInput, $staffOptions, false)['errors'], true),
+	'An unavailable user id is rejected on draft save');
+$staffOptions['savedStaff'] = array('roof_user' => array(77 => 'Équipe historique'));
+residentialCheck(PowerPlantPVResidentialReport::normalize(array('staff' => array()), $staffOptions, false)['data']['staff'] === $staffOptions['savedStaff'],
+	'An ordinary edit preserves a now-unavailable historical assignment');
+residentialCheck(PowerPlantPVReportPresentation::binaryChoiceCodes('select', array('NO' => 'Non', 'YES' => 'Oui')) === array('YES', 'NO')
+	&& PowerPlantPVReportPresentation::binaryChoiceCodes('yesno', array(0 => 'Non', 1 => 'Oui', 'na' => 'Sans objet')) === null,
+	'Strictly binary fields get switches while fields with a third choice keep their options');
+
+$oldNetwork = array(
+	'section:RES_INVERTER:equipment:powerplant:9:line:1:field:RES_NETWORK' => array('value_text' => 'WIFI'),
+	'section:RES_INVERTER:equipment:powerplant:9:line:2:field:RES_NETWORK' => array('value_text' => 'WIFI'),
+	'section:RES_INVERTER:equipment:powerplant:9:line:2:field:RES_WIFI_REASON' => array('value_text' => 'Routeur côté chantier'),
+	'section:RES_INVERTER:equipment:powerplant:10:line:3:field:RES_NETWORK' => array('value_text' => 'RJ45', 'inverter_label' => 'OND03'),
+	'section:RES_INVERTER:equipment:powerplant:10:line:4:field:RES_NETWORK' => array('value_text' => 'OTHER', 'inverter_label' => 'OND04'),
+);
+$migrated = PowerPlantPVResidentialReport::migrateConnections($oldNetwork);
+$plant9 = 'section:RES_COMMUNICATION:powerplant:9:field:';
+$plant10 = 'section:RES_COMMUNICATION:powerplant:10:field:';
+residentialCheck($migrated[$plant9.'RES_CONNECTION']['value_text'] === 'WIFI'
+	&& $migrated[$plant9.'RES_CONNECTION_WIFI']['value_text'] === 'Routeur côté chantier', 'Matching old values consolidate per plant');
+residentialCheck(!isset($migrated[$plant10.'RES_CONNECTION']) && $migrated[$plant10.'RES_CONNECTION_HISTORY']['value_text'] === "OND03 · RJ45\nOND04 · OTHER",
+	'Conflicting readings are kept for the technician without choosing a value');
+$migrated[$plant9.'RES_CONNECTION'] = array('value_text' => '');
+residentialCheck(PowerPlantPVResidentialReport::migrateConnections($migrated) === $migrated,
+	'Recalculation preserves decisions, including an explicitly cleared field');
 
 echo "Residential scope and string rules OK\n";

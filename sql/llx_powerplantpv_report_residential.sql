@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_report_residential (
 	fk_powerplant integer,
 	fk_product integer,
 	fk_micro_proof integer,
+	fk_user integer,
 	reference_label varchar(512),
 	description varchar(255),
 	orientation varchar(2),

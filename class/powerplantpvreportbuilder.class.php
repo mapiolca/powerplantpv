@@ -15,6 +15,7 @@
 
 require_once __DIR__.'/powerplantpvinverterproduction.class.php';
 require_once __DIR__.'/powerplantpvreportpresentation.class.php';
+require_once __DIR__.'/powerplantpvresidentialreport.class.php';
 dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportparts.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportpowerplant.class.php');
@@ -299,12 +300,19 @@ class PowerPlantPVReportBuilder
 			return -1;
 		}
 
-		$oldValues = $this->fetchExistingFieldValues((int) $report->id);
 		$oldFiles = $this->fetchExistingFilesByStableKey((int) $report->id);
 		$oldDcValues = $this->fetchExistingDcMeasureValues((int) $report->id);
 
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
 		if (!$report->lockUnsignedForEdit($report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL)) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
+		$oldValues = $this->fetchExistingFieldValues((int) $report->id, (int) $report->entity);
+		if ($oldValues === null) {
+			$this->db->rollback();
+			return -1;
+		}
+		if ($context['template']['code'] === PowerPlantPVReportTemplate::CODE_RESIDENTIAL) {
+			$oldValues = PowerPlantPVResidentialReport::migrateConnections($oldValues);
+		}
 		$report->status = $status;
 		$report->fk_soc = $context['fk_soc'];
 		$report->fk_project = $context['fk_project'];
@@ -453,7 +461,19 @@ class PowerPlantPVReportBuilder
 		}
 
 		$isPartsReport = PowerPlantPVReportParts::isPartsReport($report);
+		$connections = array();
 		foreach ($fields as $field) {
+			if ($field->field_code === 'RES_CONNECTION') {
+				$connection = $values[$field->stable_key] ?? $field->value_text;
+				$connections[(int) $field->fk_report_section] = is_string($connection) ? $connection : '';
+			}
+		}
+		foreach ($fields as $field) {
+			if ($report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL
+				&& isset(PowerPlantPVResidentialReport::STAFF_FIELDS[$field->field_code])) {
+				// Keep historical free-text values as a fallback for reports with no staff selection.
+				continue;
+			}
 			if (($onlySectionIds !== null && empty($onlySectionIds[(int) $field->fk_report_section]))
 				|| !empty($field->readonly) || PowerPlantPVReportPresentation::isRetiredProductionField((string) $field->field_code)
 				|| ($isPartsReport && ((string) $field->field_code === PowerPlantPVReportParts::LEGACY_RESERVES_FIELD
@@ -475,6 +495,14 @@ class PowerPlantPVReportBuilder
 				} elseif (!in_array((string) $value, $codes, true)) {
 					$value = '';
 				}
+			}
+			$condition = PowerPlantPVResidentialReport::COMMUNICATION_CONDITIONS[$field->field_code] ?? null;
+			if ($condition !== null && ($connections[(int) $field->fk_report_section] ?? '') !== $condition) {
+				$value = '';
+			}
+			if ($field->field_code === 'RES_MONITORING' && $value !== null
+				&& !in_array($value, array('valid', 'observation', 'not_applicable'), true)) {
+				$value = '';
 			}
 			if ($isPartsReport && is_array($value) && PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
 				$value = PowerPlantPVReportParts::encodeHours($value, (string) $field->value_text);
@@ -1305,10 +1333,52 @@ class PowerPlantPVReportBuilder
 		$field->visible_form = (int) $templateField->visible_form;
 		$field->visible_pdf = (int) $templateField->visible_pdf;
 		$field->readonly = (int) $templateField->readonly;
+		if ($field->field_code === 'RES_CONNECTION_HISTORY') {
+			$field->readonly = 1;
+			$field->visible_pdf = 0;
+		} elseif ($field->field_code === 'RES_CONNECTION_SUBSCRIBER') {
+			$options = json_decode($field->options_snapshot, true);
+			$owner = $this->residentialOwnerLabel((int) $report->entity);
+			if (is_array($options) && $owner !== '') {
+				foreach ($options as &$option) {
+					if ($option['code'] === 'ENTITY') {
+						$option['label'] = $option['label_en'] = $owner;
+					}
+				}
+				unset($option);
+				$field->options_snapshot = json_encode($options, JSON_INVALID_UTF8_SUBSTITUTE) ?: $field->options_snapshot;
+			}
+		}
 		$field->position = (int) $templateField->position;
 		$this->applyArchivedPreviousReadingToField($field, $section, $plan, (int) $report->id);
 
 		return $field;
+	}
+
+	/** Resolve the report owner's name without switching the active entity. */
+	private function residentialOwnerLabel(int $entity): string
+	{
+		global $conf;
+
+		if ($entity <= 0) {
+			return '';
+		}
+		if ($entity === (int) $conf->entity) {
+			$name = getDolGlobalString('MAIN_INFO_SOCIETE_NOM');
+			if ($name !== '') {
+				return $name;
+			}
+		}
+		if (!isModEnabled('multicompany')) {
+			return '';
+		}
+		$result = $this->db->query('SELECT label FROM '.$this->db->prefix().'entity WHERE rowid = '.$entity);
+		if (!$result) {
+			return '';
+		}
+		$row = $this->db->fetch_object($result);
+		$this->db->free($result);
+		return (string) ($row->label ?? '');
 	}
 
 	/**
@@ -1453,7 +1523,7 @@ class PowerPlantPVReportBuilder
 				$stats['sections_skipped_hidden']++;
 				continue;
 			}
-			if ($hasMappedSections && empty($section->is_required) && empty($context['mapped_section_ids'][$sectionId])) {
+			if ($hasMappedSections && $section->code !== PowerPlantPVResidentialReport::COMMUNICATION_SECTION && empty($section->is_required) && empty($context['mapped_section_ids'][$sectionId])) {
 				$stats['sections_skipped_unmapped']++;
 				continue;
 			}
@@ -1465,19 +1535,23 @@ class PowerPlantPVReportBuilder
 			}
 			$occurrences = $this->buildSectionOccurrences($section, $context);
 			foreach ($occurrences as $occurrence) {
-				if ($hasMappedSections && empty($section->is_required) && !$this->isSectionMappedForPowerplant($sectionId, (int) $occurrence['fk_powerplant'], $context)) {
+				if ($hasMappedSections && $section->code !== PowerPlantPVResidentialReport::COMMUNICATION_SECTION && empty($section->is_required) && !$this->isSectionMappedForPowerplant($sectionId, (int) $occurrence['fk_powerplant'], $context)) {
 					$stats['occurrences_skipped_unmapped']++;
 					continue;
 				}
+				$occurrenceFields = $fields;
+				if ($section->code === 'RES_INVERTER' && $occurrence['equipment_key'] === '') {
+					$occurrenceFields = array_filter($fields, static fn ($field) => $field->code !== 'RES_MONITORING');
+				}
 				$plans[] = array(
 					'section' => $section,
-					'fields' => $fields,
+					'fields' => $occurrenceFields,
 					'occurrence_key' => (string) $occurrence['occurrence_key'],
 					'fk_powerplant' => (int) $occurrence['fk_powerplant'],
 					'equipment_key' => (string) $occurrence['equipment_key'],
 					'position' => $position,
 				);
-				$stats['planned_fields'] += count($fields);
+				$stats['planned_fields'] += count($occurrenceFields);
 				$position += 10;
 			}
 		}
@@ -1523,6 +1597,9 @@ class PowerPlantPVReportBuilder
 					'fk_powerplant' => (int) $powerplantId,
 					'equipment_key' => '',
 				);
+			}
+			if ($code === PowerPlantPVResidentialReport::COMMUNICATION_SECTION) {
+				return $occurrences;
 			}
 			return !empty($occurrences) ? $occurrences : array(array('occurrence_key' => 'section:'.$code, 'fk_powerplant' => 0, 'equipment_key' => ''));
 		}
@@ -2549,22 +2626,27 @@ class PowerPlantPVReportBuilder
 	 * Fetch old field values.
 	 *
 	 * @param	int	$reportId	Report id
-	 * @return	array<string,array<string,mixed>>	Values by stable key
+	 * @param	int	$entity	Report owner
+	 * @return	array<string,array<string,mixed>>|null	Values by stable key, or null on query failure
 	 */
-	private function fetchExistingFieldValues($reportId)
+	private function fetchExistingFieldValues($reportId, int $entity)
 	{
-		$sql = "SELECT stable_key, value_text, value_number, value_date";
-		$sql .= " FROM ".$this->db->prefix()."powerplantpv_report_field";
-		$sql .= " WHERE fk_report = ".((int) $reportId);
+		$prefix = $this->db->prefix();
+		$sql = "SELECT f.stable_key, f.value_text, f.value_number, f.value_date, e.equipment_marker, e.equipment_identification, e.equipment_ref, e.equipment_label, e.fk_powerplant_line";
+		$sql .= " FROM ".$prefix."powerplantpv_report_field AS f";
+		$sql .= " LEFT JOIN ".$prefix."powerplantpv_report_equipment AS e ON e.rowid = f.fk_report_equipment AND e.fk_report = f.fk_report AND e.entity = f.entity";
+		$sql .= " WHERE f.fk_report = ".((int) $reportId)." AND f.entity = ".$entity;
 
 		$values = array();
 		$resql = $this->db->query($sql);
 		if (!$resql) {
-			return $values;
+			$this->setError($this->db->lasterror());
+			return null;
 		}
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$values[(string) $obj->stable_key] = array(
 				'value_text' => isset($obj->value_text) ? (string) $obj->value_text : '',
+				'inverter_label' => PowerPlantPVReportPresentation::identity($obj, false, (string) $obj->stable_key),
 				'value_number' => isset($obj->value_number) ? $obj->value_number : null,
 				'value_date' => isset($obj->value_date) ? (string) $obj->value_date : null,
 			);

@@ -11,6 +11,7 @@ $sections = array(
 	array('RES_TESTS', 'Contrôles électriques', 'Electrical checks', 'intervention', '', 'once', ''),
 	array('RES_STRINGS', 'Relevés des strings', 'String readings', 'intervention', '', 'once', ''),
 	array('RES_INVERTER', 'Essais et connexion de l’onduleur', 'Inverter tests and connection', 'inverter', '', 'once_per_equipment', ''),
+	array('RES_COMMUNICATION', 'Communication et Internet', 'Communication and Internet', 'powerplant', '', 'once_per_powerplant', ''),
 	array('RES_CONCLUSION', 'Observations et conclusion', 'Observations and conclusion', 'intervention', '', 'once', ''),
 	array('RES_RISK_ANALYSIS', '3.a · Analyse des risques', '3.a · Risk assessment', 'intervention', '', 'once', ''),
 	array('RES_PROTECTION', '3.b · Moyens de protection prévus', '3.b · Planned protective measures', 'intervention', '', 'once', ''),
@@ -126,12 +127,22 @@ for ($string = 1; $string <= 3; $string++) {
 $fields = array_merge($fields, array(
 	array('RES_INVERTER', 'RES_INVERTER_TEST', 'Essais de l’onduleur', 'Inverter tests', 'conformity_so_valid_obs', '', 1),
 	array('RES_INVERTER', 'RES_INVERTER_POWER', 'Puissance mesurée en sortie', 'Measured output power', 'number', 'W', 0),
-	array('RES_INVERTER', 'RES_NETWORK', 'Connexion internet', 'Internet connection', 'select', '', 0, '', array(
+	array('RES_INVERTER', 'RES_MONITORING', 'Communication monitoring', 'Monitoring communication', 'conformity_so_valid_obs', '', 1),
+	array('RES_COMMUNICATION', 'RES_CONNECTION', 'Connexion Internet', 'Internet connection', 'select', '', 0, '', array(
 		'WIFI' => array('Wi-Fi', 'Wi-Fi'),
 		'RJ45' => array('Câblée (RJ45)', 'Wired (RJ45)'),
+		'CELLULAR' => array('Réseau cellulaire', 'Cellular network'),
+		'NONE' => array('Aucune', 'None'),
 		'OTHER' => array('Autre', 'Other'),
 	)),
-	array('RES_INVERTER', 'RES_WIFI_REASON', 'Motif du Wi-Fi', 'Reason for Wi-Fi', 'varchar', '', 0),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_WIFI', 'Motif Wi-Fi', 'Reason for Wi-Fi', 'varchar', '', 0),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_SUBSCRIBER', 'Responsable de l’abonnement', 'Subscription owner', 'select', '', 0, '', array(
+		'CUSTOMER' => array('Client', 'Customer'),
+		'ENTITY' => array('Entité', 'Entity'),
+		'OTHER' => array('Autre', 'Other'),
+	)),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_SIM', 'Numéro ou référence de la carte SIM', 'SIM card number or reference', 'varchar', '', 0),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_HISTORY', 'Anciennes valeurs par onduleur', 'Previous readings by inverter', 'varchar', '', 0),
 	array('RES_CONCLUSION', 'RES_OBSERVATIONS', 'Écarts et observations', 'Deviations and observations', 'textarea', '', 0),
 	array('RES_CONCLUSION', 'RES_RESULT', 'Résultat', 'Result', 'select', '', 1, '', array(
 		'CONFORM' => array('Conforme', 'Compliant'),

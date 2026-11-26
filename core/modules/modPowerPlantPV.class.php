@@ -2019,6 +2019,7 @@ class modPowerPlantPV extends DolibarrModules
 		$tables = array(
 			$this->db->prefix().'powerplantpv_report_residential' => array(
 				'fk_micro_proof' => array('type' => 'integer', 'value' => '', 'null' => ''),
+				'fk_user' => array('type' => 'integer', 'value' => '', 'null' => ''),
 			),
 			$this->db->prefix().'powerplantpv_powerplant' => array(
 				'fk_report_illustration' => array('type' => 'integer', 'value' => '', 'null' => ''),
@@ -3389,7 +3390,16 @@ class modPowerPlantPV extends DolibarrModules
 		if (!is_array($sectionIds)) {
 			return -1;
 		}
-		return $this->seedInstallationReportFields($entity, $templateId, $code, $sectionIds, $definition['fields']);
+		if ($this->seedInstallationReportFields($entity, $templateId, $code, $sectionIds, $definition['fields']) < 0) {
+			return -1;
+		}
+		$sql = 'UPDATE '.$this->db->prefix()."powerplantpv_report_template_field SET active = 0";
+		$sql .= ' WHERE entity = '.$entity.' AND fk_report_template = '.$templateId." AND code IN ('RES_NETWORK', 'RES_WIFI_REASON')";
+		if (!$this->db->query($sql)) {
+			$this->errors[] = $this->db->lasterror();
+			return -1;
+		}
+		return 1;
 	}
 
 	/**
@@ -3403,7 +3413,7 @@ class modPowerPlantPV extends DolibarrModules
 		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
 		$sectionIds = array();
 		$position = 10;
-		$residentialPositions = array('RES_RISK_ANALYSIS' => 21, 'RES_PROTECTION' => 22, 'RES_ACCESS_EQUIPMENT' => 23, 'RES_INSTRUCTIONS' => 24, 'RES_SALES' => 29);
+		$residentialPositions = array('RES_RISK_ANALYSIS' => 21, 'RES_PROTECTION' => 22, 'RES_ACCESS_EQUIPMENT' => 23, 'RES_INSTRUCTIONS' => 24, 'RES_SALES' => 29, 'RES_COMMUNICATION' => 65);
 		foreach ($sections as $section) {
 			// Insert the installation before the inverter sections without shifting existing default positions.
 			$isInstallation = $section[0] === 'AC3_INSTALLATION';

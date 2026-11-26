@@ -6,6 +6,35 @@
 require_once __DIR__.'/../class/powerplantpvresidentialreport.class.php';
 require_once __DIR__.'/../class/powerplantpvcompatibility.class.php';
 
+/** Render the assigned staff without submitting the historical free-text fields. */
+function powerplantpvResidentialRenderStaffField(PowerPlantPVReportField $field, array $context, Form $form): void
+{
+	global $langs;
+
+	$role = PowerPlantPVResidentialReport::STAFF_FIELDS[$field->field_code];
+	$multiple = $role === 'roof_user';
+	$name = $multiple ? 'ppv_roof_team' : 'ppv_electrical_lead';
+	$options = $context['options']['staff'];
+	$assigned = $context['data']['staff'][$role] ?? array();
+	$selected = array_keys(array_intersect_key($assigned, $options));
+	$label = powerplantpvReportLocalizedObjectLabel($field, 'field_label');
+	$style = 'powerplantpv-report-control powerplantpv-report-choice';
+	print '<div class="powerplantpv-report-field powerplantpv-report-field-inline"><label for="'.$name.'">'.dol_escape_htmltag($label).'</label>';
+	print '<div class="powerplantpv-report-input">';
+	if ($multiple) {
+		print $form->multiselectarray($name, $options, $selected, 0, 0, $style);
+	} else {
+		print $form->selectarray($name, $options, $selected[0] ?? -1, 1, 0, 0, '', 0, 0, 0, '', $style);
+	}
+	$previous = isset($context['data']['staff'][$role])
+		? implode(', ', array_diff_key($assigned, $options))
+		: (string) $field->value_text;
+	if ($previous !== '') {
+		print '<div class="opacitymedium">'.dol_escape_htmltag($previous).'</div>';
+	}
+	print '</div></div>';
+}
+
 /** Render the residential rows inside the existing report form. */
 function powerplantpvResidentialRender(string $section, array $context, bool $editable, Form $form): void
 {

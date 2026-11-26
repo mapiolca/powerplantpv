@@ -17,6 +17,72 @@ class PowerPlantPVResidentialReport
 		'panel' => array('PVResidentialPanelLocation', array('PANEL')),
 	);
 
+	public const STAFF_FIELDS = array('RES_ROOF_TEAM' => 'roof_user', 'RES_ELECTRICAL_TEAM' => 'electrical');
+
+	public const COMMUNICATION_SECTION = 'RES_COMMUNICATION';
+	public const COMMUNICATION_CONDITIONS = array(
+		'RES_CONNECTION_WIFI' => 'WIFI',
+		'RES_CONNECTION_SUBSCRIBER' => 'CELLULAR',
+		'RES_CONNECTION_SIM' => 'CELLULAR',
+	);
+
+	/**
+	 * Consolidate old per-inverter values by source plant. Existing plant choices take precedence.
+	 * @param array<string,array<string,mixed>> $values Stored fields indexed by stable key
+	 * @return array<string,array<string,mixed>>
+	 */
+	public static function migrateConnections(array $values): array
+	{
+		$plants = array();
+		foreach ($values as $key => $row) {
+			if (preg_match('/^section:RES_INVERTER:equipment:powerplant:([1-9][0-9]*):(.+):field:(RES_NETWORK|RES_WIFI_REASON)$/D', $key, $parts)) {
+				$plants[(int) $parts[1]][$parts[2]][$parts[3]] = trim((string) ($row['value_text'] ?? ''));
+				$plants[(int) $parts[1]][$parts[2]]['label'] = $row['inverter_label'] ?? $parts[2];
+			}
+		}
+		foreach ($plants as $id => $inverters) {
+			$prefix = 'section:'.self::COMMUNICATION_SECTION.':powerplant:'.$id.':field:';
+			if (isset($values[$prefix.'RES_CONNECTION'])) {
+				continue;
+			}
+			$connections = $reasons = $history = array();
+			foreach ($inverters as $inverter) {
+				$connection = $inverter['RES_NETWORK'] ?? '';
+				$reason = $inverter['RES_WIFI_REASON'] ?? '';
+				if ($connection !== '') {
+					$connections[$connection] = true;
+				}
+				if ($reason !== '') {
+					$reasons[$reason] = true;
+				}
+				if ($connection !== '' || $reason !== '') {
+					$history[] = $inverter['label'].' · '.implode(' · ', array_filter(array($connection, $reason), 'strlen'));
+				}
+			}
+			$connection = (string) array_key_first($connections);
+			if (count($connections) > 1 || count($reasons) > 1 || ($reasons && $connection !== 'WIFI')
+				|| ($connection !== '' && !in_array($connection, array('WIFI', 'RJ45', 'OTHER'), true))) {
+				$values[$prefix.'RES_CONNECTION_HISTORY'] = array('value_text' => implode("\n", $history));
+			} elseif ($connection !== '') {
+				$values[$prefix.'RES_CONNECTION'] = array('value_text' => $connection);
+				if ($reasons) {
+					$values[$prefix.'RES_CONNECTION_WIFI'] = array('value_text' => (string) array_key_first($reasons));
+				}
+			}
+		}
+		return $values;
+	}
+
+	public static function hasCommunication(array $tree): bool
+	{
+		foreach ($tree['sections'] ?? array() as $row) {
+			if ($row['section']->section_code === self::COMMUNICATION_SECTION) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public const COMMON_PROOF = 'RES_MICRO_PROOF_COMMON';
 	public const CHAIN_PROOF = 'RES_MICRO_PROOF_CHAIN';
 
@@ -61,13 +127,21 @@ class PowerPlantPVResidentialReport
 	 * @param list<array<string,mixed>> $sections Report sections
 	 * @return list<array<string,mixed>>
 	 */
-	public static function presentationSections(array $sections): array
+	public static function presentationSections(array $sections, array $staff = array()): array
 	{
 		$salesIndex = null;
 		$salesField = null;
 		foreach ($sections as $index => $row) {
 			$code = $row['section']->section_code;
-			if ($code === 'RES_SALES') {
+			if ($code === 'RES_SITE') {
+				foreach ($row['fields'] as $key => $field) {
+					$role = self::STAFF_FIELDS[$field->field_code] ?? '';
+					if (isset($staff[$role])) {
+						$sections[$index]['fields'][$key] = clone $field;
+						$sections[$index]['fields'][$key]->value_text = implode(', ', $staff[$role]);
+					}
+				}
+			} elseif ($code === 'RES_SALES') {
 				$salesIndex = $index;
 			} elseif ($code === 'RES_WORK') {
 				foreach ($row['fields'] as $key => $field) {
@@ -94,9 +168,13 @@ class PowerPlantPVResidentialReport
 	/** @param array<string,mixed> $tree Report tree
 	 * @return array<string,array> Options keyed by source IDs, or an empty array on lookup failure
 	 */
-	public function options(array $tree): array
+	public function options(array $tree, int $entity, User $actor): array
 	{
-		$options = array('plants' => array(), 'products' => array(), 'placements' => array());
+		$staff = $this->staffOptions($entity, $actor);
+		if ($staff === null) {
+			return array();
+		}
+		$options = array('plants' => array(), 'products' => array(), 'placements' => array(), 'staff' => $staff);
 		foreach ($tree['powerplants'] ?? array() as $plant) {
 			$plantId = (int) (is_object($plant) ? $plant->fk_powerplant : $plant['id']);
 			$options['plants'][$plantId] = is_object($plant) ? trim($plant->powerplant_ref.' '.$plant->powerplant_label) : trim($plant['ref'].' '.$plant['label']);
@@ -145,14 +223,53 @@ class PowerPlantPVResidentialReport
 		return $options;
 	}
 
+	/** @return array<int,string>|null Active users with access to the report's owning entity. */
+	private function staffOptions(int $entity, User $actor): ?array
+	{
+		global $langs;
+
+		if ($entity <= 0) {
+			$this->error = 'ErrorRecordNotFound';
+			return null;
+		}
+		$prefix = $this->db->prefix();
+		$sql = 'SELECT u.rowid, u.firstname, u.lastname, u.login FROM '.$prefix.'user AS u WHERE u.statut = 1';
+		if (isModEnabled('multicompany') && getDolGlobalInt('MULTICOMPANY_TRANSVERSE_MODE')) {
+			// Multicompany grants transverse access through membership, with exceptions for entity administrators.
+			$sql .= ' AND (u.entity = 0 OR (u.entity = '.$entity.' AND u.admin = 1)';
+			$sql .= ' OR EXISTS (SELECT ug.rowid FROM '.$prefix.'usergroup_user AS ug WHERE ug.fk_user = u.rowid AND ug.entity = '.$entity.'))';
+		} else {
+			$sql .= ' AND u.entity IN ('.(isModEnabled('multicompany') ? '0, ' : '').$entity.')';
+		}
+		if (!empty($actor->socid)) {
+			$sql .= ' AND u.fk_soc = '.((int) $actor->socid);
+		}
+		$sql .= ' ORDER BY u.lastname, u.firstname, u.rowid';
+		$result = $this->db->query($sql);
+		if (!$result) {
+			$this->error = $this->db->lasterror();
+			return null;
+		}
+		$users = array();
+		$member = new User($this->db);
+		while ($row = $this->db->fetch_object($result)) {
+			$member->firstname = $row->firstname;
+			$member->lastname = $row->lastname;
+			$member->login = $row->login;
+			$users[(int) $row->rowid] = $member->getFullName($langs) ?: $row->login;
+		}
+		$this->db->free($result);
+		return $users;
+	}
+
 	/**
-	 * @return array{placements:array<string,array<string,mixed>>,roofs:list<array<string,mixed>>,strings:list<array<string,mixed>>,initialized:bool}|null
+	 * @return array{staff:array<string,array<int,string>>,placements:array<string,array<string,mixed>>,roofs:list<array<string,mixed>>,strings:list<array<string,mixed>>,initialized:bool}|null
 	 */
 	public function load(PowerPlantPVReport $report): ?array
 	{
-		$data = array('placements' => array(), 'roofs' => array(), 'strings' => array());
+		$data = array('placements' => array(), 'roofs' => array(), 'strings' => array(), 'staff' => array());
 		$table = $this->db->prefix().'powerplantpv_report_residential';
-		$sql = 'SELECT rowid, row_type, position, fk_parent, placement_type, fk_component, fk_powerplant, fk_product, fk_micro_proof,';
+		$sql = 'SELECT rowid, row_type, position, fk_parent, placement_type, fk_component, fk_powerplant, fk_product, fk_micro_proof, fk_user,';
 		$sql .= ' reference_label, description, orientation, module_count, row_count, column_count, voltage, micro, quantity, maximum, serial_number';
 		$sql .= ' FROM '.$table.' WHERE '.$this->reportFilter($report).' ORDER BY position, rowid';
 		$result = $this->db->query($sql);
@@ -167,6 +284,13 @@ class PowerPlantPVResidentialReport
 			switch ($row->row_type) {
 				case 'state':
 					$data['initialized'] = true;
+					break;
+				case 'roof_user':
+				case 'electrical':
+					$data['staff'][$row->row_type] ??= array();
+					if ((int) $row->fk_user > 0) {
+						$data['staff'][$row->row_type][(int) $row->fk_user] = (string) $row->reference_label;
+					}
 					break;
 				case 'placement':
 					$data['placements'][$row->placement_type] = $record;
@@ -218,6 +342,7 @@ class PowerPlantPVResidentialReport
 	{
 		$data = array('placements' => array(), 'roofs' => array(), 'strings' => array());
 		$errors = array();
+		$data['staff'] = self::normalizeStaff($input['staff'] ?? null, $options['staff'] ?? array(), $options['savedStaff'] ?? array(), $errors);
 		$hasLocation = false;
 		foreach (self::PLACEMENTS as $type => $definition) {
 			$row = $input['placements'][$type] ?? null;
@@ -269,6 +394,48 @@ class PowerPlantPVResidentialReport
 			$errors[] = 'PVResidentialStringRequired';
 		}
 		return array('data' => $data, 'errors' => array_values(array_unique($errors)));
+	}
+
+	/**
+	 * @param mixed $submitted Submitted staff selections
+	 * @param array<int,string> $eligible User names by id
+	 * @param array<string,array<int,string>> $previous Stored staff assignments
+	 * @param list<string> $errors Validation errors
+	 * @return array<string,array<int,string>>
+	 */
+	private static function normalizeStaff($submitted, array $eligible, array $previous, array &$errors): array
+	{
+		if (!is_array($submitted)) {
+			return $previous;
+		}
+		foreach (self::STAFF_FIELDS as $role) {
+			$raw = $submitted[$role] ?? ($role === 'roof_user' ? array() : '');
+			$multiple = $role === 'roof_user';
+			if (($multiple && !is_array($raw)) || (!$multiple && !is_scalar($raw))) {
+				$errors[] = 'PVResidentialStaffInvalid';
+				continue;
+			}
+			$selected = array();
+			foreach ($multiple ? $raw : array($raw) as $value) {
+				if ($value === '' || (!$multiple && ((string) $value === '-1'))) {
+					continue;
+				}
+				$id = self::positiveInt($value);
+				if ($id === null || !isset($eligible[$id])) {
+					$errors[] = 'PVResidentialStaffInvalid';
+					continue;
+				}
+				$selected[$id] = $eligible[$id];
+			}
+			// An ordinary edit must retain previous selections that are no longer offered.
+			if ($multiple || !$selected) {
+				$selected += array_diff_key($previous[$role] ?? array(), $eligible);
+			}
+			if ($selected || isset($previous[$role])) {
+				$previous[$role] = $selected;
+			}
+		}
+		return $previous;
 	}
 
 	/** @param array<string,mixed> $chain Submitted string
@@ -358,6 +525,18 @@ class PowerPlantPVResidentialReport
 		}
 		if (!$this->insert($report, 'state', 0, array())) {
 			return false;
+		}
+		foreach ($data['staff'] ?? array() as $role => $members) {
+			if (!$members && !$this->insert($report, $role, 0, array())) {
+				return false;
+			}
+			$position = 0;
+			foreach ($members as $id => $label) {
+				// Freeze the displayed names for the historical report and regenerated PDF.
+				if (!$this->insert($report, $role, ++$position, array('fk_user' => (int) $id, 'reference_label' => $label))) {
+					return false;
+				}
+			}
 		}
 		foreach ($data['placements'] as $key => $row) {
 			if (!$this->insert($report, 'placement', 0, $row + array('placement_type' => $key))) {

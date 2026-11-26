@@ -197,15 +197,31 @@ try {
 	$second = clone $first;
 	$second->entity = 2;
 	$residential = new PowerPlantPVResidentialReport($db);
-	$rows = array('placements' => array(), 'roofs' => array(array('orientation' => 'SE', 'module_count' => 4)), 'strings' => array(
+	$rows = array('placements' => array(), 'staff' => array('roof_user' => array(21 => 'Technicien A'), 'electrical' => array(22 => 'Technicien B')), 'roofs' => array(array('orientation' => 'SE', 'module_count' => 4)), 'strings' => array(
 		array('micro' => 1, 'fk_powerplant' => 2, 'fk_product' => 7, 'reference_label' => 'MICRO-7', 'maximum' => 3, 'quantity' => 2,
 			'serials' => array('SER-01', 'SER-02')),
 	));
 	$check($db->begin() > 0 && $residential->save($first, $rows) && $residential->save($second, $rows) && $db->commit() > 0,
 		'Residential report rows are written transactionally in both entities');
+	$db->pdo->exec('CREATE TABLE workflow_user (rowid INTEGER, entity INTEGER, statut INTEGER, admin INTEGER, fk_soc INTEGER, firstname TEXT, lastname TEXT, login TEXT)');
+	$db->pdo->exec("INSERT INTO workflow_user VALUES (21,1,1,0,NULL,'Anne','Toit','anne'), (22,2,1,0,NULL,'Bert','Circuit','bert'),
+		(23,1,0,0,NULL,'Caro','Inactif','caro'), (24,0,1,1,NULL,'Dan','Global','dan'), (25,2,1,1,NULL,'Eve','Admin','eve')");
+	$db->pdo->exec('CREATE TABLE workflow_usergroup_user (rowid INTEGER, fk_user INTEGER, entity INTEGER)');
+	$db->pdo->exec('INSERT INTO workflow_usergroup_user VALUES (1,21,2),(2,23,2),(3,22,1)');
+	$equipment = array('powerplants' => array(array('id' => 1, 'ref' => 'PV1', 'label' => 'Fixture')));
+	$check(array_keys($residential->options($equipment, 1, $actor)['staff']) === array(21),
+		'With Multicompany disabled, only active users of the owner entity are available');
+	$conf->modules['multicompany'] = 1;
+	$check(array_keys($residential->options($equipment, 2, $actor)['staff']) === array(25, 22, 24),
+		'Entity accounts and global users are available in non-transverse mode');
+	$conf->global->MULTICOMPANY_TRANSVERSE_MODE = 1;
+	$check(array_keys($residential->options($equipment, 2, $actor)['staff']) === array(25, 24, 21),
+		'Transverse mode requires membership in the owner entity for standard users');
+	unset($conf->modules['multicompany'], $conf->global->MULTICOMPANY_TRANSVERSE_MODE);
 	$loaded = $residential->load($first);
 	$check(is_array($loaded) && $loaded['initialized'] && (int) $loaded['strings'][0]['maximum'] === 3
 		&& $loaded['strings'][0]['serials'] === array('SER-01', 'SER-02'), 'Strings reload with their original maximum and serial order');
+	$check($loaded['staff'] === $rows['staff'], 'Report staff assignments reload with user ids and snapshot names');
 	$rows['strings'][0]['maximum'] = 1;
 	$rows['strings'][0]['serials'] = array('SER-01');
 	$rows['strings'][0]['quantity'] = 1;

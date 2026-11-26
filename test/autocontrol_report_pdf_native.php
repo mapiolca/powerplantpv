@@ -404,7 +404,7 @@ $definition = require $module.'/core/modules/powerplantpv_residential_report.php
 $residentialFields = array();
 $residentialValues = array(
 	'RES_STRING_1_VOLTAGE' => 315, 'RES_EARTH_RESISTANCE' => 12.75, 'RES_DC_CONNECTORS' => 'valid',
-	'RES_RISK_SELECTION' => "HEIGHT\nWEATHER", 'RES_PPE_SELECTION' => 'HARNESS', 'RES_LADDER_PLANNED' => 'YES',
+	'RES_MONITORING' => 'observation', 'RES_RISK_SELECTION' => "HEIGHT\nWEATHER", 'RES_PPE_SELECTION' => 'HARNESS', 'RES_LADDER_PLANNED' => 'YES',
 );
 foreach ($definition['fields'] as $spec) {
 	list($sectionCode, $code, $label, $labelEn, $type, $unit) = $spec;
@@ -433,6 +433,19 @@ foreach ($definition['sections'] as $index => [$code, $label]) {
 		}
 		continue;
 	}
+	if ($code === 'RES_COMMUNICATION') {
+		foreach (array(9 => 'WIFI', 10 => 'CELLULAR') as $plantId => $connection) {
+			$fields = array_map(static fn ($field) => clone $field, $residentialFields[$code]);
+			foreach ($fields as $field) {
+				$field->value_text = array('RES_CONNECTION' => $connection, 'RES_CONNECTION_WIFI' => $plantId === 9 ? 'Local toiture' : 'Motif masqué',
+					'RES_CONNECTION_SUBSCRIBER' => 'CUSTOMER', 'RES_CONNECTION_SIM' => '00123', 'RES_CONNECTION_HISTORY' => 'Ancien conflit masqué')[$field->field_code] ?? '';
+			}
+			$row = acSection($code, $label, $position, $fields, $plantId);
+			$row['powerplant'] = (object) array('powerplant_ref' => 'PV-'.$plantId, 'powerplant_label' => 'Centrale de recette');
+			$residentialSections[] = $row;
+		}
+		continue;
+	}
 	$residentialSections[] = acSection($code, $label, $position, $residentialFields[$code]);
 }
 $residential = $dataset;
@@ -442,8 +455,12 @@ $residential['report'] = (object) array(
 );
 $newSections = array('RES_RISK_ANALYSIS' => 21, 'RES_PROTECTION' => 22, 'RES_ACCESS_EQUIPMENT' => 23, 'RES_INSTRUCTIONS' => 24, 'RES_SALES' => 29);
 $legacySections = array_values(array_filter($residentialSections, static function ($row) use ($newSections) {
-	return !isset($newSections[$row['section']->section_code]);
+	return $row['section']->section_code !== 'RES_COMMUNICATION' && !isset($newSections[$row['section']->section_code]);
 }));
+foreach ($legacySections as &$legacyRow) {
+	$legacyRow['fields'] = array_filter($legacyRow['fields'], static fn ($field) => $field->field_code !== 'RES_MONITORING');
+}
+unset($legacyRow);
 $residential['tree'] = array('sections' => $legacySections);
 $residential['general_sections'] = $legacySections;
 $residential['sections_by_powerplant'] = array();
@@ -471,11 +488,12 @@ visualPdfCheck(PowerPlantPVReportTemplate::isInstallationTemplate(PowerPlantPVRe
 $modern = array();
 foreach ($residentialSections as $row) {
 	$code = $row['section']->section_code;
-	$modern[$newSections[$code] ?? $row['section']->position] = $row;
+	$modern[] = array('order' => $newSections[$code] ?? $row['section']->position, 'row' => $row);
 }
-ksort($modern);
-$residential['tree']['sections'] = array_values($modern);
+usort($modern, static fn ($a, $b) => $a['order'] <=> $b['order']);
+$residential['tree']['sections'] = array_column($modern, 'row');
 $residential['tree']['residential'] = array(
+	'staff' => array('roof_user' => array(21 => 'Anne Toit', 22 => 'Bert Toit'), 'electrical' => array(23 => 'Caro Circuit')),
 	'placements' => array('inverter' => array('reference_label' => 'MICRO-A', 'description' => 'Garage')),
 	'roofs' => array(
 		array('orientation' => 'SE', 'module_count' => 12, 'row_count' => 3, 'column_count' => 4),
@@ -491,7 +509,8 @@ $residentialModel->build($object, $residential, $residentialModernFile);
 $modernText = str_replace("\\n", '', autocontrolPdfText($residentialModernFile));
 foreach (array('3.a · Analyse des risques', '3.b · Moyens de protection prévus', '3.c · Équipements d’accès',
 	'3.d · Consignes de sécurité', '4 · Prestation vendue par le commercial', '5 · Travaux réalisés', 'Mention sécurité obligatoire',
-	'Chute de hauteur', 'Vérification météo', 'Harnais antichute', 'SUD-EST', 'NORD-OUEST', 'Garage', '315 V', 'MICRO-SN-01', 'MICRO-SN-02', 'Nombre maximal de micro-onduleurs par chaîne') as $expected) {
+	'Chute de hauteur', 'Vérification météo', 'Harnais antichute', 'SUD-EST', 'NORD-OUEST', 'Garage', '315 V', 'Communication et Internet', 'PV-9', 'PV-10', 'Local toiture', 'Réseau cellulaire', '00123', 'Communication monitoring', 'Non conforme', 'Anne Toit, Bert Toit', 'Caro Circuit', 'MICRO-SN-01', 'MICRO-SN-02', 'Nombre maximal de micro-onduleurs par chaîne') as $expected) {
 	visualPdfCheck(strpos($modernText, $expected) !== false, 'FR37 residential PDF contains '.$expected);
 }
+visualPdfCheck(strpos($modernText, 'Motif masqué') === false && strpos($modernText, 'Ancien conflit masqué') === false, 'The PDF omits hidden and archived communication fields');
 echo 'Autocontrol PDF: '.$pages.' pages, '.$checks.' checks OK'.($outputDir !== '' ? ' -> '.$file : '')."\n";

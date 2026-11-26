@@ -32,7 +32,7 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 		$residential = $dataset['tree']['residential'] ?? null;
 		$treeSections = $dataset['tree']['sections'];
 		if ($residential !== null) {
-			$treeSections = PowerPlantPVResidentialReport::presentationSections($treeSections);
+			$treeSections = PowerPlantPVResidentialReport::presentationSections($treeSections, $residential['staff'] ?? array());
 		}
 		$sections = array_filter($treeSections, static function ($row) {
 			return !empty($row['section']->visible_pdf);
@@ -59,6 +59,18 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 				$sectionNumber++;
 				$previousCode = $code;
 			}
+			if ($code === PowerPlantPVResidentialReport::COMMUNICATION_SECTION) {
+				$connection = '';
+				foreach ($row['fields'] as $field) {
+					if ($field->field_code === 'RES_CONNECTION') {
+						$connection = (string) $field->value_text;
+					}
+				}
+				$row['fields'] = array_filter($row['fields'], static function ($field) use ($connection) {
+					$condition = PowerPlantPVResidentialReport::COMMUNICATION_CONDITIONS[$field->field_code] ?? null;
+					return $field->field_code !== 'RES_CONNECTION_HISTORY' && ($condition === null || $connection === $condition);
+				});
+			}
 			if ($residential !== null && $code === 'RES_STRINGS') {
 				$row['fields'] = array_filter($row['fields'], static fn ($field) => powerplantpvIsMicroProofField($field->field_code) && !empty($field->files));
 				if (($dataset['intervention'] ?? null) instanceof Fichinter && ($dataset['report'] ?? null) instanceof PowerPlantPVReport) {
@@ -72,7 +84,10 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 			if ($choicePanels) {
 				$this->visualPanels($pdf, $choicePanels, count($choicePanels) > 1);
 			} elseif ($panel['rows']) {
-				if (!is_object($row['equipment'] ?? null)) {
+				if ($code === PowerPlantPVResidentialReport::COMMUNICATION_SECTION) {
+					$plant = $row['powerplant'] ?? null;
+					$panel['title'] = is_object($plant) ? trim($plant->powerplant_ref.' '.$plant->powerplant_label) : '';
+				} elseif (!is_object($row['equipment'] ?? null)) {
 					$panel['title'] = '';
 				}
 				$this->visualPanels($pdf, array($panel), false);
@@ -124,7 +139,7 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 		if ($code === 'RES_WORK') {
 			return $langs->transnoentities('PVResidentialCompletedWork');
 		}
-		$numbers = array('RES_SITE' => '2', 'RES_TESTS' => '6', 'RES_STRINGS' => '6.a', 'RES_INVERTER' => '6.b', 'RES_CONCLUSION' => '7');
+		$numbers = array('RES_SITE' => '2', 'RES_TESTS' => '6', 'RES_STRINGS' => '6.a', 'RES_INVERTER' => '6.b', 'RES_COMMUNICATION' => '6.c', 'RES_CONCLUSION' => '7');
 		return isset($numbers[$code]) ? $numbers[$code].' · '.$label : $label;
 	}
 

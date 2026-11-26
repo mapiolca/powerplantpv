@@ -3,6 +3,9 @@
 ## 1.10.2 — 2026-11-26
 
 - Ajout des quatre rubriques de sécurité FR37 au rapport résidentiel et à son PDF.
+- Communication Internet par centrale et contrôle du monitoring par onduleur. Recalculer les brouillons après mise à jour pour reprendre les anciennes valeurs.
+- Mode compact C / NC / SO dans les formulaires et identification de l’onduleur sous le titre de sa section.
+- Sélection des membres de l’équipe toiture et du référent électricité parmi les utilisateurs de l’entité du rapport. Les champs Oui/Non utilisent des interrupteurs.
 - Ajout des photos et documents de la prestation vendue, des emplacements et du calepinage par toiture.
 - Saisie de strings classiques ou à micro-onduleurs, avec référence, numéros de série et maximum facultatif par chaîne dans les caractéristiques du produit.
 - Les numéros de série manquants peuvent être justifiés par une preuve par chaîne ou commune. Les preuves sont reproduites en image dans le PDF et jointes à l’intervention et aux centrales concernées à la finalisation. Les preuves acceptent JPEG, PNG et, si la conversion serveur est disponible, la première page d’un PDF.
