@@ -166,6 +166,24 @@ final class PowerPlantPVSupervision
 		});
 	}
 
+	/** @return array{site: string, devices: list<array{serial: string, model: string}>} */
+	public function microinverterInventory(int $entity, int $plantId): array
+	{
+		return $this->withLock($entity, function () use ($entity, $plantId): array {
+			$link = $this->linkForPlant($entity, $plantId);
+			$config = $this->configuration($entity);
+			if ($link === null || $link->provider !== self::ATMOCE || $config === null || !(int) $config->enabled) {
+				throw new RuntimeException('PowerPlantPVSupervisionUnavailable');
+			}
+			try {
+				return array('site' => $link->site_id, 'devices' => $this->client($entity, $config)->microinverters($link->site_id));
+			} catch (RuntimeException $e) {
+				$this->recordApiFailure($entity, $config, $e->getMessage());
+				throw $e;
+			}
+		});
+	}
+
 	/** Remove dependent records inside the caller's plant deletion transaction. */
 	public function deleteForPlant(int $entity, int $plantId): void
 	{

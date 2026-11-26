@@ -82,6 +82,30 @@ final class PowerPlantPVAtmoceClient
 		return array('sites' => $sites, 'complete' => (int) $pageEnd === 1);
 	}
 
+	/** @return list<array{serial: string, model: string}> */
+	public function microinverters(string $siteId): array
+	{
+		$response = $this->request('GET', '/device/getDevicesBySite', array('siteIds' => $this->siteIdsParameter(array($siteId))));
+		$devices = array();
+		foreach ($this->dataList($response) as $row) {
+			if (($row['siteId'] ?? null) !== $siteId || !is_string($row['deviceType'] ?? null)) {
+				throw new RuntimeException('InvalidAtmoceResponse');
+			}
+			if ($row['deviceType'] !== 'micro_inverter') {
+				continue;
+			}
+			$serial = $row['deviceSN'] ?? null;
+			if (!is_string($serial) || !$this->isSiteId($serial)) {
+				throw new RuntimeException('InvalidAtmoceResponse');
+			}
+			$devices['sn:'.$serial] = array(
+				'serial' => $serial,
+				'model' => is_string($row['deviceMode'] ?? null) ? $row['deviceMode'] : '',
+			);
+		}
+		return array_values($devices);
+	}
+
 	/**
 	 * @param list<string> $siteIds
 	 * @return list<array{site_id: string, reported_at: int, status: int, power_w: ?float, energy_today_kwh: ?float}>

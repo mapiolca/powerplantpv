@@ -1571,6 +1571,10 @@ if ($id > 0 || !empty($ref)) {
 			if ($canimportserialnumbers) {
 				print dolGetButtonAction($langs->trans('ImportSerialNumbers'), '', 'default', $_SERVER['PHP_SELF'].'?id='.(int) $object->id.'&action=serialimport&token='.newToken(), '', true);
 			}
+			if ($user->hasRight('powerplantpv', 'powerplant', 'read') && $user->hasRight('powerplantpv', 'serialnumber', 'read')) {
+				$layoutUrl = dol_buildpath('/powerplantpv/powerplant_atmoce_layout.php', 1).'?id='.(int) $object->id;
+				print dolGetButtonAction($langs->trans('PowerPlantPVLayoutTitle'), '', 'default', $layoutUrl, '', true);
+			}
 			if ($permissiontoserialread) {
 				print dolGetButtonAction($langs->trans('SerialNumbersViewManage'), '', 'default', $listurl, '', true);
 			}

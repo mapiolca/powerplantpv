@@ -46,7 +46,7 @@ function powerplantpvIndexPhotoPath(int $entity, string $scope, int $objectId, s
 	require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
 	$root = $conf->powerplantpv->multidir_output[$entity] ?? '';
 	if ($entity <= 0 || $objectId <= 0 || !is_string($root) || trim($root) === '' || $identity === ''
-		|| !in_array($scope, array('plant', 'report'), true)) {
+		|| !in_array($scope, array('plant', 'report', 'layout'), true)) {
 		return '';
 	}
 	$root = realpath($root);
