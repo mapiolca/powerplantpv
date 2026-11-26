@@ -474,6 +474,20 @@ class modPowerPlantPV extends DolibarrModules
 				'test' => 'isModEnabled("powerplantpv") && getDolGlobalInt("POWERPLANTPV_MAINTENANCE_ENABLE", 1)',
 				'priority' => 50,
 			),
+			3 => array(
+				'label' => 'PowerPlantPVSupervisionCron',
+				'jobtype' => 'method',
+				'class' => '/powerplantpv/class/powerplantpvsupervision.class.php',
+				'objectname' => 'PowerPlantPVSupervision',
+				'method' => 'runScheduledCollection',
+				'parameters' => '',
+				'comment' => 'PowerPlantPVSupervisionCronComment',
+				'frequency' => 5,
+				'unitfrequency' => 60,
+				'status' => 1,
+				'test' => 'isModEnabled("powerplantpv")',
+				'priority' => 50,
+			),
 		);
 		/* END MODULEBUILDER CRON */
 		// Example: $this->cronjobs=array(

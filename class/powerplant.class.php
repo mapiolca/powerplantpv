@@ -1141,8 +1141,32 @@ class PowerPlant extends CommonObject
 			}
 		}
 
-		return $this->deleteCommon($user, 1);
-		//return $this->deleteCommon($user, $notrigger, 1);
+		require_once __DIR__.'/../lib/powerplantpv.lib.php';
+		if (!powerplantpvDatabaseTableExists(MAIN_DB_PREFIX.'powerplantpv_monitor_link')) {
+			return $this->deleteCommon($user, 1);
+		}
+		require_once __DIR__.'/powerplantpvsupervision.class.php';
+		if (!$this->db->begin()) {
+			$this->error = 'PowerPlantPVSupervisionDatabaseError';
+			return -1;
+		}
+		try {
+			$result = $this->deleteCommon($user, 1);
+			if ($result <= 0) {
+				$this->db->rollback();
+				return $result;
+			}
+			(new PowerPlantPVSupervision($this->db))->deleteForPlant((int) $this->entity, (int) $this->id);
+			if (!$this->db->commit()) {
+				throw new RuntimeException('PowerPlantPVSupervisionDatabaseError');
+			}
+			return $result;
+		} catch (RuntimeException $e) {
+			$this->db->rollback();
+			$this->error = $e->getMessage();
+			$this->errors[] = $this->error;
+			return -1;
+		}
 	}
 
 	/**

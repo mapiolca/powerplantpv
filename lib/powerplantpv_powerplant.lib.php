@@ -135,6 +135,13 @@ function powerplantPrepareHead($object)
 		$h++;
 	}
 
+	if ($user->hasRight("powerplantpv", "powerplant", "read")) {
+		$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/powerplant_supervision.php", 1), array("id" => $object->id));
+		$head[$h][1] = $langs->trans("PowerPlantPVSupervision");
+		$head[$h][2] = "supervision";
+		$h++;
+	}
+
 	// Show more tabs from modules
 	// Entries must be declared in modules descriptor with line
 	//$this->tabs = array(
