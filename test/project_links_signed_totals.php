@@ -611,6 +611,9 @@ verify(!isset(PowerPlant::getConnectionTypeOptions()['self_consumption']), 'Inac
 verify(PowerPlant::getConnectionTypeLabel('self_consumption') === 'Custom solar use', 'Existing inactive type retains its customized display label');
 verify(PowerPlant::getConnectionTypeOptions()['island'] === 'Island mode', 'New dictionary row is available without reactivation');
 verify(PowerPlant::normalizeConnectionTypeValue('island') === 'island', 'Custom technical codes are preserved');
+$plantWithOptionalConnectionType = new PowerPlant($db);
+verify($plantWithOptionalConnectionType->validateField($plantWithOptionalConnectionType->fields, 'connection_type', '0'), 'The blank native option keeps the connection type optional');
+verify(!$plantWithOptionalConnectionType->validateField($plantWithOptionalConnectionType->fields, 'connection_type', 'unknown_type'), 'An unknown connection type is still rejected');
 $hook = new ActionsPowerplantpv();
 $renderCurrentChoice = static function ($value) use ($hook, $nativeFields, $fieldKey, $hookmanager) {
     global $extrafields;

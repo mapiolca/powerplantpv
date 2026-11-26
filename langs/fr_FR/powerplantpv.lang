@@ -117,6 +117,7 @@ PowerPlantPermissionOutOfService = Mettre une centrale PV hors service
 PowerPlantCommissioningDate = Date de mise en service
 PowerPlantPrmPdlNumber = N° de PRM/PDL
 PowerPlantAddress = Adresse
+PowerPlantThirdPartyAddressUnavailable = L’adresse du tiers sélectionné est inaccessible.
 PowerPlantZip = Code postal
 PowerPlantTown = Ville
 PowerPlantCountry = Pays
