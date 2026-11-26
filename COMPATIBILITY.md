@@ -96,3 +96,11 @@ Les rapports fictifs FI2611-0024 et FI2611-0025 couvrent les deux ordres de sign
 Pour FI2611-0026, un numéro de série concurrent sur la centrale B a laissé cette centrale en **À vérifier**. La centrale A est passée en **Transféré** et le rapport est resté signé. Un rejeu du travail planifié a traité zéro ligne. Depuis TEST 2, les accès directs au rapport et à la centrale de TEST 1 ont été refusés. Les données fictives ont été conservées.
 
 La recette distante utilisait un modèle sans visa technique et un seul compte interne. Le retrait de droits, le partage interentités autorisé, la concurrence des relances, la signature publique v20 et le rendu sur téléphone restent à vérifier sur instance.
+
+### Recette après intégration de main — 26 novembre 2026
+
+Le commit `88beef6c` a été testé sur develop (Dolibarr 25.0.0-alpha, MariaDB 10.11.19). Sur FI2611-0027, le Select2 a permis de choisir un onduleur avec une largeur de 390 pixels et de reprendre le brouillon enregistré. Après la signature interne seule, la proposition était en attente des signatures. Après la signature du client, elle était en attente de transfert.
+
+Deux lancements manuels ont été soumis depuis deux onglets. Le rapport est passé en **Transféré** et MariaDB a confirmé une seule ligne d’équipement portant le repère de recette. L’essai valide l’absence de doublon pour ces deux soumissions. Leur chevauchement en base reste à mesurer. Le rapport FI2611-0026 a gardé ses signatures et les états **Transféré** pour A et **À vérifier** pour B.
+
+Sous PHP 8.4.22, 25 contrôles ciblés, 94 contrôles sur les classes natives et deux suites PDF (74 et 78 contrôles) ont réussi avec chacun des cores locaux 20.0.0 et 24.0.0. Le visa technique était désactivé dans TEST 1. Le cas de retrait de droits, le partage autorisé et le parcours client v20 restent à vérifier sur instance. La branche précédente et la désactivation de la tâche ont été rétablies sur develop.
