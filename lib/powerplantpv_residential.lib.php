@@ -476,19 +476,20 @@ function powerplantpvResidentialFilePath(PowerPlantPVReport $report, Fichinter $
 		return '';
 	}
 	$field = new PowerPlantPVReportField($db);
-	if ($field->fetch((int) $file->fk_report_field) <= 0 || (int) $field->fk_report !== (int) $report->id
+	if ($field->fetchCommon((int) $file->fk_report_field, null, '', 1) <= 0 || (int) $field->fk_report !== (int) $report->id
 		|| !powerplantpvIsResidentialEvidenceField($field->field_code)) {
 		return '';
 	}
-	$filename = basename((string) $file->filepath);
-	// The upload directory uses the original field id. Recalculation can reattach metadata to a new field id.
-	$prefix = 'report/'.dol_sanitizeFileName((string) $intervention->ref).'/field_';
-	if (!preg_match('/^[a-f0-9]{32}\.[a-z0-9]+$/D', $filename)
-		|| !preg_match('~^'.preg_quote($prefix, '~').'[1-9][0-9]*/'.preg_quote($filename, '~').'$~D', (string) $file->filepath)) {
+	$entity = (int) $report->entity;
+	$interventionId = (int) $intervention->id;
+	if ($entity <= 0 || $interventionId <= 0 || $entity !== (int) $intervention->entity || (int) $report->fk_fichinter !== $interventionId) {
 		return '';
 	}
-	$entity = (int) $report->entity;
-	if ($entity <= 0 || $entity !== (int) $intervention->entity || (int) $report->fk_fichinter !== (int) $intervention->id) {
+	// Dolibarr renames its own intervention directory on validation. Module evidence stays at its upload path.
+	// Recalculation can also reattach metadata without renaming the original field directory.
+	$allowedRefs = array(dol_sanitizeFileName((string) $intervention->ref), dol_sanitizeFileName('(PROV'.$interventionId.')'));
+	if (!preg_match('~^report/([^/]+)/(field_[1-9][0-9]*)/([a-f0-9]{32}\.[a-z0-9]+)$~D', (string) $file->filepath, $parts)
+		|| in_array($parts[1], array('.', '..'), true) || !in_array($parts[1], $allowedRefs, true)) {
 		return '';
 	}
 	global $conf;
@@ -500,9 +501,9 @@ function powerplantpvResidentialFilePath(PowerPlantPVReport $report, Fichinter $
 	if (!is_string($root) || $root === '' || strpos($root, 'error-') === 0) {
 		return '';
 	}
-	$directory = rtrim($root, '/\\').'/report/'.dol_sanitizeFileName((string) $intervention->ref);
-	$parent = basename(dirname((string) $file->filepath));
-	$path = $directory.'/'.$parent.'/'.$filename;
+	$directory = rtrim($root, '/\\').'/report/'.$parts[1];
+	$parent = $parts[2];
+	$path = $directory.'/'.$parent.'/'.$parts[3];
 	$realDir = realpath($directory);
 	$realPath = realpath($path);
 	if ($realDir === false || $realPath === false || !is_readable($realPath) || !is_file($realPath)

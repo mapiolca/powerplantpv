@@ -24,6 +24,7 @@ if (is_file(DOL_DOCUMENT_ROOT.'/version.inc.php')) {
 }
 
 require_once $core.'/core/lib/functions.lib.php';
+require_once $core.'/core/lib/files.lib.php';
 require_once $core.'/core/class/conf.class.php';
 require_once $core.'/core/class/translate.class.php';
 require_once $core.'/core/db/Database.interface.php';
@@ -44,6 +45,9 @@ $langs->setDefaultLang('fr_FR');
 require_once $module.'/class/powerplantpvreport.class.php';
 require_once $module.'/class/powerplantpvreportparts.class.php';
 require_once $module.'/class/powerplantpvresidentialreport.class.php';
+require_once $module.'/class/powerplantpvreportfield.class.php';
+require_once $module.'/class/powerplantpvreportfile.class.php';
+require_once $module.'/lib/powerplantpv_residential.lib.php';
 
 final class PartWorkflowDatabase extends DoliDBMysqli
 {
@@ -154,6 +158,7 @@ file_put_contents($directory.'/part-AC1-technician.png', 'stage');
 file_put_contents($directory.'/part-AC2-technician.png', 'another stage');
 file_put_contents($directory.'/part-FINAL-technical.png', 'final approval');
 
+$proofPath = '';
 try {
 	$check($parts->reopenPart($report, $intervention, $actor, 'AC1') < 0, 'The signer needs the dedicated permission');
 	$actor->canManageSigned = true;
@@ -210,8 +215,36 @@ try {
 		&& $residential->load($first)['strings'][0]['serials'] === array('SER-01')
 		&& $residential->load($second)['strings'][0]['serials'] === array('SER-01', 'SER-02'),
 		'Replacing a report keeps other entities and removes only its old serial rows');
+	$fieldSchema = file_get_contents($module.'/sql/llx_powerplantpv_report_field.sql');
+	$db->pdo->exec(str_replace(
+		array('llx_', 'integer AUTO_INCREMENT PRIMARY KEY NOT NULL', ' ON UPDATE CURRENT_TIMESTAMP', ' ENGINE=innodb'),
+		array(MAIN_DB_PREFIX, 'INTEGER PRIMARY KEY AUTOINCREMENT', '', ''),
+		$fieldSchema
+	));
+	$db->pdo->exec("INSERT INTO workflow_powerplantpv_report_field (rowid, entity, fk_report, fk_report_section, stable_key, field_code, field_label, field_type)
+		VALUES (5, 1, 9, 1, 'proof', 'RES_MICRO_PROOF_COMMON', 'Proof', 'file')");
+	$proof = new PowerPlantPVReportFile($db);
+	$proof->entity = 1;
+	$proof->fk_report = 9;
+	$proof->fk_report_field = 5;
+	$proof->filepath = 'report/'.dol_sanitizeFileName('(PROV8)').'/field_5/'.str_repeat('a', 32).'.png';
+	$proofPath = $root.'/'.$proof->filepath;
+	mkdir(dirname($proofPath), 0777, true);
+	file_put_contents($proofPath, 'fixture');
+	$intervention->ref = '(PROV8)';
+	$check(powerplantpvResidentialFilePath($first, $intervention, $proof) === realpath($proofPath), 'A draft resolves its proof');
+	$intervention->ref = 'FI-TEST';
+	$check(powerplantpvResidentialFilePath($first, $intervention, $proof) === realpath($proofPath), 'Proof uploaded on the draft still resolves after the intervention obtains a final reference');
+	$intervention->id = 7;
+	$check(powerplantpvResidentialFilePath($first, $intervention, $proof) === '', 'Another intervention cannot resolve the provisional proof');
 	echo 'Autocontrol workflow: '.$checks." checks OK\n";
 } finally {
+	if ($proofPath !== '') {
+		unlink($proofPath);
+		rmdir(dirname($proofPath));
+		rmdir(dirname($proofPath, 2));
+		rmdir(dirname($proofPath, 3));
+	}
 	foreach (glob($directory.'/*.png') ?: array() as $drawing) {
 		unlink($drawing);
 	}
