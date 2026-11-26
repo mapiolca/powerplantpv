@@ -58,7 +58,7 @@ function powerplantpvResidentialRender(string $section, array $context, bool $ed
 			$key = 'residential[placements]['.$type.']';
 			print '<div class="powerplantpv-report-field" data-residential-placement>';
 			print '<label><input type="checkbox" name="'.$key.'[selected]" value="1"'.($row ? ' checked' : '').'> '.$langs->trans($definition[0]).'</label>';
-			print '<div data-residential-placement-fields'.(!$row ? ' hidden' : '').'>';
+			print '<div data-residential-placement-fields>';
 			$choices = $options['placements'][$type] ?? array();
 			if ($choices) {
 				print '<label for="residentialplacements'.$type.'fk_component">'.$langs->trans('Ref').'</label> ';
@@ -80,7 +80,7 @@ function powerplantpvResidentialRenderGroup(string $group, array $items, array $
 	global $langs;
 	$isRoof = $group === 'roofs';
 	$products = $isRoof ? '' : json_encode($options['products'], JSON_INVALID_UTF8_SUBSTITUTE);
-	print '<div class="powerplantpv-report-field" data-residential-group="'.$group.'" data-products="'.dol_escape_htmltag((string) $products).'"';
+	print '<div id="residential-'.$group.'" class="powerplantpv-report-field" data-residential-group="'.$group.'" data-products="'.dol_escape_htmltag((string) $products).'"';
 	print ' data-maximum="'.dol_escape_htmltag($langs->transnoentities('PVMaxMicroinvertersPerString')).'" data-no-limit="'.dol_escape_htmltag($langs->transnoentities('PVMicroLimitUnset')).'"';
 	print ' data-exceeded="'.dol_escape_htmltag($langs->transnoentities('PVResidentialMicroExceeded')).'" data-no-product="'.dol_escape_htmltag($langs->transnoentities('PVResidentialNoMicroProduct')).'"';
 	print ' data-serial="'.dol_escape_htmltag($langs->transnoentities('PVResidentialSerialNumber')).'" data-remove="'.dol_escape_htmltag($langs->transnoentities('Remove')).'">';
@@ -93,7 +93,7 @@ function powerplantpvResidentialRenderGroup(string $group, array $items, array $
 	}
 	print '</div><template data-residential-template>';
 	powerplantpvResidentialRenderItem($group, 'RESINDEX', array(), $options, $form);
-	print '</template><button type="button" class="button" data-residential-add>'.img_picto('', 'fa-plus-circle').' '.$langs->trans($isRoof ? 'PVResidentialAddRoof' : 'PVResidentialAddString').'</button></div>';
+	print '</template><button type="submit" name="residential_row_submit" value="add_'.$group.'" class="button" data-residential-add>'.img_picto('', 'fa-plus-circle').' '.$langs->trans($isRoof ? 'PVResidentialAddRoof' : 'PVResidentialAddString').'</button></div>';
 }
 
 /** Render one roof or string in the residential report. */
@@ -103,7 +103,8 @@ function powerplantpvResidentialRenderItem(string $group, string $index, array $
 	$name = 'residential['.$group.']['.$index.']';
 	$id = 'residential-'.$group.'-'.$index;
 	$isRoof = $group === 'roofs';
-	print '<fieldset class="border marginbottomonly" data-residential-item><legend>'.$langs->trans($isRoof ? 'PVResidentialRoof' : 'PVResidentialString').' <span data-residential-number></span></legend>';
+	$number = ctype_digit($index) ? (string) ((int) $index + 1) : '';
+	print '<fieldset class="border marginbottomonly" data-residential-item><legend>'.$langs->trans($isRoof ? 'PVResidentialRoof' : 'PVResidentialString').' <span data-residential-number>'.$number.'</span></legend>';
 	if ($isRoof) {
 		$orientations = array();
 		foreach (PowerPlantPVResidentialReport::ORIENTATIONS as $code) {
@@ -118,10 +119,10 @@ function powerplantpvResidentialRenderItem(string $group, string $index, array $
 	} else {
 		$isMicro = !empty($row['micro']);
 		print '<label><input type="checkbox" name="'.$name.'[micro]" value="1" data-residential-micro'.($isMicro ? ' checked' : '').'> '.$langs->trans('PVResidentialMicroinverters').'</label>';
-		print '<div data-residential-conventional'.($isMicro ? ' hidden' : '').'>';
+		print '<div data-residential-conventional>';
 		powerplantpvResidentialNumber($name, 'voltage', 'PVResidentialVoltage', $row['voltage'] ?? '', 'step="any"');
 		powerplantpvResidentialNumber($name, 'module_count', 'PVResidentialModuleCount', $row['module_count'] ?? '', 'min="1" step="1"');
-		print '</div><div data-residential-micro-fields'.(!$isMicro ? ' hidden' : '').'>';
+		print '</div><div data-residential-micro-fields>';
 		$plant = (int) ($row['fk_powerplant'] ?? 0);
 		if (count($options['plants']) === 1) {
 			$plant = (int) array_key_first($options['plants']);
@@ -131,13 +132,18 @@ function powerplantpvResidentialRenderItem(string $group, string $index, array $
 			print $form->selectarray($name.'[fk_powerplant]', $options['plants'], $plant, 1, 0, 0, 'data-residential-plant data-residential-select', 0, 0, 0, '', 'minwidth100', 0).'</label>';
 		}
 		$references = array();
-		foreach ($options['products'][$plant] ?? array() as $reference => $definition) {
-			$references[$reference] = $definition['label'];
+		foreach ($options['products'] as $products) {
+			foreach ($products as $reference => $definition) {
+				$references[$reference] = $definition['product_label'] ?? $definition['label'];
+			}
 		}
 		print '<label class="block">'.$langs->trans('Ref').' ';
-		print $form->selectarray($name.'[fk_product]', $references, $row['fk_product'] ?? '', 1, 0, 0, 'data-residential-product data-residential-select', 0, 0, 0, '', 'minwidth100', 0).'</label>';
+		$eligible = $options['products'][$plant] ?? array();
+		$selectedProduct = $row['fk_product'] ?? (count($eligible) === 1 ? array_key_first($eligible) : '');
+		print $form->selectarray($name.'[fk_product]', $references, $selectedProduct, 1, 0, 0, 'data-residential-product data-residential-select', 0, 0, 0, '', 'minwidth100', 0).'</label>';
 		powerplantpvResidentialNumber($name, 'quantity', 'Qty', $row['quantity'] ?? '', 'min="1" step="1" data-residential-quantity');
 		print '<span class="opacitymedium" data-residential-limit aria-live="polite"></span>';
+		print '<div class="opacitymedium" data-residential-serial-help>'.$langs->trans('PVResidentialSaveForSerials').'</div>';
 		if (!empty($options['chainProof'])) {
 			$choices = array();
 			foreach ($options['chainProof'] as $fileId => $file) {
@@ -147,14 +153,20 @@ function powerplantpvResidentialRenderItem(string $group, string $index, array $
 			print $form->selectarray($name.'[fk_micro_proof]', $choices, $row['fk_micro_proof'] ?? '', 1, 0, 0, 'data-residential-select', 0, 0, 0, '', 'minwidth100', 0).'</label>';
 		}
 		print '<div data-residential-serials data-name="'.$name.'[serials][]" id="'.$id.'-serials">';
-		foreach ($row['serials'] ?? array() as $position => $serial) {
+		$serials = $row['serials'] ?? array();
+		$quantity = (int) ($row['quantity'] ?? 0);
+		$maximum = (int) ($row['maximum'] ?? 0);
+		if ($isMicro && $quantity <= 1000 && ($maximum === 0 || $quantity <= $maximum)) {
+			$serials = array_pad($serials, $quantity, '');
+		}
+		foreach ($serials as $position => $serial) {
 			print '<div class="marginbottomonly" data-residential-serial><label>'.$langs->trans('PVResidentialSerialNumber').' <span data-residential-serial-number>'.($position + 1).'</span> ';
 			print '<input type="text" maxlength="128" class="flat maxwidth150" name="'.$name.'[serials][]" value="'.dol_escape_htmltag($serial).'"></label> ';
-			print '<button type="button" class="button" data-residential-remove-serial>'.$langs->trans('Remove').'</button></div>';
+			print '<button type="submit" name="residential_row_submit" value="remove_serial_'.$index.'_'.$position.'" class="button" data-residential-remove-serial>'.$langs->trans('Remove').'</button></div>';
 		}
 		print '</div></div>';
 	}
-	print '<button type="button" class="button" data-residential-remove>'.$langs->trans('Remove').'</button></fieldset>';
+	print '<button type="submit" name="residential_row_submit" value="remove_'.$group.'_'.$index.'" class="button" data-residential-remove>'.$langs->trans('Remove').'</button></fieldset>';
 }
 
 /** Render an integer or decimal input using the report form conventions. */

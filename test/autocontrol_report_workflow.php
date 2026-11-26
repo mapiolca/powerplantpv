@@ -27,6 +27,7 @@ require_once $core.'/core/lib/functions.lib.php';
 require_once $core.'/core/lib/files.lib.php';
 require_once $core.'/core/class/conf.class.php';
 require_once $core.'/core/class/translate.class.php';
+require_once $core.'/core/class/html.form.class.php';
 require_once $core.'/core/db/Database.interface.php';
 require_once $core.'/core/db/DoliDB.class.php';
 require_once $core.'/core/db/mysqli.class.php';
@@ -160,6 +161,29 @@ file_put_contents($directory.'/part-FINAL-technical.png', 'final approval');
 
 $proofPath = '';
 try {
+	$conf->use_javascript_ajax = 0;
+	$form = new Form($db);
+	$nativeOptions = array(
+		'plants' => array(1 => 'A', 2 => 'B'),
+		'products' => array(1 => array(7 => array('label' => 'MICRO-A')), 2 => array(8 => array('label' => 'MICRO-B'))),
+	);
+	$nativeData = array('placements' => array(), 'roofs' => array(), 'strings' => array(
+		array('micro' => 1, 'fk_powerplant' => 1, 'quantity' => 2, 'maximum' => 2),
+	));
+	ob_start();
+	foreach (array('RES_SALES', 'RES_STRINGS') as $section) {
+		powerplantpvResidentialRender($section, array('data' => $nativeData, 'options' => $nativeOptions), true, $form);
+	}
+	$nativeFields = (string) ob_get_clean();
+	$check(str_contains($nativeFields, '<div data-residential-placement-fields>') && str_contains($nativeFields, 'name="residential[placements][battery][description]"'),
+		'The location descriptions are visible before JavaScript initialization');
+	$check(str_contains($nativeFields, 'type="submit" name="residential_row_submit" value="add_roofs"')
+		&& str_contains($nativeFields, 'type="submit" name="residential_row_submit" value="add_strings"'),
+		'Roof and string additions can submit the report form');
+	$check(str_contains($nativeFields, '<div data-residential-micro-fields>') && substr_count($nativeFields, ' name="residential[strings][0][serials][]"') === 2
+		&& str_contains($nativeFields, 'MICRO-B') && str_contains($nativeFields, 'value="remove_serial_0_1"'),
+		'The native form renders eligible plant choices and editable serial rows from the saved quantity');
+
 	$check($parts->reopenPart($report, $intervention, $actor, 'AC1') < 0, 'The signer needs the dedicated permission');
 	$actor->canManageSigned = true;
 	$report->failEvent = true;

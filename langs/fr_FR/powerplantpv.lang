@@ -2122,6 +2122,7 @@ PVResidentialSafetyNotice=Mention sécurité obligatoire
 PVResidentialSafetyText=Les travaux en hauteur devront être réalisés avec les protections collectives ou individuelles adaptées (harnais, nacelle, ligne de vie) selon la configuration réelle du chantier.
 PVResidentialCompletedWork=5 · Travaux réalisés
 PVResidentialSerialNumber=Numéro de série
+PVResidentialSaveForSerials=Après avoir saisi la quantité, enregistrez le brouillon pour afficher les lignes de numéros de série.
 PVResidentialEvidenceDocuments=Pièces jointes de la prestation résidentielle
 PVResidentialEvidenceDocumentsDescription=Contrôle du type des documents avant leur dépôt.
 PVResidentialEvidencePNG=Photos PNG de la prestation résidentielle

@@ -87,6 +87,8 @@ $dcSectionId = GETPOSTINT('add_dc_section_id');
 $partToValidate = (string) GETPOST('validate_part_submit', 'aZ09', 2);
 $partToReopen = (string) GETPOST('reopen_part_code', 'aZ09');
 $reportRestoreScrollY = GETPOSTINT('report_scroll_y');
+$residentialRowSubmit = (string) GETPOST('residential_row_submit', 'aZ09', 2);
+$residentialAppend = (string) GETPOST('residential_append', 'aZ09', 1);
 $legacyVoltageCards = GETPOST('adopt_legacy_voltage_submit', 'array', 2);
 $legacyVoltageCard = is_array($legacyVoltageCards) && count($legacyVoltageCards) === 1 ? (string) key($legacyVoltageCards) : '';
 if (!preg_match('/^[a-f0-9]{32}$/D', $legacyVoltageCard)) {
@@ -97,7 +99,7 @@ $manualServiceIds = powerplantpvSanitizeIdArray(GETPOST('manual_services', 'arra
 if ($action === '') {
 	if ($partToValidate !== '') {
 		$action = 'validate_part';
-	} elseif (GETPOSTISSET('save_draft_submit') || $legacyVoltageCard !== '') {
+	} elseif (GETPOSTISSET('save_draft_submit') || $legacyVoltageCard !== '' || $residentialRowSubmit !== '') {
 		$action = 'save_draft';
 	} elseif (GETPOSTISSET('save_report_submit')) {
 		$action = 'save';
@@ -457,9 +459,14 @@ if ($caneditreport && $reportFetch > 0 && $report->report_template_code === Powe
 	}
 }
 if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
-	if ($reportFetch <= 0 && !$user->hasRight('powerplantpv', 'report', 'write')) {
+	if ($residentialRowSubmit !== '' && (!$user->hasRight('powerplantpv', 'report', 'write')
+		|| ($reportFetch > 0 && $report->report_template_code !== PowerPlantPVReportTemplate::CODE_RESIDENTIAL))) {
+		accessforbidden();
+	}
+	if ($reportFetch <= 0 && ($residentialRowSubmit !== '' || !$user->hasRight('powerplantpv', 'report', 'write'))) {
 		$preview = $builder->buildPreviewTree($intervention, $manualServiceIds);
-		if (($preview['report']->report_template_code ?? '') === PowerPlantPVReportTemplate::CODE_RESIDENTIAL) {
+		$isResidentialPreview = ($preview['report']->report_template_code ?? '') === PowerPlantPVReportTemplate::CODE_RESIDENTIAL;
+		if ($residentialRowSubmit !== '' ? !$isResidentialPreview : $isResidentialPreview) {
 			accessforbidden();
 		}
 	}
@@ -505,6 +512,9 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 			$residentialTree = $builder->loadReportTree((int) $report->id);
 			$options = is_array($residentialTree) ? $residential->options($builder->fetchResidentialEquipmentContext($intervention), (int) $report->entity, $user) : array();
 			$residentialForm = is_array($submitted) ? $submitted : array();
+			if ($action === 'save_draft') {
+				$residentialForm = PowerPlantPVResidentialReport::removeSubmittedRow($residentialForm, $residentialRowSubmit);
+			}
 			unset($residentialForm['staff']);
 			if (GETPOSTINT('ppv_staff_submitted', 2) === 1) {
 				$roofTeam = GETPOST('ppv_roof_team', 'array', 2);
@@ -688,6 +698,12 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 				setEventMessages($langs->trans('PowerPlantPVReportMissingEvidenceWarning'), $photoWarnings, 'warnings');
 			}
 			$redirectUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id;
+			if ($action === 'save_draft' && $isResidential && in_array($residentialRowSubmit, array('add_roofs', 'add_strings'), true)) {
+				$group = substr($residentialRowSubmit, 4);
+				$redirectUrl .= '&residential_append='.$group.'#residential-'.$group;
+				header('Location: '.$redirectUrl);
+				exit;
+			}
 			if ($action === 'save_draft') {
 				$savedCard = GETPOST('save_draft_submit', 'alphanohtml');
 				if (preg_match('/^[a-f0-9]{32}$/D', $savedCard) && isset($dcValues[$savedCard])) {
@@ -930,6 +946,9 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 			if ($caneditreport && $residentialForm !== null && GETPOSTINT('residential_complete', 2) === 1) {
 				$options['savedStaff'] = $data['staff'] ?? array();
 				$data = PowerPlantPVResidentialReport::normalize($residentialForm, $options, false)['data'];
+			}
+			if ($caneditreport && $action === '' && in_array($residentialAppend, array('roofs', 'strings'), true)) {
+				$data[$residentialAppend][] = array();
 			}
 			$proofs = powerplantpvResidentialProofOptions($tree, $intervention);
 			$residentialContext = array('options' => $options + $proofs, 'data' => $data + $proofs);

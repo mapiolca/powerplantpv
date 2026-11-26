@@ -184,6 +184,7 @@ class PowerPlantPVResidentialReport
 			return array();
 		}
 		$products = array();
+		$productLabels = array();
 		foreach ($tree['equipment'] ?? array() as $row) {
 			$row = (object) $row;
 			$plant = (int) $row->fk_powerplant;
@@ -199,6 +200,7 @@ class PowerPlantPVResidentialReport
 				}
 			}
 			if ($row->equipment_type === 'INVERTER' && $product > 0) {
+				$productLabels[$product] = $label;
 				$products[$product][$plant] = count($options['plants']) > 1 ? $options['plants'][$plant].' · '.$label : $label;
 			}
 		}
@@ -216,7 +218,9 @@ class PowerPlantPVResidentialReport
 		while ($row = $this->db->fetch_object($result)) {
 			$product = (int) $row->fk_product;
 			foreach ($products[$product] as $plant => $label) {
-				$options['products'][$plant][$product] = array('label' => $label, 'maximum' => (int) $row->max_microinverters_per_string ?: null);
+				$options['products'][$plant][$product] = array(
+					'label' => $label, 'product_label' => $productLabels[$product], 'maximum' => (int) $row->max_microinverters_per_string ?: null,
+				);
 			}
 		}
 		$this->db->free($result);
@@ -332,6 +336,29 @@ class PowerPlantPVResidentialReport
 		}
 		ksort($strings);
 		return array_values($strings);
+	}
+
+	/** Apply a native form row removal before validating and saving the draft.
+	 * @param array<string,mixed> $input Submitted residential fields
+	 * @return array<string,mixed>
+	 */
+	public static function removeSubmittedRow(array $input, string $command): array
+	{
+		if (preg_match('/^remove_(roofs|strings)_([0-9]+)$/D', $command, $matches)) {
+			if (is_array($input[$matches[1]] ?? null)) {
+				unset($input[$matches[1]][(int) $matches[2]]);
+			}
+		} elseif (preg_match('/^remove_serial_([0-9]+)_([0-9]+)$/D', $command, $matches)) {
+			$chain = (int) $matches[1];
+			$position = (int) $matches[2];
+			$row = $input['strings'][$chain] ?? null;
+			if (is_array($row) && is_array($row['serials'] ?? null) && array_key_exists($position, $row['serials'])) {
+				unset($row['serials'][$position]);
+				$row['quantity'] = count($row['serials']) ?: '';
+				$input['strings'][$chain] = $row;
+			}
+		}
+		return $input;
 	}
 
 	/** @param array<string,mixed> $input Submitted residential rows

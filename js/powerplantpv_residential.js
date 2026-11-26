@@ -46,6 +46,7 @@
 		const micro = item.querySelector("[data-residential-micro]").checked;
 		const conventionalFields = item.querySelector("[data-residential-conventional]");
 		const microFields = item.querySelector("[data-residential-micro-fields]");
+		microFields.querySelector("[data-residential-serial-help]").hidden = true;
 		conventionalFields.hidden = micro;
 		microFields.hidden = !micro;
 		for (const input of conventionalFields.querySelectorAll("input")) input.disabled = micro;
@@ -137,6 +138,7 @@
 				} else {
 					return;
 				}
+				event.preventDefault();
 				refreshNumbers();
 				markChanged(group);
 			});

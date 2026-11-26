@@ -2121,6 +2121,7 @@ PVResidentialSafetyNotice=Mandatory safety notice
 PVResidentialSafetyText=Work at height must use collective or personal protection appropriate to the actual site conditions (harness, work platform, lifeline).
 PVResidentialCompletedWork=5 · Completed work
 PVResidentialSerialNumber=Serial number
+PVResidentialSaveForSerials=After entering the quantity, save the draft to display the serial number fields.
 PVResidentialEvidenceDocuments=Residential scope documents
 PVResidentialEvidenceDocumentsDescription=Check document types before storing uploads.
 PVResidentialEvidencePNG=Residential scope PNG photos

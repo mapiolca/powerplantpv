@@ -29,6 +29,17 @@ $base = array(
 );
 $roof = array('orientation' => 'SE', 'module_count' => '8', 'row_count' => '2', 'column_count' => '4');
 $micro = array('micro' => '1', 'fk_powerplant' => '1', 'quantity' => '2', 'serials' => array('SER-1', 'SER-2'));
+$beforeRemoval = $base;
+$beforeRemoval['roofs'] = array($roof, $roof);
+$beforeRemoval['strings'][] = $micro;
+$removed = PowerPlantPVResidentialReport::removeSubmittedRow($beforeRemoval, 'remove_roofs_0');
+$removed = PowerPlantPVResidentialReport::removeSubmittedRow($removed, 'remove_serial_1_1');
+$afterRemoval = PowerPlantPVResidentialReport::normalize($removed, $options, true);
+residentialCheck(!$afterRemoval['errors'] && count($afterRemoval['data']['roofs']) === 1
+	&& $afterRemoval['data']['strings'][1]['quantity'] === 1 && $afterRemoval['data']['strings'][1]['serials'] === array('SER-1'),
+	'Native row removal keeps the other roof and adjusts the selected string quantity');
+$removed = PowerPlantPVResidentialReport::removeSubmittedRow($removed, 'remove_strings_1');
+residentialCheck(count($removed['strings']) === 1 && $removed['strings'][0] === $base['strings'][0], 'Native string removal leaves other rows intact');
 $ok = PowerPlantPVResidentialReport::normalize($base, $options, true);
 residentialCheck(!$ok['errors'] && $ok['data']['strings'][0]['voltage'] === 315.5, 'A completed conventional string and a location suffice');
 residentialCheck(in_array('PVResidentialStringRequired', PowerPlantPVResidentialReport::normalize(array('strings' => array(array())), $options, true)['errors'], true), 'At least one string is required');
