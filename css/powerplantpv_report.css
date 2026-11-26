@@ -15,6 +15,34 @@
 	color: var(--colortexttitle, inherit);
 }
 
+.page-maintenance-intervention-report .powerplantpv-section-heading {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px;
+}
+
+.page-maintenance-intervention-report .powerplantpv-section-heading::-webkit-details-marker { display: none; }
+
+.page-maintenance-intervention-report .powerplantpv-section-heading::before {
+	content: "";
+	width: 0;
+	height: 0;
+	border-block: 4px solid transparent;
+	border-inline-start: 6px solid currentColor;
+	align-self: start;
+	margin-block-start: 5px;
+}
+
+.page-maintenance-intervention-report details[open] > .powerplantpv-section-heading::before { transform: rotate(90deg); }
+.page-maintenance-intervention-report .powerplantpv-section-heading-text { overflow-wrap: anywhere; }
+.page-maintenance-intervention-report .powerplantpv-section-identity { display: block; }
+.page-maintenance-intervention-report .powerplantpv-section-required { justify-self: end; white-space: nowrap; }
+.page-maintenance-intervention-report [data-connection-condition][hidden] { display: none; }
+.page-maintenance-intervention-report .powerplantpv-conformity-radios { display: flex; align-items: center; gap: .5em; }
+.page-maintenance-intervention-report .powerplantpv-conformity-radios label { display: inline-flex; align-items: center; white-space: nowrap; margin: 0; }
+.page-maintenance-intervention-report .powerplantpv-conformity-radios input { margin: 0 .2em 0 0; }
+
 .page-maintenance-intervention-report .powerplantpv-report-fields {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
@@ -351,7 +379,7 @@
 	border-left: 3px solid var(--colorbackhmenu1, var(--colortexttitle, currentColor));
 }
 
-.page-maintenance-intervention-report .powerplantpv-dc-card label {
+.page-maintenance-intervention-report .powerplantpv-dc-card :is(label, .powerplantpv-dc-switch) {
 	display: grid;
 	grid-template-columns: minmax(118px, 34%) minmax(0, 1fr);
 	align-items: center;
@@ -418,7 +446,7 @@
 	}
 
 	.page-maintenance-intervention-report .powerplantpv-report-field-inline,
-	.page-maintenance-intervention-report .powerplantpv-dc-card label {
+	.page-maintenance-intervention-report .powerplantpv-dc-card :is(label, .powerplantpv-dc-switch) {
 		grid-template-columns: minmax(96px, 42%) minmax(0, 1fr);
 		column-gap: 8px;
 	}
@@ -513,6 +541,8 @@
 }
 
 .page-maintenance-intervention-report button.powerplantpv-save-collapse[type="submit"] { display: none; }
+.page-maintenance-intervention-report [data-report-binary] [hidden] { display: none; }
+
 .page-maintenance-intervention-report .powerplantpv-dc-card-title { list-style: none; }
 .page-maintenance-intervention-report .powerplantpv-dc-card-title::-webkit-details-marker { display: none; }
 @media (max-width: 767px) {

@@ -1,5 +1,20 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.10.3 — 2026-11-26
+
+- Le menu « Créer » des commandes clients clôturées propose « Créer centrale PV » lorsque la commande contient du matériel photovoltaïque éligible. La centrale reprend le matériel de la commande.
+
+## 1.10.2 — 2026-11-26
+
+- Ajout des quatre rubriques de sécurité FR37 au rapport résidentiel et à son PDF.
+- Communication Internet par centrale et contrôle du monitoring par onduleur. Recalculer les brouillons après mise à jour pour reprendre les anciennes valeurs.
+- Mode compact C / NC / SO dans les formulaires et identification de l’onduleur sous le titre de sa section.
+- Sélection des membres de l’équipe toiture et du référent électricité parmi les utilisateurs de l’entité du rapport. Les champs Oui/Non utilisent des interrupteurs.
+- Ajout des photos et documents de la prestation vendue, des emplacements et du calepinage par toiture.
+- Saisie de strings classiques ou à micro-onduleurs, avec référence, numéros de série et maximum facultatif par chaîne dans les caractéristiques du produit.
+- Les numéros de série manquants peuvent être justifiés par une preuve par chaîne ou commune. Les preuves sont reproduites en image dans le PDF et jointes à l’intervention et aux centrales concernées à la finalisation. Les preuves acceptent JPEG, PNG et, si la conversion serveur est disponible, la première page d’un PDF.
+- Actualiser le module dans chaque entité concernée, puis recalculer les brouillons résidentiels existants. Les rapports finalisés conservent leur présentation historique. Le dépôt de photos requiert GD et, pour les JPEG, l’extension EXIF. La vérification du type réel des pièces utilise Fileinfo.
+
 ## 1.10.1 — 2026-11-26
 
 - Le bouton « Annuler » du formulaire de création revient à la liste des attestations sans valider ni enregistrer la saisie.

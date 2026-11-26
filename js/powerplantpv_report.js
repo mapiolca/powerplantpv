@@ -306,6 +306,8 @@
 				var controls = Array.prototype.slice.call(field.querySelectorAll('input:not([type="hidden"]), select, textarea'));
 				var filled = controls.some(function (control) {
 					if (control.type === 'file') { return control.files.length > 0 || field.dataset.progressFilled === '1'; }
+					if (control.parentElement.hasAttribute('data-report-binary')) { return control.value !== '-1'; }
+					if (control.type === 'radio') { return control.checked; }
 					if (type === 'yesno' || type === 'checkbox') { return control.value === '0' || control.value === '1'; }
 					if (control.multiple) { return control.selectedOptions.length > 0; }
 					return control.value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() !== '';
@@ -406,9 +408,60 @@
 		}, true);
 	}
 
+	function enableReportCommunication(form) {
+		form.querySelectorAll('[data-report-communication]').forEach(function (block) {
+			var select = block.querySelector('[data-connection-choice] select');
+			if (!select) { return; }
+			function refresh() {
+				block.querySelectorAll('[data-connection-condition]').forEach(function (field) {
+					var applicable = select.value === field.dataset.connectionCondition;
+					field.hidden = !applicable;
+					field.querySelectorAll('input, select, textarea').forEach(function (input) {
+						input.disabled = !applicable;
+						if (field.dataset.connectionCondition === 'WIFI' && input.type !== 'hidden') {
+							input.setAttribute('aria-required', applicable ? 'true' : 'false');
+						}
+					});
+				});
+			}
+			if (window.jQuery) {
+				window.jQuery(select).on('change.powerplantpvCommunication', refresh);
+			} else {
+				select.addEventListener('change', refresh);
+			}
+			refresh();
+		});
+	}
+
+	function enableReportSwitches(form) {
+		form.querySelectorAll('[data-report-binary]').forEach(function (field) {
+			var select = field.querySelector('select');
+			var button = field.querySelector('button[role="switch"]');
+			var on = field.dataset.on;
+			var off = field.dataset.off;
+			function refresh() {
+				var enabled = select.value === on;
+				button.setAttribute('aria-checked', enabled ? 'true' : 'false');
+				button.querySelector('[data-switch-on]').hidden = !enabled;
+				button.querySelector('[data-switch-off]').hidden = enabled;
+				button.querySelector('[data-switch-label]').textContent = select.selectedOptions[0].text;
+			}
+			button.addEventListener('click', function () {
+				select.value = select.value === on ? off : on;
+				select.dispatchEvent(new Event('change', { bubbles: true }));
+			});
+			select.addEventListener('change', refresh);
+			refresh();
+			select.hidden = true;
+			button.hidden = false;
+		});
+	}
+
 	document.addEventListener('DOMContentLoaded', function () {
 		var form = document.getElementById('powerplantpvreportform');
 		if (form) {
+			enableReportSwitches(form);
+			enableReportCommunication(form);
 			enableReportNavigation(form);
 			enableReportWorkflow(form);
 			form.addEventListener('submit', function () {

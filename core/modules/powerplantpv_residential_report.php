@@ -11,7 +11,13 @@ $sections = array(
 	array('RES_TESTS', 'Contrôles électriques', 'Electrical checks', 'intervention', '', 'once', ''),
 	array('RES_STRINGS', 'Relevés des strings', 'String readings', 'intervention', '', 'once', ''),
 	array('RES_INVERTER', 'Essais et connexion de l’onduleur', 'Inverter tests and connection', 'inverter', '', 'once_per_equipment', ''),
+	array('RES_COMMUNICATION', 'Communication et Internet', 'Communication and Internet', 'powerplant', '', 'once_per_powerplant', ''),
 	array('RES_CONCLUSION', 'Observations et conclusion', 'Observations and conclusion', 'intervention', '', 'once', ''),
+	array('RES_RISK_ANALYSIS', '3.a · Analyse des risques', '3.a · Risk assessment', 'intervention', '', 'once', ''),
+	array('RES_PROTECTION', '3.b · Moyens de protection prévus', '3.b · Planned protective measures', 'intervention', '', 'once', ''),
+	array('RES_ACCESS_EQUIPMENT', '3.c · Équipements d’accès', '3.c · Access equipment', 'intervention', '', 'once', ''),
+	array('RES_INSTRUCTIONS', '3.d · Consignes de sécurité', '3.d · Safety instructions', 'intervention', '', 'once', ''),
+	array('RES_SALES', '4 · Prestation vendue par le commercial', '4 · Scope sold by the salesperson', 'intervention', '', 'once', ''),
 );
 
 $fields = array(
@@ -63,6 +69,56 @@ $fields = array(
 	array('RES_TESTS', 'RES_LABELS', 'Étiquetage des équipements et protections', 'Equipment and protection labelling', 'conformity_so_valid_obs', '', 1),
 );
 
+$fields = array_merge($fields, array(
+	array('RES_RISK_ANALYSIS', 'RES_RISK_SELECTION', 'Risques identifiés', 'Identified risks', 'multiselect', '', 0, '', array(
+		'HEIGHT' => array('Chute de hauteur', 'Fall from height'),
+		'OBJECTS' => array('Chute d’objets', 'Falling objects'),
+		'ELECTRIC' => array('Risque électrique', 'Electrical hazard'),
+		'LOAD' => array('Manutention de charges', 'Manual handling'),
+		'WEATHER' => array('Conditions météo (vent / pluie)', 'Weather conditions (wind / rain)'),
+	)),
+	array('RES_RISK_ANALYSIS', 'RES_RISK_OTHER', 'Autres risques', 'Other risks', 'textarea', '', 0),
+	array('RES_RISK_ANALYSIS', 'RES_PREVENTION_SELECTION', 'Mesures de prévention prévues', 'Planned preventive measures', 'multiselect', '', 0, '', array(
+		'BARRIERS' => array('Balisage de la zone au sol', 'Mark out the ground area'),
+		'BRIEF' => array('Brief sécurité avant démarrage', 'Pre-start safety briefing'),
+		'WEATHER' => array('Vérification météo', 'Weather check'),
+		'ROOF' => array('Accès toiture sécurisé', 'Secure roof access'),
+		'TEAM' => array('Travail en binôme obligatoire', 'Work in pairs'),
+	)),
+	array('RES_PROTECTION', 'RES_COLLECTIVE_SELECTION', 'Protections collectives (prioritaires)', 'Collective protection (priority)', 'multiselect', '', 0, '', array(
+		'RAIL' => array('Garde-corps', 'Guardrails'),
+		'LIFT' => array('Nacelle', 'Elevating work platform'),
+		'SCAFFOLD' => array('Échafaudage conforme', 'Compliant scaffolding'),
+	)),
+	array('RES_PROTECTION', 'RES_PPE_SELECTION', 'Protections individuelles', 'Personal protective equipment', 'multiselect', '', 0, '', array(
+		'HARNESS' => array('Harnais antichute', 'Fall arrest harness'),
+		'RETRACTOR' => array('Enrouleur antichute', 'Retractable fall arrester'),
+		'HELMET' => array('Casque avec jugulaire', 'Helmet with chin strap'),
+		'BOOTS' => array('Chaussures de sécurité', 'Safety footwear'),
+	)),
+	array('RES_ACCESS_EQUIPMENT', 'RES_LIFT_PLANNED', 'Nacelle prévue', 'Elevating work platform planned', 'select', '', 0),
+	array('RES_ACCESS_EQUIPMENT', 'RES_LADDER_PLANNED', 'Échelle', 'Ladder', 'select', '', 0),
+	array('RES_ACCESS_EQUIPMENT', 'RES_LIFELINE_PLANNED', 'Ligne de vie', 'Lifeline', 'select', '', 0),
+	array('RES_ACCESS_EQUIPMENT', 'RES_PPE_BEFORE_DEPARTURE', 'Vérification EPI avant départ', 'PPE checked before departure', 'select', '', 0),
+	array('RES_INSTRUCTIONS', 'RES_RULE_SELECTION', 'Consignes de sécurité', 'Safety instructions', 'multiselect', '', 0, '', array(
+		'HARNESS' => array('Port du harnais obligatoire si absence de protection collective', 'Wear a harness when collective protection is unavailable'),
+		'ROOF' => array('Accès toiture interdit sans sécurisation préalable', 'Do not access the roof before it is secured'),
+		'WEATHER' => array('Arrêt du chantier en cas de vent fort / pluie', 'Stop work in strong wind or rain'),
+		'BARRIERS' => array('Zone au sol balisée pour éviter les chutes d’objets', 'Mark out the ground area to protect against falling objects'),
+	)),
+	array('RES_INSTRUCTIONS', 'RES_SPECIFIC_INSTRUCTIONS', 'Consignes spécifiques', 'Specific instructions', 'textarea', '', 0),
+	array('RES_SALES', 'RES_SALES_FILES', 'Photos et documents de la prestation', 'Scope photos and documents', 'file', '', 0),
+));
+foreach ($fields as &$definition) {
+	if ($definition[0] === 'RES_ACCESS_EQUIPMENT') {
+		$definition[8] = array('YES' => array('Oui', 'Yes'), 'NO' => array('Non', 'No'));
+	}
+}
+unset($definition);
+
+$fields[] = array('RES_STRINGS', 'RES_MICRO_PROOF_COMMON', 'Preuves communes à toutes les chaînes à micro-onduleurs', 'Evidence for all microinverter strings', 'file', '', 0);
+$fields[] = array('RES_STRINGS', 'RES_MICRO_PROOF_CHAIN', 'Preuves à affecter aux chaînes à micro-onduleurs', 'Evidence to assign to individual microinverter strings', 'file', '', 0);
+
 for ($string = 1; $string <= 3; $string++) {
 	$fields[] = array('RES_STRINGS', 'RES_STRING_'.$string.'_VOLTAGE', 'Tension du string '.$string, 'String '.$string.' voltage', 'number', 'V', 0);
 	$fields[] = array('RES_STRINGS', 'RES_STRING_'.$string.'_PANELS', 'Nombre de panneaux du string '.$string, 'String '.$string.' module count', 'number', '', 0);
@@ -71,12 +127,22 @@ for ($string = 1; $string <= 3; $string++) {
 $fields = array_merge($fields, array(
 	array('RES_INVERTER', 'RES_INVERTER_TEST', 'Essais de l’onduleur', 'Inverter tests', 'conformity_so_valid_obs', '', 1),
 	array('RES_INVERTER', 'RES_INVERTER_POWER', 'Puissance mesurée en sortie', 'Measured output power', 'number', 'W', 0),
-	array('RES_INVERTER', 'RES_NETWORK', 'Connexion internet', 'Internet connection', 'select', '', 0, '', array(
+	array('RES_INVERTER', 'RES_MONITORING', 'Communication monitoring', 'Monitoring communication', 'conformity_so_valid_obs', '', 1),
+	array('RES_COMMUNICATION', 'RES_CONNECTION', 'Connexion Internet', 'Internet connection', 'select', '', 0, '', array(
 		'WIFI' => array('Wi-Fi', 'Wi-Fi'),
 		'RJ45' => array('Câblée (RJ45)', 'Wired (RJ45)'),
+		'CELLULAR' => array('Réseau cellulaire', 'Cellular network'),
+		'NONE' => array('Aucune', 'None'),
 		'OTHER' => array('Autre', 'Other'),
 	)),
-	array('RES_INVERTER', 'RES_WIFI_REASON', 'Motif du Wi-Fi', 'Reason for Wi-Fi', 'varchar', '', 0),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_WIFI', 'Motif Wi-Fi', 'Reason for Wi-Fi', 'varchar', '', 0),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_SUBSCRIBER', 'Responsable de l’abonnement', 'Subscription owner', 'select', '', 0, '', array(
+		'CUSTOMER' => array('Client', 'Customer'),
+		'ENTITY' => array('Entité', 'Entity'),
+		'OTHER' => array('Autre', 'Other'),
+	)),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_SIM', 'Numéro ou référence de la carte SIM', 'SIM card number or reference', 'varchar', '', 0),
+	array('RES_COMMUNICATION', 'RES_CONNECTION_HISTORY', 'Anciennes valeurs par onduleur', 'Previous readings by inverter', 'varchar', '', 0),
 	array('RES_CONCLUSION', 'RES_OBSERVATIONS', 'Écarts et observations', 'Deviations and observations', 'textarea', '', 0),
 	array('RES_CONCLUSION', 'RES_RESULT', 'Résultat', 'Result', 'select', '', 1, '', array(
 		'CONFORM' => array('Conforme', 'Compliant'),

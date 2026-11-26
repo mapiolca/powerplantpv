@@ -1006,6 +1006,12 @@ if ($conf->use_javascript_ajax) {
 }
 print '<br>';
 
+print load_fiche_titre($langs->trans('PowerPlantPVReportFormSettings'), '', 'fa-list');
+print '<table class="noborder centpercent"><tr class="oddeven"><td class="titlefield">'.$langs->trans('PowerPlantPVReportCompactConformity');
+print '<br><span class="opacitymedium">'.$langs->trans('PowerPlantPVReportCompactConformityHelp').'</span></td><td>';
+print ajax_constantonoff('POWERPLANTPV_REPORT_COMPACT_CONFORMITY', array(), (int) $conf->entity, 0, 0, 0, 2, 0, 1);
+print '</td></tr></table>';
+
 print load_fiche_titre($langs->trans('PowerPlantPVReportPdfSettings'), '', 'fa-file-pdf');
 print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportPdfSettingsHelp').'</span>';
 print '<table class="noborder centpercent">';

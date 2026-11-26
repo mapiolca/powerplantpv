@@ -37,7 +37,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring, mysqli
+          extensions: mbstring, mysqli, pdo_sqlite
           coverage: none
       - name: PHP syntax and isolated behavior
         run: |
@@ -50,6 +50,8 @@ jobs:
           php -l powerplantpv/core/modules/fichinter/doc/powerplantpvreportpartspdf.trait.php
           php powerplantpv/test/inverter_maintenance.php
           php powerplantpv/test/report_plant_completion.php dolibarr/htdocs
+          php powerplantpv/test/residential_report.php dolibarr/htdocs
+          php powerplantpv/test/autocontrol_report_workflow.php dolibarr/htdocs powerplantpv
       - name: Native contracts with simulated schema and PDF capture
         run: php powerplantpv/test/inverter_maintenance_native.php dolibarr/htdocs powerplantpv
       - name: Visual PDF rendered with the core TCPDF

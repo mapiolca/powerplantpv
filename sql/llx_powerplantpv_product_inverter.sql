@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS llx_powerplantpv_product_inverter(
 	grid_frequency_nominal double(24,8),
 	grid_frequency_max double(24,8),
 	ac_max_output_current double(24,8),
+	is_microinverter smallint,
+	max_microinverters_per_string integer,
 	phase_count integer,
 	power_factor varchar(64),
 	thd varchar(64),
