@@ -34,7 +34,7 @@ Panel serials are available in a separate CSV attachment generated from the repo
 See [the implementation and validation notes](docs/release/v1.8-maintenance-development.md)
 for activation, historic reports, naming existing equipment and validation limits.
 
-Version 1.10.2 extends residential self-inspection reports with FR37 safety sections, sales-scope evidence, roof layouts and repeatable PV strings. Mark microinverters and set an optional maximum per string in the product’s detailed characteristics. Refresh PowerPlantPV in each relevant Dolibarr entity and recalculate existing residential drafts to load the new sections.
+Version 1.10.3 allows users to create a PV plant from a closed customer order and import its eligible PV equipment. See [ChangeLog.md](ChangeLog.md) for the residential report changes and upgrade instructions introduced in 1.10.2.
 
 Version 1.10.1 fixes the Cancel button on the new attestation form. New power plants can copy the selected third party’s address directly into the form, and the third party is preselected when starting from an order. See [ChangeLog.md](ChangeLog.md).
 

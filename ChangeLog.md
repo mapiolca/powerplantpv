@@ -1,5 +1,9 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.10.3 — 2026-11-26
+
+- Le menu « Créer » des commandes clients clôturées propose « Créer centrale PV » lorsque la commande contient du matériel photovoltaïque éligible. La centrale reprend le matériel de la commande.
+
 ## 1.10.2 — 2026-11-26
 
 - Ajout des quatre rubriques de sécurité FR37 au rapport résidentiel et à son PDF.

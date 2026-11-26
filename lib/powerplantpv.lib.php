@@ -747,7 +747,7 @@ function powerplantpvIsAutomaticMaterialSourceEligible($origin, $sourceobject)
 		$statusdraft = defined('Commande::STATUS_DRAFT') ? constant('Commande::STATUS_DRAFT') : 0;
 		$statusclosed = defined('Commande::STATUS_CLOSED') ? constant('Commande::STATUS_CLOSED') : 3;
 		$statuscanceled = defined('Commande::STATUS_CANCELED') ? constant('Commande::STATUS_CANCELED') : -1;
-		return $status > $statusdraft && $status < $statusclosed && $status != $statuscanceled;
+		return $status > $statusdraft && $status <= $statusclosed && $status != $statuscanceled;
 	}
 
 	return false;
