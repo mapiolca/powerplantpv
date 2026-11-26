@@ -197,6 +197,11 @@ function powerplantpvAdminPrepareHead()
 	$h++;
 	*/
 
+	$head[$h][0] = dol_buildpath("/powerplantpv/admin/supervision.php", 1);
+	$head[$h][1] = $langs->trans("PowerPlantPVSupervision");
+	$head[$h][2] = "supervision";
+	$h++;
+
 	$head[$h][0] = dolBuildUrl(dol_buildpath("/powerplantpv/admin/about.php", 1));
 	$head[$h][1] = $langs->trans("About");
 	$head[$h][2] = 'about';

@@ -32,3 +32,9 @@ La tuile donne accès aux **Défauts sous prestation** et aux **Centrales sous p
 - Isoler les réglages, secrets et écritures par entité. Contrôler le périmètre des centrales, y compris pour les recherches, les compteurs, les statistiques et les exports. Garder les secrets côté serveur et hors des journaux.
 - Pour ATMOCE, valider sur un site pilote les droits d’accès, la production, les unités, le fuseau horaire, l’état technique et la fraîcheur. La collecte initiale vise la lecture. La disponibilité des alarmes détaillées reste à confirmer auprès du fabricant.
 - Vérifier les filtres et les liens avec chaque état, les centrales sous prestation avec et sans liaison, les droits partiels, deux entités et les cas de donnée absente ou égale à zéro. Vérifier aussi la désactivation, le quota et le rejeu d’une collecte.
+
+## Premier incrément
+
+Actualiser le module dans Dolibarr pour créer les tables et déclarer la collecte dans les Travaux planifiés. Dans **Réglages → Supervision**, enregistrer les identifiants d’intégration ATMOCE, tester la connexion enregistrée puis activer le connecteur. Sur une centrale, rechercher les sites autorisés et enregistrer la liaison. La fréquence se règle par entité et la collecte commence dès le prochain passage éligible du travail planifié.
+
+Les courbes utilisent les mesures acquises après la liaison. Les vues de 7 et 30 jours reprennent le dernier cumul journalier disponible pour chaque jour. L’import de l’historique fabricant, les relevés détaillés par équipement, le filtre de liste, la tuile, le camembert et le rapprochement des prestations relèvent des incréments suivants. La connexion OAuth avec autorisation du propriétaire reste également à intégrer.
