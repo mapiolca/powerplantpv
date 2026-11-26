@@ -532,6 +532,10 @@ if ($action == 'create') {
 	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['installed_power']['visible'] = 0;
 	$object->fields = dol_sort_array($object->fields, 'position');
+	$projectSelectionRow = powerplantRenderProjectSelection($object, $user);
+	if (!isset($object->fields['fk_soc'])) {
+		print $projectSelectionRow;
+	}
 	foreach ($object->fields as $key => $val) {
 		$visible = (int) $val['visible'];
 		if (abs($visible) != 1 && abs($visible) != 3 && abs($visible) != 6) {
@@ -569,8 +573,9 @@ if ($action == 'create') {
 			$value = GETPOST($key, 'alphanohtml');
 		}
 
+		$required = !empty($val['notnull']) && $val['notnull'] > 0 && empty($val['noteditable']) && empty($val['disabled']);
 		print '<tr class="field_'.$key.'">';
-		print '<td class="titlefieldcreate'.((isset($val['notnull']) && $val['notnull'] > 0) ? ' fieldrequired' : '').(($type == 'text' || $type == 'html') ? ' tdtop' : '').'">';
+		print '<td class="titlefieldcreate'.($required ? ' fieldrequired' : '').(($type == 'text' || $type == 'html' || $key === 'address') ? ' tdtop' : '').'">';
 		print '<label for="'.$key.'" class="block">';
 		if (!empty($val['help'])) {
 			print $form->textwithpicto($langs->trans($val['label']), $langs->trans($val['help']));
@@ -605,6 +610,9 @@ if ($action == 'create') {
 		}
 		print '</td>';
 		print '</tr>';
+		if ($key === 'fk_soc') {
+			print $projectSelectionRow;
+		}
 	}
 
 	// Other attributes
@@ -694,7 +702,6 @@ if ($action == 'create') {
 		print '</div>';
 	}
 
-	print powerplantRenderProjectSelection($object, $user);
 	print $form->buttonsSaveCancel("Create");
 	print '</form>';
 
@@ -826,8 +833,9 @@ $k_purchase_tariff = 'buyback_tariff';
 				$value = powerplantGetConnectionTypeFormValue($value);
 			}
 
+			$required = !empty($def['notnull']) && $def['notnull'] > 0 && empty($def['noteditable']) && empty($def['disabled']);
 			print '<tr class="field_'.$key.'">';
-			print '<td class="titlefieldcreate">'.$label.'</td>';
+			print '<td class="titlefieldcreate'.($required ? ' fieldrequired' : '').'">'.$label.'</td>';
 			if (!empty($def['noteditable']) || !empty($def['disabled'])) {
 				print '<td class="valuefieldcreate">'.powerplantRenderPowerPlantOutputField($object, $def, $key, $value).'</td>';
 			} else {
@@ -930,7 +938,10 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print dol_get_fiche_end();
 
-	print powerplantRenderProjectSelection($object, $user);
+	$projectSelectionRow = powerplantRenderProjectSelection($object, $user);
+	if ($projectSelectionRow !== '') {
+		print '<table class="border centpercent tableforfield">'.$projectSelectionRow.'</table>';
+	}
 	print $form->buttonsSaveCancel();
 
 	print '</form>';

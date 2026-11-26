@@ -2006,8 +2006,10 @@ class PowerPlant extends CommonObject
 	 */
 	public function validateField($fields, $fieldKey, $fieldValue)
 	{
-		// Add your own validation rules here.
-		// ...
+		// The native select submits 0 for an unset optional connection type.
+		if ($fieldKey === 'connection_type' && (string) $fieldValue === '0') {
+			$fieldValue = '';
+		}
 
 		return parent::validateField($fields, $fieldKey, $fieldValue);
 	}
