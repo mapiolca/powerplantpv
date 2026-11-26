@@ -12,9 +12,17 @@ $module = $argv[2] ?? dirname(__DIR__);
 define('DOL_DOCUMENT_ROOT', $core);
 define('DOL_URL_ROOT', '');
 define('MAIN_DB_PREFIX', 'workflow_');
-if (is_file($core.'/version.inc.php')) {
-	require_once $core.'/version.inc.php';
+if (is_file(DOL_DOCUMENT_ROOT.'/version.inc.php')) {
+	require_once DOL_DOCUMENT_ROOT.'/version.inc.php';
+} else {
+	// Older core versions define their version in filefunc.inc.php; do not bootstrap an instance.
+	$versionSource = file_get_contents(DOL_DOCUMENT_ROOT.'/filefunc.inc.php');
+	if (!is_string($versionSource) || !preg_match('/define\([\'"]DOL_VERSION[\'"],\s*[\'"]([^\'"]+)/', $versionSource, $versionMatch)) {
+		throw new RuntimeException('Cannot identify the Dolibarr core version.');
+	}
+	define('DOL_VERSION', $versionMatch[1]);
 }
+
 require_once $core.'/core/lib/functions.lib.php';
 require_once $core.'/core/class/conf.class.php';
 require_once $core.'/core/class/translate.class.php';

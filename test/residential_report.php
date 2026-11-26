@@ -6,7 +6,8 @@
 if (PHP_SAPI !== 'cli' || !isset($argv[1]) || !is_file($argv[1].'/core/lib/functions.lib.php')) {
 	exit(1);
 }
-require_once $argv[1].'/core/lib/functions.lib.php';
+define('DOL_DOCUMENT_ROOT', realpath($argv[1]));
+require_once DOL_DOCUMENT_ROOT.'/core/lib/functions.lib.php';
 require_once dirname(__DIR__).'/class/powerplantpvresidentialreport.class.php';
 
 function residentialCheck(bool $condition, string $message): void
