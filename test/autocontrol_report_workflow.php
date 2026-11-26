@@ -24,6 +24,9 @@ if (is_file(DOL_DOCUMENT_ROOT.'/version.inc.php')) {
 }
 
 require_once $core.'/core/lib/functions.lib.php';
+if (is_file($core.'/core/lib/html.lib.php')) {
+	require_once $core.'/core/lib/html.lib.php';
+}
 require_once $core.'/core/lib/files.lib.php';
 require_once $core.'/core/class/conf.class.php';
 require_once $core.'/core/class/translate.class.php';
