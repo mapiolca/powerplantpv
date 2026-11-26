@@ -518,6 +518,36 @@ function powerplantpv_print_native_product_row($label, $value)
 	print '</tr>';
 }
 
+/** Render the microinverter classification and its optional per-string limit. */
+function powerplantpv_print_microinverter_rows(ProductInverter $inverter, bool $editMode): void
+{
+	global $langs, $conf, $form;
+
+	$useSwitch = $editMode && !empty($conf->use_javascript_ajax);
+	$isMicro = $editMode && GETPOSTISSET('is_microinverter')
+		? GETPOSTINT('is_microinverter') === 1 : (int) ($inverter->data['is_microinverter'] ?? 0) === 1;
+	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('PVMicroinverter').'</td><td>';
+	if ($useSwitch) {
+		print '<button type="button" role="switch" aria-label="'.$langs->trans('PVMicroinverter').'" aria-checked="'.($isMicro ? 'true' : 'false').'" class="button" id="powerplantpv-micro-switch">'.yn((int) $isMicro).'</button>';
+		print '<input type="hidden" name="is_microinverter" id="is_microinverter" value="'.(int) $isMicro.'">';
+	} elseif ($editMode) {
+		print $form->selectyesno('is_microinverter', (int) $isMicro, 1);
+	} else {
+		print yn((int) $isMicro);
+	}
+	print '</td></tr>';
+	if ($editMode || $isMicro) {
+		$maximum = $editMode && GETPOSTISSET('max_microinverters_per_string')
+			? GETPOST('max_microinverters_per_string', 'alpha') : ($inverter->data['max_microinverters_per_string'] ?? '');
+		print '<tr class="oddeven" id="powerplantpv-micro-limit"'.($useSwitch && !$isMicro ? ' hidden' : '').'><td class="titlefield"><label for="max_microinverters_per_string">'.$langs->trans('PVMaxMicroinvertersPerString').'</label></td><td>';
+		print $editMode ? '<input type="number" min="1" step="1" class="flat maxwidth100" id="max_microinverters_per_string" name="max_microinverters_per_string" value="'.dol_escape_htmltag((string) $maximum).'">' : ($maximum !== '' ? (int) $maximum : $langs->trans('PVMicroLimitUnset'));
+		print '</td></tr>';
+	}
+	if ($useSwitch) {
+		print '<script nonce="'.getNonce().'">document.getElementById("powerplantpv-micro-switch").addEventListener("click",function(){var field=document.getElementById("is_microinverter");var active=field.value!=="1";field.value=active?"1":"0";this.setAttribute("aria-checked",String(active));this.textContent=active?'.json_encode($langs->transnoentities('Yes'), JSON_HEX_TAG).':'.json_encode($langs->transnoentities('No'), JSON_HEX_TAG).';document.getElementById("powerplantpv-micro-limit").hidden=!active;});</script>';
+	}
+}
+
 /**
  * Print inverter general form rows.
  *
@@ -1429,6 +1459,9 @@ if ($hasInverterCharacteristics) {
 		print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$object->id.'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="action" value="save_inverter">';
+	}
+	if ($isInverter) {
+		powerplantpv_print_microinverter_rows($inverter, $editmode);
 	}
 	powerplantpv_print_inverter_general_rows($inverter, $editmode);
 	powerplantpv_print_technical_dictionary_selections($technicalDictionaryService, $object->id, (int) $object->entity, $editmode);

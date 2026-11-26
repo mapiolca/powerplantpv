@@ -366,6 +366,30 @@ class PowerPlantPVCompatibility
 				'available' => $attestationonlinesignatureavailable,
 				'reason' => $attestationonlinesignaturereason,
 			),
+			'residential_evidence_documents' => array(
+				'label' => 'PVResidentialEvidenceDocuments',
+				'description' => 'PVResidentialEvidenceDocumentsDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable && self::isResidentialEvidenceAvailable(),
+				'reason' => !$baseavailable ? 'PowerPlantPVRequiresDolibarr20Php80' : 'PVResidentialFileinfoRequired',
+			),
+			'residential_evidence_png' => array(
+				'label' => 'PVResidentialEvidencePNG',
+				'description' => 'PVResidentialEvidencePhotoDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable && self::isResidentialEvidenceAvailable('image/png'),
+				'reason' => !$baseavailable ? 'PowerPlantPVRequiresDolibarr20Php80' : 'PVResidentialGdRequired',
+			),
+			'residential_evidence_jpeg' => array(
+				'label' => 'PVResidentialEvidenceJPEG',
+				'description' => 'PVResidentialEvidencePhotoDescription',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'available' => $baseavailable && self::isResidentialEvidenceAvailable('image/jpeg'),
+				'reason' => !$baseavailable ? 'PowerPlantPVRequiresDolibarr20Php80' : 'PVResidentialGdExifRequired',
+			),
 			'attestation_native_online_signature' => array(
 				'label' => 'AttestationNativeOnlineSignature',
 				'description' => 'AttestationCompatibilityNativeSignatureDescription',
@@ -383,6 +407,14 @@ class PowerPlantPVCompatibility
 				'reason' => $attestationalternativeonlinesignaturereason,
 			),
 		);
+	}
+
+	/** Whether PHP can check the MIME type and, for photos, remove embedded metadata. */
+	public static function isResidentialEvidenceAvailable(string $mime = ''): bool
+	{
+		return class_exists('finfo')
+			&& ($mime !== 'image/png' || function_exists('imagecreatefrompng'))
+			&& ($mime !== 'image/jpeg' || (function_exists('imagecreatefromjpeg') && function_exists('exif_read_data')));
 	}
 
 	/**

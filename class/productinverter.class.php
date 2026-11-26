@@ -91,6 +91,8 @@ class ProductInverter
 	public static function getInverterFields()
 	{
 		return array(
+			'is_microinverter' => array('label' => 'PVMicroinverter', 'type' => 'bool', 'unit' => ''),
+			'max_microinverters_per_string' => array('label' => 'PVMaxMicroinvertersPerString', 'type' => 'int', 'unit' => 'pcs'),
 			'pv_max_power' => array('label' => 'PVInverterPVMaxPower', 'type' => 'double', 'unit' => 'W'),
 			'dc_max_voltage' => array('label' => 'PVInverterDCMaxVoltage', 'type' => 'double', 'unit' => 'V'),
 			'startup_voltage' => array('label' => 'PVInverterStartupVoltage', 'type' => 'double', 'unit' => 'V'),
@@ -316,6 +318,24 @@ class ProductInverter
 			$data[$threshold[0]] = $comparator;
 		}
 
+		$isMicro = $data['is_microinverter'] ?? null;
+		$maximum = $data['max_microinverters_per_string'] ?? null;
+		if (($isMicro !== null && $isMicro !== '' && !in_array((string) $isMicro, array('0', '1'), true))
+			|| ($maximum !== null && $maximum !== '' && ((int) $maximum < 1 || (float) $maximum > 2147483647))) {
+			$this->setError('PVInvalidMicroinverterLimit');
+			return -1;
+		}
+		if (!array_key_exists('is_microinverter', $data) || !array_key_exists('max_microinverters_per_string', $data)) {
+			$previous = $this->fetchByProduct($fkProduct);
+			if ($previous < 0) {
+				return -1;
+			}
+			$data += $previous > 0 ? array_intersect_key($this->data, array_flip(array('is_microinverter', 'max_microinverters_per_string'))) : array();
+		}
+		$data['is_microinverter'] = (int) ($data['is_microinverter'] ?? 0);
+		if (!$data['is_microinverter']) {
+			$data['max_microinverters_per_string'] = null;
+		}
 		$id = $this->ensureForProduct($fkProduct, $user);
 		if ($id < 0) {
 			return -1;

@@ -1188,7 +1188,23 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			if (!is_object($file)) {
 				continue;
 			}
-			$path = PowerPlantPVReportPdfDataset::resolveReportFilePath($dataset['report'], $file);
+			require_once __DIR__.'/../../../../lib/powerplantpv_residential.lib.php';
+			if (powerplantpvIsResidentialEvidenceField($field->field_code) && $file instanceof PowerPlantPVReportFile
+				&& ($dataset['intervention'] ?? null) instanceof Fichinter && $dataset['report'] instanceof PowerPlantPVReport) {
+				$path = powerplantpvIsMicroProofField($field->field_code)
+					? powerplantpvResidentialProofImage($dataset['report'], $dataset['intervention'], $file)
+					: powerplantpvResidentialFilePath($dataset['report'], $dataset['intervention'], $file);
+				if (powerplantpvIsMicroProofField($field->field_code)) {
+					if ($path !== '') {
+						$this->renderImage($pdf, $path, (string) $file->filename, $outputlangs, 160);
+					} else {
+						$this->renderEmptyBlock($pdf, $outputlangs->transnoentities('PowerPlantPVReportImageMissing').' : '.(string) $file->filename);
+					}
+					continue;
+				}
+			} else {
+				$path = PowerPlantPVReportPdfDataset::resolveReportFilePath($dataset['report'], $file);
+			}
 			$url = $dataset['evidence_downloads']['links'][(int) ($file->id ?? 0)] ?? '';
 			if (PowerPlantPVReportPdfDataset::isImageFile($file, $path)) {
 				if ($path !== '') {

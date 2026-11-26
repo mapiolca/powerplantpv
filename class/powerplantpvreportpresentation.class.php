@@ -32,7 +32,7 @@ class PowerPlantPVReportPresentation
 		if ($type === 'conformity_so_valid_obs' || $type === 'status') {
 			return array(
 				'valid' => $langs->transnoentities('PowerPlantPVReportConformityValid'),
-				'observation' => $langs->transnoentities('PowerPlantPVReportConformityObservation'),
+				'observation' => $langs->transnoentities($field->field_code === 'RES_MONITORING' ? 'PVResidentialMonitoringNotCompliant' : 'PowerPlantPVReportConformityObservation'),
 				'not_applicable' => $langs->transnoentities('PowerPlantPVReportConformityNotApplicable'),
 			);
 		}
@@ -52,6 +52,24 @@ class PowerPlantPVReportPresentation
 		}
 
 		return $options;
+	}
+
+	/**
+	 * @param array<string|int,string>|null $choices Available options
+	 * @return array{string,string}|null Yes and no codes for strictly binary fields
+	 */
+	public static function binaryChoiceCodes(string $type, ?array $choices): ?array
+	{
+		if ($type === 'multiselect' || $choices === null || count($choices) !== 2) {
+			return null;
+		}
+		if (isset($choices['YES'], $choices['NO'])) {
+			return array('YES', 'NO');
+		}
+		if (isset($choices[1], $choices[0])) {
+			return array('1', '0');
+		}
+		return null;
 	}
 
 	/**
