@@ -387,9 +387,9 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 	}
 
 	/** Check the technical signature under a database lock within a report edit transaction. */
-	public function lockUnsignedForEdit(): bool
+	public function lockUnsignedForEdit(bool $requireDraft = false): bool
 	{
-		$sql = "SELECT fk_user_technical_sign, fk_user_technician_sign FROM ".$this->db->prefix().$this->table_element;
+		$sql = "SELECT fk_user_technical_sign, fk_user_technician_sign, status FROM ".$this->db->prefix().$this->table_element;
 		$sql .= " WHERE rowid = ".((int) $this->id)." AND entity = ".((int) $this->entity)." FOR UPDATE";
 		$result = $this->db->query($sql);
 		if (!$result) {
@@ -398,7 +398,8 @@ class PowerPlantPVReport extends PowerPlantPVReportGeneratedBase
 		$row = $this->db->fetch_object($result);
 		$this->db->free($result);
 
-		return is_object($row) && empty($row->fk_user_technical_sign) && empty($row->fk_user_technician_sign);
+		return is_object($row) && empty($row->fk_user_technical_sign) && empty($row->fk_user_technician_sign)
+			&& (!$requireDraft || $row->status === self::STATUS_DRAFT);
 	}
 
 	/**

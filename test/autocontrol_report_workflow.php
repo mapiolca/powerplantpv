@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// Usage: php -d extension=pdo_sqlite test/autocontrol_report_workflow.php CORE_HTDOCS
+// Usage: php -d extension=pdo_sqlite test/autocontrol_report_workflow.php CORE_HTDOCS [MODULE_DIR_NAMED_POWERPLANTPV]
 if (PHP_SAPI !== 'cli' || !isset($argv[1]) || !is_file($argv[1].'/core/lib/functions.lib.php')) {
 	exit(1);
 }
 $core = realpath($argv[1]);
-$module = dirname(__DIR__);
+$module = $argv[2] ?? dirname(__DIR__);
 define('DOL_DOCUMENT_ROOT', $core);
 define('DOL_URL_ROOT', '');
 define('MAIN_DB_PREFIX', 'workflow_');
@@ -33,7 +33,9 @@ mkdir($directory, 0777, true);
 $conf->powerplantpv = (object) array('multidir_output' => array(1 => $root));
 $langs = new Translate('', $conf);
 $langs->setDefaultLang('fr_FR');
+require_once $module.'/class/powerplantpvreport.class.php';
 require_once $module.'/class/powerplantpvreportparts.class.php';
+require_once $module.'/class/powerplantpvresidentialreport.class.php';
 
 final class PartWorkflowDatabase extends DoliDBMysqli
 {
@@ -62,6 +64,11 @@ final class PartWorkflowDatabase extends DoliDBMysqli
 		return $row;
 	}
 
+	public function last_insert_id($tab, $fieldid = 'rowid')
+	{
+		return (int) $this->pdo->lastInsertId();
+	}
+
 	public function free($resultset = null)
 	{
 		return true;
@@ -78,7 +85,7 @@ final class PartWorkflowReport extends PowerPlantPVReport
 		return (object) array('signed_status' => 0, 'fk_statut' => Fichinter::STATUS_VALIDATED, 'last_main_doc' => null);
 	}
 
-	public function lockUnsignedForEdit(): bool
+	public function lockUnsignedForEdit(bool $requireDraft = false): bool
 	{
 		return true;
 	}
@@ -165,6 +172,36 @@ try {
 	$check($report->events[1] === array('POWERPLANTPV_REPORT_UPDATE', 'stage_reopened', 'FI-TEST · Partie 1 rouverte')
 		&& $report->events[2][0] === 'POWERPLANTPV_REPORT_CREATE' && $report->events[3][0] === 'POWERPLANTPV_REPORT_UPDATE',
 		'Lifecycle labels identify the report and the stage and use CRUD triggers');
+	$schema = file_get_contents($module.'/sql/llx_powerplantpv_report_residential.sql');
+	$check(is_string($schema), 'The residential schema is present');
+	$db->pdo->exec(str_replace(
+		array('llx_', 'integer AUTO_INCREMENT PRIMARY KEY', ' ENGINE=innodb'),
+		array(MAIN_DB_PREFIX, 'INTEGER PRIMARY KEY AUTOINCREMENT', ''),
+		$schema
+	));
+	$first = clone $report;
+	$first->report_template_code = 'autocontrol_residential';
+	$second = clone $first;
+	$second->entity = 2;
+	$residential = new PowerPlantPVResidentialReport($db);
+	$rows = array('placements' => array(), 'roofs' => array(array('orientation' => 'SE', 'module_count' => 4)), 'strings' => array(
+		array('micro' => 1, 'fk_powerplant' => 2, 'fk_product' => 7, 'reference_label' => 'MICRO-7', 'maximum' => 3, 'quantity' => 2,
+			'serials' => array('SER-01', 'SER-02')),
+	));
+	$check($db->begin() > 0 && $residential->save($first, $rows) && $residential->save($second, $rows) && $db->commit() > 0,
+		'Residential report rows are written transactionally in both entities');
+	$loaded = $residential->load($first);
+	$check(is_array($loaded) && $loaded['initialized'] && (int) $loaded['strings'][0]['maximum'] === 3
+		&& $loaded['strings'][0]['serials'] === array('SER-01', 'SER-02'), 'Strings reload with their original maximum and serial order');
+	$rows['strings'][0]['maximum'] = 1;
+	$rows['strings'][0]['serials'] = array('SER-01');
+	$rows['strings'][0]['quantity'] = 1;
+	$check($db->begin() > 0 && $residential->save($first, $rows) && (bool) $db->rollback(), 'A replacement can roll back');
+	$check($residential->load($first)['strings'][0]['serials'] === array('SER-01', 'SER-02'), 'Rollback restores previous strings and series');
+	$check($db->begin() > 0 && $residential->save($first, $rows) && $db->commit() > 0
+		&& $residential->load($first)['strings'][0]['serials'] === array('SER-01')
+		&& $residential->load($second)['strings'][0]['serials'] === array('SER-01', 'SER-02'),
+		'Replacing a report keeps other entities and removes only its old serial rows');
 	echo 'Autocontrol workflow: '.$checks." checks OK\n";
 } finally {
 	foreach (glob($directory.'/*.png') ?: array() as $drawing) {

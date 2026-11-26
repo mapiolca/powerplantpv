@@ -1188,7 +1188,13 @@ class pdf_powerplantpvreport extends ModelePDFFicheinter
 			if (!is_object($file)) {
 				continue;
 			}
-			$path = PowerPlantPVReportPdfDataset::resolveReportFilePath($dataset['report'], $file);
+			if ($field->field_code === 'RES_SALES_FILES' && $file instanceof PowerPlantPVReportFile
+				&& ($dataset['intervention'] ?? null) instanceof Fichinter && $dataset['report'] instanceof PowerPlantPVReport) {
+				require_once __DIR__.'/../../../../lib/powerplantpv_residential.lib.php';
+				$path = powerplantpvResidentialFilePath($dataset['report'], $dataset['intervention'], $file);
+			} else {
+				$path = PowerPlantPVReportPdfDataset::resolveReportFilePath($dataset['report'], $file);
+			}
 			$url = $dataset['evidence_downloads']['links'][(int) ($file->id ?? 0)] ?? '';
 			if (PowerPlantPVReportPdfDataset::isImageFile($file, $path)) {
 				if ($path !== '') {

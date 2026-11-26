@@ -77,7 +77,7 @@ class modPowerPlantPV extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@powerplantpv'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.10.1';
+		$this->version = '1.10.2';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -1174,6 +1174,7 @@ class modPowerPlantPV extends DolibarrModules
 			'SYSINT' => 'Système d\'intégration',
 			'BATTER' => 'Batterie',
 			'BATACC' => 'Accessoire Batterie',
+			'EVCHARGE' => 'Borne de recharge VE',
 		);
 		foreach ($categoryRows as $code => $label) {
 			$sql = "INSERT INTO ".$this->db->prefix()."c_powerplantpv_categorypv(code, label, active)";
@@ -1538,6 +1539,8 @@ class modPowerPlantPV extends DolibarrModules
 	{
 		$tables = array(
 			$this->db->prefix().'powerplantpv_product_inverter' => array(
+				'is_microinverter' => array('type' => 'smallint', 'value' => '', 'null' => ''),
+				'max_microinverters_per_string' => array('type' => 'integer', 'value' => '', 'null' => ''),
 				'phase_count' => array('type' => 'integer', 'value' => '', 'null' => ''),
 				'backup_nominal_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
 				'backup_peak_power' => array('type' => 'double', 'value' => '24,8', 'null' => ''),
@@ -3397,6 +3400,7 @@ class modPowerPlantPV extends DolibarrModules
 		$sectionTable = $this->db->prefix().'powerplantpv_report_template_section';
 		$sectionIds = array();
 		$position = 10;
+		$residentialPositions = array('RES_RISK_ANALYSIS' => 21, 'RES_PROTECTION' => 22, 'RES_ACCESS_EQUIPMENT' => 23, 'RES_INSTRUCTIONS' => 24, 'RES_SALES' => 29);
 		foreach ($sections as $section) {
 			// Insert the installation before the inverter sections without shifting existing default positions.
 			$isInstallation = $section[0] === 'AC3_INSTALLATION';
@@ -3413,11 +3417,11 @@ class modPowerPlantPV extends DolibarrModules
 				'scope_type' => $section[3],
 				'equipment_type' => $section[4],
 				'repeat_mode' => $section[5],
-				'is_required' => 1,
+				'is_required' => !isset($residentialPositions[$section[0]]) || $section[0] === 'RES_SALES' ? 1 : 0,
 				'visible_form' => 1,
 				'visible_pdf' => 1,
 				'active' => 1,
-				'position' => $isInstallation ? $position - 5 : $position,
+				'position' => $residentialPositions[$section[0]] ?? ($isInstallation ? $position - 5 : $position),
 				'date_creation' => $this->db->idate(dol_now()),
 			), $where);
 			if ($result < 0) {

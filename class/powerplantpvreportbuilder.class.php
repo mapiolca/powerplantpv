@@ -304,7 +304,7 @@ class PowerPlantPVReportBuilder
 		$oldDcValues = $this->fetchExistingDcMeasureValues((int) $report->id);
 
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
-		if (!$report->lockUnsignedForEdit()) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
+		if (!$report->lockUnsignedForEdit($report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL)) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
 		$report->status = $status;
 		$report->fk_soc = $context['fk_soc'];
 		$report->fk_project = $context['fk_project'];
@@ -433,7 +433,7 @@ class PowerPlantPVReportBuilder
 		}
 
 		if ($this->db->begin() <= 0) { $this->setError($this->db->lasterror()); return -1; }
-		if (!$report->lockUnsignedForEdit()) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
+		if (!$report->lockUnsignedForEdit($report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL)) { $this->setError('PowerPlantPVTechnicalSignEditLocked'); $this->db->rollback(); return -1; }
 		if ($onlySectionIds === null && $this->persistInverterProductionSections((int) $report->id, $user) < 0) { $this->db->rollback(); return -1; }
 		// A signed part of a self-inspection report keeps the values it was signed on.
 		$lockedSectionIds = $this->fetchLockedPartSectionIds($report);
@@ -465,6 +465,16 @@ class PowerPlantPVReportBuilder
 			$value = array_key_exists($stableKey, $values) ? $values[$stableKey] : null;
 			if (array_key_exists($stableKey, $dateValues)) {
 				$value = $dateValues[$stableKey];
+			}
+			if ($report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL
+				&& in_array($field->field_type, array('select', 'multiselect'), true) && $value !== null) {
+				$snapshotOptions = json_decode((string) $field->options_snapshot, true);
+				$codes = is_array($snapshotOptions) ? array_column($snapshotOptions, 'code') : array();
+				if (is_array($value)) {
+					$value = array_intersect($value, $codes);
+				} elseif (!in_array((string) $value, $codes, true)) {
+					$value = '';
+				}
 			}
 			if ($isPartsReport && is_array($value) && PowerPlantPVReportParts::isHoursField((string) $field->field_code)) {
 				$value = PowerPlantPVReportParts::encodeHours($value, (string) $field->value_text);
@@ -699,7 +709,7 @@ class PowerPlantPVReportBuilder
 			$messages[] = 'PowerPlantPVReportNoContractPrestations';
 		}
 
-		$equipment = $this->fetchEquipmentContext($powerplants);
+		$equipment = $this->fetchEquipmentContext($powerplants, $template['code'] === PowerPlantPVReportTemplate::CODE_RESIDENTIAL);
 		$dcMeasureInputs = $this->fetchDcMeasureInputContext($powerplants, $equipment);
 		$templateSections = $this->fetchTemplateSections((int) $template['id']);
 		$templateFields = $this->fetchTemplateFields((int) $template['id'], (string) $template['code']);
@@ -1683,6 +1693,13 @@ class PowerPlantPVReportBuilder
 		return $rows;
 	}
 
+	/** @return array<string,array> Live equipment context for residential selections. */
+	public function fetchResidentialEquipmentContext(Fichinter $intervention): array
+	{
+		$powerplants = $this->fetchLinkedPowerPlantContext($intervention);
+		return array('powerplants' => $powerplants, 'equipment' => $this->fetchEquipmentContext($powerplants, true));
+	}
+
 	/**
 	 * Fetch source services from active contracts or manual selected services.
 	 *
@@ -1925,7 +1942,7 @@ class PowerPlantPVReportBuilder
 	 * @param	array<int,array<string,mixed>>	$powerplants	Power plants
 	 * @return	array<int,array<string,mixed>>	Equipment rows
 	 */
-	private function fetchEquipmentContext($powerplants)
+	private function fetchEquipmentContext($powerplants, bool $residential = false)
 	{
 		if (empty($powerplants) || !$this->tableExists($this->db->prefix().'powerplantpv_powerplantcomp')) {
 			return array();
@@ -1960,7 +1977,7 @@ class PowerPlantPVReportBuilder
 			return $rows;
 		}
 		while (is_object($obj = $this->db->fetch_object($resql))) {
-			$type = $this->guessEquipmentType($obj);
+			$type = $this->guessEquipmentType($obj, $residential);
 			$technicalKey = 'powerplant:'.((int) $obj->fk_powerplant).':line:'.((int) $obj->rowid);
 			$productLabel = (string) $obj->product_label;
 			$brand = !empty($obj->equipment_brand) ? (string) $obj->equipment_brand : (!empty($obj->equipment_manufacturer) ? (string) $obj->equipment_manufacturer : '');
@@ -2137,8 +2154,12 @@ class PowerPlantPVReportBuilder
 	 * @param	stdClass	$obj	SQL row
 	 * @return	string				Equipment type
 	 */
-	private function guessEquipmentType($obj)
+	private function guessEquipmentType($obj, bool $residential = false)
 	{
+		$categories = array('BATTER' => 'BATTERY', 'EVCHARGE' => 'EV_CHARGER', 'COFFAC' => 'AC_BOX', 'COFFDC' => 'DC_BOX');
+		if ($residential && isset($categories[$obj->category_code ?? ''])) {
+			return $categories[$obj->category_code];
+		}
 		if (($obj->category_code ?? '') === 'MODULE') { return 'PANEL'; }
 		if (($obj->category_code ?? '') === 'ONDULE') { return 'INVERTER'; }
 		if (($obj->category_code ?? '') === '' && !empty($obj->inverter_id)) {

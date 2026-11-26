@@ -17,6 +17,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreport.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportbuilder.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportsourceservice.class.php');
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+require_once __DIR__.'/powerplantpvresidentialreport.class.php';
 require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
 require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 
@@ -102,6 +103,17 @@ class PowerPlantPVReportPdfDataset
 			return -1;
 		}
 
+		if ($report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL && PowerPlantPVResidentialReport::hasSections($tree)) {
+			$residential = new PowerPlantPVResidentialReport($this->db);
+			$tree['residential'] = $residential->load($report);
+			if ($tree['residential'] === null) {
+				$this->copyErrorsFrom($residential);
+				return -1;
+			}
+			if (!$report->isSaved() && empty($tree['residential']['initialized'])) {
+				$tree['residential']['strings'] = PowerPlantPVResidentialReport::legacyStrings($tree);
+			}
+		}
 		$sourceServiceObject = new PowerPlantPVReportSourceService($this->db);
 		$sourceServices = $sourceServiceObject->fetchAllByReport((int) $report->id, 'position', 'ASC');
 		if (!is_array($sourceServices)) {

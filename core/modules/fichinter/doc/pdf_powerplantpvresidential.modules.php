@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__.'/pdf_powerplantpvreport.modules.php';
+require_once __DIR__.'/../../../../lib/powerplantpv_residential.lib.php';
 
 /**
  * Compact native PDF model for residential installations and self-inspections.
@@ -28,7 +29,12 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 	protected function renderReport(&$pdf, $object, $dataset, $outputlangs)
 	{
 		$this->renderResidentialTitle($pdf, $outputlangs);
-		$sections = array_filter($dataset['tree']['sections'], static function ($row) {
+		$residential = $dataset['tree']['residential'] ?? null;
+		$treeSections = $dataset['tree']['sections'];
+		if ($residential !== null) {
+			$treeSections = PowerPlantPVResidentialReport::presentationSections($treeSections);
+		}
+		$sections = array_filter($treeSections, static function ($row) {
 			return !empty($row['section']->visible_pdf);
 		});
 		$this->renderResidentialOverview($pdf, $dataset, $sections, $outputlangs);
@@ -37,27 +43,86 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 		$previousCode = '';
 		foreach ($sections as $row) {
 			$code = (string) $row['section']->section_code;
+			$label = PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $outputlangs);
+			if ($residential !== null && $code === 'RES_SAFETY'
+				&& !array_filter($row['fields'], static fn ($field) => ($field->value_text ?? '') !== '')) {
+				continue;
+			}
+			$title = $residential === null ? ($sectionNumber + 1).' · '.$label
+				: $this->residentialSectionTitle($code, $label, $outputlangs);
 			if ($code === 'RES_CONCLUSION') {
-				$label = PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $outputlangs);
-				$this->renderResidentialConclusion($pdf, ++$sectionNumber.' · '.$label, $row, $dataset, $outputlangs);
+				$this->renderResidentialConclusion($pdf, $title, $row, $dataset, $outputlangs);
 				continue;
 			}
 			if ($code !== $previousCode) {
-				$label = PowerPlantPVReportPdfDataset::localizedProperty($row['section'], 'section_label', $outputlangs);
-				$this->renderSectionTitle($pdf, ++$sectionNumber.' · '.$label, 2);
+				$this->renderSectionTitle($pdf, $title, 2);
+				$sectionNumber++;
 				$previousCode = $code;
 			}
+			if ($residential !== null && $code === 'RES_STRINGS') {
+				$row['fields'] = array();
+			}
+			$choicePanels = $residential !== null && in_array($code, array('RES_RISK_ANALYSIS', 'RES_PROTECTION', 'RES_INSTRUCTIONS'), true)
+				? $this->residentialChoicePanels($row['fields'], $outputlangs) : array();
 			$panel = $this->visualSectionPanel($row, $outputlangs, true);
 			$panel['badgeValues'] = true;
-			if ($panel['rows']) {
+			if ($choicePanels) {
+				$this->visualPanels($pdf, $choicePanels, count($choicePanels) > 1);
+			} elseif ($panel['rows']) {
 				if (!is_object($row['equipment'] ?? null)) {
 					$panel['title'] = '';
 				}
 				$this->visualPanels($pdf, array($panel), false);
 			}
+			if ($residential !== null) {
+				foreach (powerplantpvResidentialRows($code, $residential, $outputlangs) as list($rowLabel, $rowValue)) {
+					$this->visualNote($pdf, $rowLabel, $rowValue);
+				}
+				if ($code === 'RES_PROTECTION') {
+					$this->visualNote($pdf, $outputlangs->transnoentities('PVResidentialSafetyNotice'), $outputlangs->transnoentities('PVResidentialSafetyText'));
+				}
+			}
 			$this->visualSectionExtras($pdf, $row, $dataset, $outputlangs);
 		}
 		$this->visualSignatures($pdf, $object, $dataset, $outputlangs);
+	}
+
+	/**
+	 * @param array<int,PowerPlantPVReportField> $fields Safety snapshot fields
+	 * @return list<array<string,mixed>>
+	 */
+	private function residentialChoicePanels(array $fields, Translate $langs): array
+	{
+		$panels = array();
+		foreach ($this->filterVisibleFields($fields) as $field) {
+			if ($field->field_type !== 'multiselect') {
+				continue;
+			}
+			$options = PowerPlantPVReportPresentation::choiceOptions($field, $langs) ?? array();
+			$selected = preg_split('/\\R/u', (string) $field->value_text) ?: array();
+			$rows = array();
+			foreach ($options as $code => $label) {
+				$active = in_array((string) $code, $selected, true);
+				$rows[] = array(
+					'label' => $label,
+					'value' => $active ? $langs->transnoentities('Yes') : '—',
+					'status' => $active ? 'good' : 'neutral',
+				);
+			}
+			if ($rows) {
+				$panels[] = array('title' => PowerPlantPVReportPdfDataset::localizedProperty($field, 'field_label', $langs), 'rows' => $rows);
+			}
+		}
+		return $panels;
+	}
+
+	private function residentialSectionTitle(string $code, string $label, Translate $langs): string
+	{
+		if ($code === 'RES_WORK') {
+			return $langs->transnoentities('PVResidentialCompletedWork');
+		}
+		$numbers = array('RES_SITE' => '2', 'RES_TESTS' => '6', 'RES_STRINGS' => '6.a', 'RES_INVERTER' => '6.b', 'RES_CONCLUSION' => '7');
+		return isset($numbers[$code]) ? $numbers[$code].' · '.$label : $label;
 	}
 
 	/**
@@ -144,7 +209,9 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 			$installedPowers[] = $facts['PowerPlantPDFInstalledPower'] ?? $langs->transnoentities('PowerPlantPVDataNotFilled');
 			$panels[] = $this->visualInspectionPlantPanel($plant, $facts, $langs);
 		}
-		$strings = $checks = $valid = $inverters = 0;
+		$residential = $dataset['tree']['residential'] ?? null;
+		$strings = $residential === null ? 0 : count($residential['strings']);
+		$checks = $valid = $inverters = 0;
 		foreach ($sections as $row) {
 			if ((string) $row['section']->section_code === 'RES_INVERTER' && is_object($row['equipment'] ?? null)) {
 				$inverters++;
@@ -154,7 +221,7 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 					$checks++;
 					$valid += (int) ($field->value_text === 'valid');
 				}
-				if (preg_match('/^RES_STRING_[0-9]+_VOLTAGE$/', (string) $field->field_code) && is_numeric($field->value_number)) {
+				if ($residential === null && preg_match('/^RES_STRING_[0-9]+_VOLTAGE$/', (string) $field->field_code) && is_numeric($field->value_number)) {
 					$strings++;
 				}
 			}

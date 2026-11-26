@@ -1,5 +1,12 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.10.2 — 2026-11-26
+
+- Ajout des quatre rubriques de sécurité FR37 au rapport résidentiel et à son PDF.
+- Ajout des photos et documents de la prestation vendue, des emplacements et du calepinage par toiture.
+- Saisie de strings classiques ou à micro-onduleurs, avec référence, numéros de série et maximum facultatif par chaîne dans les caractéristiques du produit.
+- Actualiser le module dans chaque entité concernée, puis recalculer les brouillons résidentiels existants. Les rapports finalisés conservent leur présentation historique. Le dépôt de photos requiert GD et, pour les JPEG, l’extension EXIF. La vérification du type réel des pièces utilise Fileinfo.
+
 ## 1.10.1 — 2026-11-26
 
 - Le bouton « Annuler » du formulaire de création revient à la liste des attestations sans valider ni enregistrer la saisie.

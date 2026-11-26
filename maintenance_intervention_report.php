@@ -61,6 +61,7 @@ dol_include_once('/powerplantpv/class/powerplantpvreportparts.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfield.class.php');
 dol_include_once('/powerplantpv/class/powerplantpvreportfile.class.php');
 require_once __DIR__.'/class/powerplantpvreportevidence.class.php';
+require_once __DIR__.'/lib/powerplantpv_residential.lib.php';
 require_once __DIR__.'/lib/powerplantpv_indexphoto.lib.php';
 require_once __DIR__.'/lib/powerplantpv_reportsignature.lib.php';
 require_once __DIR__.'/class/powerplantpvinterventionnature.class.php';
@@ -147,9 +148,33 @@ $reportFetch = $report->fetchByIntervention($id);
 if ($reportFetch < 0) {
 	setEventMessages($report->error, $report->errors, 'errors');
 }
+if ($action === 'download_scope_file') {
+	$file = new PowerPlantPVReportFile($db);
+	if ($reportFetch <= 0 || !$user->hasRight('powerplantpv', 'report', 'read') || $file->fetch((int) $fileId) <= 0) {
+		accessforbidden();
+	}
+	$path = powerplantpvResidentialFilePath($report, $intervention, $file);
+	$stream = $path !== '' ? fopen($path, 'rb') : false;
+	if ($stream === false) {
+		accessforbidden();
+	}
+	header('Content-Type: application/octet-stream');
+	header("Content-Disposition: attachment; filename*=UTF-8''".rawurlencode((string) $file->filename));
+	header('Cache-Control: private, no-store');
+	header('X-Content-Type-Options: nosniff');
+	fpassthru($stream);
+	fclose($stream);
+	exit;
+}
 $technicalSigned = $reportFetch > 0 && (int) $report->fk_user_technical_sign > 0;
 $technicianSigned = $reportFetch > 0 && (int) $report->fk_user_technician_sign > 0;
 $caneditreport = $caneditreport && !$technicalSigned && !$technicianSigned;
+if ($reportFetch > 0 && $report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL) {
+	if (!$user->hasRight('powerplantpv', 'report', 'read')) {
+		accessforbidden();
+	}
+	$caneditreport = $caneditreport && !$report->isSaved() && $user->hasRight('powerplantpv', 'report', 'write');
+}
 
 $signatureScript = '';
 if (powerplantpvReportSignatureAvailable() && !empty($conf->use_javascript_ajax)) {
@@ -414,7 +439,30 @@ if (in_array($action, array('reopen_part', 'confirm_reopen_part'), true)) {
 	}
 }
 
+$residentialForm = null;
+$scopeFileAction = '';
+if ($caneditreport && $reportFetch > 0 && $report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL
+	&& in_array($action, array('upload_file', 'delete_file'), true)) {
+	$scopeFieldId = $fieldId;
+	if ($action === 'delete_file') {
+		$scopeFile = new PowerPlantPVReportFile($db);
+		$scopeFieldId = $scopeFile->fetch((int) $fileId) > 0 && (int) $scopeFile->fk_report === (int) $report->id
+			? (int) $scopeFile->fk_report_field : 0;
+	}
+	$scopeField = new PowerPlantPVReportField($db);
+	if ($scopeFieldId > 0 && $scopeField->fetch($scopeFieldId) > 0
+		&& (int) $scopeField->fk_report === (int) $report->id && $scopeField->field_code === 'RES_SALES_FILES') {
+		$scopeFileAction = $action;
+		$action = 'save_draft';
+	}
+}
 if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
+	if ($reportFetch <= 0 && !$user->hasRight('powerplantpv', 'report', 'write')) {
+		$preview = $builder->buildPreviewTree($intervention, $manualServiceIds);
+		if (($preview['report']->report_template_code ?? '') === PowerPlantPVReportTemplate::CODE_RESIDENTIAL) {
+			accessforbidden();
+		}
+	}
 	$status = ($action === 'save') ? PowerPlantPVReport::STATUS_SAVED : PowerPlantPVReport::STATUS_DRAFT;
 	$persistStatus = ($action === 'save') ? PowerPlantPVReport::STATUS_DRAFT : $status;
 	$saveerror = 0;
@@ -449,12 +497,48 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 		$values = powerplantpvReportGetSubmittedValues();
 		$dateValues = powerplantpvReportGetSubmittedDateValues();
 		$dcValues = powerplantpvReportGetSubmittedDcMeasures();
-		$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $persistStatus);
-		if ($result >= 0) {
-			$result = $builder->saveDcMeasureValues((int) $report->id, $dcValues, $user, $legacyVoltageCard);
+		$isResidential = $report->report_template_code === PowerPlantPVReportTemplate::CODE_RESIDENTIAL;
+		$requiredValidationFailed = 0;
+		if ($isResidential) {
+			$residential = new PowerPlantPVResidentialReport($db);
+			$submitted = GETPOST('residential', 'array', 2);
+			$residentialTree = $builder->loadReportTree((int) $report->id);
+			$options = is_array($residentialTree) ? $residential->options($builder->fetchResidentialEquipmentContext($intervention)) : array();
+			$residentialForm = is_array($submitted) ? $submitted : array();
+			$result = -1;
+			if (!$options || !is_array($residentialTree) || !PowerPlantPVResidentialReport::hasSections($residentialTree)) {
+				$builder->error = $langs->trans($residential->error ?: 'PVResidentialRecalculate');
+			} elseif (GETPOSTINT('residential_complete', 2) !== 1) {
+				$builder->error = $langs->trans('PVResidentialIncompleteSubmission');
+			} else {
+				$normalized = PowerPlantPVResidentialReport::normalize($residentialForm, $options, false);
+				if ($normalized['errors']) {
+					setEventMessages(null, array_map(array($langs, 'trans'), $normalized['errors']), 'errors');
+					$requiredValidationFailed = 1;
+				} elseif ($db->begin() > 0) {
+					$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $persistStatus);
+					if ($result >= 0 && !$residential->save($report, $normalized['data'])) {
+						$result = -1;
+						$builder->error = $residential->error;
+					}
+					if ($result >= 0 && $db->commit() <= 0) {
+						$result = -1;
+						$builder->error = $db->lasterror();
+					}
+					if ($result < 0) {
+						$db->rollback();
+					}
+				} else {
+					$builder->error = $db->lasterror();
+				}
+			}
+		} else {
+			$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, $persistStatus);
+			if ($result >= 0) {
+				$result = $builder->saveDcMeasureValues((int) $report->id, $dcValues, $user, $legacyVoltageCard);
+			}
 		}
 		$interventionValidationResult = 0;
-		$requiredValidationFailed = 0;
 		$photoWarnings = array();
 		$finalPdfModel = '';
 		if ($result >= 0) {
@@ -494,7 +578,29 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 					$result = -1;
 					$builder->error = $db->lasterror();
 				} else {
-					$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, PowerPlantPVReport::STATUS_SAVED);
+					if ($isResidential) {
+						$finalTree = $report->lockUnsignedForEdit(true) ? $builder->loadReportTree((int) $report->id) : null;
+						$finalOptions = is_array($finalTree) ? $residential->options($builder->fetchResidentialEquipmentContext($intervention)) : array();
+						$result = $finalOptions ? 0 : -1;
+						if ($result >= 0) {
+							$final = PowerPlantPVResidentialReport::normalize($residentialForm, $finalOptions, true);
+							if ($final['errors']) {
+								setEventMessages(null, array_map(array($langs, 'trans'), $final['errors']), 'errors');
+								$requiredValidationFailed = 1;
+								$result = -1;
+							}
+						}
+						if ($result < 0 && !$requiredValidationFailed) {
+							$builder->error = $residential->error ?: $langs->trans('ErrorRecordNotFound');
+						}
+					}
+					if ($result >= 0) {
+						$result = $builder->saveValues((int) $report->id, $values, $dateValues, $user, PowerPlantPVReport::STATUS_SAVED);
+					}
+					if ($result >= 0 && $isResidential && !$residential->save($report, $final['data'])) {
+						$result = -1;
+						$builder->error = $residential->error;
+					}
 					if ($result >= 0) {
 						$interventionValidationResult = powerplantpvReportValidateInterventionIfNeeded($intervention, $user);
 						if ($interventionValidationResult < 0) {
@@ -539,7 +645,13 @@ if (($action === 'save_draft' || $action === 'save') && $caneditreport) {
 				setEventMessages($builder->error, $builder->errors, 'errors');
 			}
 		} else {
-			if ($interventionValidationResult > 0) {
+			if ($scopeFileAction === 'upload_file') {
+				$uploaded = powerplantpvReportUploadFile($report, $intervention, $fieldId, $user) > 0;
+				setEventMessages($langs->trans($uploaded ? 'FileUploaded' : 'ErrorFileNotUploaded'), null, $uploaded ? 'mesgs' : 'errors');
+			} elseif ($scopeFileAction === 'delete_file') {
+				$deleted = powerplantpvReportDeleteFile($report, $intervention, $fileId) > 0;
+				setEventMessages($langs->trans($deleted ? 'PowerPlantPVReportFileRemoved' : 'PowerPlantPVReportFileRemoveFailed'), null, $deleted ? 'mesgs' : 'errors');
+			} elseif ($interventionValidationResult > 0) {
 				setEventMessages($langs->trans('PowerPlantPVReportSavedInterventionValidated'), null, 'mesgs');
 			} else {
 				setEventMessages($langs->trans($status === PowerPlantPVReport::STATUS_SAVED ? 'PowerPlantPVReportSaved' : 'PowerPlantPVReportDraftSaved'), null, 'mesgs');
@@ -619,6 +731,9 @@ $form = new Form($db);
 $title = $langs->trans('PowerPlantPVReportTab');
 
 $morejs = array('/powerplantpv/js/powerplantpv_report.js?v='.(int) filemtime(__DIR__.'/js/powerplantpv_report.js'));
+if (!empty($conf->use_javascript_ajax)) {
+	$morejs[] = '/powerplantpv/js/powerplantpv_residential.js?v='.(int) filemtime(__DIR__.'/js/powerplantpv_residential.js');
+}
 if ($signatureRole !== '' || !empty($partSigning)) {
 	array_unshift($morejs, $signatureScript);
 }
@@ -772,7 +887,28 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 	$manualContext = is_array($diagnosticTree) ? $diagnosticTree : $tree;
 	$manualMessages = !empty($manualContext['messages']) && is_array($manualContext['messages']) ? $manualContext['messages'] : array();
 	$noContractPrestations = in_array('PowerPlantPVReportNoContractPrestations', $manualMessages, true);
-	$snapshotNeedsRebuild = ($emptyExistingSnapshot || $invalidExistingSnapshot);
+	$isResidentialTree = ($tree['report']->report_template_code ?? '') === PowerPlantPVReportTemplate::CODE_RESIDENTIAL;
+	$residentialContext = array();
+	$residentialUpgrade = $isResidentialTree && $caneditreport && !PowerPlantPVResidentialReport::hasSections($tree);
+	if ($residentialUpgrade) {
+		print '<div class="info">'.$langs->trans('PVResidentialRecalculate').'</div>';
+	} elseif ($isResidentialTree && PowerPlantPVResidentialReport::hasSections($tree)) {
+		$residential = new PowerPlantPVResidentialReport($db);
+		$options = $caneditreport ? $residential->options($builder->fetchResidentialEquipmentContext($intervention)) : array();
+		$data = $reportFetch > 0 ? $residential->load($report) : array('placements' => array(), 'roofs' => array(), 'strings' => array());
+		if ($data === null || ($caneditreport && !$options)) {
+			setEventMessages($langs->trans($residential->error ?: 'ErrorRecordNotFound'), null, 'errors');
+		} else {
+			if ($caneditreport && empty($data['initialized'])) {
+				$data['strings'] = PowerPlantPVResidentialReport::legacyStrings($tree);
+			}
+			if ($caneditreport && $residentialForm !== null && GETPOSTINT('residential_complete', 2) === 1) {
+				$data = PowerPlantPVResidentialReport::normalize($residentialForm, $options, false)['data'];
+			}
+			$residentialContext = array('options' => $options, 'data' => $data);
+		}
+	}
+	$snapshotNeedsRebuild = ($emptyExistingSnapshot || $invalidExistingSnapshot || $residentialUpgrade);
 	$showManualSelection = (($reportFetch <= 0 || $snapshotNeedsRebuild)
 		&& $caneditreport
 		&& $noContractPrestations
@@ -795,7 +931,7 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		print '</div>';
 	}
 
-	$renderEditableFields = $caneditreport;
+	$renderEditableFields = $caneditreport && !$residentialUpgrade && (!$isResidentialTree || $residentialContext);
 	if (!empty($conf->use_javascript_ajax)) {
 		print '<div class="powerplantpv-report-navigation" data-report-contents-label="'.dol_escape_htmltag($langs->transnoentities('PowerPlantPVReportContents')).'">';
 		print '<div class="right marginbottomonly" data-report-disclosure-controls hidden>';
@@ -827,9 +963,13 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 			}
 		}
 	}
-	powerplantpvReportRenderSections($tree['sections'], $renderEditableFields, $form, isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array(), $treeIsParts ? $lockedPartSectionIds : array(), $treeIsParts ? $partSignatures : null, $signableParts, $reopenableParts);
+	$displaySections = $residentialContext ? PowerPlantPVResidentialReport::presentationSections($tree['sections']) : $tree['sections'];
+	powerplantpvReportRenderSections($displaySections, $renderEditableFields, $form, isset($tree['powerplants']) && is_array($tree['powerplants']) ? $tree['powerplants'] : array(), $treeIsParts ? $lockedPartSectionIds : array(), $treeIsParts ? $partSignatures : null, $signableParts, $reopenableParts, $residentialContext);
+	if ($residentialContext && $renderEditableFields) {
+		print '<input type="hidden" name="residential_complete" value="1">';
+	}
 
-	if ($caneditreport) {
+	if ($renderEditableFields) {
 		print '<div class="center powerplantpv-report-actions">';
 		print '<input type="submit" class="button button-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
 		print ' ';
@@ -841,6 +981,8 @@ if (is_array($tree) && empty($tree['can_generate'])) {
 		}
 		print '</div>';
 		print '<input type="submit" class="button button-save powerplantpv-floating-save" name="save_draft_submit" value="'.dol_escape_htmltag($langs->trans('Save')).'">';
+	} elseif ($residentialUpgrade) {
+		print '<div class="center"><button type="submit" class="button" name="recalculate_submit" value="1">'.$langs->trans('PowerPlantPVReportRecalculate').'</button></div>';
 	}
 	print '</form>';
 
@@ -1399,7 +1541,7 @@ function powerplantpvReportTreeHasNonDcSectionWithoutFields($tree)
  * @param	array<string,bool>					$reopenableParts	Parts the current user can reopen
  * @return	void
  */
-function powerplantpvReportRenderSections($sections, $editable, $form, $powerplants = array(), $lockedSectionIds = array(), $partSignatures = null, array $signableParts = array(), array $reopenableParts = array())
+function powerplantpvReportRenderSections($sections, $editable, $form, $powerplants = array(), $lockedSectionIds = array(), $partSignatures = null, array $signableParts = array(), array $reopenableParts = array(), array $residential = array())
 {
 	global $id, $intervention, $langs;
 
@@ -1489,12 +1631,22 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 				continue;
 			}
 			$fields = powerplantpvReportFilterRenderableFields(isset($row['fields']) && is_array($row['fields']) ? $row['fields'] : array(), $byPart);
-			if ((string) $section->section_code !== 'DC_ELECTRICAL_MEASURE' && empty($fields)) {
+			$sectionCode = (string) $section->section_code;
+			if ($residential && $sectionCode === 'RES_STRINGS') {
+				$fields = array();
+			}
+			if ($residential && $sectionCode === 'RES_SAFETY' && !array_filter($fields, static fn ($field) => ($field->value_text ?? '') !== '')) {
+				continue;
+			}
+			if ($sectionCode !== 'DC_ELECTRICAL_MEASURE' && empty($fields) && !($residential && $sectionCode === 'RES_STRINGS')) {
 				continue;
 			}
 			// A signed part stays visible but can no longer be changed.
 			$sectionEditable = $editable && empty($lockedSectionIds[(int) $section->id]);
 			$label = powerplantpvReportLocalizedObjectLabel($section, 'section_label');
+			if ($residential && $sectionCode === 'RES_WORK') {
+				$label = $langs->transnoentities('PVResidentialCompletedWork');
+			}
 			$identity = !empty($row['equipment']) ? (object) $row['equipment'] : null;
 			$identity = $identity && (string) $identity->equipment_type === 'INVERTER' ? $identity : null;
 			$sectionKey = hash('sha256', (string) ($section->fk_powerplant ?? '').':'.(string) $section->section_code.':'.(string) ($section->occurrence_key ?? ''));
@@ -1554,6 +1706,9 @@ function powerplantpvReportRenderSections($sections, $editable, $form, $powerpla
 			print '<div class="powerplantpv-report-fields">';
 			foreach ($fields as $field) {
 				powerplantpvReportRenderField($field, $sectionEditable, $form);
+			}
+			if ($residential && in_array($sectionCode, array('RES_SALES', 'RES_PROTECTION', 'RES_STRINGS'), true)) {
+				powerplantpvResidentialRender($sectionCode, $residential, $sectionEditable, $form);
 			}
 			if ($byPart && (string) $section->section_code === $partCode.'_IDENT') {
 				$technician = $partSignatures[$partCode]['technician'] ?? null;
@@ -2286,8 +2441,14 @@ function powerplantpvReportRenderField($field, $editable, $form)
 		powerplantpvReportRenderFiles($field, true);
 		if (!empty($field->id)) {
 			print '<div class="powerplantpv-file-upload">';
-			print '<input type="file" name="report_file_'.$field->id.'" class="flat powerplantpv-report-control">';
-			print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.(int) $id.'&action=upload_file&field_id='.((int) $field->id).'" value="'.dol_escape_htmltag($langs->trans('Upload')).'">';
+			$scopeFiles = $field->field_code === 'RES_SALES_FILES';
+			if ($scopeFiles && !PowerPlantPVCompatibility::isResidentialEvidenceAvailable()) {
+				print '<span class="opacitymedium">'.$langs->trans('PVResidentialFileinfoRequired').'</span>';
+			} else {
+				$formats = $scopeFiles ? '.'.implode(',.', array_keys(powerplantpvResidentialEvidenceTypes())) : '';
+				print '<input type="file" aria-label="'.dol_escape_htmltag($langs->transnoentities('Upload')).'" name="report_file_'.$field->id.($scopeFiles ? '[]" multiple accept="'.$formats : '').'" class="flat powerplantpv-report-control">';
+				print '<input type="submit" class="button" formaction="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'?id='.(int) $id.'&action=upload_file&field_id='.((int) $field->id).'" value="'.dol_escape_htmltag($langs->trans('Upload')).'">';
+			}
 			print '</div>';
 		} else {
 			print '<span class="opacitymedium">'.$langs->trans('PowerPlantPVReportFileAfterFirstSave').'</span>';
@@ -2590,9 +2751,11 @@ function powerplantpvReportRenderFiles($field, $editable)
 	}
 	print '<ul class="powerplantpv-report-files">';
 	foreach ($files as $file) {
-		$url = DOL_URL_ROOT.'/document.php?modulepart=powerplantpv&file='.urlencode((string) $file->filepath);
+		$url = $field->field_code === 'RES_SALES_FILES'
+			? $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=download_scope_file&file_id='.(int) $file->id
+			: DOL_URL_ROOT.'/document.php?modulepart=powerplantpv&file='.urlencode((string) $file->filepath);
 		print '<li>';
-		print '<a href="'.$url.'">'.dol_escape_htmltag((string) $file->filename).'</a>';
+		print '<a href="'.dol_escape_htmltag($url).'">'.dol_escape_htmltag((string) $file->filename).'</a>';
 		if ($editable) {
 			$deleteUrl = $_SERVER['PHP_SELF'].'?id='.(int) $id.'&action=delete_file&file_id='.(int) $file->id;
 			$deleteLabel = $langs->transnoentities('Delete');
@@ -2644,6 +2807,10 @@ function powerplantpvReportUploadFile($report, $intervention, $fieldId, $user)
 		return -1;
 	}
 	$fileKey = 'report_file_'.$fieldId;
+	if ($field->field_code === 'RES_SALES_FILES') {
+		$batch = $_FILES[$fileKey] ?? null;
+		return is_array($batch) ? powerplantpvResidentialUpload($report, $intervention, $field, $batch, $user) : -1;
+	}
 	if (empty($_FILES[$fileKey]) || !is_array($_FILES[$fileKey]) || !empty($_FILES[$fileKey]['error'])) {
 		return -1;
 	}
@@ -2711,6 +2878,29 @@ function powerplantpvReportDeleteFile($report, $intervention, $fileId)
 	if ((int) $file->entity !== (int) $report->entity || (int) $intervention->entity !== (int) $report->entity
 		|| (int) $intervention->id !== (int) $report->fk_fichinter) {
 		return -1;
+	}
+	$field = new PowerPlantPVReportField($db);
+	if ($field->fetch((int) $file->fk_report_field) <= 0 || (int) $field->fk_report !== (int) $report->id) {
+		return -1;
+	}
+	if ($field->field_code === 'RES_SALES_FILES') {
+		if ($db->begin() <= 0) {
+			return -1;
+		}
+		$physical = $report->lockUnsignedForEdit(true) ? powerplantpvResidentialFilePath($report, $intervention, $file) : '';
+		$pending = $physical === '' ? '' : $physical.'.removed-'.bin2hex(random_bytes(8));
+		$moved = $pending !== '' && rename($physical, $pending);
+		if (!$moved || $file->delete($GLOBALS['user'], 0) <= 0 || $db->commit() <= 0) {
+			$db->rollback();
+			if ($moved && !rename($pending, $physical)) {
+				dol_syslog('Residential evidence restoration failed for file '.((int) $fileId), LOG_ERR);
+			}
+			return -1;
+		}
+		if (dol_delete_file($pending, 1) <= 0) {
+			dol_syslog('Residential evidence cleanup failed for file '.((int) $fileId), LOG_ERR);
+		}
+		return 1;
 	}
 	$physical = PowerPlantPVReportEvidence::sourcePath($report, $file);
 	if (PowerPlantPVReportParts::isPartsReport($report)) {
