@@ -100,7 +100,7 @@ dol_include_once('/powerplantpv/lib/powerplantpv_powerplant.lib.php');
 dol_include_once('/powerplantpv/lib/powerplantpv_attestation.lib.php');
 
 // Load translation files required by the page
-$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other", "agenda"));
+$langs->loadLangs(array("powerplantpv@powerplantpv", "products", "other", "agenda", "companies"));
 
 // Get parameters
 $id = GETPOSTINT('id');
@@ -477,6 +477,9 @@ if ($action == 'create') {
 	if (empty($permissiontoadd)) {
 		accessforbidden('NotEnoughPermissions', 0, 1);
 	}
+	$canApplyThirdPartyAddress = $conf->use_javascript_ajax && isModEnabled('societe')
+		&& $user->hasRight('powerplantpv', 'powerplant', 'write')
+		&& $user->hasRight('societe', 'lire');
 	if (!empty($origin) && $originid > 0) {
 		powerplantpvApplyOriginDefaults($object, $origin, $originid);
 	}
@@ -529,6 +532,10 @@ if ($action == 'create') {
 	$object->fields['installed_power']['noteditable'] = 1;
 	$object->fields['installed_power']['visible'] = 0;
 	$object->fields = dol_sort_array($object->fields, 'position');
+	$projectSelectionRow = powerplantRenderProjectSelection($object, $user);
+	if (!isset($object->fields['fk_soc'])) {
+		print $projectSelectionRow;
+	}
 	foreach ($object->fields as $key => $val) {
 		$visible = (int) $val['visible'];
 		if (abs($visible) != 1 && abs($visible) != 3 && abs($visible) != 6) {
@@ -540,7 +547,9 @@ if ($action == 'create') {
 
 		$nativeval = powerplantGetNativeFieldDefinition($val);
 		$type = (string) $nativeval['type'];
-		if (in_array($type, array('int', 'integer'))) {
+		if ($key === 'fk_soc') {
+			$value = GETPOSTISSET('fk_soc') ? $fk_soc : (int) $object->fk_soc;
+		} elseif (in_array($type, array('int', 'integer'))) {
 			$value = GETPOST($key);
 		} elseif (preg_match('/^double/', $type)) {
 			$value = price2num(GETPOST($key, 'alphanohtml'));
@@ -564,8 +573,9 @@ if ($action == 'create') {
 			$value = GETPOST($key, 'alphanohtml');
 		}
 
+		$required = !empty($val['notnull']) && $val['notnull'] > 0 && empty($val['noteditable']) && empty($val['disabled']);
 		print '<tr class="field_'.$key.'">';
-		print '<td class="titlefieldcreate'.((isset($val['notnull']) && $val['notnull'] > 0) ? ' fieldrequired' : '').(($type == 'text' || $type == 'html') ? ' tdtop' : '').'">';
+		print '<td class="titlefieldcreate'.($required ? ' fieldrequired' : '').(($type == 'text' || $type == 'html' || $key === 'address') ? ' tdtop' : '').'">';
 		print '<label for="'.$key.'" class="block">';
 		if (!empty($val['help'])) {
 			print $form->textwithpicto($langs->trans($val['label']), $langs->trans($val['help']));
@@ -585,11 +595,24 @@ if ($action == 'create') {
 			$formadmin = new FormAdmin($db);
 			print img_picto('', 'language', 'class="pictofixedwidth"');
 			print $formadmin->select_language($value, $key, 0, array(), 1, 0, 0, 'minwidth300', 2);
+		} elseif ($key === 'address') {
+			print '<textarea class="flat minwidth300 valignmiddle" name="address" id="address" rows="'.ROWS_2.'" maxlength="255">'
+				.dol_escape_htmltag($value).'</textarea>';
 		} else {
 			print powerplantRenderPowerPlantInputField($object, $val, $key, $value);
 		}
+		if ($key === 'address' && $canApplyThirdPartyAddress) {
+			print ' <a href="#" id="copyaddressfromsoc" class="marginleftonly" hidden data-url="'
+				.dol_escape_htmltag(dol_buildpath('/powerplantpv/ajax/thirdparty_address.php', 1)).'">'
+				.$langs->trans('CopyAddressFromSoc').'</a>';
+			print ' <span id="powerplant-thirdparty-address-error" class="error" role="status">'
+				.'<span hidden>'.$langs->trans('PowerPlantThirdPartyAddressUnavailable').'</span></span>';
+		}
 		print '</td>';
 		print '</tr>';
+		if ($key === 'fk_soc') {
+			print $projectSelectionRow;
+		}
 	}
 
 	// Other attributes
@@ -679,10 +702,54 @@ if ($action == 'create') {
 		print '</div>';
 	}
 
-	print powerplantRenderProjectSelection($object, $user);
 	print $form->buttonsSaveCancel("Create");
-
 	print '</form>';
+
+	if ($canApplyThirdPartyAddress) {
+		print '<script nonce="'.getNonce().'">';
+		print <<<'JS'
+jQuery(function ($) {
+	var link = $("#copyaddressfromsoc");
+	var form = link.closest("form");
+	var thirdParty = form.find("select[name=fk_soc]");
+	var error = $("#powerplant-thirdparty-address-error span");
+	var pending;
+
+	function resetCopyLink() {
+		if (pending) {
+			pending.abort();
+			pending = null;
+		}
+		link.prop("hidden", !(Number(thirdParty.val()) > 0));
+		error.prop("hidden", true);
+	}
+
+	thirdParty.on("change", resetCopyLink);
+	resetCopyLink();
+	link.on("click", function (event) {
+		event.preventDefault();
+		resetCopyLink();
+		var selected = thirdParty.val();
+		if (!(Number(selected) > 0)) {
+			return;
+		}
+		pending = $.getJSON(link.attr("data-url"), { fk_soc: selected })
+			.done(function (address) {
+				form.find("[name=address]").val(address.address);
+				form.find("[name=zip]").val(address.zip);
+				form.find("[name=town]").val(address.town);
+				form.find("select[name=fk_country]").val(String(address.fk_country)).trigger("change");
+			})
+			.fail(function (xhr, status) {
+				if (status !== "abort") {
+					error.prop("hidden", false);
+				}
+			});
+	});
+});
+JS;
+		print '</script>';
+	}
 
 	//dol_set_focus('input[name="ref"]');
 }
@@ -766,8 +833,9 @@ $k_purchase_tariff = 'buyback_tariff';
 				$value = powerplantGetConnectionTypeFormValue($value);
 			}
 
+			$required = !empty($def['notnull']) && $def['notnull'] > 0 && empty($def['noteditable']) && empty($def['disabled']);
 			print '<tr class="field_'.$key.'">';
-			print '<td class="titlefieldcreate">'.$label.'</td>';
+			print '<td class="titlefieldcreate'.($required ? ' fieldrequired' : '').'">'.$label.'</td>';
 			if (!empty($def['noteditable']) || !empty($def['disabled'])) {
 				print '<td class="valuefieldcreate">'.powerplantRenderPowerPlantOutputField($object, $def, $key, $value).'</td>';
 			} else {
@@ -870,7 +938,10 @@ $k_purchase_tariff = 'buyback_tariff';
 
 	print dol_get_fiche_end();
 
-	print powerplantRenderProjectSelection($object, $user);
+	$projectSelectionRow = powerplantRenderProjectSelection($object, $user);
+	if ($projectSelectionRow !== '') {
+		print '<table class="border centpercent tableforfield">'.$projectSelectionRow.'</table>';
+	}
 	print $form->buttonsSaveCancel();
 
 	print '</form>';

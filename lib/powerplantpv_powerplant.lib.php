@@ -724,10 +724,10 @@ function powerplantBuildBannerMoreHtml($object, $permissiontoadd = 0, $action = 
 }
 
 /**
- * Render the native multiple-project input inside a power plant creation/edit form.
+ * Render the native multiple-project row inside a power plant creation/edit form.
  * @param PowerPlant $object Power plant
  * @param User $user Actor
- * @return string Form fragment
+ * @return string Table row
  */
 function powerplantRenderProjectSelection($object, User $user)
 {
@@ -750,14 +750,14 @@ function powerplantRenderProjectSelection($object, User $user)
 		}
 	}
 	if ($service->error !== '') {
-		return '<div class="error">'.$langs->trans('PowerPlantPVProjectLinksFailed').'</div>';
+		return '<tr><td colspan="2" class="error">'.$langs->trans('PowerPlantPVProjectLinksFailed').'</td></tr>';
 	}
 	$form = new Form($db);
-	$html = '<table class="border centpercent tableforfield"><tr><td class="titlefield">'.$langs->trans('Projects').'</td><td>';
+	$html = '<tr class="field_projects"><td class="titlefield"><label for="powerplantpv_projects">'.$langs->trans('Projects').'</label></td><td>';
 	$html .= '<input type="hidden" name="powerplantpv_projects_present" value="1">';
 	$html .= '<input type="hidden" name="powerplantpv_links_revision" value="'.hash('sha256', json_encode($service->rows($object))).'">';
 	$html .= $form->multiselectarray('powerplantpv_projects', $options, $selected, 0, 0, 'minwidth300 maxwidth500', 0, 0);
-	return $html.'</td></tr></table>';
+	return $html.'</td></tr>';
 }
 
 /**

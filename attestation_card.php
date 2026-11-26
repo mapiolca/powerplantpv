@@ -308,6 +308,10 @@ if (!empty($reshook)) {
 	if (function_exists('checkToken') && !checkToken()) {
 		accessforbidden('Bad token');
 	}
+	if ($id <= 0 && GETPOST('cancel', 'alpha', 2)) {
+		header('Location: '.dol_buildpath('/powerplantpv/attestation_list.php', 1));
+		exit;
+	}
 	$object = new PowerPlantPVAttestation($db);
 	$object->type_code = GETPOST('type_code', 'alphanohtml');
 	$fkPowerPlant = GETPOSTINT('fk_powerplant');

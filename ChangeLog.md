@@ -1,9 +1,16 @@
 # CHANGELOG MODULE POWERPLANTPV FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
-## 1.10.0 — Non publiée
+## 1.10.1 — 2026-11-26
+
+- Le bouton « Annuler » du formulaire de création revient à la liste des attestations sans valider ni enregistrer la saisie.
+- À la création d’une centrale, le lien « Remplir avec l’adresse du tiers » reprend l’adresse, le code postal, la ville et le pays sans recharger le formulaire. Depuis une commande, le tiers est présélectionné.
+- Les projets se sélectionnent sous le tiers à la création. Les champs obligatoires reprennent le marquage natif Dolibarr, et le type de raccordement facultatif peut être laissé vide.
+
+## 1.10.0 — 2026-11-25
 
 - La nature d’intervention « Installation Autocontrôles C&I » reprend le rapport C&I en six étapes. L’actualisation du module renomme le libellé par défaut, en conservant la nature existante et ses liaisons.
 - Ajout de la nature « Installation et Autocontrôles Résidentiels » et de son modèle PDF dédié. Inspiré du FR37-V01, le rapport regroupe la préparation du chantier, la sécurité, les travaux, les essais et la conclusion, avec les signatures du rapport complet.
+- PDF résidentiel : titres numérotés, synthèse du chantier et de la centrale, et valeurs des tableaux alignées en badges. Les cadres de signature client et technicien ont la même hauteur.
 - Chaque partie peut être validée et signée depuis le formulaire. Le signataire ou son responsable direct peut rouvrir une partie avec la permission de gestion des attestations et rapports signés. La réouverture archive la signature concernée et les visas finaux.
 - La finalisation exige les six signatures. Le responsable technique peut signer le dossier finalisé si son option est activée. Les créations, validations, signatures, réouvertures et finalisations sont consignées par les événements natifs de l’Agenda.
 - Le PDF affiche le projet disponible, un tableau de suivi avec badges et les heures de début et de fin séparées. Chaque conclusion reste sur la même page que sa signature.

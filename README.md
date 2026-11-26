@@ -42,7 +42,9 @@ Panel serials are available in a separate CSV attachment generated from the repo
 See [the implementation and validation notes](docs/release/v1.8-maintenance-development.md)
 for activation, historic reports, naming existing equipment and validation limits.
 
-Version 1.10.0 adds the six-step C&I self-inspection report and the commissioning attestation for PV power plants, including pre-commissioning checks, CONSUEL details and two PDF layouts. See [ChangeLog.md](ChangeLog.md).
+Version 1.10.1 fixes the Cancel button on the new attestation form. New power plants can copy the selected third party’s address directly into the form, and the third party is preselected when starting from an order. See [ChangeLog.md](ChangeLog.md).
+
+Version 1.10.0 adds dedicated C&I and residential self-inspection reports and a PV commissioning attestation with pre-commissioning checks, CONSUEL details and two PDF layouts. When upgrading from an earlier version, reload PowerPlantPV in each relevant Dolibarr entity to register the new intervention types, fields and document models. See [ChangeLog.md](ChangeLog.md#1100--2026-11-25).
 
 Version 1.9.1 removes per-inverter injection readings from maintenance reports, translates report answers and displays inverter checks in full-width PDF panels. See [ChangeLog.md](ChangeLog.md#191--2026-11-23).
 
