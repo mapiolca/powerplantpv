@@ -109,6 +109,14 @@ function powerplantpvResidentialRenderItem(string $group, string $index, array $
 		print $form->selectarray($name.'[fk_product]', $references, $row['fk_product'] ?? '', 1, 0, 0, 'data-residential-product data-residential-select', 0, 0, 0, '', 'minwidth100', 0).'</label>';
 		powerplantpvResidentialNumber($name, 'quantity', 'Qty', $row['quantity'] ?? '', 'min="1" step="1" data-residential-quantity');
 		print '<span class="opacitymedium" data-residential-limit aria-live="polite"></span>';
+		if (!empty($options['chainProof'])) {
+			$choices = array();
+			foreach ($options['chainProof'] as $fileId => $file) {
+				$choices[$fileId] = $file->filename;
+			}
+			print '<label class="block">'.$langs->trans('PVResidentialMicroProofChain').' ';
+			print $form->selectarray($name.'[fk_micro_proof]', $choices, $row['fk_micro_proof'] ?? '', 1, 0, 0, 'data-residential-select', 0, 0, 0, '', 'minwidth100', 0).'</label>';
+		}
 		print '<div data-residential-serials data-name="'.$name.'[serials][]" id="'.$id.'-serials">';
 		foreach ($row['serials'] ?? array() as $position => $serial) {
 			print '<div class="marginbottomonly" data-residential-serial><label>'.$langs->trans('PVResidentialSerialNumber').' <span data-residential-serial-number>'.($position + 1).'</span> ';
@@ -152,7 +160,14 @@ function powerplantpvResidentialRows(string $section, array $data, Translate $la
 			if (!empty($chain['micro'])) {
 				$value = $chain['reference_label'].' · '.$langs->transnoentities('Qty').' : '.$chain['quantity'];
 				$value .= "\n".(!empty($chain['maximum']) ? $langs->transnoentities('PVMaxMicroinvertersPerString').' : '.$chain['maximum'] : $langs->transnoentities('PVMicroLimitUnset'));
-				$value .= "\n".$langs->transnoentities('PVResidentialSerialNumber').' : '.implode(', ', $chain['serials']);
+				$serials = array_filter($chain['serials'], static fn (string $serial): bool => $serial !== '');
+				if ($serials) {
+					$value .= "\n".$langs->transnoentities('PVResidentialSerialNumber').' : '.implode(', ', $serials);
+				}
+				$proof = $data['chainProof'][$chain['fk_micro_proof'] ?? 0] ?? null;
+				if ($proof instanceof PowerPlantPVReportFile) {
+					$value .= "\n".$langs->transnoentities('PVResidentialMicroProofChain').' : '.$proof->filename;
+				}
 			} else {
 				$value = $langs->transnoentities('PVResidentialVoltage').' : '.($chain['voltage'] ?? '').' V · '.$langs->transnoentities('PVResidentialModuleCount').' : '.($chain['module_count'] ?? '');
 			}
@@ -162,15 +177,154 @@ function powerplantpvResidentialRows(string $section, array $data, Translate $la
 	return $rows;
 }
 
-/** @return array<string,string> Available scope evidence MIME types indexed by extension. */
-function powerplantpvResidentialEvidenceTypes(): array
+function powerplantpvIsMicroProofField(string $code): bool
 {
-	return array_filter(array(
+	return in_array($code, array(PowerPlantPVResidentialReport::COMMON_PROOF, PowerPlantPVResidentialReport::CHAIN_PROOF), true);
+}
+
+function powerplantpvIsResidentialEvidenceField(string $code): bool
+{
+	return $code === 'RES_SALES_FILES' || powerplantpvIsMicroProofField($code);
+}
+
+/** @return array{commonProof:array<int,PowerPlantPVReportFile>,chainProof:array<int,PowerPlantPVReportFile>} Usable proofs for this report. */
+function powerplantpvResidentialProofOptions(array $tree, Fichinter $intervention): array
+{
+	$proofs = array('commonProof' => array(), 'chainProof' => array());
+	$report = $tree['report'] ?? null;
+	if (!$report instanceof PowerPlantPVReport) {
+		return $proofs;
+	}
+	foreach (PowerPlantPVResidentialReport::proofFields($tree) as $code => $field) {
+		$key = $code === PowerPlantPVResidentialReport::COMMON_PROOF ? 'commonProof' : 'chainProof';
+		foreach ($field->files ?? array() as $file) {
+			if ($file instanceof PowerPlantPVReportFile && powerplantpvResidentialProofImage($report, $intervention, $file) !== '') {
+				$proofs[$key][(int) $file->id] = $file;
+			}
+		}
+	}
+	return $proofs;
+}
+
+function powerplantpvResidentialProofImage(PowerPlantPVReport $report, Fichinter $intervention, PowerPlantPVReportFile $file): string
+{
+	$source = powerplantpvResidentialFilePath($report, $intervention, $file);
+	if ($source === '' || in_array($file->filemime, array('image/png', 'image/jpeg'), true)) {
+		return $source;
+	}
+	$preview = $source.'.preview.png';
+	return $file->filemime === 'application/pdf' && !is_link($preview) && is_readable($preview)
+		&& is_file($preview) && (@getimagesize($preview)[2] ?? 0) === IMAGETYPE_PNG ? $preview : '';
+}
+
+/**
+ * Publish used proofs to the native attachment areas. Runs inside the finalization transaction.
+ * @param list<array<string,mixed>> $chains Final residential strings
+ * @param array<string,array> $options Verified report proofs
+ * @param list<string> $created Files to roll back if finalization fails
+ */
+function powerplantpvResidentialAttachProofs(PowerPlantPVReport $report, Fichinter $intervention, User $user, array $chains, array $options, array &$created): bool
+{
+	global $db, $conf;
+
+	$byPlant = array();
+	foreach ($chains as $chain) {
+		if (empty($chain['micro'])) {
+			continue;
+		}
+		$files = $options['commonProof'];
+		$selected = $options['chainProof'][$chain['fk_micro_proof'] ?? 0] ?? null;
+		if ($selected instanceof PowerPlantPVReportFile) {
+			$files[(int) $selected->id] = $selected;
+		}
+		if ($files) {
+			$plantId = (int) $chain['fk_powerplant'];
+			$byPlant[$plantId] = ($byPlant[$plantId] ?? array()) + $files;
+		}
+	}
+	if (!$byPlant) {
+		return true;
+	}
+	if (!$user->hasRight('ficheinter', 'creer') || !$user->hasRight('powerplantpv', 'powerplant', 'write')) {
+		return false;
+	}
+
+	require_once __DIR__.'/../class/powerplant.class.php';
+	require_once __DIR__.'/powerplantpv_powerplant.lib.php';
+	require_once __DIR__.'/../class/powerplantpvreportevidence.class.php';
+	foreach ($byPlant as $plantId => $files) {
+		$plant = new PowerPlant($db);
+		if ($plant->fetch($plantId, null, 1, 1) <= 0 || (int) $plant->entity !== (int) $report->entity
+			|| empty($conf->powerplantpv->multidir_output[$plant->entity])) {
+			return false;
+		}
+		$root = realpath((string) $conf->powerplantpv->multidir_output[$plant->entity]);
+		$plantDir = powerplantGetDocumentUploadDir($plant);
+		$parent = dirname($plantDir);
+		if ($root === false || is_link($parent) || is_link($plantDir) || dol_mkdir($plantDir) < 0
+			|| realpath($parent) !== $root.DIRECTORY_SEPARATOR.'powerplant'
+			|| realpath($plantDir) !== realpath($parent).DIRECTORY_SEPARATOR.basename($plantDir)) {
+			return false;
+		}
+		foreach ($files as $file) {
+			$source = powerplantpvResidentialFilePath($report, $intervention, $file);
+			$interventionFile = PowerPlantPVReportEvidence::attachmentPath($intervention, (int) $file->id, (string) $file->filename);
+			if ($source === '' || $interventionFile === ''
+				|| !powerplantpvResidentialPublishProof($source, $interventionFile, $intervention, $created)
+				|| !powerplantpvResidentialPublishProof($source, $plantDir.'/'.basename($interventionFile), $plant, $created)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+/** Publish a complete native attachment without replacing files created concurrently. */
+function powerplantpvResidentialPublishProof(string $source, string $destination, CommonObject $object, array &$created): bool
+{
+	$dir = dirname($destination);
+	if (is_link($dir) || is_link($destination) || dol_mkdir($dir) < 0 || realpath($dir) === false) {
+		return false;
+	}
+	$hash = hash_file('sha256', $source);
+	if (!is_string($hash)) {
+		return false;
+	}
+	if (is_file($destination)) {
+		return hash_file('sha256', $destination) === $hash;
+	}
+	$temp = tempnam($dir, '.ppv-proof-');
+	if ($temp === false) {
+		return false;
+	}
+	try {
+		if (realpath(dirname($temp)) !== realpath($dir) || dol_copy($source, $temp) <= 0
+			|| hash_file('sha256', $temp) !== $hash || !link($temp, $destination)) {
+			return false;
+		}
+		$created[] = $destination;
+		return addFileIntoDatabaseIndex($dir, basename($destination), '', 'uploaded', 0, $object) >= 0;
+	} finally {
+		dol_delete_file($temp, 1, 1, 1, null, false, 0);
+	}
+}
+
+/** @return array<string,string> Available scope evidence MIME types indexed by extension. */
+function powerplantpvResidentialEvidenceTypes(bool $microProof = false): array
+{
+	$types = array(
 		'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'pdf' => 'application/pdf',
 		'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 		'odt' => 'application/vnd.oasis.opendocument.text', 'ods' => 'application/vnd.oasis.opendocument.spreadsheet',
-	), array(PowerPlantPVCompatibility::class, 'isResidentialEvidenceAvailable'));
+	);
+	if ($microProof) {
+		$types = array_intersect_key($types, array_flip(array('jpg', 'jpeg', 'png', 'pdf')));
+		if (!class_exists('Imagick') || !function_exists('dol_convert_file')) {
+			unset($types['pdf']);
+		}
+	}
+	return array_filter($types, array(PowerPlantPVCompatibility::class, 'isResidentialEvidenceAvailable'));
 }
 
 /** Upload a batch of private scope evidence, leaving no partial batch after an error.
@@ -203,7 +357,8 @@ function powerplantpvResidentialUpload(PowerPlantPVReport $report, Fichinter $in
 			return -1;
 		}
 		$mimeDetector = new finfo(FILEINFO_MIME_TYPE);
-		$allowed = powerplantpvResidentialEvidenceTypes();
+		$microProof = powerplantpvIsMicroProofField($field->field_code);
+		$allowed = powerplantpvResidentialEvidenceTypes($microProof);
 		foreach ($upload['name'] as $index => $original) {
 			$source = $upload['tmp_name'][$index] ?? '';
 			if (!is_string($source) || !is_uploaded_file($source) || ($upload['error'][$index] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -233,6 +388,19 @@ function powerplantpvResidentialUpload(PowerPlantPVReport $report, Fichinter $in
 				}
 			} elseif (dol_move_uploaded_file($source, $path, 0) !== 1) {
 				return -1;
+			}
+			if ($microProof && $mime === 'application/pdf') {
+				$preview = $path.'.preview.png';
+				$created[] = $preview;
+				try {
+					$converted = dol_convert_file($path, 'png', $preview, '0');
+				} catch (Exception $exception) {
+					dol_syslog('Microinverter proof PDF conversion failed', LOG_WARNING);
+					return -1;
+				}
+				if ($converted !== 1 || (@getimagesize($preview)[2] ?? 0) !== IMAGETYPE_PNG) {
+					return -1;
+				}
 			}
 			$file = new PowerPlantPVReportFile($db);
 			$file->entity = (int) $report->entity;
@@ -309,7 +477,7 @@ function powerplantpvResidentialFilePath(PowerPlantPVReport $report, Fichinter $
 	}
 	$field = new PowerPlantPVReportField($db);
 	if ($field->fetch((int) $file->fk_report_field) <= 0 || (int) $field->fk_report !== (int) $report->id
-		|| $field->field_code !== 'RES_SALES_FILES') {
+		|| !powerplantpvIsResidentialEvidenceField($field->field_code)) {
 		return '';
 	}
 	$filename = basename((string) $file->filepath);

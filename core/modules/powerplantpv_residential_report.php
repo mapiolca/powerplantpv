@@ -115,6 +115,9 @@ foreach ($fields as &$definition) {
 }
 unset($definition);
 
+$fields[] = array('RES_STRINGS', 'RES_MICRO_PROOF_COMMON', 'Preuves communes à toutes les chaînes à micro-onduleurs', 'Evidence for all microinverter strings', 'file', '', 0);
+$fields[] = array('RES_STRINGS', 'RES_MICRO_PROOF_CHAIN', 'Preuves à affecter aux chaînes à micro-onduleurs', 'Evidence to assign to individual microinverter strings', 'file', '', 0);
+
 for ($string = 1; $string <= 3; $string++) {
 	$fields[] = array('RES_STRINGS', 'RES_STRING_'.$string.'_VOLTAGE', 'Tension du string '.$string, 'String '.$string.' voltage', 'number', 'V', 0);
 	$fields[] = array('RES_STRINGS', 'RES_STRING_'.$string.'_PANELS', 'Nombre de panneaux du string '.$string, 'String '.$string.' module count', 'number', '', 0);

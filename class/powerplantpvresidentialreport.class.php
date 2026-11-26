@@ -17,6 +17,9 @@ class PowerPlantPVResidentialReport
 		'panel' => array('PVResidentialPanelLocation', array('PANEL')),
 	);
 
+	public const COMMON_PROOF = 'RES_MICRO_PROOF_COMMON';
+	public const CHAIN_PROOF = 'RES_MICRO_PROOF_CHAIN';
+
 	public const ORIENTATIONS = array('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW');
 
 	public function __construct(DoliDB $db)
@@ -35,6 +38,23 @@ class PowerPlantPVResidentialReport
 			}
 		}
 		return false;
+	}
+
+	/** @return array<string,PowerPlantPVReportField> Proof fields indexed by code. */
+	public static function proofFields(array $tree): array
+	{
+		$fields = array();
+		foreach ($tree['sections'] ?? array() as $row) {
+			if ($row['section']->section_code !== 'RES_STRINGS') {
+				continue;
+			}
+			foreach ($row['fields'] as $field) {
+				if (in_array($field->field_code, array(self::COMMON_PROOF, self::CHAIN_PROOF), true)) {
+					$fields[$field->field_code] = $field;
+				}
+			}
+		}
+		return $fields;
 	}
 
 	/** Move the existing sales text for display without changing its stored stable key.
@@ -132,7 +152,7 @@ class PowerPlantPVResidentialReport
 	{
 		$data = array('placements' => array(), 'roofs' => array(), 'strings' => array());
 		$table = $this->db->prefix().'powerplantpv_report_residential';
-		$sql = 'SELECT rowid, row_type, position, fk_parent, placement_type, fk_component, fk_powerplant, fk_product,';
+		$sql = 'SELECT rowid, row_type, position, fk_parent, placement_type, fk_component, fk_powerplant, fk_product, fk_micro_proof,';
 		$sql .= ' reference_label, description, orientation, module_count, row_count, column_count, voltage, micro, quantity, maximum, serial_number';
 		$sql .= ' FROM '.$table.' WHERE '.$this->reportFilter($report).' ORDER BY position, rowid';
 		$result = $this->db->query($sql);
@@ -287,7 +307,16 @@ class PowerPlantPVResidentialReport
 		foreach ((is_array($chain['serials'] ?? null) ? $chain['serials'] : array()) as $serial) {
 			$serials[] = self::shortText($serial, 128);
 		}
-		if ($finalize && ($definition === null || $quantity === null || count($serials) !== $quantity || in_array('', $serials, true))) {
+		$proof = self::positiveInt($chain['fk_micro_proof'] ?? null);
+		$hasProof = !empty($options['commonProof']) || isset($options['chainProof'][$proof ?? 0]);
+		if ($finalize && $proof !== null && !isset($options['chainProof'][$proof])) {
+			$errors[] = 'PVResidentialMicroProofUnavailable';
+		}
+		if ($finalize && $hasProof) {
+			$serials = array_values(array_filter($serials, static fn (string $serial): bool => $serial !== ''));
+		}
+		if ($finalize && ($definition === null || $quantity === null || count($serials) > $quantity
+			|| (!$hasProof && (count($serials) !== $quantity || in_array('', $serials, true))))) {
 			$errors[] = 'PVResidentialMicroIncomplete';
 		}
 		if ($finalize && isset($definition['maximum']) && ($quantity > $definition['maximum'] || count($serials) > $definition['maximum'])) {
@@ -296,6 +325,7 @@ class PowerPlantPVResidentialReport
 		return array(
 			'micro' => 1, 'fk_powerplant' => isset($options['plants'][$plant ?? 0]) ? $plant : null,
 			'fk_product' => $definition === null ? null : $product, 'reference_label' => $definition['label'] ?? '',
+			'fk_micro_proof' => $proof,
 			'quantity' => $quantity, 'maximum' => $definition['maximum'] ?? null, 'serials' => $serials,
 		);
 	}

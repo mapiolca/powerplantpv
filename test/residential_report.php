@@ -62,6 +62,23 @@ array_splice($base['strings'][1]['serials'], 1, 1);
 $base['strings'][1]['quantity'] = '2';
 residentialCheck(!PowerPlantPVResidentialReport::normalize($base, $options, true)['errors'], 'Removing the blank serial and decrementing the quantity is valid');
 
+$proofCase = $base;
+$proofCase['strings'] = array($micro, $micro);
+$proofCase['strings'][0]['serials'] = array('', '');
+$proofCase['strings'][1]['serials'] = array('SER-X', '');
+$proofCase['strings'][0]['fk_micro_proof'] = '33';
+$individual = $options + array('chainProof' => array(33 => true));
+$result = PowerPlantPVResidentialReport::normalize($proofCase, $individual, true);
+residentialCheck($result['errors'] === array('PVResidentialMicroIncomplete') && $result['data']['strings'][0]['serials'] === array(), 'An individual proof covers only the assigned string');
+$common = $individual + array('commonProof' => array(34 => true));
+$result = PowerPlantPVResidentialReport::normalize($proofCase, $common, true);
+residentialCheck($result['errors'] === array() && $result['data']['strings'][0]['fk_micro_proof'] === 33 && $result['data']['strings'][1]['serials'] === array('SER-X'), 'A common proof covers all strings and preserves entered serials');
+$proofCase['strings'][0]['quantity'] = '3';
+residentialCheck(PowerPlantPVResidentialReport::normalize($proofCase, $common, true)['errors'] === array('PVResidentialMicroExceeded'), 'Common proof cannot waive the catalogue limit');
+$proofCase['strings'][0]['quantity'] = '2';
+$proofCase['strings'][0]['fk_micro_proof'] = '99';
+residentialCheck(in_array('PVResidentialMicroProofUnavailable', PowerPlantPVResidentialReport::normalize($proofCase, $common, true)['errors'], true), 'Foreign or deleted proof is rejected');
+
 $options['products'][2][8]['maximum'] = 1;
 residentialCheck(in_array('PVResidentialMicroExceeded', PowerPlantPVResidentialReport::normalize($base, $options, true)['errors'], true), 'The new catalogue limit is enforced on finalization');
 

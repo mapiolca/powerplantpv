@@ -5,6 +5,7 @@
 - Ajout des quatre rubriques de sécurité FR37 au rapport résidentiel et à son PDF.
 - Ajout des photos et documents de la prestation vendue, des emplacements et du calepinage par toiture.
 - Saisie de strings classiques ou à micro-onduleurs, avec référence, numéros de série et maximum facultatif par chaîne dans les caractéristiques du produit.
+- Les numéros de série manquants peuvent être justifiés par une preuve par chaîne ou commune. Les preuves sont reproduites en image dans le PDF et jointes à l’intervention et aux centrales concernées à la finalisation. Les preuves acceptent JPEG, PNG et, si la conversion serveur est disponible, la première page d’un PDF.
 - Actualiser le module dans chaque entité concernée, puis recalculer les brouillons résidentiels existants. Les rapports finalisés conservent leur présentation historique. Le dépôt de photos requiert GD et, pour les JPEG, l’extension EXIF. La vérification du type réel des pièces utilise Fileinfo.
 
 ## 1.10.1 — 2026-11-26

@@ -60,7 +60,10 @@ class pdf_powerplantpvresidential extends pdf_powerplantpvreport
 				$previousCode = $code;
 			}
 			if ($residential !== null && $code === 'RES_STRINGS') {
-				$row['fields'] = array();
+				$row['fields'] = array_filter($row['fields'], static fn ($field) => powerplantpvIsMicroProofField($field->field_code) && !empty($field->files));
+				if (($dataset['intervention'] ?? null) instanceof Fichinter && ($dataset['report'] ?? null) instanceof PowerPlantPVReport) {
+					$residential += powerplantpvResidentialProofOptions(array('report' => $dataset['report'], 'sections' => array($row)), $dataset['intervention']);
+				}
 			}
 			$choicePanels = $residential !== null && in_array($code, array('RES_RISK_ANALYSIS', 'RES_PROTECTION', 'RES_INSTRUCTIONS'), true)
 				? $this->residentialChoicePanels($row['fields'], $outputlangs) : array();

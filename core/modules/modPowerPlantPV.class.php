@@ -2017,6 +2017,9 @@ class modPowerPlantPV extends DolibarrModules
 		}
 
 		$tables = array(
+			$this->db->prefix().'powerplantpv_report_residential' => array(
+				'fk_micro_proof' => array('type' => 'integer', 'value' => '', 'null' => ''),
+			),
 			$this->db->prefix().'powerplantpv_powerplant' => array(
 				'fk_report_illustration' => array('type' => 'integer', 'value' => '', 'null' => ''),
 			),
